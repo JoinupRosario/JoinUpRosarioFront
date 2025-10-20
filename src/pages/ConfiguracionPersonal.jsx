@@ -47,42 +47,41 @@ export default function ConfiguracionPersonal({ onVolver }) {
   ];
 
   return (
-    <>
-      <div className="configuracion-actions">
-        <button className="btn-volver" onClick={onVolver}>
-          <FiArrowLeft className="btn-icon" />
-          Volver
-        </button>
-        <button className="btn-guardar" onClick={handleGuardar}>
-          <FiSave className="btn-icon" />
-          Guardar
-        </button>
-      </div>
-
-      <div className="notificaciones-content">
-        <div className="notificaciones-section">
+    <div className="notificaciones-content">
+      <div className="notificaciones-section">
+        <div className="notificaciones-header">
+          <div className="configuracion-actions">
+            <button className="btn-volver" onClick={onVolver}>
+              <FiArrowLeft className="btn-icon" />
+              Volver
+            </button>
+            <button className="btn-guardar" onClick={handleGuardar}>
+              <FiSave className="btn-icon" />
+              Guardar
+            </button>
+          </div>
           <div className="section-header">
             <h3>NOTIFICACIONES</h3>
           </div>
+        </div>
 
-          <div className="notificaciones-list">
-            {opcionesNotificaciones.map((opcion) => (
-              <div key={opcion.key} className="notificacion-item">
-                <span className="notificacion-label">{opcion.label}</span>
-                <div 
-                  className={`notificacion-toggle ${notificaciones[opcion.key] ? 'active' : ''}`}
-                  onClick={() => handleToggle(opcion.key)}
-                >
-                  <span className="toggle-text si">Sí</span>
-                  <span className="toggle-text no">No</span>
-                  <div className="toggle-slider"></div>
-                </div>
+        <div className="notificaciones-list">
+          {opcionesNotificaciones.map((opcion) => (
+            <div key={opcion.key} className="notificacion-item">
+              <span className="notificacion-label">{opcion.label}</span>
+              <div 
+                className={`notificacion-toggle ${notificaciones[opcion.key] ? 'active' : ''}`}
+                onClick={() => handleToggle(opcion.key)}
+              >
+                <span className="toggle-text si">Sí</span>
+                <span className="toggle-text no">No</span>
+                <div className="toggle-slider"></div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
