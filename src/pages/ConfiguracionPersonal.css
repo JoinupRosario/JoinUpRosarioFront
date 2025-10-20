@@ -1,0 +1,223 @@
+.configuracion-actions {
+  display: flex;
+  gap: 15px;
+  padding: 20px 30px;
+  background-color: #f8f8f8;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.notificaciones-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: white;
+  max-height: calc(100vh - 70px - 50px - 72px);
+}
+
+.notificaciones-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.notificaciones-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.notificaciones-content::-webkit-scrollbar-thumb {
+  background: #c41e3a;
+  border-radius: 4px;
+}
+
+.notificaciones-content::-webkit-scrollbar-thumb:hover {
+  background: #a01730;
+}
+
+.btn-volver,
+.btn-guardar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+  color: white;
+}
+
+.btn-volver {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.btn-volver:hover {
+  background: linear-gradient(135deg, #5a6268 0%, #4e555b 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-guardar {
+  background: linear-gradient(135deg, #c41e3a 0%, #8b1538 100%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.btn-guardar:hover {
+  background: linear-gradient(135deg, #a01730 0%, #781329 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(196, 30, 58, 0.4);
+}
+
+.btn-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  display: inline-block;
+  line-height: 1;
+}
+
+.notificaciones-section {
+  padding: 30px;
+  min-height: 100%;
+}
+
+.section-header {
+  background-color: #2c2c2c;
+  color: white;
+  padding: 12px 20px;
+  margin-bottom: 0;
+  clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%);
+  width: fit-content;
+  min-width: 250px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.notificaciones-list {
+  margin-top: 20px;
+  border-top: 2px solid #c41e3a;
+  padding-top: 20px;
+}
+
+.notificacion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  transition: background-color 0.2s;
+}
+
+.notificacion-item:hover {
+  background-color: #f8f8f8;
+}
+
+.notificacion-label {
+  font-size: 14px;
+  color: #333;
+  flex: 1;
+}
+
+.notificacion-toggle {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 120px;
+  height: 40px;
+  background-color: #c41e3a;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border: 2px solid #c41e3a;
+}
+
+.notificacion-toggle.active {
+  background-color: #4caf50;
+  border-color: #4caf50;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 56px;
+  height: 32px;
+  background-color: white;
+  border-radius: 16px;
+  transition: transform 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.notificacion-toggle.active .toggle-slider {
+  transform: translateX(60px);
+}
+
+.toggle-text {
+  position: absolute;
+  font-size: 13px;
+  font-weight: 600;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: color 0.3s;
+  user-select: none;
+}
+
+.toggle-text.si {
+  left: 15px;
+  color: #888;
+}
+
+.toggle-text.no {
+  right: 15px;
+  color: white;
+}
+
+.notificacion-toggle.active .toggle-text.si {
+  color: white;
+}
+
+.notificacion-toggle.active .toggle-text.no {
+  color: #888;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .configuracion-personal {
+    padding: 0;
+  }
+
+  .configuracion-header {
+    padding: 15px 20px;
+  }
+
+  .configuracion-header h2 {
+    font-size: 20px;
+  }
+
+  .configuracion-actions {
+    padding: 15px 20px;
+    flex-wrap: wrap;
+  }
+
+  .notificaciones-section {
+    padding: 20px;
+  }
+
+  .notificacion-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+  }
+
+  .notificacion-toggle {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
