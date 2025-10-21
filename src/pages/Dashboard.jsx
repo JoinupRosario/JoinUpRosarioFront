@@ -176,11 +176,17 @@ export default function Dashboard() {
       {/* Header */}
       <header className="dashboard-header">
         <div className="header-left">
-          <img 
-            src="/src/assets/images/login/header.png" 
-            alt="Universidad del Rosario" 
-            className="header-logo"
-          />
+          <button 
+            className="header-logo-btn"
+            onClick={() => setVistaActual('dashboard')}
+            title="Ir al Dashboard Principal"
+          >
+            <img 
+              src="/src/assets/images/login/header.png" 
+              alt="Universidad del Rosario" 
+              className="header-logo"
+            />
+          </button>
           {vistaActual === 'configuracion-personal' && (
             <h1 className="header-page-title">Administrar notificaciones</h1>
           )}

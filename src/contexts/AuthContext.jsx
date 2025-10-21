@@ -61,42 +61,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // Login simulado (hardcoded)
-      if (email === 'admin' && password === 'admin123') {
-        const user = {
-          id: 1,
-          name: 'Administrador General',
-          email: 'admin@urosario.edu.co',
-          role: 'Administrador General'
-        };
-        const token = 'fake-jwt-token-' + Date.now();
-        
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        dispatch({
-          type: 'LOGIN_SUCCESS',
-          payload: { token, user },
-        });
-        
-        return { success: true };
-      } else {
-        return {
-          success: false,
-          message: 'Credenciales inválidas',
-        };
-      }
+      const response = await api.post('/auth/login', { email, password });
+      const { token, user } = response.data;
       
-      // TODO: Descomentar cuando el backend esté listo
-      // const response = await api.post('/auth/login', { email, password });
-      // const { token, user } = response.data;
-      // localStorage.setItem('token', token);
-      // localStorage.setItem('user', JSON.stringify(user));
-      // dispatch({
-      //   type: 'LOGIN_SUCCESS',
-      //   payload: { token, user },
-      // });
-      // return { success: true };
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: { token, user },
+      });
+      
+      return { success: true };
     } catch (error) {
       return {
         success: false,
