@@ -8,7 +8,8 @@ import {
   FiUser,
   FiUserCheck,
   FiKey,
-  FiTrash2
+  FiCheck,
+  FiX
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
@@ -32,7 +33,8 @@ const Users = ({ onVolver }) => {
     movil: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    estado: true
   });
 
   // Configuración de alertas
@@ -62,6 +64,14 @@ const Users = ({ onVolver }) => {
       confirmButtonText,
       cancelButtonText: 'Cancelar'
     });
+  };
+
+  // Mostrar funcionalidad en desarrollo
+  const showFuncionalidadEnDesarrollo = (funcionalidad) => {
+    showAlert('info', 
+      'Funcionalidad en Desarrollo', 
+      `La funcionalidad "${funcionalidad}" está actualmente en desarrollo y estará disponible próximamente.`
+    );
   };
 
   // Cargar datos iniciales
@@ -148,7 +158,8 @@ const Users = ({ onVolver }) => {
           movil: '',
           email: '',
           password: '',
-          confirmPassword: ''
+          confirmPassword: '',
+          estado: true
         });
       }
     } catch (error) {
@@ -158,14 +169,15 @@ const Users = ({ onVolver }) => {
     }
   };
 
-  // Eliminar usuario administrativo
-  const handleEliminarUsuario = async (userId) => {
+  // Cambiar estado del usuario
+  const toggleEstadoUsuario = async (userId, nuevoEstado) => {
     const user = usersAdministrativos.find(u => u._id === userId);
-    
+    const accion = nuevoEstado ? 'activar' : 'desactivar';
+
     const result = await showConfirmation(
-      'Eliminar Usuario',
-      `¿Estás seguro de que deseas eliminar al usuario "${user?.nombres} ${user?.apellidos}"?`,
-      'Sí, eliminar'
+      `${nuevoEstado ? 'Activar' : 'Desactivar'} Usuario`,
+      `¿Estás seguro de que deseas ${accion} al usuario "${user?.nombres} ${user?.apellidos}"?`,
+      `Sí, ${accion}`
     );
 
     if (!result.isConfirmed) {
@@ -173,14 +185,17 @@ const Users = ({ onVolver }) => {
     }
 
     try {
-      const response = await api.delete(`/users-administrativos/${userId}`);
+      const response = await api.put(`/users-administrativos/${userId}`, {
+        estado: nuevoEstado
+      });
+      
       if (response.data.success) {
-        await showSuccess('Éxito', 'Usuario eliminado correctamente');
+        await showSuccess('Éxito', `Usuario ${accion}do correctamente`);
         cargarUsersAdministrativos();
       }
     } catch (error) {
-      console.error('Error al eliminar usuario:', error);
-      showError('Error', 'Error al eliminar el usuario');
+      console.error('Error al cambiar estado:', error);
+      showError('Error', `Error al ${accion} el usuario`);
     }
   };
 
@@ -193,6 +208,16 @@ const Users = ({ onVolver }) => {
   // Guardar roles del usuario
   const guardarRoles = async (rolesSeleccionados) => {
     try {
+      // Mostrar confirmación
+      const result = await showConfirmation(
+        'Guardar Roles',
+        `¿Estás seguro de que deseas guardar los roles para el usuario "${selectedUser?.nombres} ${selectedUser?.apellidos}"?`
+      );
+
+      if (!result.isConfirmed) {
+        return;
+      }
+
       // Primero, limpiar todos los roles existentes
       if (selectedUser.roles && selectedUser.roles.length > 0) {
         for (const rolUser of selectedUser.roles) {
@@ -245,7 +270,8 @@ const Users = ({ onVolver }) => {
                   movil: '',
                   email: '',
                   password: '',
-                  confirmPassword: ''
+                  confirmPassword: '',
+                  estado: true
                 });
                 setSelectedUser(null);
                 setVistaActual('crear');
@@ -300,6 +326,7 @@ const Users = ({ onVolver }) => {
                   <th>TELÉFONO</th>
                   <th>EXTENSIÓN</th>
                   <th>MÓVIL</th>
+                  <th>ESTADO</th>
                   <th>ACCIONES</th>
                 </tr>
               </thead>
@@ -330,22 +357,43 @@ const Users = ({ onVolver }) => {
                     <td>{user.extension || '-'}</td>
                     <td>{user.movil || '-'}</td>
                     <td>
+                      <span className={`user-status ${user.estado ? 'active' : 'inactive'}`}>
+                        {user.estado ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td>
                       <div className="user-actions">
                         <button
                           className="btn-action btn-primary"
                           onClick={() => abrirGestionRoles(user)}
-                          title="Gestionar roles"
+                          title="Asociar roles"
                         >
                           <FiKey className="btn-icon" />
                           Roles
                         </button>
                         <button
-                          className="btn-action btn-warning"
-                          onClick={() => handleEliminarUsuario(user._id)}
-                          title="Eliminar usuario"
+                          className="btn-action btn-outline"
+                          onClick={() => showFuncionalidadEnDesarrollo('Asociar Programas / Opciones Académicas')}
+                          title="Asociar Programas / Opciones Académicas"
                         >
-                          <FiTrash2 className="btn-icon" />
-                          Eliminar
+                          <FiKey className="btn-icon" />
+                          Programas
+                        </button>
+                        <button
+                          className="btn-action btn-outline"
+                          onClick={() => showFuncionalidadEnDesarrollo('Asociar Sede')}
+                          title="Asociar Sede"
+                        >
+                          <FiKey className="btn-icon" />
+                          Sede
+                        </button>
+                        <button
+                          className={`btn-action ${user.estado ? 'btn-warning' : 'btn-success'}`}
+                          onClick={() => toggleEstadoUsuario(user._id, !user.estado)}
+                          title={user.estado ? 'Desactivar usuario' : 'Activar usuario'}
+                        >
+                          {user.estado ? <FiX className="btn-icon" /> : <FiCheck className="btn-icon" />}
+                          {user.estado ? 'Desactivar' : 'Activar'}
                         </button>
                       </div>
                     </td>
@@ -383,115 +431,120 @@ const Users = ({ onVolver }) => {
           <div className="form-section">
             <h4 className="form-section-title">DATOS PERSONALES</h4>
             
-            {/* Primera fila: Nombres, Apellidos, Cargo */}
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">NOMBRES *</label>
-                <input
-                  type="text"
-                  value={formData.nombres}
-                  onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
-                  className="form-input"
-                  required
-                  placeholder="Ingrese los nombres"
-                />
+            <div className="form-layout">
+              {/* Columna izquierda - Datos Personales */}
+              <div className="form-column">
+                <div className="form-group">
+                  <label className="form-label">NOMBRES *</label>
+                  <input
+                    type="text"
+                    value={formData.nombres}
+                    onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
+                    className="form-input"
+                    required
+                    placeholder="Ingrese los nombres"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">APELLIDOS *</label>
+                  <input
+                    type="text"
+                    value={formData.apellidos}
+                    onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
+                    className="form-input"
+                    required
+                    placeholder="Ingrese los apellidos"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">CARGO</label>
+                  <input
+                    type="text"
+                    value={formData.cargo}
+                    onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
+                    className="form-input"
+                    placeholder="Ingrese el cargo"
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">APELLIDOS *</label>
-                <input
-                  type="text"
-                  value={formData.apellidos}
-                  onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
-                  className="form-input"
-                  required
-                  placeholder="Ingrese los apellidos"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">CARGO</label>
-                <input
-                  type="text"
-                  value={formData.cargo}
-                  onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
-                  className="form-input"
-                  placeholder="Ingrese el cargo"
-                />
+
+              {/* Columna derecha - Identificación */}
+              <div className="form-column">
+                <div className="form-group">
+                  <label className="form-label">IDENTIFICACIÓN *</label>
+                  <input
+                    type="text"
+                    value={formData.identificacion}
+                    onChange={(e) => setFormData({ ...formData, identificacion: e.target.value })}
+                    className="form-input"
+                    required
+                    placeholder="Número de identificación"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">TELÉFONO</label>
+                  <input
+                    type="text"
+                    value={formData.telefono}
+                    onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                    className="form-input"
+                    placeholder="Número de teléfono"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">EXTENSIÓN</label>
+                  <input
+                    type="text"
+                    value={formData.extension}
+                    onChange={(e) => setFormData({ ...formData, extension: e.target.value })}
+                    className="form-input"
+                    placeholder="Extensión telefónica"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">MÓVIL</label>
+                  <input
+                    type="text"
+                    value={formData.movil}
+                    onChange={(e) => setFormData({ ...formData, movil: e.target.value })}
+                    className="form-input"
+                    placeholder="Número de móvil"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Segunda fila: Identificación, Teléfono, Extensión, Móvil */}
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">IDENTIFICACIÓN *</label>
-                <input
-                  type="text"
-                  value={formData.identificacion}
-                  onChange={(e) => setFormData({ ...formData, identificacion: e.target.value })}
-                  className="form-input"
-                  required
-                  placeholder="Número de identificación"
-                />
+            {/* Sección de Credenciales */}
+            <div className="credentials-section">
+              <h4 className="form-section-title">CREDENCIALES</h4>
+              <div className="form-layout">
+                <div className="form-column">
+                  <div className="form-group">
+                    <label className="form-label">CONTRASEÑA *</label>
+                    <input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="form-input"
+                      required
+                      placeholder="Ingrese la contraseña"
+                    />
+                  </div>
+                </div>
+                <div className="form-column">
+                  <div className="form-group">
+                    <label className="form-label">CONFIRMACIÓN *</label>
+                    <input
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      className="form-input"
+                      required
+                      placeholder="Confirme la contraseña"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">TELÉFONO</label>
-                <input
-                  type="text"
-                  value={formData.telefono}
-                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                  className="form-input"
-                  placeholder="Número de teléfono"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">EXTENSIÓN</label>
-                <input
-                  type="text"
-                  value={formData.extension}
-                  onChange={(e) => setFormData({ ...formData, extension: e.target.value })}
-                  className="form-input"
-                  placeholder="Extensión telefónica"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">MÓVIL</label>
-                <input
-                  type="text"
-                  value={formData.movil}
-                  onChange={(e) => setFormData({ ...formData, movil: e.target.value })}
-                  className="form-input"
-                  placeholder="Número de móvil"
-                />
-              </div>
-            </div>
-
-            {/* Tercera fila: Contraseña y Confirmación */}
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">CONTRASEÑA *</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="form-input"
-                  required
-                  placeholder="Ingrese la contraseña"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">CONFIRMACIÓN *</label>
-                <input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="form-input"
-                  required
-                  placeholder="Confirme la contraseña"
-                />
-              </div>
-            </div>
-
-            {/* Cuarta fila: Email */}
-            <div className="form-row">
               <div className="form-group full-width">
                 <label className="form-label">USUARIO (EMAIL) *</label>
                 <input
@@ -502,6 +555,35 @@ const Users = ({ onVolver }) => {
                   required
                   placeholder="correo@ejemplo.com"
                 />
+              </div>
+              <div className="form-group">
+                <label className="form-label">ESTADO</label>
+                <div className="status-options">
+                  <label className="status-option">
+                    <input 
+                      type="radio" 
+                      name="estado" 
+                      value="activo" 
+                      checked={formData.estado === true}
+                      onChange={() => setFormData({ ...formData, estado: true })}
+                      className="status-radio"
+                    />
+                    <span className="status-indicator active"></span>
+                    Activo
+                  </label>
+                  <label className="status-option">
+                    <input 
+                      type="radio" 
+                      name="estado" 
+                      value="inactivo" 
+                      checked={formData.estado === false}
+                      onChange={() => setFormData({ ...formData, estado: false })}
+                      className="status-radio"
+                    />
+                    <span className="status-indicator inactive"></span>
+                    Inactivo
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -517,7 +599,7 @@ const Users = ({ onVolver }) => {
     // Inicializar roles seleccionados
     useEffect(() => {
       const rolesIniciales = {};
-      if (selectedUser.roles && selectedUser.roles.length > 0) {
+      if (selectedUser && selectedUser.roles && selectedUser.roles.length > 0) {
         selectedUser.roles.forEach(rolUser => {
           if (rolUser.estado && rolUser.rol) {
             rolesIniciales[rolUser.rol._id || rolUser.rol] = true;
@@ -537,6 +619,17 @@ const Users = ({ onVolver }) => {
         await guardarRoles(rolesSeleccionados);
       }
     };
+
+    if (!selectedUser) {
+      return (
+        <div className="users-content">
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Cargando información del usuario...</p>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="users-content">
@@ -574,29 +667,35 @@ const Users = ({ onVolver }) => {
                   <div className="rol-col rol-col-estado">ESTADO</div>
                 </div>
                 <div className="roles-table-body">
-                  {roles.map(rol => (
-                    <div key={rol._id} className="rol-table-row">
-                      <div className="rol-col rol-col-nombre">
-                        <label className="rol-checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={!!rolesSeleccionados[rol._id]}
-                            onChange={() => setRolesSeleccionados(prev => ({
-                              ...prev,
-                              [rol._id]: !prev[rol._id]
-                            }))}
-                            className="rol-checkbox"
-                          />
-                          <span className="rol-name">{rol.nombre}</span>
-                        </label>
+                  {roles && roles.length > 0 ? (
+                    roles.map(rol => (
+                      <div key={rol._id} className="rol-table-row">
+                        <div className="rol-col rol-col-nombre">
+                          <label className="rol-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={!!rolesSeleccionados[rol._id]}
+                              onChange={() => setRolesSeleccionados(prev => ({
+                                ...prev,
+                                [rol._id]: !prev[rol._id]
+                              }))}
+                              className="rol-checkbox"
+                            />
+                            <span className="rol-name">{rol.nombre}</span>
+                          </label>
+                        </div>
+                        <div className="rol-col rol-col-estado">
+                          <span className={`rol-status ${rolesSeleccionados[rol._id] ? 'active' : 'inactive'}`}>
+                            {rolesSeleccionados[rol._id] ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="rol-col rol-col-estado">
-                        <span className={`rol-status ${rolesSeleccionados[rol._id] ? 'active' : 'inactive'}`}>
-                          {rolesSeleccionados[rol._id] ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="empty-state">
+                      <p>No hay roles disponibles</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>

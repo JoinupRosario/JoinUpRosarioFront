@@ -346,8 +346,8 @@ export default function Dashboard() {
         {vistaActual === 'roles' && (
           <Roles onVolver={handleVolver} />)}
         {vistaActual === 'usuarios' && (
-          <Users onVolver={handleVolver} />
-)}
+         <Users onVolver={handleVolver} />
+        )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}
 {/* 

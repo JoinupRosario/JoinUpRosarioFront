@@ -1,4 +1,4 @@
-/* Users.css - Estilos basados en Roles.css */
+/* Users.css - Estilos corregidos */
 .users-content {
   flex: 1;
   overflow-y: auto;
@@ -40,6 +40,7 @@
   display: flex;
   gap: 15px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .btn-volver,
@@ -173,74 +174,30 @@
   background: #f8f8f8;
 }
 
-/* Ajustar el ancho de las columnas de la tabla */
-.users-table th:nth-child(1),
-.users-table td:nth-child(1),
-.users-table th:nth-child(2),
-.users-table td:nth-child(2) {
-  min-width: 120px;
-}
-
-.users-table th:nth-child(3),
-.users-table td:nth-child(3) {
-  min-width: 100px;
-}
-
-.users-table th:nth-child(4),
-.users-table td:nth-child(4) {
-  min-width: 130px;
-}
-
-.users-table th:nth-child(5),
-.users-table td:nth-child(5) {
-  min-width: 180px;
-}
-
-.users-table th:nth-child(6),
-.users-table td:nth-child(6) {
-  min-width: 150px;
-}
-
-.users-table th:nth-child(7),
-.users-table td:nth-child(7),
-.users-table th:nth-child(8),
-.users-table td:nth-child(8),
-.users-table th:nth-child(9),
-.users-table td:nth-child(9) {
-  min-width: 100px;
-}
-
-.users-table th:nth-child(10),
-.users-table td:nth-child(10) {
-  min-width: 140px;
-}
-
-/* Lista de Roles en tabla */
-.roles-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.rol-tag {
-  background: #e8f5e8;
-  color: #2e7d32;
-  padding: 4px 8px;
+/* Estados de usuario */
+.user-status {
+  padding: 6px 12px;
   border-radius: 12px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
-.no-roles {
-  color: #6b7280;
-  font-style: italic;
-  font-size: 12px;
+.user-status.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.user-status.inactive {
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 /* Acciones de usuario */
 .user-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .btn-action {
@@ -279,6 +236,50 @@
   border-color: #d97706;
 }
 
+.btn-success {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.btn-success:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.btn-outline:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+/* Lista de Roles en tabla */
+.roles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rol-tag {
+  background: #e8f5e8;
+  color: #2e7d32;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.no-roles {
+  color: #6b7280;
+  font-style: italic;
+  font-size: 12px;
+}
+
 /* Formulario de Crear Usuario */
 .user-form-container {
   margin-top: 20px;
@@ -301,22 +302,28 @@
   border-bottom: 2px solid #e0e0e0;
 }
 
-.form-row {
+/* Layout de dos columnas */
+.form-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.form-column {
   display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
-  min-width: 200px;
 }
 
 .form-group.full-width {
-  flex: 2;
+  grid-column: 1 / -1;
 }
 
 .form-label {
@@ -339,6 +346,68 @@
   outline: none;
   border-color: #c41e3a;
   box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
+}
+
+/* Opciones de estado */
+.status-options {
+  display: flex;
+  gap: 30px;
+}
+
+.status-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.status-option:hover {
+  background: #f3f4f6;
+}
+
+.status-radio {
+  display: none;
+}
+
+.status-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #d1d5db;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.status-indicator.active {
+  border-color: #10b981;
+  background: #10b981;
+}
+
+.status-indicator.inactive {
+  border-color: #ef4444;
+  background: #ef4444;
+}
+
+.status-radio:checked + .status-indicator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+
+/* Sección de Credenciales */
+.credentials-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
 }
 
 /* Gestión de Roles */
@@ -528,8 +597,9 @@
 
 /* Responsive */
 @media (max-width: 1200px) {
-  .form-group {
-    min-width: 180px;
+  .form-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 }
 
@@ -546,18 +616,15 @@
 
   .configuracion-actions {
     justify-content: center;
+    flex-direction: column;
   }
 
   .users-filters {
     flex-direction: column;
   }
 
-  .form-row {
-    flex-direction: column;
-  }
-
-  .form-group {
-    min-width: auto;
+  .form-layout {
+    grid-template-columns: 1fr;
   }
 
   .users-table {
