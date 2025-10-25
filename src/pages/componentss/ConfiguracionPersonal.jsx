@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiArrowLeft, FiSave } from 'react-icons/fi';
-import './ConfiguracionPersonal.css';
+import '../styles/ConfiguracionPersonal.css';
 
 export default function ConfiguracionPersonal({ onVolver }) {
   const [notificaciones, setNotificaciones] = useState({

@@ -20,7 +20,7 @@ import {
   FiRefreshCw,
   FiCheckCircle
 } from 'react-icons/fi';
-import './Reportes.css';
+import '../styles/Reportes.css';
 
 export default function Reportes({ onVolver }) {
   const reportes = [

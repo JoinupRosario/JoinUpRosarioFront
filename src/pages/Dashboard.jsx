@@ -22,9 +22,11 @@ import {
   HiOutlineChartBar,
   HiOutlineCog
 } from 'react-icons/hi';
-import ConfiguracionPersonal from './ConfiguracionPersonal';
-import Configuracion from './Configuracion';
-import Reportes from './Reportes';
+import ConfiguracionPersonal from './componentss/ConfiguracionPersonal';
+import Roles from './componentss/Roles';
+import Configuracion from './componentss/Configuracion';
+import Reportes from './componentss/Reportes';
+import Users from './componentss/Users';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
 import RecentActivity from '../components/ui/RecentActivity';
@@ -341,12 +343,22 @@ export default function Dashboard() {
         {vistaActual === 'reportes' && (
           <Reportes onVolver={handleVolver} />
         )}
-        {vistaActual !== 'dashboard' && vistaActual !== 'configuracion-personal' && vistaActual !== 'configuracion' && vistaActual !== 'reportes' && (
-          <div className="welcome-section">
-            <h2>{vistaActual.charAt(0).toUpperCase() + vistaActual.slice(1).replace('-', ' ')}</h2>
-            <p>Esta sección está en desarrollo...</p>
-          </div>
-        )}
+        {vistaActual === 'roles' && (
+          <Roles onVolver={handleVolver} />)}
+        {vistaActual === 'usuarios' && (
+          <Users onVolver={handleVolver} />
+)}
+
+      {/* ELIMINA O COMENTA ESTA SECCIÓN */}
+{/* 
+{vistaActual !== 'dashboard' && vistaActual !== 'configuracion-personal' && vistaActual !== 'configuracion' && vistaActual !== 'reportes' && (
+  <div className="welcome-section">
+    <h2>{vistaActual.charAt(0).toUpperCase() + vistaActual.slice(1).replace('-', ' ')}</h2>
+    <p>Esta sección está en desarrollo...</p>
+  </div>
+)}
+*/}
+        
       </main>
 
       {/* Footer */}

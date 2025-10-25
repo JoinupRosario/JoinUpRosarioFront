@@ -7,7 +7,7 @@ import {
   FiRefreshCw,
   FiArrowLeft
 } from 'react-icons/fi';
-import './Configuracion.css';
+import '../styles/Configuracion.css';
 
 export default function Configuracion({ onVolver }) {
   const opcionesConfiguracion = [
