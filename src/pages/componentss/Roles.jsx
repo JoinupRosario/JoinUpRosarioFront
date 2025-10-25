@@ -194,29 +194,23 @@ const Roles = ({ onVolver }) => {
         return;
       }
 
-      // Primero, limpiar todos los permisos existentes
-      if (selectedRol.permisos && selectedRol.permisos.length > 0) {
-        for (const permisoRol of selectedRol.permisos) {
-          await api.delete(`/roles/${selectedRol._id}/permisos`, {
-            data: { permisoId: permisoRol.permiso._id || permisoRol.permiso }
-          });
-        }
-      }
+      // Preparar array de IDs de permisos seleccionados
+      const permisosIds = Object.keys(permisosSeleccionados).filter(
+        permisoId => permisosSeleccionados[permisoId]
+      );
 
-      // Luego, agregar los permisos seleccionados
-      for (const permisoId of Object.keys(permisosSeleccionados)) {
-        if (permisosSeleccionados[permisoId]) {
-          await api.post(`/roles/${selectedRol._id}/permisos`, {
-            permisoId: permisoId
-          });
-        }
-      }
+      // Hacer una sola petición con todos los permisos
+      const response = await api.put(`/roles/${selectedRol._id}/permisos`, {
+        permisos: permisosIds
+      });
 
-      await showSuccess('Éxito', 'Permisos actualizados correctamente');
-      setVistaActual('buscar');
-      setSelectedRol(null);
-      setPermisosSeleccionados({});
-      cargarRoles();
+      if (response.data.success) {
+        await showSuccess('Éxito', 'Permisos actualizados correctamente');
+        setVistaActual('buscar');
+        setSelectedRol(null);
+        setPermisosSeleccionados({});
+        cargarRoles();
+      }
       
     } catch (error) {
       console.error('Error al guardar permisos:', error);
@@ -270,6 +264,56 @@ const Roles = ({ onVolver }) => {
     acc[permiso.modulo].push(permiso);
     return acc;
   }, {});
+
+  // Función para seleccionar todos los permisos de un módulo
+  const seleccionarTodosModulo = (modulo) => {
+    const permisosModulo = permisosPorModulo[modulo];
+    const nuevosPermisos = { ...permisosSeleccionados };
+    
+    permisosModulo.forEach(permiso => {
+      nuevosPermisos[permiso._id] = true;
+    });
+    
+    setPermisosSeleccionados(nuevosPermisos);
+  };
+
+  // Función para deseleccionar todos los permisos de un módulo
+  const deseleccionarTodosModulo = (modulo) => {
+    const permisosModulo = permisosPorModulo[modulo];
+    const nuevosPermisos = { ...permisosSeleccionados };
+    
+    permisosModulo.forEach(permiso => {
+      nuevosPermisos[permiso._id] = false;
+    });
+    
+    setPermisosSeleccionados(nuevosPermisos);
+  };
+
+  // Función para seleccionar todos los permisos de todos los módulos
+  const seleccionarTodosPermisos = () => {
+    const nuevosPermisos = {};
+    permisos.forEach(permiso => {
+      nuevosPermisos[permiso._id] = true;
+    });
+    setPermisosSeleccionados(nuevosPermisos);
+  };
+
+  // Función para deseleccionar todos los permisos
+  const deseleccionarTodosPermisos = () => {
+    setPermisosSeleccionados({});
+  };
+
+  // Verificar si todos los permisos de un módulo están seleccionados
+  const todosSeleccionadosModulo = (modulo) => {
+    const permisosModulo = permisosPorModulo[modulo];
+    return permisosModulo.every(permiso => permisosSeleccionados[permiso._id]);
+  };
+
+  // Verificar si algunos permisos de un módulo están seleccionados
+  const algunosSeleccionadosModulo = (modulo) => {
+    const permisosModulo = permisosPorModulo[modulo];
+    return permisosModulo.some(permiso => permisosSeleccionados[permiso._id]);
+  };
 
   // Renderizar vista de Búsqueda (Lista de roles)
   const renderBuscarRol = () => (
@@ -505,15 +549,54 @@ const Roles = ({ onVolver }) => {
               </span>
             </div>
           </div>
+
+          {/* Botón de selección global */}
+          <div className="permisos-global-actions">
+            {Object.values(permisosSeleccionados).filter(Boolean).length === permisos.length ? (
+              <button 
+                className="btn-deseleccionar-modulo"
+                onClick={deseleccionarTodosPermisos}
+              >
+                <FiX className="btn-icon" />
+                Deseleccionar Todos
+              </button>
+            ) : (
+              <button 
+                className="btn-seleccionar-modulo"
+                onClick={seleccionarTodosPermisos}
+              >
+                <FiCheck className="btn-icon" />
+                Seleccionar Todos
+              </button>
+            )}
+          </div>
           
           {/* Diseño similar a la imagen */}
           <div className="permisos-layout">
             {Object.entries(permisosPorModulo).map(([modulo, permisosModulo]) => (
               <div key={modulo} className="modulo-section">
-                <h3 className="modulo-title">{modulo}</h3>
+                <div className="modulo-header">
+                  <h3 className="modulo-title">{modulo}</h3>
+                </div>
                 <div className="permisos-table">
                   <div className="permisos-table-header">
-                    <div className="permiso-col permiso-col-nombre">PERMISO</div>
+                    <div className="permiso-col permiso-col-nombre">
+                      <label className="header-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={todosSeleccionadosModulo(modulo)}
+                          onChange={() => {
+                            if (todosSeleccionadosModulo(modulo)) {
+                              deseleccionarTodosModulo(modulo);
+                            } else {
+                              seleccionarTodosModulo(modulo);
+                            }
+                          }}
+                          className="header-checkbox"
+                        />
+                        PERMISO
+                      </label>
+                    </div>
                     <div className="permiso-col permiso-col-estado">ESTADO</div>
                   </div>
                   <div className="permisos-table-body">
