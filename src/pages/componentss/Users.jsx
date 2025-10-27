@@ -22,6 +22,8 @@ const Users = ({ onVolver }) => {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [rolesSeleccionados, setRolesSeleccionados] = useState({});
 
   const [formData, setFormData] = useState({
     nombres: '',
@@ -79,6 +81,21 @@ const Users = ({ onVolver }) => {
     cargarUsersAdministrativos();
     cargarRoles();
   }, []);
+
+  // Inicializar roles seleccionados cuando cambie el usuario seleccionado
+  useEffect(() => {
+    if (selectedUser && selectedUser.roles && selectedUser.roles.length > 0) {
+      const rolesIniciales = {};
+      selectedUser.roles.forEach(rolUser => {
+        if (rolUser.estado && rolUser.rol) {
+          rolesIniciales[rolUser.rol._id || rolUser.rol] = true;
+        }
+      });
+      setRolesSeleccionados(rolesIniciales);
+    } else {
+      setRolesSeleccionados({});
+    }
+  }, [selectedUser]);
 
   const cargarUsersAdministrativos = async () => {
     try {
@@ -185,18 +202,25 @@ const Users = ({ onVolver }) => {
     }
 
     try {
-      const response = await api.put(`/users-administrativos/${userId}`, {
+      const response = await api.patch(`/users-administrativos/${userId}/estado`, {
         estado: nuevoEstado
       });
       
       if (response.data.success) {
-        await showSuccess('Éxito', `Usuario ${accion}do correctamente`);
+        const mensaje = nuevoEstado ? 'Usuario activado correctamente' : 'Usuario desactivado correctamente';
+        await showSuccess('Éxito', mensaje);
         cargarUsersAdministrativos();
       }
     } catch (error) {
       console.error('Error al cambiar estado:', error);
-      showError('Error', `Error al ${accion} el usuario`);
+      const mensajeError = nuevoEstado ? 'Error al activar el usuario' : 'Error al desactivar el usuario';
+      showError('Error', mensajeError);
     }
+  };
+
+  // Seleccionar usuario
+  const seleccionarUsuario = (userId) => {
+    setSelectedUserId(selectedUserId === userId ? null : userId);
   };
 
   // Abrir gestión de roles
@@ -205,48 +229,54 @@ const Users = ({ onVolver }) => {
     setVistaActual('roles');
   };
 
-  // Guardar roles del usuario
-  const guardarRoles = async (rolesSeleccionados) => {
-    try {
-      // Mostrar confirmación
-      const result = await showConfirmation(
-        'Guardar Roles',
-        `¿Estás seguro de que deseas guardar los roles para el usuario "${selectedUser?.nombres} ${selectedUser?.apellidos}"?`
-      );
+  // Abrir gestión de programas
+  const abrirGestionProgramas = (user) => {
+    showFuncionalidadEnDesarrollo('Asociar Programas / Opciones Académicas');
+  };
 
-      if (!result.isConfirmed) {
-        return;
-      }
+  // Abrir gestión de sedes
+  const abrirGestionSedes = (user) => {
+    showFuncionalidadEnDesarrollo('Asociar Sede');
+  };
 
-      // Primero, limpiar todos los roles existentes
-      if (selectedUser.roles && selectedUser.roles.length > 0) {
-        for (const rolUser of selectedUser.roles) {
-          await api.delete(`/users-administrativos/${selectedUser._id}/roles`, {
-            data: { rolId: rolUser.rol._id || rolUser.rol }
-          });
-        }
-      }
+// Guardar roles del usuario - VERSIÓN CORREGIDA (Escalable)
+const guardarRoles = async () => {
+  try {
+    // Mostrar confirmación
+    const result = await showConfirmation(
+      'Guardar Roles',
+      `¿Estás seguro de que deseas guardar los roles para el usuario "${selectedUser?.nombres} ${selectedUser?.apellidos}"?`
+    );
 
-      // Luego, agregar los roles seleccionados
-      for (const rolId of Object.keys(rolesSeleccionados)) {
-        if (rolesSeleccionados[rolId]) {
-          await api.post(`/users-administrativos/${selectedUser._id}/roles`, {
-            rolId: rolId
-          });
-        }
-      }
+    if (!result.isConfirmed) {
+      return;
+    }
 
+    // Preparar array de IDs de roles seleccionados
+    const rolesIds = Object.keys(rolesSeleccionados).filter(
+      rolId => rolesSeleccionados[rolId]
+    );
+
+    // SOLUCIÓN ESCALABLE: Una sola llamada API con todos los roles
+    const response = await api.put(`/users-administrativos/${selectedUser._id}/roles`, {
+      roles: rolesIds
+    });
+
+    if (response.data.success) {
       await showSuccess('Éxito', 'Roles actualizados correctamente');
       setVistaActual('buscar');
       setSelectedUser(null);
+      setSelectedUserId(null);
       cargarUsersAdministrativos();
-      
-    } catch (error) {
-      console.error('Error al guardar roles:', error);
-      showError('Error', 'Error al guardar los roles');
+    } else {
+      throw new Error(response.data.message || 'Error al guardar roles');
     }
-  };
-
+    
+  } catch (error) {
+    console.error('Error al guardar roles:', error);
+    showError('Error', 'Error al guardar los roles');
+  }
+};
   // Renderizar vista de Búsqueda
   const renderBuscarUsuario = () => (
     <div className="users-content">
@@ -300,6 +330,43 @@ const Users = ({ onVolver }) => {
           </div>
         </div>
 
+        {/* Barra de opciones de asociación - Solo visible cuando hay un usuario seleccionado */}
+        {selectedUserId && (
+          <div className="association-bar">
+            <div className="association-info">
+              <span className="selected-user-info">
+                Usuario seleccionado: <strong>{usersAdministrativos.find(u => u._id === selectedUserId)?.nombres} {usersAdministrativos.find(u => u._id === selectedUserId)?.apellidos}</strong>
+              </span>
+            </div>
+            <div className="association-actions">
+              <button
+                className="btn-association btn-roles"
+                onClick={() => abrirGestionRoles(usersAdministrativos.find(u => u._id === selectedUserId))}
+                title="Asociar roles"
+              >
+                <FiKey className="btn-icon" />
+                Asociar Roles
+              </button>
+              <button
+                className="btn-association btn-programs"
+                onClick={() => abrirGestionProgramas(usersAdministrativos.find(u => u._id === selectedUserId))}
+                title="Asociar Programas / Opciones Académicas"
+              >
+                <FiKey className="btn-icon" />
+                Asociar Programas
+              </button>
+              <button
+                className="btn-association btn-campus"
+                onClick={() => abrirGestionSedes(usersAdministrativos.find(u => u._id === selectedUserId))}
+                title="Asociar Sede"
+              >
+                <FiKey className="btn-icon" />
+                Asociar Sedes
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Tabla de Usuarios */}
         <div className="users-table-container">
           {loading ? (
@@ -317,6 +384,7 @@ const Users = ({ onVolver }) => {
             <table className="users-table">
               <thead>
                 <tr>
+                  <th>#</th>
                   <th>NOMBRES</th>
                   <th>APELLIDOS</th>
                   <th>CARGO</th>
@@ -327,12 +395,21 @@ const Users = ({ onVolver }) => {
                   <th>EXTENSIÓN</th>
                   <th>MÓVIL</th>
                   <th>ESTADO</th>
-                  <th>ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
                 {usersFiltrados.map(user => (
                   <tr key={user._id}>
+                    <td>
+                      <div className="user-selection">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserId === user._id}
+                          onChange={() => seleccionarUsuario(user._id)}
+                          className="user-checkbox"
+                        />
+                      </div>
+                    </td>
                     <td>{user.nombres}</td>
                     <td>{user.apellidos}</td>
                     <td>{user.cargo || '-'}</td>
@@ -357,44 +434,18 @@ const Users = ({ onVolver }) => {
                     <td>{user.extension || '-'}</td>
                     <td>{user.movil || '-'}</td>
                     <td>
-                      <span className={`user-status ${user.estado ? 'active' : 'inactive'}`}>
-                        {user.estado ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="user-actions">
-                        <button
-                          className="btn-action btn-primary"
-                          onClick={() => abrirGestionRoles(user)}
-                          title="Asociar roles"
-                        >
-                          <FiKey className="btn-icon" />
-                          Roles
-                        </button>
-                        <button
-                          className="btn-action btn-outline"
-                          onClick={() => showFuncionalidadEnDesarrollo('Asociar Programas / Opciones Académicas')}
-                          title="Asociar Programas / Opciones Académicas"
-                        >
-                          <FiKey className="btn-icon" />
-                          Programas
-                        </button>
-                        <button
-                          className="btn-action btn-outline"
-                          onClick={() => showFuncionalidadEnDesarrollo('Asociar Sede')}
-                          title="Asociar Sede"
-                        >
-                          <FiKey className="btn-icon" />
-                          Sede
-                        </button>
-                        <button
-                          className={`btn-action ${user.estado ? 'btn-warning' : 'btn-success'}`}
-                          onClick={() => toggleEstadoUsuario(user._id, !user.estado)}
-                          title={user.estado ? 'Desactivar usuario' : 'Activar usuario'}
-                        >
-                          {user.estado ? <FiX className="btn-icon" /> : <FiCheck className="btn-icon" />}
-                          {user.estado ? 'Desactivar' : 'Activar'}
-                        </button>
+                      <div className="switch-container">
+                        <label className="switch">
+                          <input
+                            type="checkbox"
+                            checked={user.estado}
+                            onChange={() => toggleEstadoUsuario(user._id, !user.estado)}
+                          />
+                          <span className="slider"></span>
+                        </label>
+                        <span className={`status-text ${user.estado ? 'active' : 'inactive'}`}>
+                          {user.estado ? 'Activo' : 'Inactivo'}
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -594,31 +645,9 @@ const Users = ({ onVolver }) => {
 
   // Renderizar vista de Gestión de Roles
   const renderGestionRoles = () => {
-    const [rolesSeleccionados, setRolesSeleccionados] = useState({});
-
-    // Inicializar roles seleccionados
-    useEffect(() => {
-      const rolesIniciales = {};
-      if (selectedUser && selectedUser.roles && selectedUser.roles.length > 0) {
-        selectedUser.roles.forEach(rolUser => {
-          if (rolUser.estado && rolUser.rol) {
-            rolesIniciales[rolUser.rol._id || rolUser.rol] = true;
-          }
-        });
-      }
-      setRolesSeleccionados(rolesIniciales);
-    }, [selectedUser]);
-
     const handleGuardarRoles = async () => {
-      const result = await showConfirmation(
-        'Guardar Roles',
-        `¿Estás seguro de que deseas guardar los roles para el usuario "${selectedUser?.nombres} ${selectedUser?.apellidos}"?`
-      );
-
-      if (result.isConfirmed) {
-        await guardarRoles(rolesSeleccionados);
-      }
-    };
+  await guardarRoles();
+};
 
     if (!selectedUser) {
       return (
@@ -655,10 +684,11 @@ const Users = ({ onVolver }) => {
               <h2 className="user-title">{selectedUser?.nombres} {selectedUser?.apellidos}</h2>
               <div className="roles-stats">
                 <span>
-                  {Object.values(rolesSeleccionados).filter(Boolean).length} roles seleccionados
+                  {Object.values(rolesSeleccionados).filter(Boolean).length} roles asignados
                 </span>
               </div>
             </div>
+
             
             <div className="roles-layout">
               <div className="roles-table">
@@ -671,23 +701,25 @@ const Users = ({ onVolver }) => {
                     roles.map(rol => (
                       <div key={rol._id} className="rol-table-row">
                         <div className="rol-col rol-col-nombre">
-                          <label className="rol-checkbox-label">
-                            <input
-                              type="checkbox"
-                              checked={!!rolesSeleccionados[rol._id]}
-                              onChange={() => setRolesSeleccionados(prev => ({
-                                ...prev,
-                                [rol._id]: !prev[rol._id]
-                              }))}
-                              className="rol-checkbox"
-                            />
-                            <span className="rol-name">{rol.nombre}</span>
-                          </label>
+                          <span className="rol-name">{rol.nombre}</span>
                         </div>
                         <div className="rol-col rol-col-estado">
-                          <span className={`rol-status ${rolesSeleccionados[rol._id] ? 'active' : 'inactive'}`}>
-                            {rolesSeleccionados[rol._id] ? 'Activo' : 'Inactivo'}
-                          </span>
+                          <div className="rol-switch-container">
+                            <label className="rol-switch">
+                              <input
+                                type="checkbox"
+                                checked={!!rolesSeleccionados[rol._id]}
+                                onChange={() => setRolesSeleccionados(prev => ({
+                                  ...prev,
+                                  [rol._id]: !prev[rol._id]
+                                }))}
+                              />
+                              <span className="rol-slider"></span>
+                            </label>
+                            <span className={`rol-status-text ${rolesSeleccionados[rol._id] ? 'active' : 'inactive'}`}>
+                              {rolesSeleccionados[rol._id] ? 'Asignado' : 'No asignado'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))

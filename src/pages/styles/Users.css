@@ -174,7 +174,88 @@
   background: #f8f8f8;
 }
 
-/* Estados de usuario */
+/* ===== ESTILOS MEJORADOS PARA BOTÓN DE ESTADO ===== */
+.switch-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  transition: .4s;
+  border-radius: 24px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+input:checked + .slider {
+  background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #c41e3a, 0 0 0 3px rgba(196, 30, 58, 0.1);
+}
+
+/* Texto de estado mejorado */
+.status-text {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.status-text.active {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.status-text.inactive {
+  background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Estados de usuario (mantener compatibilidad) */
 .user-status {
   padding: 6px 12px;
   border-radius: 12px;
@@ -447,18 +528,18 @@
 
 .roles-table {
   border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .roles-table-header {
   display: flex;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 12px 16px;
+  background: linear-gradient(135deg, #c41e3a 0%, #8b1538 100%);
+  color: white;
+  padding: 16px 20px;
   font-weight: 600;
-  color: #333;
 }
 
 .roles-table-body {
@@ -468,8 +549,13 @@
 .rol-table-row {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+}
+
+.rol-table-row:hover {
+  background-color: #f8f9fa;
 }
 
 .rol-table-row:last-child {
@@ -484,67 +570,187 @@
   flex: 1;
   display: flex;
   align-items: center;
+  font-weight: 500;
 }
 
 .rol-col-estado {
-  width: 100px;
-  text-align: center;
+  width: 150px;
+  display: flex;
+  justify-content: center;
 }
 
-.rol-checkbox-label {
+/* ===== ESTILOS MEJORADOS PARA LOS SWITCH DE ROLES ===== */
+.rol-switch-container {
   display: flex;
   align-items: center;
-  cursor: pointer;
-  width: 100%;
+  gap: 8px;
+  justify-content: center;
 }
 
-.rol-checkbox {
-  margin-right: 12px;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: 2px solid #d1d5db;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.rol-checkbox:checked {
-  background-color: #c41e3a;
-  border-color: #c41e3a;
+.rol-switch {
   position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 20px;
 }
 
-.rol-checkbox:checked::after {
-  content: '✓';
+.rol-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.rol-slider {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  transition: .4s;
+  border-radius: 20px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.rol-name {
+.rol-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.rol-switch input:checked + .rol-slider {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+}
+
+.rol-switch input:checked + .rol-slider:before {
+  transform: translateX(24px);
+}
+
+.rol-switch input:focus + .rol-slider {
+  box-shadow: 0 0 1px #059669, 0 0 0 2px rgba(5, 150, 105, 0.1);
+}
+
+/* Texto de estado de roles mejorado */
+.rol-status-text {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 70px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.rol-status-text.active {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.rol-status-text.inactive {
+  background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* ===== ESTILOS MEJORADOS PARA BOTÓN DE ASIGNAR ROLES ===== */
+.btn-guardar-roles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
   font-size: 14px;
-  color: #333;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  color: white;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  border: 1px solid #059669;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
 }
 
-.rol-status {
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 8px;
-  border-radius: 12px;
+.btn-guardar-roles::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
 }
 
-.rol-status.active {
-  background-color: #e8f5e8;
-  color: #2e7d32;
+.btn-guardar-roles:hover::before {
+  left: 100%;
 }
 
-.rol-status.inactive {
-  background-color: #ffebee;
-  color: #c62828;
+.btn-guardar-roles:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.4);
+  background: linear-gradient(135deg, #047857 0%, #059669 100%);
+}
+
+.btn-guardar-roles:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.3);
+}
+
+.btn-guardar-roles:disabled {
+  background: #6b7280;
+  border-color: #6b7280;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-guardar-roles:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-guardar-roles:disabled::before {
+  display: none;
+}
+
+/* Icono del botón guardar roles */
+.btn-guardar-roles .btn-icon {
+  font-size: 16px;
+  transition: transform 0.3s ease;
+}
+
+.btn-guardar-roles:hover .btn-icon {
+  transform: scale(1.1);
+}
+
+/* Efecto de pulso para el botón guardar cuando hay cambios */
+.btn-guardar-roles.pulse {
+  animation: success-pulse 2s infinite;
+}
+
+@keyframes success-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(5, 150, 105, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0);
+  }
 }
 
 /* Estados vacíos y loading */
@@ -593,6 +799,158 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Barra de asociación */
+.association-bar {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.association-info {
+  margin-bottom: 12px;
+}
+
+.selected-user-info {
+  font-size: 14px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.selected-user-info strong {
+  color: #c41e3a;
+  font-weight: 600;
+}
+
+.association-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Botones de asociación en vinotinto */
+.btn-association {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  color: white;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #c41e3a 0%, #8b1538 100%);
+  border: 1px solid #a01730;
+}
+
+.btn-association::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-association:hover::before {
+  left: 100%;
+}
+
+.btn-association:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.4);
+  background: linear-gradient(135deg, #a01730 0%, #781329 100%);
+}
+
+.btn-association:active {
+  transform: translateY(0);
+}
+
+/* Variaciones de tono para diferenciar visualmente los botones */
+.btn-roles {
+  background: linear-gradient(135deg, #c41e3a 0%, #8b1538 100%);
+  border: 1px solid #a01730;
+}
+
+.btn-roles:hover {
+  background: linear-gradient(135deg, #a01730 0%, #781329 100%);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.4);
+}
+
+.btn-programs {
+  background: linear-gradient(135deg, #d63384 0%, #c41e3a 100%);
+  border: 1px solid #b02a6f;
+}
+
+.btn-programs:hover {
+  background: linear-gradient(135deg, #b02a6f 0%, #a01730 100%);
+  box-shadow: 0 4px 12px rgba(214, 51, 132, 0.4);
+}
+
+.btn-campus {
+  background: linear-gradient(135deg, #dc3545 0%, #c41e3a 100%);
+  border: 1px solid #c82333;
+}
+
+.btn-campus:hover {
+  background: linear-gradient(135deg, #c82333 0%, #a01730 100%);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+/* Iconos de los botones */
+.btn-association .btn-icon {
+  font-size: 16px;
+  transition: transform 0.3s ease;
+}
+
+.btn-association:hover .btn-icon {
+  transform: scale(1.1);
+}
+
+/* Estados de los botones */
+.btn-association:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-association:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-association:disabled::before {
+  display: none;
+}
+
+/* Efecto de pulso para indicar acción disponible */
+.btn-association.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(196, 30, 58, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(196, 30, 58, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(196, 30, 58, 0);
+  }
 }
 
 /* Responsive */
@@ -660,8 +1018,42 @@
     text-align: left;
   }
 
-  .rol-status {
+  .rol-status-text {
     align-self: flex-start;
+  }
+
+  .association-bar {
+    padding: 12px 16px;
+  }
+  
+  .association-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .btn-association {
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+  
+  .selected-user-info {
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .rol-col-estado {
+    width: 120px;
+  }
+  
+  .rol-status-text {
+    min-width: 60px;
+    font-size: 10px;
+  }
+  
+  .btn-guardar-roles {
+    padding: 10px 20px;
+    font-size: 13px;
   }
 }
 
@@ -685,5 +1077,36 @@
 
   .btn-action {
     justify-content: center;
+  }
+
+  .association-bar {
+    margin: 10px -15px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  
+  .btn-association {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  .switch {
+    width: 44px;
+    height: 20px;
+  }
+  
+  .slider:before {
+    height: 16px;
+    width: 16px;
+  }
+  
+  input:checked + .slider:before {
+    transform: translateX(24px);
+  }
+  
+  .status-text {
+    font-size: 11px;
+    padding: 3px 6px;
   }
 }

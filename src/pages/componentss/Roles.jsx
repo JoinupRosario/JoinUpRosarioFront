@@ -24,6 +24,7 @@ const Roles = ({ onVolver }) => {
   const [selectedRol, setSelectedRol] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('todos');
+  const [selectedRolId, setSelectedRolId] = useState(null);
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -163,6 +164,11 @@ const Roles = ({ onVolver }) => {
     }
   };
 
+  // Seleccionar rol
+  const seleccionarRol = (rolId) => {
+    setSelectedRolId(selectedRolId === rolId ? null : rolId);
+  };
+
   // Abrir gestión de permisos
   const abrirGestionPermisos = (rol) => {
     setSelectedRol(rol);
@@ -181,7 +187,17 @@ const Roles = ({ onVolver }) => {
     setVistaActual('permisos');
   };
 
-  // Guardar permisos del rol
+  // Abrir edición de rol al hacer clic en el nombre
+  const abrirEdicionRol = (rol) => {
+    setFormData({
+      nombre: rol.nombre,
+      estado: rol.estado
+    });
+    setSelectedRol(rol);
+    setVistaActual('crear');
+  };
+
+  // Guardar permisos del rol - VERSIÓN CORREGIDA (Escalable)
   const guardarPermisos = async () => {
     try {
       // Mostrar confirmación
@@ -194,29 +210,26 @@ const Roles = ({ onVolver }) => {
         return;
       }
 
-      // Primero, limpiar todos los permisos existentes
-      if (selectedRol.permisos && selectedRol.permisos.length > 0) {
-        for (const permisoRol of selectedRol.permisos) {
-          await api.delete(`/roles/${selectedRol._id}/permisos`, {
-            data: { permisoId: permisoRol.permiso._id || permisoRol.permiso }
-          });
-        }
-      }
+      // Preparar array de IDs de permisos seleccionados
+      const permisosIds = Object.keys(permisosSeleccionados).filter(
+        permisoId => permisosSeleccionados[permisoId]
+      );
 
-      // Luego, agregar los permisos seleccionados
-      for (const permisoId of Object.keys(permisosSeleccionados)) {
-        if (permisosSeleccionados[permisoId]) {
-          await api.post(`/roles/${selectedRol._id}/permisos`, {
-            permisoId: permisoId
-          });
-        }
-      }
+      // SOLUCIÓN ESCALABLE: Una sola llamada API con todos los permisos
+      const response = await api.put(`/roles/${selectedRol._id}/permisos`, {
+        permisos: permisosIds
+      });
 
-      await showSuccess('Éxito', 'Permisos actualizados correctamente');
-      setVistaActual('buscar');
-      setSelectedRol(null);
-      setPermisosSeleccionados({});
-      cargarRoles();
+      if (response.data.success) {
+        await showSuccess('Éxito', 'Permisos actualizados correctamente');
+        setVistaActual('buscar');
+        setSelectedRol(null);
+        setSelectedRolId(null);
+        setPermisosSeleccionados({});
+        cargarRoles();
+      } else {
+        throw new Error(response.data.message || 'Error al guardar permisos');
+      }
       
     } catch (error) {
       console.error('Error al guardar permisos:', error);
@@ -286,6 +299,7 @@ const Roles = ({ onVolver }) => {
               onClick={() => {
                 setFormData({ nombre: '', estado: true });
                 setSelectedRol(null);
+                setSelectedRolId(null);
                 setVistaActual('crear');
               }}
             >
@@ -324,8 +338,45 @@ const Roles = ({ onVolver }) => {
           </div>
         </div>
 
-        {/* Lista de Roles */}
-        <div className="roles-list">
+        {/* Barra de opciones de asociación - Solo visible cuando hay un rol seleccionado */}
+        {selectedRolId && (
+          <div className="association-bar">
+            <div className="association-info">
+              <span className="selected-rol-info">
+                Rol seleccionado: <strong>{roles.find(r => r._id === selectedRolId)?.nombre}</strong>
+              </span>
+            </div>
+            <div className="association-actions">
+              <button
+                className="btn-association btn-permisos"
+                onClick={() => abrirGestionPermisos(roles.find(r => r._id === selectedRolId))}
+                title="Asociar permisos"
+              >
+                <FiKey className="btn-icon" />
+                Asociar Permisos
+              </button>
+              <button
+                className="btn-association btn-users"
+                onClick={() => showFuncionalidadEnDesarrollo('Asociar Usuarios')}
+                title="Asociar usuarios"
+              >
+                <FiUsers className="btn-icon" />
+                Asociar Usuarios
+              </button>
+              <button
+                className="btn-association btn-rules"
+                onClick={() => showFuncionalidadEnDesarrollo('Reglas para Oportunidad')}
+                title="Reglas para oportunidad"
+              >
+                <FiBook className="btn-icon" />
+                Reglas Oportunidad
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tabla de Roles */}
+        <div className="roles-table-container">
           {loading ? (
             <div className="loading-container">
               <div className="loading-spinner"></div>
@@ -338,69 +389,55 @@ const Roles = ({ onVolver }) => {
               <p>{roles.length === 0 ? 'No hay roles creados todavía.' : 'Intenta con otros términos de búsqueda.'}</p>
             </div>
           ) : (
-            rolesFiltrados.map(rol => (
-              <div key={rol._id} className="role-item">
-                <div className="role-info">
-                  <span className="role-name">{rol.nombre}</span>
-                  <span className={`role-status ${rol.estado ? 'active' : 'inactive'}`}>
-                    {rol.estado ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
-                <div className="role-actions">
-                  <button
-                    className="btn-action btn-permisos"
-                    onClick={() => abrirGestionPermisos(rol)}
-                    title="Asociar permisos"
-                  >
-                    <FiKey className="btn-icon" />
-                    Asociar Permisos
-                  </button>
-                  
-                  <button
-                    className="btn-action btn-outline"
-                    onClick={() => showFuncionalidadEnDesarrollo('Asociar Usuarios')}
-                    title="Asociar usuarios"
-                  >
-                    <FiUsers className="btn-icon" />
-                    Asociar Usuarios
-                  </button>
-                  
-                  <button
-                    className="btn-action btn-outline"
-                    onClick={() => showFuncionalidadEnDesarrollo('Reglas para Oportunidad')}
-                    title="Reglas para oportunidad"
-                  >
-                    <FiBook className="btn-icon" />
-                    Reglas Oportunidad
-                  </button>
-                  
-                  <button
-                    className="btn-action btn-outline"
-                    onClick={() => {
-                      setFormData({
-                        nombre: rol.nombre,
-                        estado: rol.estado
-                      });
-                      setSelectedRol(rol);
-                      setVistaActual('crear');
-                    }}
-                    title="Editar rol"
-                  >
-                    <FiEdit className="btn-icon" />
-                    Editar
-                  </button>
-                  
-                  <button
-                    className={`btn-action ${rol.estado ? 'btn-warning' : 'btn-success'}`}
-                    onClick={() => toggleEstadoRol(rol._id, !rol.estado)}
-                    title={rol.estado ? 'Desactivar rol' : 'Activar rol'}
-                  >
-                    {rol.estado ? <FiX className="btn-icon" /> : <FiCheck className="btn-icon" />}
-                    {rol.estado ? 'Desactivar' : 'Activar'}
-                  </button>
-                </div>
-              </div>
-            ))
+            <table className="roles-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>NOMBRE</th>
+                  <th>ESTADO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rolesFiltrados.map(rol => (
+                  <tr key={rol._id}>
+                    <td>
+                      <div className="rol-selection">
+                        <input
+                          type="checkbox"
+                          checked={selectedRolId === rol._id}
+                          onChange={() => seleccionarRol(rol._id)}
+                          className="rol-checkbox"
+                        />
+                      </div>
+                    </td>
+                  <td>
+  <span 
+    className="rol-name-clickable"
+    onClick={() => abrirEdicionRol(rol)}
+    title="Haz clic para editar este rol"
+  >
+    {rol.nombre}
+  </span>
+</td>
+                    <td>
+                      <div className="switch-container">
+                        <label className="switch">
+                          <input
+                            type="checkbox"
+                            checked={rol.estado}
+                            onChange={() => toggleEstadoRol(rol._id, !rol.estado)}
+                          />
+                          <span className="slider"></span>
+                        </label>
+                        <span className={`status-text ${rol.estado ? 'active' : 'inactive'}`}>
+                          {rol.estado ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
@@ -476,79 +513,97 @@ const Roles = ({ onVolver }) => {
     </div>
   );
 
-  // Renderizar vista de Asociar Permisos (Actualizada según el diseño)
-  const renderAsociarPermisos = () => (
-    <div className="roles-content">
-      <div className="roles-section">
-        <div className="roles-header">
-          <div className="configuracion-actions">
-            <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
-              <FiArrowLeft className="btn-icon" />
-              Volver
-            </button>
-            <button className="btn-guardar" onClick={guardarPermisos}>
-              <FiCheck className="btn-icon" />
-              Guardar Permisos
-            </button>
-          </div>
-          <div className="section-header">
-            <h3>ASOCIAR PERMISOS</h3>
+  // Renderizar vista de Asociar Permisos
+  const renderAsociarPermisos = () => {
+    const handleGuardarPermisos = async () => {
+      await guardarPermisos();
+    };
+
+    if (!selectedRol) {
+      return (
+        <div className="roles-content">
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Cargando información del rol...</p>
           </div>
         </div>
+      );
+    }
 
-        <div className="permisos-container">
-          <div className="permisos-header-info">
-            <h2 className="rol-title">{selectedRol?.nombre}</h2>
-            <div className="permisos-stats">
-              <span>
-                {Object.values(permisosSeleccionados).filter(Boolean).length} permisos seleccionados
-              </span>
+    return (
+      <div className="roles-content">
+        <div className="roles-section">
+          <div className="roles-header">
+            <div className="configuracion-actions">
+              <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
+                <FiArrowLeft className="btn-icon" />
+                Volver
+              </button>
+              <button className="btn-guardar-permisos" onClick={handleGuardarPermisos}>
+                <FiCheck className="btn-icon" />
+                Guardar Permisos
+              </button>
+            </div>
+            <div className="section-header">
+              <h3>ASOCIAR PERMISOS</h3>
             </div>
           </div>
-          
-          {/* Diseño similar a la imagen */}
-          <div className="permisos-layout">
-            {Object.entries(permisosPorModulo).map(([modulo, permisosModulo]) => (
-              <div key={modulo} className="modulo-section">
-                <h3 className="modulo-title">{modulo}</h3>
-                <div className="permisos-table">
-                  <div className="permisos-table-header">
-                    <div className="permiso-col permiso-col-nombre">PERMISO</div>
-                    <div className="permiso-col permiso-col-estado">ESTADO</div>
-                  </div>
-                  <div className="permisos-table-body">
-                    {permisosModulo.map(permiso => (
-                      <div key={permiso._id} className="permiso-table-row">
-                        <div className="permiso-col permiso-col-nombre">
-                          <label className="permiso-checkbox-label">
-                            <input
-                              type="checkbox"
-                              checked={!!permisosSeleccionados[permiso._id]}
-                              onChange={() => setPermisosSeleccionados(prev => ({
-                                ...prev,
-                                [permiso._id]: !prev[permiso._id]
-                              }))}
-                              className="permiso-checkbox"
-                            />
+
+          <div className="permisos-container">
+            <div className="permisos-header-info">
+              <h2 className="rol-title">{selectedRol?.nombre}</h2>
+              <div className="permisos-stats">
+                <span>
+                  {Object.values(permisosSeleccionados).filter(Boolean).length} permisos seleccionados
+                </span>
+              </div>
+            </div>
+            
+            <div className="permisos-layout">
+              {Object.entries(permisosPorModulo).map(([modulo, permisosModulo]) => (
+                <div key={modulo} className="modulo-section">
+                  <h3 className="modulo-title">{modulo}</h3>
+                  <div className="permisos-table">
+                    <div className="permisos-table-header">
+                      <div className="permiso-col permiso-col-nombre">PERMISO</div>
+                      <div className="permiso-col permiso-col-estado">ESTADO</div>
+                    </div>
+                    <div className="permisos-table-body">
+                      {permisosModulo.map(permiso => (
+                        <div key={permiso._id} className="permiso-table-row">
+                          <div className="permiso-col permiso-col-nombre">
                             <span className="permiso-name">{permiso.nombre}</span>
-                          </label>
+                          </div>
+                          <div className="permiso-col permiso-col-estado">
+                            <div className="permiso-switch-container">
+                              <label className="permiso-switch">
+                                <input
+                                  type="checkbox"
+                                  checked={!!permisosSeleccionados[permiso._id]}
+                                  onChange={() => setPermisosSeleccionados(prev => ({
+                                    ...prev,
+                                    [permiso._id]: !prev[permiso._id]
+                                  }))}
+                                />
+                                <span className="permiso-slider"></span>
+                              </label>
+                              <span className={`permiso-status-text ${permisosSeleccionados[permiso._id] ? 'active' : 'inactive'}`}>
+                                {permisosSeleccionados[permiso._id] ? 'Asignado' : 'No asignado'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="permiso-col permiso-col-estado">
-                          <span className={`permiso-status ${permisosSeleccionados[permiso._id] ? 'active' : 'inactive'}`}>
-                            {permisosSeleccionados[permiso._id] ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
