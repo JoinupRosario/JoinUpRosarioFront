@@ -257,6 +257,12 @@
   padding: 10px 12px;
   border-bottom: 1px solid #f0f0f0;
   font-size: 13px;
+  vertical-align: middle;
+}
+
+/* Centrar contenido en la columna ROLES */
+.users-table td:nth-child(7) {
+  text-align: center;
 }
 
 .users-table tr:hover {
@@ -500,6 +506,27 @@ input:checked+.slider:before {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  align-items: center;
+  justify-content: center;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Forzar que ningún pseudo-elemento pinte líneas en roles */
+.roles-list::before,
+.roles-list::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Si algún framework inyecta barras de progreso dentro de roles, ocultarlas */
+.roles-list .progress,
+.roles-list .determinate,
+.roles-list .indeterminate {
+  display: none !important;
 }
 
 .rol-tag {
@@ -509,6 +536,12 @@ input:checked+.slider:before {
   border-radius: 10px;
   font-size: 10px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .no-roles {
@@ -531,11 +564,11 @@ input:checked+.slider:before {
 }
 
 .form-section-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
   border-bottom: 2px solid #e0e0e0;
 }
 
@@ -543,7 +576,7 @@ input:checked+.slider:before {
 .form-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -556,7 +589,7 @@ input:checked+.slider:before {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .form-group.full-width {
@@ -564,18 +597,18 @@ input:checked+.slider:before {
 }
 
 .form-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #374151;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 
 .form-input {
-  padding: 10px;
+  padding: 8px 10px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   transition: border-color 0.2s;
 }
 
@@ -919,7 +952,7 @@ input:checked+.slider:before {
 @media (max-width: 1200px) {
   .form-layout {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 14px;
   }
 }
 

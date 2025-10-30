@@ -8,11 +8,11 @@
 .section-header {
   background-color: #2c2c2c;
   color: white;
-  padding: 12px 20px;
+  padding: 10px 16px;
   margin-bottom: 0;
   clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%);
   width: fit-content;
-  min-width: 250px;
+  min-width: 200px;
 }
 
 .btn-volver {
@@ -71,27 +71,30 @@
 }
 
 .configuracion-section {
-  padding: 30px;
+  padding: 20px;
   min-height: 100%;
 }
 
 .section-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
 .configuracion-list {
-  margin-top: 20px;
+  margin-top: 15px;
   border-top: 2px solid #c41e3a;
-  padding-top: 20px;
+  padding-top: 12px;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .configuracion-item {
   display: flex;
   align-items: center;
-  padding: 20px;
+  padding: 14px 16px;
   border-bottom: 1px solid #e0e0e0;
   transition: all 0.3s;
   cursor: pointer;
@@ -107,14 +110,14 @@
 }
 
 .configuracion-icon {
-  width: 50px;
-  height: 50px;
+  width: 42px;
+  height: 42px;
   background: linear-gradient(135deg, #c41e3a 0%, #8b1538 100%);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 20px;
+  margin-right: 14px;
   flex-shrink: 0;
   transition: all 0.3s;
 }
@@ -125,7 +128,7 @@
 }
 
 .configuracion-icon svg {
-  font-size: 24px;
+  font-size: 20px;
   color: white;
 }
 
@@ -134,8 +137,8 @@
 }
 
 .configuracion-title {
-  margin: 0 0 8px 0;
-  font-size: 16px;
+  margin: 0 0 4px 0;
+  font-size: 15px;
   font-weight: 600;
   color: #333;
   line-height: 1.4;
@@ -143,7 +146,7 @@
 
 .configuracion-descripcion {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   color: #666;
   line-height: 1.5;
 }

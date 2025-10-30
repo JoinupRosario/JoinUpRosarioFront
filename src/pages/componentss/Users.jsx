@@ -604,35 +604,7 @@ const Users = ({ onVolver }) => {
                   placeholder="correo@ejemplo.com"
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">ESTADO</label>
-                <div className="status-options">
-                  <label className="status-option">
-                    <input
-                      type="radio"
-                      name="estado"
-                      value="activo"
-                      checked={formData.estado === true}
-                      onChange={() => setFormData({ ...formData, estado: true })}
-                      className="status-radio"
-                    />
-                    <span className="status-indicator active"></span>
-                    Activo
-                  </label>
-                  <label className="status-option">
-                    <input
-                      type="radio"
-                      name="estado"
-                      value="inactivo"
-                      checked={formData.estado === false}
-                      onChange={() => setFormData({ ...formData, estado: false })}
-                      className="status-radio"
-                    />
-                    <span className="status-indicator inactive"></span>
-                    Inactivo
-                  </label>
-                </div>
-              </div>
+              {/* Estado omitido en creación: por defecto activo */}
             </div>
           </div>
         </div>
