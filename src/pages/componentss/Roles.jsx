@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FiPlus, 
-  FiEdit, 
-  FiKey, 
-  FiCheck, 
+import {
+  FiPlus,
+  FiEdit,
+  FiKey,
+  FiCheck,
   FiX,
   FiSearch,
   FiFilter,
@@ -13,7 +13,7 @@ import {
 } from 'react-icons/fi';
 import { HiOutlineKey } from 'react-icons/hi';
 import Swal from 'sweetalert2';
-import '../styles/Roles.css'; 
+import '../styles/Roles.css';
 import api from '../../services/api';
 
 const Roles = ({ onVolver }) => {
@@ -112,17 +112,17 @@ const Roles = ({ onVolver }) => {
   // Filtrar roles
   const rolesFiltrados = roles.filter(rol => {
     const coincideNombre = rol.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-    const coincideEstado = filterEstado === 'todos' || 
-      (filterEstado === 'activos' && rol.estado) || 
+    const coincideEstado = filterEstado === 'todos' ||
+      (filterEstado === 'activos' && rol.estado) ||
       (filterEstado === 'inactivos' && !rol.estado);
-    
+
     return coincideNombre && coincideEstado;
   });
 
   // Manejar creación/edición de rol
   const handleCrearRol = async (e) => {
     e.preventDefault();
-    
+
     // Validación del nombre
     if (!formData.nombre.trim()) {
       showError('Error', 'El nombre del rol es obligatorio');
@@ -166,7 +166,7 @@ const Roles = ({ onVolver }) => {
   // Abrir gestión de permisos
   const abrirGestionPermisos = (rol) => {
     setSelectedRol(rol);
-    
+
     // Inicializar permisos seleccionados basado en los permisos actuales del rol
     const permisosIniciales = {};
     if (rol.permisos && rol.permisos.length > 0) {
@@ -176,7 +176,7 @@ const Roles = ({ onVolver }) => {
         }
       });
     }
-    
+
     setPermisosSeleccionados(permisosIniciales);
     setVistaActual('permisos');
   };
@@ -194,30 +194,22 @@ const Roles = ({ onVolver }) => {
         return;
       }
 
-      // Primero, limpiar todos los permisos existentes
-      if (selectedRol.permisos && selectedRol.permisos.length > 0) {
-        for (const permisoRol of selectedRol.permisos) {
-          await api.delete(`/roles/${selectedRol._id}/permisos`, {
-            data: { permisoId: permisoRol.permiso._id || permisoRol.permiso }
-          });
-        }
+      const permisosIds = Object.keys(permisosSeleccionados).filter(
+        permisoId => permisosSeleccionados[permisoId]
+      );
+
+      const response = await api.put(`/roles/${selectedRol._id}/permisos`, {
+        permisos: permisosIds
+      });
+
+      if (response.data.success) {
+        await showSuccess('Éxito', 'Permisos actualizados correctamente');
+        setVistaActual('buscar');
+        setSelectedRol(null);
+        setPermisosSeleccionados({});
+        cargarRoles();
       }
 
-      // Luego, agregar los permisos seleccionados
-      for (const permisoId of Object.keys(permisosSeleccionados)) {
-        if (permisosSeleccionados[permisoId]) {
-          await api.post(`/roles/${selectedRol._id}/permisos`, {
-            permisoId: permisoId
-          });
-        }
-      }
-
-      await showSuccess('Éxito', 'Permisos actualizados correctamente');
-      setVistaActual('buscar');
-      setSelectedRol(null);
-      setPermisosSeleccionados({});
-      cargarRoles();
-      
     } catch (error) {
       console.error('Error al guardar permisos:', error);
       showError('Error', 'Error al guardar los permisos');
@@ -243,7 +235,7 @@ const Roles = ({ onVolver }) => {
       const response = await api.patch(`/roles/${rolId}/estado`, {
         estado: nuevoEstado
       });
-      
+
       if (response.data.success) {
         await showSuccess('Éxito', `Rol ${accion}do correctamente`);
         cargarRoles();
@@ -270,6 +262,54 @@ const Roles = ({ onVolver }) => {
     acc[permiso.modulo].push(permiso);
     return acc;
   }, {});
+  const seleccionarTodosModulo = (modulo) => {
+    const permisosModulo = permisosPorModulo[modulo];
+    const nuevosPermisos = { ...permisosSeleccionados };
+
+    permisosModulo.forEach(permiso => {
+      nuevosPermisos[permiso._id] = true;
+    });
+
+    setPermisosSeleccionados(nuevosPermisos);
+  };
+
+  // Función para deseleccionar todos los permisos de un módulo
+  const deseleccionarTodosModulo = (modulo) => {
+    const permisosModulo = permisosPorModulo[modulo];
+    const nuevosPermisos = { ...permisosSeleccionados };
+
+    permisosModulo.forEach(permiso => {
+      nuevosPermisos[permiso._id] = false;
+    });
+
+    setPermisosSeleccionados(nuevosPermisos);
+  };
+
+  // Función para seleccionar todos los permisos de todos los módulos
+  const seleccionarTodosPermisos = () => {
+    const nuevosPermisos = {};
+    permisos.forEach(permiso => {
+      nuevosPermisos[permiso._id] = true;
+    });
+    setPermisosSeleccionados(nuevosPermisos);
+  };
+
+  // Función para deseleccionar todos los permisos
+  const deseleccionarTodosPermisos = () => {
+    setPermisosSeleccionados({});
+  };
+
+  // Verificar si todos los permisos de un módulo están seleccionados
+  const todosSeleccionadosModulo = (modulo) => {
+    const permisosModulo = permisosPorModulo[modulo];
+    return permisosModulo.every(permiso => permisosSeleccionados[permiso._id]);
+  };
+
+  // Verificar si algunos permisos de un módulo están seleccionados
+  const algunosSeleccionadosModulo = (modulo) => {
+    const permisosModulo = permisosPorModulo[modulo];
+    return permisosModulo.some(permiso => permisosSeleccionados[permiso._id]);
+  };
 
   // Renderizar vista de Búsqueda (Lista de roles)
   const renderBuscarRol = () => (
@@ -281,8 +321,8 @@ const Roles = ({ onVolver }) => {
               <FiArrowLeft className="btn-icon" />
               Volver
             </button>
-            <button 
-              className="btn-guardar" 
+            <button
+              className="btn-guardar"
               onClick={() => {
                 setFormData({ nombre: '', estado: true });
                 setSelectedRol(null);
@@ -312,8 +352,8 @@ const Roles = ({ onVolver }) => {
           </div>
           <div className="filter-group">
             <FiFilter className="filter-icon" />
-            <select 
-              value={filterEstado} 
+            <select
+              value={filterEstado}
               onChange={(e) => setFilterEstado(e.target.value)}
               className="filter-select"
             >
@@ -355,7 +395,7 @@ const Roles = ({ onVolver }) => {
                     <FiKey className="btn-icon" />
                     Asociar Permisos
                   </button>
-                  
+
                   <button
                     className="btn-action btn-outline"
                     onClick={() => showFuncionalidadEnDesarrollo('Asociar Usuarios')}
@@ -364,7 +404,7 @@ const Roles = ({ onVolver }) => {
                     <FiUsers className="btn-icon" />
                     Asociar Usuarios
                   </button>
-                  
+
                   <button
                     className="btn-action btn-outline"
                     onClick={() => showFuncionalidadEnDesarrollo('Reglas para Oportunidad')}
@@ -373,7 +413,7 @@ const Roles = ({ onVolver }) => {
                     <FiBook className="btn-icon" />
                     Reglas Oportunidad
                   </button>
-                  
+
                   <button
                     className="btn-action btn-outline"
                     onClick={() => {
@@ -389,7 +429,7 @@ const Roles = ({ onVolver }) => {
                     <FiEdit className="btn-icon" />
                     Editar
                   </button>
-                  
+
                   <button
                     className={`btn-action ${rol.estado ? 'btn-warning' : 'btn-success'}`}
                     onClick={() => toggleEstadoRol(rol._id, !rol.estado)}
@@ -445,10 +485,10 @@ const Roles = ({ onVolver }) => {
               <label className="form-label">ESTADO</label>
               <div className="status-options">
                 <label className="status-option">
-                  <input 
-                    type="radio" 
-                    name="estado" 
-                    value="activo" 
+                  <input
+                    type="radio"
+                    name="estado"
+                    value="activo"
                     checked={formData.estado === true}
                     onChange={() => setFormData({ ...formData, estado: true })}
                     className="status-radio"
@@ -457,10 +497,10 @@ const Roles = ({ onVolver }) => {
                   Activo
                 </label>
                 <label className="status-option">
-                  <input 
-                    type="radio" 
-                    name="estado" 
-                    value="inactivo" 
+                  <input
+                    type="radio"
+                    name="estado"
+                    value="inactivo"
                     checked={formData.estado === false}
                     onChange={() => setFormData({ ...formData, estado: false })}
                     className="status-radio"
@@ -505,15 +545,52 @@ const Roles = ({ onVolver }) => {
               </span>
             </div>
           </div>
-          
+          {/* Botón de selección global */}
+          <div className="permisos-global-actions">
+            {Object.values(permisosSeleccionados).filter(Boolean).length === permisos.length ? (
+              <button
+                className="btn-deseleccionar-modulo"
+                onClick={deseleccionarTodosPermisos}
+              >
+                <FiX className="btn-icon" />
+                Deseleccionar Todos
+              </button>
+            ) : (
+              <button
+                className="btn-seleccionar-modulo"
+                onClick={seleccionarTodosPermisos}
+              >
+                <FiCheck className="btn-icon" />
+                Seleccionar Todos
+              </button>
+            )}
+          </div>
           {/* Diseño similar a la imagen */}
           <div className="permisos-layout">
             {Object.entries(permisosPorModulo).map(([modulo, permisosModulo]) => (
               <div key={modulo} className="modulo-section">
-                <h3 className="modulo-title">{modulo}</h3>
+                <div className="modulo-header">
+                  <h3 className="modulo-title">{modulo}</h3>
+                </div>
                 <div className="permisos-table">
                   <div className="permisos-table-header">
-                    <div className="permiso-col permiso-col-nombre">PERMISO</div>
+                    <div className="permiso-col permiso-col-nombre">
+                      <label className="header-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={todosSeleccionadosModulo(modulo)}
+                          onChange={() => {
+                            if (todosSeleccionadosModulo(modulo)) {
+                              deseleccionarTodosModulo(modulo);
+                            } else {
+                              seleccionarTodosModulo(modulo);
+                            }
+                          }}
+                          className="header-checkbox"
+                        />
+                        PERMISO
+                      </label>
+                    </div>
                     <div className="permiso-col permiso-col-estado">ESTADO</div>
                   </div>
                   <div className="permisos-table-body">
