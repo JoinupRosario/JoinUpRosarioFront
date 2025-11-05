@@ -47,11 +47,11 @@ jobs:
       - name: 🛠️ Fix Babel missing plugin
         run: npm install --save-dev @babel/plugin-proposal-private-property-in-object
 
-      # ✅ Build usando el binario local de Vite (compatible con "type": "module")
+      # ✅ Build con npm run build (Vite se ejecuta localmente desde node_modules)
       - name: 🧱 Build React app
-        run: CI=false ./node_modules/.bin/vite build
+        run: CI=false npm run build
 
-      # 🚀 Subimos la carpeta correcta (dist/)
+      # 🚀 Subimos la carpeta correcta (dist/, ya que Vite la genera)
       - name: 🚀 Sync to S3
         run: aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} --delete
 
