@@ -43,6 +43,10 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
+      # 🧩 Asegura que Vite esté disponible en el entorno de CI
+      - name: Ensure Vite is installed
+        run: npm install vite --save-dev
+
       # 👇 Corrige posibles errores de Babel en CI
       - name: 🛠️ Fix Babel missing plugin
         run: npm install --save-dev @babel/plugin-proposal-private-property-in-object
@@ -51,8 +55,9 @@ jobs:
       - name: 🧱 Build React app
         run: CI=false npm run build
 
+      # 🚀 Subimos la carpeta correcta (dist/)
       - name: 🚀 Sync to S3
-        run: aws s3 sync build/ s3://${{ env.FRONT_BUCKET }} --delete
+        run: aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} --delete
 
       - name: 🔄 Invalidate CloudFront cache
         run: |
