@@ -7,14 +7,16 @@ on:
       - 'src/**'
       - 'public/**'
       - '.github/workflows/front.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.js'
   workflow_dispatch: {}
 
 env:
   AWS_REGION: us-east-1
   FRONT_BUCKET: frontend-rosario
-  CLOUDFRONT_ID: E2HS4CLSDJLK4Y   # ✅ ID real de CloudFront (rosario front)
+  CLOUDFRONT_ID: E2HS4CLSDJLK4Y      # ID real de tu distribución "rosario front"
   REACT_APP_BACKEND_URL: https://backend.rosario.mozartia.com
-  NODE_ENV: production
 
 permissions:
   id-token: write
@@ -39,19 +41,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: 'npm'
 
-      - name: 📦 Install dependencies
-        run: npm ci
+      # 👇 Fuerza instalación de devDependencies (donde está vite)
+      - name: 📦 Install dependencies (with dev)
+        run: npm ci --include=dev
+        env:
+          NODE_ENV: development
+          NPM_CONFIG_PRODUCTION: false
 
-      # 👇 Corrige posibles errores de Babel en CI
+      # (Opcional) Babel fix si tu build lo requiere
       - name: 🛠️ Fix Babel missing plugin
         run: npm install --save-dev @babel/plugin-proposal-private-property-in-object
 
-      # ✅ Build con npm run build (Vite se ejecuta localmente desde node_modules)
+      # 👇 Build con Vite
       - name: 🧱 Build React app
         run: CI=false npm run build
 
-      # 🚀 Subimos la carpeta correcta (dist/, ya que Vite la genera)
+      # 👇 Con Vite la salida es dist/
       - name: 🚀 Sync to S3
         run: aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} --delete
 
