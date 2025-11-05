@@ -43,17 +43,13 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      # 🧩 Aseguramos que Vite esté disponible globalmente
-      - name: 🧰 Install Vite globally
-        run: npm install -g vite
-
       # 👇 Corrige posibles errores de Babel en CI
       - name: 🛠️ Fix Babel missing plugin
         run: npm install --save-dev @babel/plugin-proposal-private-property-in-object
 
-      # 👇 Build usando Vite (ahora global)
+      # ✅ Build usando el binario local de Vite (compatible con "type": "module")
       - name: 🧱 Build React app
-        run: CI=false npx vite build
+        run: CI=false ./node_modules/.bin/vite build
 
       # 🚀 Subimos la carpeta correcta (dist/)
       - name: 🚀 Sync to S3
