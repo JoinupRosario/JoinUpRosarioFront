@@ -45,21 +45,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Esperar a que termine la verificación de autenticación antes de renderizar
-  if (authLoading) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontSize: '18px'
-      }}>
-        Cargando...
-      </div>
-    );
-  }
-
   // Mapeo de rutas a vistas
   const routeToVista = {
     '/dashboard': 'dashboard',
@@ -95,21 +80,44 @@ export default function Dashboard() {
   };
 
   // Obtener vista actual basada en la URL
-  const getVistaFromRoute = () => {
-    const path = location.pathname;
-    return routeToVista[path] || 'dashboard';
+  const getVistaFromRoute = (pathname) => {
+    const path = pathname || location.pathname;
+    // Buscar coincidencia exacta primero
+    if (routeToVista[path]) {
+      return routeToVista[path];
+    }
+    // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
+    return 'dashboard';
   };
 
-  const [vistaActual, setVistaActual] = useState(getVistaFromRoute());
+  // Inicializar estado basado en la URL actual
+  const [vistaActual, setVistaActual] = useState(() => {
+    return getVistaFromRoute(location.pathname);
+  });
 
-  // Sincronizar vistaActual con la URL cuando cambia
+  // Esperar a que termine la verificación de autenticación antes de renderizar
+  if (authLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px'
+      }}>
+        Cargando...
+      </div>
+    );
+  }
+
+  // Sincronizar vistaActual con la URL cuando cambia (incluyendo refresh)
   useEffect(() => {
-    const nuevaVista = getVistaFromRoute();
-    if (nuevaVista !== vistaActual) {
+    // Asegurar que la vista se sincronice correctamente después de la autenticación
+    if (!authLoading) {
+      const nuevaVista = getVistaFromRoute(location.pathname);
       setVistaActual(nuevaVista);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [location.pathname, authLoading]);
 
   // Datos de ejemplo para el dashboard
   const [dashboardData, setDashboardData] = useState({
@@ -445,8 +453,8 @@ export default function Dashboard() {
 
       {/* Footer */}
       <footer className="dashboard-footer">
-        <span className="footer-link">JoinUp HCM</span>
-        <span className="footer-text">@ 2019 Powered by Qdit S.A.S - All Rights Reserved</span>
+        <span className="footer-link">URJOBS 2.0</span>
+        <span className="footer-text">@2025 Powered by JoinUp SAS - All Rights Reserved</span>
       </footer>
     </div>
   );

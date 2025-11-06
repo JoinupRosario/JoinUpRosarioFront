@@ -236,7 +236,7 @@ export default function Login() {
               </select>
             </div>
             <div className="copyright-text">
-              <p>© 2019 Powered By Qdit S.A.S - All Rights Reserved | <a href="https://qdit.co" target="_blank" rel="noopener noreferrer">Qdit</a></p>
+              <p>@2025 Powered by JoinUp SAS - All Rights Reserved</p>
             </div>
           </div>
         </div>
