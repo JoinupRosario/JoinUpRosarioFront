@@ -15,7 +15,7 @@ on:
 env:
   AWS_REGION: us-east-1
   FRONT_BUCKET: frontend-rosario
-  CLOUDFRONT_ID: E2HS4CLSDJLK4Y      # ID real de tu distribución "rosario front"
+  CLOUDFRONT_ID: E2HS4CLSDJLK4Y
   REACT_APP_BACKEND_URL: https://backend.rosario.mozartia.com
 
 permissions:
@@ -43,25 +43,32 @@ jobs:
           node-version: 18
           cache: 'npm'
 
-      # 👇 Fuerza instalación de devDependencies (donde está vite)
-      - name: 📦 Install dependencies (with dev)
+      # ✅ Instalar dependencias incluyendo devDependencies (vite)
+      - name: 📦 Install dependencies
         run: npm ci --include=dev
         env:
           NODE_ENV: development
           NPM_CONFIG_PRODUCTION: false
 
-      # (Opcional) Babel fix si tu build lo requiere
-      - name: 🛠️ Fix Babel missing plugin
+      # (Opcional) Fix Babel si tu build lo requiere
+      - name: 🛠️ Fix Babel plugin (si aplica)
         run: npm install --save-dev @babel/plugin-proposal-private-property-in-object
 
-      # 👇 Build con Vite
+      # ✅ Build de Vite 
       - name: 🧱 Build React app
         run: CI=false npm run build
 
-      # 👇 Con Vite la salida es dist/
-      - name: 🚀 Sync to S3
-        run: aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} --delete
+      # ✅ Sync con CORRECCIÓN DE MIME TYPES
+      # Evita el error: "Expected JS module but got text/html"
+      - name: 🚀 Sync dist/ to S3 with correct MIME types
+        run: |
+          aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} \
+            --delete \
+            --metadata-directive REPLACE \
+            --content-type "" \
+            --size-only
 
+      # ✅ Invalidar CloudFront para limpiar caché por completo
       - name: 🔄 Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
