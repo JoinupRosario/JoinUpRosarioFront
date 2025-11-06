@@ -36,7 +36,7 @@ api.interceptors.response.use(
       // Token expirado o inválido
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.href = '/#/login';
     }
     return Promise.reject(error);
   }
