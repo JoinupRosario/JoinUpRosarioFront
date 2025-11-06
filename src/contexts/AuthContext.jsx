@@ -42,28 +42,56 @@ export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    // Verificar si hay token guardado
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-    
-    if (token && user) {
-      const userData = JSON.parse(user);
-      
-      // Asegurar que el modulo esté en localStorage
-      if (userData.modulo) {
-        localStorage.setItem('modulo', userData.modulo);
+    // Función para verificar y restaurar la sesión
+    const checkAuth = async () => {
+      try {
+        // Verificar si hay token guardado
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        
+        if (token && user) {
+          try {
+            const userData = JSON.parse(user);
+            
+            // Validar que los datos sean válidos
+            if (userData && typeof userData === 'object') {
+              // Asegurar que el modulo esté en localStorage
+              if (userData.modulo) {
+                localStorage.setItem('modulo', userData.modulo);
+              }
+              
+              // Restaurar el estado de autenticación
+              dispatch({
+                type: 'LOGIN_SUCCESS',
+                payload: {
+                  token,
+                  user: userData,
+                },
+              });
+              return;
+            }
+          } catch (parseError) {
+            console.error('Error al parsear datos de usuario:', parseError);
+            // Si hay error al parsear, limpiar datos corruptos
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('modulo');
+          }
+        }
+        
+        // Si no hay token o hay error, marcar como no autenticado
+        dispatch({ type: 'SET_LOADING', payload: false });
+      } catch (error) {
+        console.error('Error al verificar autenticación:', error);
+        // En caso de cualquier error, limpiar y marcar como no autenticado
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('modulo');
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
-      
-      dispatch({
-        type: 'LOGIN_SUCCESS',
-        payload: {
-          token,
-          user: userData,
-        },
-      });
-    } else {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email, password) => {
