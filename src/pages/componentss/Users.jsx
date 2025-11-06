@@ -19,11 +19,13 @@ const Users = ({ onVolver }) => {
   const [vistaActual, setVistaActual] = useState('buscar');
   const [usersAdministrativos, setUsersAdministrativos] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [sucursales, setSucursales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [rolesSeleccionados, setRolesSeleccionados] = useState({});
+  const [sedeSeleccionada, setSedeSeleccionada] = useState(null);
 
   const [formData, setFormData] = useState({
     nombres: '',
@@ -88,12 +90,20 @@ const Users = ({ onVolver }) => {
     } else {
       setRolesSeleccionados({});
     }
+    
+    // Cargar sede seleccionada del usuario
+    if (selectedUser && selectedUser.sucursal) {
+      setSedeSeleccionada(selectedUser.sucursal._id || selectedUser.sucursal);
+    } else {
+      setSedeSeleccionada(null);
+    }
   }, [selectedUser]);
 
   // Cargar datos iniciales
   useEffect(() => {
     cargarUsersAdministrativos();
     cargarRoles();
+    cargarSucursales();
   }, []);
 
   const cargarUsersAdministrativos = async () => {
@@ -120,6 +130,18 @@ const Users = ({ onVolver }) => {
     } catch (error) {
       console.error('Error al cargar roles:', error);
       showError('Error', 'No se pudieron cargar los roles');
+    }
+  };
+
+  const cargarSucursales = async () => {
+    try {
+      const response = await api.get('/sucursales');
+      if (response.data.success) {
+        setSucursales(response.data.data || []);
+      }
+    } catch (error) {
+      console.error('Error al cargar sucursales:', error);
+      showError('Error', 'No se pudieron cargar las sucursales');
     }
   };
 
@@ -230,8 +252,36 @@ const Users = ({ onVolver }) => {
 
   // Abrir gestión de sedes
   const abrirGestionSedes = (user) => {
-    showFuncionalidadEnDesarrollo('Asociar Sede');
+    setSelectedUser(user);
+    setVistaActual('sedes');
   };
+  // Guardar sede del usuario
+  const guardarSede = async () => {
+    try {
+      const result = await showConfirmation(
+        'Guardar Sede',
+        `¿Estás seguro de que deseas guardar la sede para el usuario "${selectedUser?.nombres} ${selectedUser?.apellidos}"?`
+      );
+
+      if (!result.isConfirmed) {
+        return;
+      }
+
+      await api.put(`/users-administrativos/${selectedUser._id}/sede`, {
+        sucursalId: sedeSeleccionada || null
+      });
+
+      await showSuccess('Éxito', 'Sede actualizada correctamente');
+      setVistaActual('buscar');
+      setSelectedUser(null);
+      cargarUsersAdministrativos();
+
+    } catch (error) {
+      console.error('Error al guardar sede:', error);
+      showError('Error', 'Error al guardar la sede');
+    }
+  };
+
   // Guardar roles del usuario
   const guardarRoles = async (rolesSeleccionados) => {
     try {
@@ -612,6 +662,104 @@ const Users = ({ onVolver }) => {
     </div>
   );
 
+  // Renderizar vista de Gestión de Sedes
+  const renderGestionSedes = () => {
+    const handleGuardarSede = async () => {
+      await guardarSede();
+    };
+
+    if (!selectedUser) {
+      return (
+        <div className="users-content">
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Cargando información del usuario...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="users-content">
+        <div className="users-section">
+          <div className="users-header">
+            <div className="configuracion-actions">
+              <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
+                <FiArrowLeft className="btn-icon" />
+                Volver
+              </button>
+              <button className="btn-guardar" onClick={handleGuardarSede}>
+                <FiKey className="btn-icon" />
+                Guardar Sede
+              </button>
+            </div>
+            <div className="section-header">
+              <h3>ASOCIAR SEDE</h3>
+            </div>
+          </div>
+
+          <div className="roles-container">
+            <div className="roles-header-info">
+              <h2 className="user-title">{selectedUser?.nombres} {selectedUser?.apellidos}</h2>
+              <div className="roles-stats">
+                <span>
+                  {sedeSeleccionada ? '1 sede asignada' : 'Sin sede asignada'}
+                </span>
+              </div>
+            </div>
+
+            <div className="roles-layout">
+              <div className="roles-table">
+                <div className="roles-table-header">
+                  <div className="rol-col rol-col-nombre">SUCURSAL</div>
+                  <div className="rol-col rol-col-estado">ESTADO</div>
+                </div>
+                <div className="roles-table-body">
+                  {sucursales && sucursales.length > 0 ? (
+                    sucursales.map(sucursal => (
+                      <div key={sucursal._id} className="rol-table-row">
+                        <div className="rol-col rol-col-nombre">
+                          <span className="rol-name">{sucursal.nombre} ({sucursal.codigo})</span>
+                        </div>
+                        <div className="rol-col rol-col-estado">
+                          <div className="rol-switch-container">
+                            <label className="rol-switch">
+                              <input
+                                type="checkbox"
+                                checked={sedeSeleccionada === sucursal._id}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    // Si se activa, desactivar todas las demás y activar esta
+                                    setSedeSeleccionada(sucursal._id);
+                                  } else {
+                                    // Si se desactiva, dejar sin sede
+                                    setSedeSeleccionada(null);
+                                  }
+                                }}
+                              />
+                              <span className="rol-slider"></span>
+                            </label>
+                            <span className={`rol-status-text ${sedeSeleccionada === sucursal._id ? 'active' : 'inactive'}`}>
+                              {sedeSeleccionada === sucursal._id ? 'Asignada' : 'No asignada'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="empty-state">
+                      <p>No hay sucursales disponibles</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Renderizar vista de Gestión de Roles
   const renderGestionRoles = () => {
 
@@ -715,6 +863,7 @@ const Users = ({ onVolver }) => {
       {vistaActual === 'buscar' && renderBuscarUsuario()}
       {vistaActual === 'crear' && renderCrearUsuario()}
       {vistaActual === 'roles' && renderGestionRoles()}
+      {vistaActual === 'sedes' && renderGestionSedes()}
     </>
   );
 };

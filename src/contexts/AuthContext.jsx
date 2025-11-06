@@ -47,11 +47,18 @@ export const AuthProvider = ({ children }) => {
     const user = localStorage.getItem('user');
     
     if (token && user) {
+      const userData = JSON.parse(user);
+      
+      // Asegurar que el modulo esté en localStorage
+      if (userData.modulo) {
+        localStorage.setItem('modulo', userData.modulo);
+      }
+      
       dispatch({
         type: 'LOGIN_SUCCESS',
         payload: {
           token,
-          user: JSON.parse(user),
+          user: userData,
         },
       });
     } else {
@@ -64,8 +71,14 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/login', { email, password });
       const { token, user } = response.data;
       
+      // Guardar token y usuario en localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      
+      // Guardar modulo por separado para fácil acceso
+      if (user.modulo) {
+        localStorage.setItem('modulo', user.modulo);
+      }
       
       dispatch({
         type: 'LOGIN_SUCCESS',
@@ -94,8 +107,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.clear(); // Limpiar todo el localStorage
     dispatch({ type: 'LOGOUT' });
   };
 

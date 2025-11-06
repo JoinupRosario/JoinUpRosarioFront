@@ -32,7 +32,7 @@ function AppContent() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
-          path="/dashboard"
+          path="/dashboard/*"
           element={
             <ProtectedRoute>
               <Dashboard />
@@ -40,7 +40,6 @@ function AppContent() {
           }
         />
         <Route path="/" element={<Navigate to="/dashboard" />} />
-        {/* Aquí irán las demás rutas */}
       </Routes>
     </Router>
   );

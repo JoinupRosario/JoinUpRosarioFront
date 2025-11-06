@@ -2,6 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './Login.css';
+// Importar imágenes
+import arquitectonicoImg from '../../assets/images/login/arquitectonico.jpg';
+import logoRosarioImg from '../../assets/images/login/logodesarrollorosario370.png';
+import logoURjobsImg from '../../assets/images/login/URjobs-oscuro.jpg';
+import logoHCMImg from '../../assets/images/login/logohcm.png';
+import logoSPEImg from '../../assets/images/login/spe.png';
+import userIconImg from '../../assets/images/login/user.png';
+import keysIconImg from '../../assets/images/login/keys.png';
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -82,14 +90,22 @@ export default function Login() {
     setLoading(false);
   };
 
+  const cssVars = {
+    '--user-icon': `url(${userIconImg})`,
+    '--keys-icon': `url(${keysIconImg})`
+  };
+
   return (
-    <div className="login-container">
+    <div 
+      className="login-container"
+      style={cssVars}
+    >
       {/* Sección principal */}
       <div className="main-content">
         {/* Lado izquierdo - Imagen de fondo */}
         <div className="left-section">
           <img 
-            src="/src/assets/images/login/arquitectonico.jpg" 
+            src={arquitectonicoImg} 
             alt="Patio Universidad del Rosario" 
             className="background-image"
           />
@@ -101,14 +117,14 @@ export default function Login() {
           <div className="login-header">
             <div className="header-left">
               <img 
-                src="/src/assets/images/login/logodesarrollorosario370.png" 
+                src={logoRosarioImg} 
                 alt="Universidad del Rosario" 
                 className="ur-logo"
               />
             </div>
             <div className="header-right">
               <img 
-                src="/src/assets/images/login/URjobs-oscuro.jpg" 
+                src={logoURjobsImg} 
                 alt="UR JOBS" 
                 className="urjobs-logo"
               />
@@ -190,12 +206,12 @@ export default function Login() {
           <div className="login-footer">
             <div className="footer-logos">
               <img 
-                src="/src/assets/images/login/logohcm.png" 
+                src={logoHCMImg} 
                 alt="HCM" 
                 className="footer-logo logohcm"
               />
               <img 
-                src="/src/assets/images/login/spe.png" 
+                src={logoSPEImg} 
                 alt="SPE" 
                 className="footer-logo logospe"
               />

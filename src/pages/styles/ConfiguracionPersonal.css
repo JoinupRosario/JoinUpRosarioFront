@@ -130,66 +130,76 @@
   flex: 1;
 }
 
-.notificacion-toggle {
+/* Switch para notificaciones - Mismo estilo que roles */
+.rol-switch-container {
   display: flex;
   align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.rol-switch {
   position: relative;
-  width: 90px;
-  height: 28px;
-  background-color: #c41e3a;
-  border-radius: 14px;
+  display: inline-block;
+  width: 44px;
+  height: 22px;
+}
+
+.rol-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.rol-slider {
+  position: absolute;
   cursor: pointer;
-  transition: background-color 0.3s;
-  border: 1.5px solid #c41e3a;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #d1d5db;
+  transition: 0.3s;
+  border-radius: 24px;
+  border: 1px solid #9ca3af;
 }
 
-.notificacion-toggle.active {
-  background-color: #4caf50;
-  border-color: #4caf50;
-}
-
-.toggle-slider {
+.rol-slider:before {
   position: absolute;
-  top: 2px;
+  content: "";
+  height: 16px;
+  width: 16px;
   left: 2px;
-  width: 42px;
-  height: 24px;
+  bottom: 2px;
   background-color: white;
-  border-radius: 12px;
-  transition: transform 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.notificacion-toggle.active .toggle-slider {
-  transform: translateX(46px);
+.rol-switch input:checked + .rol-slider {
+  background-color: #10b981;
+  border-color: #10b981;
 }
 
-.toggle-text {
-  position: absolute;
-  font-size: 12px;
+.rol-switch input:checked + .rol-slider:before {
+  transform: translateX(22px);
+}
+
+.rol-status-text {
+  font-size: 11px;
   font-weight: 600;
-  top: 50%;
-  transform: translateY(-50%);
-  transition: color 0.3s;
-  user-select: none;
+  text-transform: uppercase;
+  min-width: 50px;
+  text-align: center;
 }
 
-.toggle-text.si {
-  left: 10px;
-  color: #888;
+.rol-status-text.active {
+  color: #10b981;
 }
 
-.toggle-text.no {
-  right: 10px;
-  color: white;
-}
-
-.notificacion-toggle.active .toggle-text.si {
-  color: white;
-}
-
-.notificacion-toggle.active .toggle-text.no {
-  color: #888;
+.rol-status-text.inactive {
+  color: #ef4444;
 }
 
 /* Responsive */

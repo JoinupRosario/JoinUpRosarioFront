@@ -69,13 +69,18 @@ export default function ConfiguracionPersonal({ onVolver }) {
           {opcionesNotificaciones.map((opcion) => (
             <div key={opcion.key} className="notificacion-item">
               <span className="notificacion-label">{opcion.label}</span>
-              <div 
-                className={`notificacion-toggle ${notificaciones[opcion.key] ? 'active' : ''}`}
-                onClick={() => handleToggle(opcion.key)}
-              >
-                <span className="toggle-text si">Sí</span>
-                <span className="toggle-text no">No</span>
-                <div className="toggle-slider"></div>
+              <div className="rol-switch-container">
+                <label className="rol-switch">
+                  <input
+                    type="checkbox"
+                    checked={notificaciones[opcion.key]}
+                    onChange={() => handleToggle(opcion.key)}
+                  />
+                  <span className="rol-slider"></span>
+                </label>
+                <span className={`rol-status-text ${notificaciones[opcion.key] ? 'active' : 'inactive'}`}>
+                  {notificaciones[opcion.key] ? 'Activo' : 'Inactivo'}
+                </span>
               </div>
             </div>
           ))}

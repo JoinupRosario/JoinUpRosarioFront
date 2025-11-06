@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   FiUsers, 
   FiLogOut, 
@@ -27,17 +27,74 @@ import Roles from './componentss/Roles';
 import Configuracion from './componentss/Configuracion';
 import Reportes from './componentss/Reportes';
 import Users from './componentss/Users';
+import Companies from './componentss/Companies';
+import Sucursales from './componentss/Sucursales';
+import Oportunidades from './componentss/Oportunidades';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
 import RecentActivity from '../components/ui/RecentActivity';
+// Importar imágenes
+import headerLogoImg from '../assets/images/login/header.png';
+import userAvatarImg from '../assets/images/login/user.png';
 import './Dashboard.css';
 
 export default function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [vistaActual, setVistaActual] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Mapeo de rutas a vistas
+  const routeToVista = {
+    '/dashboard': 'dashboard',
+    '/dashboard/usuarios': 'usuarios',
+    '/dashboard/entidades': 'entidades',
+    '/dashboard/oportunidades': 'oportunidades',
+    '/dashboard/postulantes': 'postulantes',
+    '/dashboard/estudiantes': 'estudiantes',
+    '/dashboard/legalizaciones': 'legalizaciones',
+    '/dashboard/monitorias': 'monitorias',
+    '/dashboard/roles': 'roles',
+    '/dashboard/sucursales': 'sucursales',
+    '/dashboard/reportes': 'reportes',
+    '/dashboard/configuracion': 'configuracion',
+    '/dashboard/configuracion-personal': 'configuracion-personal'
+  };
+
+  // Mapeo de vistas a rutas
+  const vistaToRoute = {
+    'dashboard': '/dashboard',
+    'usuarios': '/dashboard/usuarios',
+    'entidades': '/dashboard/entidades',
+    'oportunidades': '/dashboard/oportunidades',
+    'postulantes': '/dashboard/postulantes',
+    'estudiantes': '/dashboard/estudiantes',
+    'legalizaciones': '/dashboard/legalizaciones',
+    'monitorias': '/dashboard/monitorias',
+    'roles': '/dashboard/roles',
+    'sucursales': '/dashboard/sucursales',
+    'reportes': '/dashboard/reportes',
+    'configuracion': '/dashboard/configuracion',
+    'configuracion-personal': '/dashboard/configuracion-personal'
+  };
+
+  // Obtener vista actual basada en la URL
+  const getVistaFromRoute = () => {
+    const path = location.pathname;
+    return routeToVista[path] || 'dashboard';
+  };
+
+  const [vistaActual, setVistaActual] = useState(getVistaFromRoute());
+
+  // Sincronizar vistaActual con la URL cuando cambia
+  useEffect(() => {
+    const nuevaVista = getVistaFromRoute();
+    if (nuevaVista !== vistaActual) {
+      setVistaActual(nuevaVista);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Datos de ejemplo para el dashboard
   const [dashboardData, setDashboardData] = useState({
@@ -165,12 +222,13 @@ export default function Dashboard() {
   };
 
   const handleMenuClick = (vista) => {
-    setVistaActual(vista);
+    const ruta = vistaToRoute[vista] || '/dashboard';
+    navigate(ruta);
     setMenuOpen(false);
   };
 
   const handleVolver = () => {
-    setVistaActual('dashboard');
+    navigate('/dashboard');
   };
 
   return (
@@ -180,11 +238,11 @@ export default function Dashboard() {
         <div className="header-left">
           <button 
             className="header-logo-btn"
-            onClick={() => setVistaActual('dashboard')}
+            onClick={() => navigate('/dashboard')}
             title="Ir al Dashboard Principal"
           >
             <img 
-              src="/src/assets/images/login/header.png" 
+              src={headerLogoImg} 
               alt="Universidad del Rosario" 
               className="header-logo"
             />
@@ -203,7 +261,7 @@ export default function Dashboard() {
           <div className="user-info">
             <div className="user-avatar">
               <img 
-                src="/src/assets/images/login/user.png" 
+                src={userAvatarImg} 
                 alt="User" 
                 className="avatar-img"
               />
@@ -340,6 +398,9 @@ export default function Dashboard() {
         {vistaActual === 'configuracion' && (
           <Configuracion onVolver={handleVolver} />
         )}
+        {vistaActual === 'entidades' && (
+          <Companies onVolver={handleVolver} />
+        )}
         {vistaActual === 'reportes' && (
           <Reportes onVolver={handleVolver} />
         )}
@@ -347,6 +408,12 @@ export default function Dashboard() {
           <Roles onVolver={handleVolver} />)}
         {vistaActual === 'usuarios' && (
          <Users onVolver={handleVolver} />
+        )}
+        {vistaActual === 'sucursales' && (
+          <Sucursales onVolver={handleVolver} />
+        )}
+        {vistaActual === 'oportunidades' && (
+          <Oportunidades onVolver={handleVolver} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}

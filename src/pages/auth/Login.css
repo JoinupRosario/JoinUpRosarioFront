@@ -239,7 +239,7 @@ html, body {
 
 /* Botón de comunidad universitaria */
 .university-login-btn {
-  background: rgba(255, 255, 255, 0.19) url('/src/assets/images/login/user.png') no-repeat;
+  background: rgba(255, 255, 255, 0.19) var(--user-icon) no-repeat;
   background-position: 0 0;
   background-size: auto 45px;
   color: #FFFFFC;
@@ -304,11 +304,11 @@ html, body {
 }
 
 .input-field.user-field {
-  background-image: url('/src/assets/images/login/user.png');
+  background-image: var(--user-icon);
 }
 
 .input-field.password-field {
-  background-image: url('/src/assets/images/login/keys.png');
+  background-image: var(--keys-icon);
 }
 
 .input-field:hover {
