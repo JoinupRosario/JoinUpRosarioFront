@@ -26,6 +26,7 @@ const Users = ({ onVolver }) => {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [rolesSeleccionados, setRolesSeleccionados] = useState({});
   const [sedeSeleccionada, setSedeSeleccionada] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
 
   const [formData, setFormData] = useState({
     nombres: '',
@@ -156,36 +157,79 @@ const Users = ({ onVolver }) => {
     return coincideNombre;
   });
 
+  // Iniciar edición de usuario
+  const startEdit = (user) => {
+    setEditingUser(user);
+    setFormData({
+      nombres: user.nombres || '',
+      apellidos: user.apellidos || '',
+      cargo: user.cargo || '',
+      identificacion: user.identificacion || '',
+      telefono: user.telefono || '',
+      extension: user.extension || '',
+      movil: user.movil || '',
+      email: user.user?.email || '',
+      password: '',
+      confirmPassword: '',
+      estado: user.estado !== undefined ? user.estado : true
+    });
+    setVistaActual('crear');
+  };
+
   // Manejar creación de usuario administrativo
   const handleCrearUserAdministrativo = async (e) => {
     e.preventDefault();
 
     // Validaciones básicas
     if (!formData.nombres.trim() || !formData.apellidos.trim() ||
-      !formData.identificacion.trim() || !formData.email.trim() ||
-      !formData.password.trim()) {
+      !formData.identificacion.trim() || !formData.email.trim()) {
       showError('Error', 'Todos los campos obligatorios deben ser llenados');
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
+    // Solo validar contraseña si es creación nueva o si se está cambiando
+    if (!editingUser && !formData.password.trim()) {
+      showError('Error', 'La contraseña es obligatoria para nuevos usuarios');
+      return;
+    }
+
+    if (formData.password && formData.password !== formData.confirmPassword) {
       showError('Error', 'Las contraseñas no coinciden');
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (formData.password && formData.password.length < 6) {
       showError('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     try {
       const { confirmPassword, ...dataToSend } = formData;
-      const response = await api.post('/users-administrativos', dataToSend);
+      
+      // Si no hay contraseña en edición, no la enviamos
+      if (editingUser && !dataToSend.password) {
+        delete dataToSend.password;
+      }
+
+      let response;
+      if (editingUser) {
+        // Actualizar usuario existente
+        response = await api.put(`/users-administrativos/${editingUser._id}`, dataToSend);
+        if (response.data.success) {
+          await showSuccess('Éxito', 'Usuario administrativo actualizado correctamente');
+        }
+      } else {
+        // Crear nuevo usuario
+        response = await api.post('/users-administrativos', dataToSend);
+        if (response.data.success) {
+          await showSuccess('Éxito', 'Usuario administrativo creado correctamente');
+        }
+      }
 
       if (response.data.success) {
-        await showSuccess('Éxito', 'Usuario administrativo creado correctamente');
         cargarUsersAdministrativos();
         setVistaActual('buscar');
+        setEditingUser(null);
         setFormData({
           nombres: '',
           apellidos: '',
@@ -201,8 +245,8 @@ const Users = ({ onVolver }) => {
         });
       }
     } catch (error) {
-      console.error('Error al crear usuario administrativo:', error);
-      const errorMessage = error.response?.data?.message || 'Error al crear el usuario administrativo';
+      console.error(`Error al ${editingUser ? 'actualizar' : 'crear'} usuario administrativo:`, error);
+      const errorMessage = error.response?.data?.message || `Error al ${editingUser ? 'actualizar' : 'crear'} el usuario administrativo`;
       showError('Error', errorMessage);
     }
   };
@@ -351,6 +395,7 @@ const Users = ({ onVolver }) => {
                   estado: true
                 });
                 setSelectedUser(null);
+                setEditingUser(null);
                 setVistaActual('crear');
               }}
             >
@@ -446,8 +491,13 @@ const Users = ({ onVolver }) => {
               </thead>
               <tbody>
                 {usersFiltrados.map(user => (
-                  <tr key={user._id}>
-                    <td>
+                  <tr 
+                    key={user._id}
+                    onClick={() => startEdit(user)}
+                    style={{ cursor: 'pointer' }}
+                    className="table-row-clickable"
+                  >
+                    <td onClick={(e) => e.stopPropagation()}>
                       <div className="user-selection">
                         <input
                           type="checkbox"
@@ -480,7 +530,7 @@ const Users = ({ onVolver }) => {
                     <td>{user.telefono || '-'}</td>
                     <td>{user.extension || '-'}</td>
                     <td>{user.movil || '-'}</td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <div className="switch-container">
                         <label className="switch">
                           <input
@@ -511,17 +561,33 @@ const Users = ({ onVolver }) => {
       <div className="users-section">
         <div className="users-header">
           <div className="configuracion-actions">
-            <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
+            <button className="btn-volver" onClick={() => {
+              setVistaActual('buscar');
+              setEditingUser(null);
+              setFormData({
+                nombres: '',
+                apellidos: '',
+                cargo: '',
+                identificacion: '',
+                telefono: '',
+                extension: '',
+                movil: '',
+                email: '',
+                password: '',
+                confirmPassword: '',
+                estado: true
+              });
+            }}>
               <FiArrowLeft className="btn-icon" />
               Volver
             </button>
             <button className="btn-guardar" onClick={handleCrearUserAdministrativo}>
               <FiUserCheck className="btn-icon" />
-              Registrar Usuario
+              {editingUser ? 'Actualizar Usuario' : 'Registrar Usuario'}
             </button>
           </div>
           <div className="section-header">
-            <h3>REGISTRAR USUARIO</h3>
+            <h3>{editingUser ? 'EDITAR USUARIO' : 'REGISTRAR USUARIO'}</h3>
           </div>
         </div>
 
@@ -618,27 +684,33 @@ const Users = ({ onVolver }) => {
               <div className="form-layout">
                 <div className="form-column">
                   <div className="form-group">
-                    <label className="form-label">CONTRASEÑA *</label>
+                    <label className="form-label">
+                      CONTRASEÑA {!editingUser && '*'}
+                      {editingUser && <span className="optional-label">(Dejar vacío para no cambiar)</span>}
+                    </label>
                     <input
                       type="password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       className="form-input"
-                      required
-                      placeholder="Ingrese la contraseña"
+                      required={!editingUser}
+                      placeholder={editingUser ? "Dejar vacío para no cambiar" : "Ingrese la contraseña"}
                     />
                   </div>
                 </div>
                 <div className="form-column">
                   <div className="form-group">
-                    <label className="form-label">CONFIRMACIÓN *</label>
+                    <label className="form-label">
+                      CONFIRMACIÓN {!editingUser && '*'}
+                      {editingUser && <span className="optional-label">(Solo si cambia contraseña)</span>}
+                    </label>
                     <input
                       type="password"
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                       className="form-input"
-                      required
-                      placeholder="Confirme la contraseña"
+                      required={!editingUser}
+                      placeholder={editingUser ? "Solo si cambia contraseña" : "Confirme la contraseña"}
                     />
                   </div>
                 </div>
@@ -652,9 +724,29 @@ const Users = ({ onVolver }) => {
                   className="form-input"
                   required
                   placeholder="correo@ejemplo.com"
+                  disabled={editingUser ? true : false}
                 />
+                {editingUser && <small className="form-hint">El email no se puede modificar</small>}
               </div>
-              {/* Estado omitido en creación: por defecto activo */}
+              {/* Estado solo en edición */}
+              {editingUser && (
+                <div className="form-group full-width">
+                  <label className="form-label">ESTADO</label>
+                  <div className="switch-container">
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={formData.estado}
+                        onChange={(e) => setFormData({ ...formData, estado: e.target.checked })}
+                      />
+                      <span className="slider"></span>
+                    </label>
+                    <span className={`status-text ${formData.estado ? 'active' : 'inactive'}`}>
+                      {formData.estado ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -739,9 +831,6 @@ const Users = ({ onVolver }) => {
                               />
                               <span className="rol-slider"></span>
                             </label>
-                            <span className={`rol-status-text ${sedeSeleccionada === sucursal._id ? 'active' : 'inactive'}`}>
-                              {sedeSeleccionada === sucursal._id ? 'Asignada' : 'No asignada'}
-                            </span>
                           </div>
                         </div>
                       </div>
@@ -837,9 +926,6 @@ const Users = ({ onVolver }) => {
                               />
                               <span className="rol-slider"></span>
                             </label>
-                            <span className={`rol-status-text ${rolesSeleccionados[rol._id] ? 'active' : 'inactive'}`}>
-                              {rolesSeleccionados[rol._id] ? 'Asignado' : 'No asignado'}
-                            </span>
                           </div>
                         </div>
                       </div>
