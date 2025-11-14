@@ -62,57 +62,11 @@ jobs:
       # Evita el error: "Expected JS module but got text/html"
       - name: 🚀 Sync dist/ to S3 with correct MIME types
         run: |
-          # Primero sincronizar para eliminar archivos obsoletos
-          aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} --delete
-          
-          # Luego corregir los MIME types de todos los archivos según su extensión
-          find dist -type f | while read file; do
-            filename=$(basename "$file")
-            relpath="${file#dist/}"
-            
-            # Determinar content-type según extensión
-            case "$filename" in
-              *.js)
-                content_type="application/javascript; charset=utf-8"
-                ;;
-              *.css)
-                content_type="text/css; charset=utf-8"
-                ;;
-              *.html)
-                content_type="text/html; charset=utf-8"
-                ;;
-              *.json)
-                content_type="application/json; charset=utf-8"
-                ;;
-              *.svg)
-                content_type="image/svg+xml"
-                ;;
-              *.png)
-                content_type="image/png"
-                ;;
-              *.jpg|*.jpeg)
-                content_type="image/jpeg"
-                ;;
-              *.gif)
-                content_type="image/gif"
-                ;;
-              *.webp)
-                content_type="image/webp"
-                ;;
-              *.woff|*.woff2)
-                content_type="font/woff2"
-                ;;
-              *)
-                # Para otros tipos, usar el tipo detectado automáticamente por S3
-                continue
-                ;;
-            esac
-            
-            # Actualizar el MIME type del archivo en S3
-            aws s3 cp "s3://${{ env.FRONT_BUCKET }}/$relpath" "s3://${{ env.FRONT_BUCKET }}/$relpath" \
-              --content-type "$content_type" \
-              --metadata-directive REPLACE
-          done
+          aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} \
+            --delete \
+            --metadata-directive REPLACE \
+            --content-type "" \
+            --size-only
 
       # ✅ Invalidar CloudFront para limpiar caché por completo
       - name: 🔄 Invalidate CloudFront cache
