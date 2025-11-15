@@ -2,14 +2,14 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>UR Jobs - Universidad del Rosario</title>
+
     <style>
-      /* Estilos de carga inicial para evitar FOUC */
       body {
         margin: 0;
         padding: 0;
@@ -19,61 +19,86 @@
       #root {
         min-height: 100vh;
       }
-      /* Mensaje de error si JavaScript falla */
+      /* Mensaje si JS está deshabilitado */
       .no-js-message {
         display: none;
         text-align: center;
         padding: 50px 20px;
         color: #c41e3a;
       }
-      .no-js-message h1 {
-        font-size: 24px;
-        margin-bottom: 20px;
+      noscript .no-js-message {
+        display: block;
       }
-      .no-js-message p {
-        font-size: 16px;
-        line-height: 1.6;
-        color: #666;
+    </style>
+  </head>
+
+  <body>
+    <noscript>
+      <div class="no-js-message">
+        <h1>⚠️ JavaScript requerido</h1>
+        <p>Esta aplicación requiere JavaScript para funcionar. Por favor, habilítalo y recarga la página.</p>
+      </div>
+    </noscript>
+
+    <div id="root">
+      <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #666;">
+        Cargando...
+      </div>
+    </div>
+
+    <!-- ⚠️ IMPORTANTE: usar ./ porque base="./" -->
+    <script type="module" src="./src/main.jsx"></script>
+  </body>
+</html>
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>UR Jobs - Universidad del Rosario</title>
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #f5f5f5;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      /* Mensaje si JS está deshabilitado */
+      .no-js-message {
+        display: none;
+        text-align: center;
+        padding: 50px 20px;
+        color: #c41e3a;
       }
       noscript .no-js-message {
         display: block;
       }
     </style>
   </head>
+
   <body>
     <noscript>
       <div class="no-js-message">
         <h1>⚠️ JavaScript requerido</h1>
-        <p>Esta aplicación requiere JavaScript para funcionar. Por favor, habilita JavaScript en tu navegador y recarga la página.</p>
+        <p>Esta aplicación requiere JavaScript para funcionar. Por favor, habilítalo y recarga la página.</p>
       </div>
     </noscript>
+
     <div id="root">
       <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #666;">
         Cargando...
       </div>
     </div>
-    <script type="module" src="/src/main.jsx"></script>
-    <script>
-      // Manejo de errores de carga de módulos
-      window.addEventListener('error', function(e) {
-        if (e.target && e.target.tagName === 'SCRIPT' && e.target.type === 'module') {
-          console.error('Error cargando módulo:', e.target.src, e.message);
-          const root = document.getElementById('root');
-          if (root) {
-            root.innerHTML = `
-              <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; padding: 20px; text-align: center;">
-                <h1 style="color: #c41e3a; margin-bottom: 20px;">⚠️ Error al cargar la aplicación</h1>
-                <p style="color: #666; margin-bottom: 20px; max-width: 500px;">
-                  No se pudo cargar la aplicación. Por favor, verifica tu conexión a internet y recarga la página.
-                </p>
-                <button onclick="window.location.reload()" style="padding: 12px 24px; background-color: #c41e3a; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">
-                  Recargar página
-                </button>
-              </div>
-            `;
-          }
-        }
-      }, true);
-    </script>
+
+    <!-- ⚠️ IMPORTANTE: usar ./ porque base="./" -->
+    <script type="module" src="./src/main.jsx"></script>
   </body>
 </html>
