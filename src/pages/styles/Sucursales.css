@@ -237,11 +237,247 @@
   }
 }
 
+/* Responsive para móviles */
+@media (max-width: 768px) {
+  .sucursales-content {
+    max-height: calc(100vh - 60px - 50px);
+  }
+
+  .sucursales-header {
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px;
+    align-items: stretch;
+  }
+
+  .section-header-title {
+    width: 100%;
+    min-width: auto;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  .configuracion-actions {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .btn-volver,
+  .btn-refresh,
+  .btn-guardar,
+  .btn-crear {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .companies-filters {
+    width: 100%;
+    margin: 0;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .search-input {
+    font-size: 14px;
+    padding: 10px 8px 10px 34px;
+  }
+
+  .sucursales-section {
+    padding: 15px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .form-group {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .form-group label {
+    font-size: 10px;
+    padding: 8px 10px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .section-title {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  .sucursales-table-container {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  .sucursales-table {
+    min-width: 600px;
+  }
+
+  .sucursales-table th,
+  .sucursales-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .switch-container {
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .status-text {
+    font-size: 10px;
+  }
+
+  .loading-container {
+    padding: 30px 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sucursales-content {
+    max-height: calc(100vh - 55px - 50px);
+  }
+
+  .sucursales-header {
+    padding: 12px;
+  }
+
+  .section-header-title {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .btn-volver,
+  .btn-refresh,
+  .btn-guardar,
+  .btn-crear {
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .btn-icon {
+    font-size: 14px;
+  }
+
+  .companies-filters {
+    padding: 10px;
+  }
+
+  .search-input {
+    font-size: 13px;
+    padding: 8px 8px 8px 32px;
+  }
+
+  .search-icon {
+    left: 10px;
+    font-size: 14px;
+  }
+
+  .sucursales-section {
+    padding: 12px;
+  }
+
+  .form-group label {
+    font-size: 9px;
+    padding: 6px 8px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 13px;
+    padding: 8px;
+  }
+
+  .section-title {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .sucursales-table-container {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .sucursales-table {
+    min-width: 500px;
+  }
+
+  .sucursales-table th,
+  .sucursales-table td {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .switch-container {
+    gap: 6px;
+  }
+
+  .status-text {
+    font-size: 9px;
+  }
+
+  .loading-container {
+    padding: 20px 12px;
+  }
+
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border-width: 3px;
+  }
+}
+
+/* Contenedor de tabla */
+.sucursales-table-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 15px;
+  border-top: 2px solid #c41e3a;
+  padding-top: 15px;
+}
+
+.sucursales-table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.sucursales-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.sucursales-table-container::-webkit-scrollbar-thumb {
+  background: #c41e3a;
+  border-radius: 4px;
+}
+
+.sucursales-table-container::-webkit-scrollbar-thumb:hover {
+  background: #a01730;
+}
+
 /* Tabla */
 .sucursales-table {
   width: 100%;
   border-collapse: collapse;
   background: #fff;
+  min-width: 600px;
 }
 
 .sucursales-table thead {

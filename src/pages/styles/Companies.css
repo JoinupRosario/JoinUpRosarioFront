@@ -128,7 +128,391 @@
 .file-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .file-name { border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; font-size: 13px; background: #fff; }
 
-@media (max-width: 900px){ .form-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px){ 
+  .form-grid { grid-template-columns: 1fr; } 
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+  .companies-content {
+    max-height: calc(100vh - 60px - 50px);
+  }
+
+  .companies-header {
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px;
+    align-items: stretch;
+  }
+
+  .section-header {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .section-header h3 {
+    font-size: 12px;
+  }
+
+  .configuracion-actions {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .btn-volver,
+  .btn-guardar {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .companies-section {
+    padding: 15px;
+  }
+
+  .companies-tabs {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tab {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .companies-filters {
+    flex-direction: column;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .search-input {
+    font-size: 14px;
+    padding: 10px 8px 10px 34px;
+  }
+
+  .btn-refresh-small {
+    width: 28px;
+    height: 28px;
+    right: 6px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .form-group {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .form-group label {
+    font-size: 10px;
+    padding: 8px 10px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .entity-title,
+  .section-title {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  .users-table-container {
+    overflow-x: auto;
+  }
+
+  .users-table {
+    min-width: 800px;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .status-select {
+    font-size: 12px;
+    padding: 6px 8px;
+    min-width: 150px;
+  }
+
+  .sedes-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .sedes-tab {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .btn-agregar-sede {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .sede-form-container {
+    padding: 12px;
+  }
+
+  .sede-form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-guardar-sede,
+  .btn-cancelar-sede {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .sedes-table-container {
+    overflow-x: auto;
+  }
+
+  .sedes-table {
+    min-width: 700px;
+  }
+
+  .sedes-table th,
+  .sedes-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .sede-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .btn-action {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .contacts-section {
+    padding: 15px;
+  }
+
+  .contacts-header {
+    margin-bottom: 15px;
+  }
+
+  .contacts-header .btn-guardar {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+
+  .contacts-table {
+    overflow-x: auto;
+    display: block;
+    min-width: 800px;
+  }
+
+  .contacts-table th,
+  .contacts-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .contact-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .contact-actions .btn-action {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .contact-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-actions .btn-volver,
+  .form-actions .btn-guardar {
+    width: 100%;
+  }
+
+  .modal {
+    width: calc(100% - 24px);
+    max-width: none;
+  }
+
+  .modal-header {
+    padding: 10px 12px;
+  }
+
+  .modal-header h4 {
+    font-size: 14px;
+  }
+
+  .modal-body {
+    padding: 12px;
+  }
+
+  .modal-footer {
+    padding: 10px 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-footer .btn-secondary,
+  .modal-footer .btn-guardar {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .companies-content {
+    max-height: calc(100vh - 55px - 50px);
+  }
+
+  .companies-header {
+    padding: 12px;
+  }
+
+  .section-header h3 {
+    font-size: 11px;
+  }
+
+  .btn-volver,
+  .btn-guardar {
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .btn-icon {
+    font-size: 14px;
+  }
+
+  .companies-section {
+    padding: 12px;
+  }
+
+  .tab {
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+
+  .companies-filters {
+    padding: 10px;
+  }
+
+  .search-input {
+    font-size: 13px;
+    padding: 8px 8px 8px 32px;
+  }
+
+  .search-icon {
+    left: 10px;
+    font-size: 14px;
+  }
+
+  .form-group label {
+    font-size: 9px;
+    padding: 6px 8px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 13px;
+    padding: 8px;
+  }
+
+  .entity-title,
+  .section-title {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .users-table {
+    min-width: 700px;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .status-select {
+    font-size: 11px;
+    padding: 5px 6px;
+    min-width: 120px;
+  }
+
+  .sedes-table {
+    min-width: 600px;
+  }
+
+  .sedes-table th,
+  .sedes-table td {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .contacts-table {
+    min-width: 700px;
+  }
+
+  .contacts-table th,
+  .contacts-table td {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .btn-action {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+
+  .modal-header h4 {
+    font-size: 13px;
+  }
+
+  .modal-body {
+    padding: 10px;
+  }
+
+  .modal-field label {
+    font-size: 11px;
+  }
+
+  .modal-field select {
+    font-size: 13px;
+    padding: 8px;
+  }
+}
 
 /* Programas de interés */
 .programs-section { margin-top: 10px; padding: 8px 0 2px; }

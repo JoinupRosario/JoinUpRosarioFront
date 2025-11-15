@@ -115,18 +115,16 @@ export default function Login() {
         <div className="right-section">
           {/* Header con logos */}
           <div className="login-header">
-            <div className="header-left">
+            <div className="header-center">
               <img 
                 src={logoRosarioImg} 
                 alt="Universidad del Rosario" 
                 className="ur-logo"
               />
-            </div>
-            <div className="header-right">
               <img 
                 src={logoURjobsImg} 
                 alt="UR JOBS" 
-                className="urjobs-logo"
+                className="urjobs-logo-bottom"
               />
             </div>
           </div>

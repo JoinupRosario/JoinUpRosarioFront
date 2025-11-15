@@ -153,27 +153,134 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .configuracion-actions {
-    padding: 15px 20px;
+  .configuracion-content {
+    max-height: calc(100vh - 60px - 50px);
+  }
+
+  .configuracion-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+    margin-bottom: 15px;
+  }
+
+  .section-header {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .section-header h3 {
+    font-size: 12px;
+  }
+
+  .btn-volver {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .btn-icon {
+    font-size: 16px;
   }
 
   .configuracion-section {
-    padding: 20px;
+    padding: 15px;
+  }
+
+  .configuracion-list {
+    margin-top: 12px;
+    padding-top: 12px;
+    max-width: 100%;
   }
 
   .configuracion-item {
-    padding: 15px;
-    flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
+    padding: 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
   }
 
   .configuracion-icon {
+    width: 36px;
+    height: 36px;
     margin-right: 0;
-    margin-bottom: 15px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .configuracion-icon svg {
+    font-size: 18px;
   }
 
   .configuracion-info {
     width: 100%;
+    min-width: 0;
+  }
+
+  .configuracion-title {
+    font-size: 14px;
+  }
+
+  .configuracion-descripcion {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .configuracion-content {
+    max-height: calc(100vh - 55px - 50px);
+  }
+
+  .configuracion-header {
+    gap: 10px;
+  }
+
+  .section-header {
+    padding: 8px 12px;
+  }
+
+  .section-header h3 {
+    font-size: 11px;
+  }
+
+  .btn-volver {
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .btn-icon {
+    font-size: 14px;
+  }
+
+  .configuracion-section {
+    padding: 12px;
+  }
+
+  .configuracion-list {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .configuracion-item {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .configuracion-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .configuracion-icon svg {
+    font-size: 16px;
+  }
+
+  .configuracion-title {
+    font-size: 13px;
+  }
+
+  .configuracion-descripcion {
+    font-size: 11px;
   }
 }

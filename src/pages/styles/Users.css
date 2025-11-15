@@ -984,54 +984,157 @@ input:checked+.slider:before {
 }
 
 @media (max-width: 768px) {
+  .users-content {
+    max-height: calc(100vh - 60px - 50px);
+  }
+
   .users-section {
-    padding: 20px;
+    padding: 15px;
   }
 
   .users-header {
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
     align-items: stretch;
+  }
+
+  .section-header {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .section-header h3 {
+    font-size: 12px;
   }
 
   .configuracion-actions {
     justify-content: center;
     flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-volver,
+  .btn-guardar {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 12px;
   }
 
   .users-filters {
     flex-direction: column;
+    padding: 12px;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .search-input {
+    font-size: 14px;
+    padding: 10px 8px 10px 35px;
   }
 
   .form-layout {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .form-group {
+    gap: 6px;
+  }
+
+  .form-label {
+    font-size: 10px;
+  }
+
+  .form-input {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .users-table-container {
+    margin-top: 12px;
+    padding-top: 12px;
   }
 
   .users-table {
     display: block;
     overflow-x: auto;
+    min-width: 800px;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 8px 10px;
+    font-size: 11px;
   }
 
   .user-actions {
     flex-direction: column;
+    gap: 6px;
+  }
+
+  .btn-action {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .association-bar {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .association-info {
+    text-align: center;
+  }
+
+  .selected-user-info {
+    font-size: 12px;
+  }
+
+  .association-actions {
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-association {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 11px;
   }
 
   .roles-header-info {
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
     text-align: center;
+    padding: 12px;
+  }
+
+  .user-title {
+    font-size: 14px;
+  }
+
+  .roles-stats {
+    font-size: 11px;
   }
 
   .roles-table-header {
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     padding: 10px;
+    font-size: 11px;
   }
 
   .rol-table-row {
     flex-direction: column;
     gap: 10px;
-    padding: 15px;
+    padding: 12px;
   }
 
   .rol-col-nombre,
@@ -1040,31 +1143,143 @@ input:checked+.slider:before {
     text-align: left;
   }
 
+  .rol-name {
+    font-size: 11px;
+  }
+
   .rol-status {
     align-self: flex-start;
+  }
+
+  .switch-container {
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .status-text {
+    font-size: 10px;
   }
 }
 
 @media (max-width: 480px) {
+  .users-content {
+    max-height: calc(100vh - 55px - 50px);
+  }
+
   .users-section {
-    padding: 15px;
+    padding: 12px;
+  }
+
+  .users-header {
+    gap: 10px;
+  }
+
+  .section-header {
+    padding: 8px 12px;
+  }
+
+  .section-header h3 {
+    font-size: 11px;
   }
 
   .configuracion-actions {
     flex-direction: column;
+    gap: 6px;
   }
 
   .btn-volver,
   .btn-guardar {
+    width: 100%;
     justify-content: center;
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .btn-icon {
+    font-size: 16px;
+  }
+
+  .users-filters {
+    padding: 10px;
+  }
+
+  .search-input {
+    font-size: 13px;
+    padding: 8px 8px 8px 32px;
+  }
+
+  .search-icon {
+    left: 10px;
+    font-size: 16px;
+  }
+
+  .users-table {
+    min-width: 700px;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 6px 8px;
+    font-size: 10px;
   }
 
   .user-actions {
     flex-direction: column;
+    gap: 4px;
   }
 
   .btn-action {
+    width: 100%;
     justify-content: center;
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+
+  .association-bar {
+    padding: 10px;
+  }
+
+  .selected-user-info {
+    font-size: 11px;
+  }
+
+  .btn-association {
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  .form-group {
+    gap: 4px;
+  }
+
+  .form-label {
+    font-size: 9px;
+  }
+
+  .form-input {
+    font-size: 13px;
+    padding: 8px;
+  }
+
+  .user-title {
+    font-size: 13px;
+  }
+
+  .roles-stats {
+    font-size: 10px;
+  }
+
+  .rol-name {
+    font-size: 10px;
+  }
+
+  .switch-container {
+    gap: 6px;
+  }
+
+  .status-text {
+    font-size: 9px;
   }
 }
 

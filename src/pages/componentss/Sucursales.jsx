@@ -420,53 +420,55 @@ export default function Sucursales({ onVolver }) {
             <p>Cargando...</p>
           </div>
         ) : (
-          <table className="sucursales-table">
-            <thead>
-              <tr>
-                <th>CÓDIGO</th>
-                <th>NOMBRE</th>
-                <th>DIRECTORIO ACTIVO</th>
-                <th>ESTADO</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
+          <div className="sucursales-table-container">
+            <table className="sucursales-table">
+              <thead>
                 <tr>
-                  <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
-                    No hay sucursales registradas
-                  </td>
+                  <th>CÓDIGO</th>
+                  <th>NOMBRE</th>
+                  <th>DIRECTORIO ACTIVO</th>
+                  <th>ESTADO</th>
                 </tr>
-              ) : (
-                filtered.map(sucursal => (
-                  <tr 
-                    key={sucursal._id}
-                    onClick={() => startEdit(sucursal)}
-                    style={{ cursor: 'pointer' }}
-                    className="table-row-clickable"
-                  >
-                    <td>{sucursal.codigo}</td>
-                    <td>{sucursal.nombre}</td>
-                    <td>{sucursal.directorioActivo?.tipo || '-'}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div className="switch-container">
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={sucursal.estado}
-                            onChange={() => handleEstadoChange(sucursal, !sucursal.estado)}
-                          />
-                          <span className="slider"></span>
-                        </label>
-                        <span className={`status-text ${sucursal.estado ? 'active' : 'inactive'}`}>
-                          {sucursal.estado ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </div>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                      No hay sucursales registradas
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filtered.map(sucursal => (
+                    <tr 
+                      key={sucursal._id}
+                      onClick={() => startEdit(sucursal)}
+                      style={{ cursor: 'pointer' }}
+                      className="table-row-clickable"
+                    >
+                      <td>{sucursal.codigo}</td>
+                      <td>{sucursal.nombre}</td>
+                      <td>{sucursal.directorioActivo?.tipo || '-'}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div className="switch-container">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={sucursal.estado}
+                              onChange={() => handleEstadoChange(sucursal, !sucursal.estado)}
+                            />
+                            <span className="slider"></span>
+                          </label>
+                          <span className={`status-text ${sucursal.estado ? 'active' : 'inactive'}`}>
+                            {sucursal.estado ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

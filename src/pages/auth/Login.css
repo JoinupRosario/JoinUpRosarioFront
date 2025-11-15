@@ -49,7 +49,8 @@ html, body {
 .main-content {
   display: flex;
   width: 100%;
-  height: 100%;
+  height: 100vh;
+  min-height: 100%;
   margin: 0;
   padding: 0;
   position: relative;
@@ -61,7 +62,8 @@ html, body {
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 100vh;
+  min-height: 100%;
   margin: 0;
   padding: 0;
   z-index: 0;
@@ -71,8 +73,9 @@ html, body {
 .background-image {
   width: 100%;
   height: 100%;
+  min-height: 100vh;
   object-fit: cover;
-  object-position: center;
+  object-position: center center;
   display: block;
   animation: subtleZoom 20s ease-in-out infinite alternate;
 }
@@ -97,6 +100,7 @@ html, body {
   padding: 40px 50px;
   color: #FFFFFC;
   overflow-y: auto;
+  overflow-x: hidden;
   margin: 0;
   margin-left: auto;
   position: relative;
@@ -119,33 +123,34 @@ html, body {
 /* Header con logos */
 .login-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 50px;
+  margin-bottom: 40px;
   padding-top: 20px;
-  margin-left: -15px;
-  margin-right: -15px;
 }
 
-.header-left {
+.header-center {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  animation: fadeInLeft 0.8s ease-out 0.3s both;
+  justify-content: center;
+  gap: 12px;
+  animation: fadeInDown 0.8s ease-out 0.3s both;
 }
 
-@keyframes fadeInLeft {
+@keyframes fadeInDown {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: translateY(-20px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
 .ur-logo {
-  height: 110px;
+  height: 100px;
   width: auto;
   object-fit: contain;
   transition: transform 0.3s ease, filter 0.3s ease;
@@ -157,34 +162,19 @@ html, body {
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  animation: fadeInRight 0.8s ease-out 0.4s both;
-}
-
-@keyframes fadeInRight {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.urjobs-logo {
-  height: 100px;
+.urjobs-logo-bottom {
+  height: 60px;
   width: auto;
   object-fit: contain;
   transition: transform 0.3s ease, filter 0.3s ease;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+  opacity: 0.9;
 }
 
-.urjobs-logo:hover {
+.urjobs-logo-bottom:hover {
   transform: scale(1.05);
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
+  opacity: 1;
 }
 
 /* Formulario */
@@ -482,37 +472,48 @@ html, body {
   }
   
   .left-section {
-    position: relative;
-    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 0;
   }
 
   .background-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
     animation: none; /* Desactiva el zoom en móviles para mejor rendimiento */
   }
   
   .right-section {
     width: 100%;
-    height: 100vh;
+    min-height: 100vh;
+    height: auto;
     background: linear-gradient(135deg, rgba(218, 9, 33, 0.98), rgba(200, 8, 30, 0.97));
     box-shadow: none;
     padding: 30px 25px;
     animation: fadeIn 0.6s ease-in-out; /* Cambia la animación en móvil */
+    position: relative;
+    z-index: 1;
   }
   
   .login-header {
-    flex-direction: column;
-    gap: 15px;
-    margin-bottom: 30px;
-  }
-
-  .header-left,
-  .header-right {
-    animation-delay: 0.2s; /* Reduce el delay en móvil */
+    margin-bottom: 25px;
   }
   
-  .ur-logo,
-  .urjobs-logo {
-    height: 60px;
+  .header-center {
+    gap: 10px;
+  }
+  
+  .ur-logo {
+    height: 70px;
+  }
+
+  .urjobs-logo-bottom {
+    height: 45px;
   }
 
   .section-title {
@@ -579,12 +580,30 @@ html, body {
 }
 
 @media (max-width: 1024px) and (min-width: 769px) {
+  .left-section {
+    height: 100vh;
+    min-height: 100%;
+  }
+
+  .background-image {
+    min-height: 100vh;
+  }
+
   .right-section {
     width: 45%;
   }
 }
 
 @media (max-width: 1250px) and (min-width: 800px) {
+  .left-section {
+    height: 100vh;
+    min-height: 100%;
+  }
+
+  .background-image {
+    min-height: 100vh;
+  }
+
   .right-section {
     width: 45%;
   }

@@ -204,37 +204,139 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .configuracion-personal {
-    padding: 0;
+  .notificaciones-content {
+    max-height: calc(100vh - 60px - 50px);
   }
 
-  .configuracion-header {
-    padding: 15px 20px;
+  .notificaciones-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+    margin-bottom: 15px;
   }
 
-  .configuracion-header h2 {
-    font-size: 20px;
+  .section-header {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .section-header h3 {
+    font-size: 12px;
   }
 
   .configuracion-actions {
-    padding: 15px 20px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .btn-volver,
+  .btn-guardar {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .btn-icon {
+    font-size: 16px;
   }
 
   .notificaciones-section {
-    padding: 20px;
+    padding: 15px;
+  }
+
+  .notificaciones-list {
+    margin-top: 12px;
+    padding-top: 12px;
+    max-width: 100%;
   }
 
   .notificacion-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
-    padding: 15px;
+    padding: 12px;
   }
 
-  .notificacion-toggle {
+  .notificacion-label {
+    font-size: 13px;
     width: 100%;
-    justify-content: flex-end;
+  }
+
+  .rol-switch-container {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .rol-status-text {
+    font-size: 10px;
+    min-width: 45px;
+  }
+}
+
+@media (max-width: 480px) {
+  .notificaciones-content {
+    max-height: calc(100vh - 55px - 50px);
+  }
+
+  .notificaciones-header {
+    gap: 10px;
+  }
+
+  .section-header {
+    padding: 8px 12px;
+  }
+
+  .section-header h3 {
+    font-size: 11px;
+  }
+
+  .btn-volver,
+  .btn-guardar {
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .btn-icon {
+    font-size: 14px;
+  }
+
+  .notificaciones-section {
+    padding: 12px;
+  }
+
+  .notificaciones-list {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .notificacion-item {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .notificacion-label {
+    font-size: 12px;
+  }
+
+  .rol-switch {
+    width: 40px;
+    height: 20px;
+  }
+
+  .rol-slider:before {
+    height: 14px;
+    width: 14px;
+  }
+
+  .rol-switch input:checked + .rol-slider:before {
+    transform: translateX(20px);
+  }
+
+  .rol-status-text {
+    font-size: 9px;
+    min-width: 40px;
   }
 }
 

@@ -1239,27 +1239,533 @@
 }
 
 @media (max-width: 768px) {
+  .oportunidades-content {
+    max-height: calc(100vh - 60px - 50px);
+  }
+
+  .oportunidades-header {
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px;
+    align-items: stretch;
+  }
+
+  .section-header,
+  .section-header-title {
+    width: 100%;
+    min-width: auto;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  .configuracion-actions {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .btn-volver,
+  .btn-refresh,
+  .btn-crear {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .oportunidades-section {
+    padding: 15px;
+  }
+
+  .oportunidades-info {
+    padding: 8px 15px;
+  }
+
+  .oportunidades-info p {
+    font-size: 12px;
+  }
+
+  .filtros-ordenar-container {
+    grid-template-columns: 1fr;
+  }
+
+  .filtros-busqueda-section {
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 12px 15px;
+  }
+
+  .ordenar-section {
+    padding: 12px 15px;
+  }
+
+  .filtros-header h4,
+  .ordenar-header h4 {
+    font-size: 13px;
+  }
+
+  .filtros-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-mas-filtros,
+  .btn-buscar,
+  .btn-limpiar {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .filtros-content,
+  .ordenar-content {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .filtro-item label,
+  .ordenar-label {
+    font-size: 12px;
+  }
+
+  .filtro-item input[type="text"],
+  .filtro-item input[type="date"],
+  .filtro-item select,
+  .ordenar-select {
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  .filtro-dates {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .oportunidades-filters {
+    padding: 12px 15px;
+  }
+
+  .filter-group {
+    flex-direction: column;
+    max-width: 100%;
+    gap: 8px;
+  }
+
+  .filter-input {
+    width: 100%;
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .oportunidades-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-top: 15px;
+  }
+
+  .oportunidad-card {
+    border-radius: 8px;
+  }
+
+  .oportunidad-header {
+    padding: 10px 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .oportunidad-title {
+    font-size: 14px;
+  }
+
+  .oportunidad-number {
+    font-size: 10px;
+  }
+
+  .oportunidad-body {
+    padding: 12px;
+  }
+
+  .oportunidad-company {
+    font-size: 13px;
+  }
+
+  .oportunidad-remuneration {
+    font-size: 14px;
+  }
+
+  .oportunidad-footer {
+    padding: 10px 12px;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .oportunidad-icons {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
   .practica-form {
     grid-template-columns: 1fr;
+    gap: 15px;
   }
   
   .country-city-group {
     grid-template-columns: 1fr;
+    gap: 15px;
   }
   
   .form-header-actions {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
   }
   
   .btn-guardar,
   .btn-volver-form {
     width: 100%;
     justify-content: center;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .form-title-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .form-title {
+    font-size: 18px;
+  }
+
+  .form-subtitle {
+    font-size: 12px;
+  }
+
+  .form-label,
+  .form-label-with-icon {
+    font-size: 13px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .company-selection-container {
+    padding: 15px;
+    margin-bottom: 30px;
+  }
+
+  .tipo-oportunidad-container {
+    padding: 30px 15px;
+  }
+
+  .tipo-oportunidad-title {
+    font-size: 20px;
+    margin-bottom: 30px;
+  }
+
+  .tipo-oportunidad-card {
+    padding: 20px;
+    gap: 15px;
+  }
+
+  .tipo-oportunidad-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+
+  .tipo-oportunidad-text {
+    font-size: 16px;
+  }
+
+  .modal-overlay {
+    padding: 15px;
+  }
+
+  .modal-content {
+    max-width: 100%;
+    max-height: 95vh;
+  }
+
+  .modal-header {
+    padding: 15px 18px;
+  }
+
+  .modal-header h3 {
+    font-size: 18px;
+  }
+
+  .modal-body {
+    padding: 18px;
+  }
+
+  .modal-footer {
+    padding: 15px 18px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-aceptar {
+    width: 100%;
+    padding: 10px 20px;
+  }
+
+  .pagination-container {
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
+    align-items: stretch;
+  }
+
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .pagination-btn,
+  .pagination-number {
+    padding: 6px 12px;
+    font-size: 12px;
   }
   
   .tooltip-content {
     width: 250px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .oportunidades-content {
+    max-height: calc(100vh - 55px - 50px);
+  }
+
+  .oportunidades-header {
+    padding: 12px;
+  }
+
+  .section-header,
+  .section-header-title {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .btn-volver,
+  .btn-refresh,
+  .btn-crear {
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .btn-icon {
+    font-size: 14px;
+  }
+
+  .oportunidades-section {
+    padding: 12px;
+  }
+
+  .oportunidades-info {
+    padding: 6px 12px;
+  }
+
+  .oportunidades-info p {
+    font-size: 11px;
+  }
+
+  .filtros-busqueda-section,
+  .ordenar-section {
+    padding: 10px 12px;
+  }
+
+  .filtros-header h4,
+  .ordenar-header h4 {
+    font-size: 12px;
+  }
+
+  .filtros-icon,
+  .ordenar-icon {
+    font-size: 14px;
+  }
+
+  .btn-mas-filtros,
+  .btn-buscar,
+  .btn-limpiar {
+    padding: 8px 14px;
+    font-size: 11px;
+  }
+
+  .filtro-item label,
+  .ordenar-label {
+    font-size: 11px;
+  }
+
+  .filtro-item input[type="text"],
+  .filtro-item input[type="date"],
+  .filtro-item select,
+  .ordenar-select {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .oportunidades-filters {
+    padding: 10px 12px;
+  }
+
+  .filter-input {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  .oportunidades-grid {
+    gap: 12px;
+  }
+
+  .oportunidad-header {
+    padding: 8px 10px;
+  }
+
+  .oportunidad-title {
+    font-size: 13px;
+  }
+
+  .oportunidad-number {
+    font-size: 9px;
+  }
+
+  .oportunidad-body {
+    padding: 10px;
+  }
+
+  .oportunidad-company {
+    font-size: 12px;
+  }
+
+  .oportunidad-remuneration {
+    font-size: 13px;
+  }
+
+  .oportunidad-footer {
+    padding: 8px 10px;
+  }
+
+  .status-text {
+    font-size: 11px;
+  }
+
+  .oportunidad-type-icon {
+    font-size: 11px;
+  }
+
+  .oportunidad-type-icon svg {
+    font-size: 14px;
+  }
+
+  .oportunidad-applicants-icon svg {
+    font-size: 16px;
+  }
+
+  .applicants-badge {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+  }
+
+  .form-title {
+    font-size: 16px;
+  }
+
+  .form-subtitle {
+    font-size: 11px;
+  }
+
+  .form-label,
+  .form-label-with-icon {
+    font-size: 12px;
+  }
+
+  .label-icon {
+    font-size: 16px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  .company-selection-container {
+    padding: 12px;
+  }
+
+  .tipo-oportunidad-container {
+    padding: 20px 12px;
+  }
+
+  .tipo-oportunidad-title {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
+  .tipo-oportunidad-card {
+    padding: 15px;
+    gap: 12px;
+  }
+
+  .tipo-oportunidad-icon {
+    width: 45px;
+    height: 45px;
+    font-size: 20px;
+  }
+
+  .tipo-oportunidad-text {
+    font-size: 14px;
+  }
+
+  .modal-header {
+    padding: 12px 15px;
+  }
+
+  .modal-header h3 {
+    font-size: 16px;
+  }
+
+  .modal-body {
+    padding: 15px;
+  }
+
+  .modal-footer {
+    padding: 12px 15px;
+  }
+
+  .pagination-container {
+    padding: 12px;
+  }
+
+  .pagination-info {
+    font-size: 12px;
+  }
+
+  .pagination-btn,
+  .pagination-number {
+    padding: 5px 10px;
+    font-size: 11px;
+    min-width: 32px;
+    height: 32px;
+  }
+
+  .tooltip-content {
+    width: 200px;
+    font-size: 11px;
+    padding: 10px 12px;
   }
 }
 
