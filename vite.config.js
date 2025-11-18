@@ -8,16 +8,7 @@ export default defineConfig({
   build: {
     // Target compatible con iOS Safari 11+ (iOS 11+)
     target: ['es2015', 'safari11'],
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false, // Mantener console para debugging en producción
-        passes: 2, // Optimización adicional
-      },
-      format: {
-        comments: false,
-      },
-    },
+    minify: 'esbuild', // Usar esbuild (incluido en Vite, más rápido que terser)
     rollupOptions: {
       output: {
         // Asegurar nombres de archivo compatibles
