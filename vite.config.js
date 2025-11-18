@@ -3,16 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react({
-      // Configuración de Babel para mejor compatibilidad con iOS
-      babel: {
-        presets: [
-          ['@babel/preset-react', { runtime: 'automatic' }]
-        ],
-      },
-    })
-  ],
+  plugins: [react()],
   base: './',
   build: {
     // Target compatible con iOS Safari 11+ (iOS 11+)
