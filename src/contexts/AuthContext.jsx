@@ -45,37 +45,9 @@ export const AuthProvider = ({ children }) => {
     // Función para verificar y restaurar la sesión
     const checkAuth = async () => {
       try {
-        // Función auxiliar para acceder a localStorage de forma segura (iOS compatible)
-        const safeGetItem = (key) => {
-          try {
-            return localStorage.getItem(key);
-          } catch (e) {
-            console.warn(`No se pudo acceder a localStorage (${key}):`, e.message);
-            return null;
-          }
-        };
-
-        const safeSetItem = (key, value) => {
-          try {
-            localStorage.setItem(key, value);
-            return true;
-          } catch (e) {
-            console.warn(`No se pudo escribir en localStorage (${key}):`, e.message);
-            return false;
-          }
-        };
-
-        const safeRemoveItem = (key) => {
-          try {
-            localStorage.removeItem(key);
-          } catch (e) {
-            console.warn(`No se pudo eliminar de localStorage (${key}):`, e.message);
-          }
-        };
-
         // Verificar si hay token guardado
-        const token = safeGetItem('token');
-        const user = safeGetItem('user');
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
         
         if (token && user) {
           try {
@@ -85,7 +57,7 @@ export const AuthProvider = ({ children }) => {
             if (userData && typeof userData === 'object') {
               // Asegurar que el modulo esté en localStorage
               if (userData.modulo) {
-                safeSetItem('modulo', userData.modulo);
+                localStorage.setItem('modulo', userData.modulo);
               }
               
               // Restaurar el estado de autenticación
@@ -101,9 +73,9 @@ export const AuthProvider = ({ children }) => {
           } catch (parseError) {
             console.error('Error al parsear datos de usuario:', parseError);
             // Si hay error al parsear, limpiar datos corruptos
-            safeRemoveItem('token');
-            safeRemoveItem('user');
-            safeRemoveItem('modulo');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('modulo');
           }
         }
         
@@ -111,7 +83,10 @@ export const AuthProvider = ({ children }) => {
         dispatch({ type: 'SET_LOADING', payload: false });
       } catch (error) {
         console.error('Error al verificar autenticación:', error);
-        // En caso de cualquier error, marcar como no autenticado (sin intentar limpiar localStorage si falla)
+        // En caso de cualquier error, limpiar y marcar como no autenticado
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('modulo');
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
@@ -124,24 +99,13 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/login', { email, password });
       const { token, user } = response.data;
       
-      // Función auxiliar para escribir en localStorage de forma segura (iOS compatible)
-      const safeSetItem = (key, value) => {
-        try {
-          localStorage.setItem(key, value);
-          return true;
-        } catch (e) {
-          console.warn(`No se pudo escribir en localStorage (${key}):`, e.message);
-          return false;
-        }
-      };
-      
       // Guardar token y usuario en localStorage
-      safeSetItem('token', token);
-      safeSetItem('user', JSON.stringify(user));
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
       
       // Guardar modulo por separado para fácil acceso
       if (user.modulo) {
-        safeSetItem('modulo', user.modulo);
+        localStorage.setItem('modulo', user.modulo);
       }
       
       dispatch({
@@ -171,20 +135,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    // Limpiar localStorage de forma segura (iOS compatible)
-    try {
-      localStorage.clear();
-    } catch (e) {
-      console.warn('No se pudo limpiar localStorage:', e.message);
-      // Intentar limpiar elementos individuales como fallback
-      try {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('modulo');
-      } catch (e2) {
-        console.warn('No se pudieron eliminar elementos individuales:', e2.message);
-      }
-    }
+    localStorage.clear(); // Limpiar todo el localStorage
     dispatch({ type: 'LOGOUT' });
   };
 

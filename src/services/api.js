@@ -15,14 +15,9 @@ const api = axios.create({
 // Interceptor para agregar token de autenticación
 api.interceptors.request.use(
   (config) => {
-    // Acceso seguro a localStorage (iOS compatible)
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } catch (e) {
-      console.warn('No se pudo acceder a localStorage para obtener token:', e.message);
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -38,13 +33,9 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Token expirado o inválido - limpiar de forma segura (iOS compatible)
-      try {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      } catch (e) {
-        console.warn('No se pudo limpiar localStorage:', e.message);
-      }
+      // Token expirado o inválido
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/#/login';
     }
     return Promise.reject(error);

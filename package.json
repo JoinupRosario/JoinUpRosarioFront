@@ -9,20 +9,6 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all",
-      "ios >= 11",
-      "safari >= 11"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
   "dependencies": {
     "axios": "^1.12.2",
     "country-state-city": "^3.2.1",
