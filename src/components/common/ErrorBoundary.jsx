@@ -49,25 +49,35 @@ class ErrorBoundary extends React.Component {
             <p style={{ color: '#666', marginBottom: '20px', lineHeight: '1.6' }}>
               Ha ocurrido un error inesperado. Por favor, intenta recargar la página.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details style={{
+            {this.state.error && (
+              <div style={{
                 marginTop: '20px',
                 padding: '15px',
                 backgroundColor: '#f9f9f9',
                 borderRadius: '4px',
                 textAlign: 'left',
                 fontSize: '12px',
-                maxHeight: '200px',
+                maxHeight: '300px',
                 overflow: 'auto'
               }}>
-                <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '10px' }}>
-                  Detalles del error (solo en desarrollo)
-                </summary>
-                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                <p style={{ fontWeight: 'bold', marginBottom: '10px', color: '#c41e3a' }}>
+                  Detalles del error:
+                </p>
+                <pre style={{ 
+                  whiteSpace: 'pre-wrap', 
+                  wordBreak: 'break-word',
+                  fontSize: '11px',
+                  lineHeight: '1.4'
+                }}>
                   {this.state.error.toString()}
-                  {this.state.errorInfo?.componentStack}
+                  {this.state.errorInfo?.componentStack && (
+                    <div style={{ marginTop: '10px', borderTop: '1px solid #ddd', paddingTop: '10px' }}>
+                      <strong>Stack trace:</strong>
+                      {this.state.errorInfo.componentStack}
+                    </div>
+                  )}
                 </pre>
-              </details>
+              </div>
             )}
             <button
               onClick={this.handleReload}

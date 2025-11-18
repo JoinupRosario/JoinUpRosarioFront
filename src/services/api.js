@@ -1,7 +1,21 @@
 import axios from 'axios';
 
 // Configuración base de la API
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
+// En producción, usar la URL del backend configurada en el workflow
+let API_BASE_URL = import.meta.env.VITE_BACKEND_URL;
+if (!API_BASE_URL) {
+  // Fallback a URL de producción si no hay variable de entorno
+  API_BASE_URL = 'https://backend.rosario.mozartia.com/api';
+}
+
+// Log para debugging (solo en desarrollo)
+if (import.meta.env.DEV) {
+  console.log('API Base URL:', API_BASE_URL);
+  console.log('Environment vars:', {
+    VITE_BACKEND_URL: import.meta.env.VITE_BACKEND_URL,
+    MODE: import.meta.env.MODE
+  });
+}
 
 // Crear instancia de axios
 const api = axios.create({

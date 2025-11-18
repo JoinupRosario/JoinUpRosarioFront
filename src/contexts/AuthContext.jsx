@@ -44,6 +44,13 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Función para verificar y restaurar la sesión
     const checkAuth = async () => {
+      // Asegurar que estamos en el navegador antes de acceder a localStorage
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        console.warn('localStorage no disponible, marcando como no autenticado');
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return;
+      }
+
       try {
         // Función auxiliar para acceder a localStorage de forma segura (iOS compatible)
         const safeGetItem = (key) => {
