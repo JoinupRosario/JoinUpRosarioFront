@@ -45,9 +45,24 @@ export const AuthProvider = ({ children }) => {
     // Función para verificar y restaurar la sesión
     const checkAuth = async () => {
       try {
+        // Verificar si localStorage está disponible (iOS puede bloquearlo)
+        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+          console.warn('localStorage no disponible');
+          dispatch({ type: 'SET_LOADING', payload: false });
+          return;
+        }
+
         // Verificar si hay token guardado
-        const token = localStorage.getItem('token');
-        const user = localStorage.getItem('user');
+        let token, user;
+        try {
+          token = localStorage.getItem('token');
+          user = localStorage.getItem('user');
+        } catch (storageError) {
+          console.error('Error al acceder a localStorage:', storageError);
+          // Si localStorage falla, continuar como no autenticado
+          dispatch({ type: 'SET_LOADING', payload: false });
+          return;
+        }
         
         if (token && user) {
           try {
