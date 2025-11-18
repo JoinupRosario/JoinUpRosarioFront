@@ -49,25 +49,71 @@ class ErrorBoundary extends React.Component {
             <p style={{ color: '#666', marginBottom: '20px', lineHeight: '1.6' }}>
               Ha ocurrido un error inesperado. Por favor, intenta recargar la página.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details style={{
+            {this.state.error && (
+              <div style={{
                 marginTop: '20px',
                 padding: '15px',
-                backgroundColor: '#f9f9f9',
+                backgroundColor: '#fff5f5',
+                border: '1px solid #feb2b2',
                 borderRadius: '4px',
                 textAlign: 'left',
                 fontSize: '12px',
-                maxHeight: '200px',
-                overflow: 'auto'
+                maxHeight: '300px',
+                overflow: 'auto',
+                width: '100%'
               }}>
-                <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '10px' }}>
-                  Detalles del error (solo en desarrollo)
-                </summary>
-                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                  {this.state.error.toString()}
-                  {this.state.errorInfo?.componentStack}
-                </pre>
-              </details>
+                <p style={{ 
+                  fontWeight: 'bold', 
+                  marginBottom: '10px', 
+                  color: '#c41e3a',
+                  fontSize: '14px'
+                }}>
+                  ⚠️ Detalles del error:
+                </p>
+                <div style={{
+                  backgroundColor: '#fff',
+                  padding: '10px',
+                  borderRadius: '4px',
+                  border: '1px solid #e2e8f0',
+                  marginBottom: '10px'
+                }}>
+                  <pre style={{ 
+                    whiteSpace: 'pre-wrap', 
+                    wordBreak: 'break-word',
+                    fontSize: '11px',
+                    lineHeight: '1.4',
+                    margin: 0,
+                    color: '#2d3748'
+                  }}>
+                    {this.state.error.toString()}
+                  </pre>
+                </div>
+                {this.state.errorInfo?.componentStack && (
+                  <details style={{ marginTop: '10px' }}>
+                    <summary style={{ 
+                      cursor: 'pointer', 
+                      fontWeight: 'bold', 
+                      color: '#718096',
+                      fontSize: '11px'
+                    }}>
+                      Ver stack trace completo
+                    </summary>
+                    <pre style={{ 
+                      whiteSpace: 'pre-wrap', 
+                      wordBreak: 'break-word',
+                      fontSize: '10px',
+                      lineHeight: '1.3',
+                      marginTop: '8px',
+                      padding: '8px',
+                      backgroundColor: '#f7fafc',
+                      borderRadius: '4px',
+                      color: '#4a5568'
+                    }}>
+                      {this.state.errorInfo.componentStack}
+                    </pre>
+                  </details>
+                )}
+              </div>
             )}
             <button
               onClick={this.handleReload}
