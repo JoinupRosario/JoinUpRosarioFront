@@ -58,15 +58,10 @@ jobs:
       - name: 🧱 Build React app
         run: CI=false npm run build
 
-      # ✅ Sync con CORRECCIÓN DE MIME TYPES
-      # Evita el error: "Expected JS module but got text/html"
-      - name: 🚀 Sync dist/ to S3 with correct MIME types
+      # ✅ Sync dist/ a S3 (dejando que S3 asigne los MIME types correctos)
+      - name: 🚀 Sync dist/ to S3
         run: |
-          aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} \
-            --delete \
-            --metadata-directive REPLACE \
-            --content-type "" \
-            --size-only
+          aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} --delete
 
       # ✅ Invalidar CloudFront para limpiar caché por completo
       - name: 🔄 Invalidate CloudFront cache
