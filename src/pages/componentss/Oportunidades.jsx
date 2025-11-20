@@ -4687,7 +4687,7 @@ export default function Oportunidades({ onVolver }) {
                                 Swal.fire({
                                   title: '<div style="display: flex; align-items: center; gap: 10px;"><span style="color: #f59e0b; font-size: 24px;">⚠️</span><span>Programas Pendientes</span></div>',
                                   html: `
-                                    <div style="text-align: left; margin-top: 15px;">
+                                    <div style="text-align: left; margin: 20px; padding: 0 10px;">
                                       <p style="margin-bottom: 15px; color: #374151; font-size: 14px; line-height: 1.6;">
                                         La oportunidad está <strong style="color: #065f46;">activa</strong>, pero los siguientes programas aún requieren aprobación:
                                       </p>
@@ -4727,11 +4727,6 @@ export default function Oportunidades({ onVolver }) {
                                             </div>
                                           </div>
                                         `).join('')}
-                                      </div>
-                                      <div style="margin-top: 15px; padding: 10px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #3b82f6;">
-                                        <p style="margin: 0; color: #1e40af; font-size: 12px; line-height: 1.5;">
-                                          💡 <strong>Nota:</strong> Puedes aprobar estos programas desde el detalle de la oportunidad.
-                                        </p>
                                       </div>
                                     </div>
                                   `,
