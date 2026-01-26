@@ -33,6 +33,11 @@ import Oportunidades from './componentss/Oportunidades';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
 import RecentActivity from '../components/ui/RecentActivity';
+import Postulants  from './componentss/postulants/postulants';
+import PostulantStatusLog from './componentss/postulants/logs/PostulantStatusLog';
+import PostulantDocumentLog from './componentss/postulants/logs/PostulantDocumentLog';
+import PostulantProfile from './componentss/postulants/PostulantProfile';
+import Student from './componentss/students/student';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
 import userAvatarImg from '../assets/images/login/user.png';
@@ -51,7 +56,8 @@ export default function Dashboard() {
     '/dashboard/usuarios': 'usuarios',
     '/dashboard/entidades': 'entidades',
     '/dashboard/oportunidades': 'oportunidades',
-    '/dashboard/postulantes': 'postulantes',
+    '/dashboard/postulants': 'postulants',
+    '/dashboard/postulantes/states-log': 'documents-log',
     '/dashboard/estudiantes': 'estudiantes',
     '/dashboard/legalizaciones': 'legalizaciones',
     '/dashboard/monitorias': 'monitorias',
@@ -68,7 +74,7 @@ export default function Dashboard() {
     'usuarios': '/dashboard/usuarios',
     'entidades': '/dashboard/entidades',
     'oportunidades': '/dashboard/oportunidades',
-    'postulantes': '/dashboard/postulantes',
+    'postulants': '/dashboard/postulants',
     'estudiantes': '/dashboard/estudiantes',
     'legalizaciones': '/dashboard/legalizaciones',
     'monitorias': '/dashboard/monitorias',
@@ -85,6 +91,19 @@ export default function Dashboard() {
     // Buscar coincidencia exacta primero
     if (routeToVista[path]) {
       return routeToVista[path];
+    }
+    // Si la ruta comienza con /dashboard/postulantes/historial-estados, es el log
+    if (path.startsWith('/dashboard/postulantes/historial-estados')) {
+      return 'postulants-log';
+    }
+    // Si la ruta comienza con /dashboard/postulantes/documentlog, es el log de documentos
+    if (path.startsWith('/dashboard/postulantes/documentlog')) {
+      return 'postulants-document-log';
+    }
+    // Si la ruta comienza con /dashboard/postulantes/ y tiene un ID, es el perfil
+    const postulantProfileMatch = path.match(/^\/dashboard\/postulantes\/([^/]+)$/);
+    if (postulantProfileMatch) {
+      return 'postulant-profile';
     }
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
     return 'dashboard';
@@ -224,7 +243,7 @@ export default function Dashboard() {
     { text: 'Usuarios', Icon: FiUsers, vista: 'usuarios' },
     { text: 'Entidades', Icon: HiOutlineOfficeBuilding, vista: 'entidades' },
     { text: 'Oportunidades', Icon: HiOutlineChartPie, vista: 'oportunidades' },
-    { text: 'Postulantes', Icon: HiOutlineAcademicCap, vista: 'postulantes' },
+    { text: 'Postulantes', Icon: HiOutlineAcademicCap, vista: 'postulants' },
     { text: 'Estudiantes Habilitados para Prácticas', Icon: HiOutlinePencilAlt, vista: 'estudiantes' },
     { text: 'Legalizaciones de Prácticas', Icon: HiOutlineAcademicCap, vista: 'legalizaciones' },
     { text: 'Legalizaciones de Monitorías', Icon: HiOutlineDocumentText, vista: 'monitorias' },
@@ -437,6 +456,20 @@ export default function Dashboard() {
         )}
         {vistaActual === 'oportunidades' && (
           <Oportunidades onVolver={handleVolver} />
+        )}{vistaActual === 'postulants' && (
+          <Postulants onVolver={handleVolver} />
+        )}
+        {vistaActual === 'postulants-log' && (
+          <PostulantStatusLog onVolver={handleVolver} />
+        )}
+        {vistaActual === 'postulants-document-log' && (
+          <PostulantDocumentLog onVolver={handleVolver} />
+        )}
+        {vistaActual === 'postulant-profile' && (
+          <PostulantProfile onVolver={handleVolver} />
+        )}
+        {vistaActual === 'estudiantes' && (
+          <Student onVolver={handleVolver} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}
