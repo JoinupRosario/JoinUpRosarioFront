@@ -34,8 +34,9 @@ import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
 import RecentActivity from '../components/ui/RecentActivity';
 import Postulants  from './componentss/postulants/postulants';
-import PostulantStatusLog from './componentss/postulants/logs/PostulantStatusLog';
-import PostulantDocumentLog from './componentss/postulants/logs/PostulantDocumentLog';
+// TODO: Crear estos componentes cuando estén listos
+// import PostulantStatusLog from './componentss/postulants/logs/PostulantStatusLog';
+// import PostulantDocumentLog from './componentss/postulants/logs/PostulantDocumentLog';
 import PostulantProfile from './componentss/postulants/PostulantProfile';
 import Student from './componentss/students/student';
 // Importar imágenes
@@ -459,12 +460,13 @@ export default function Dashboard() {
         )}{vistaActual === 'postulants' && (
           <Postulants onVolver={handleVolver} />
         )}
-        {vistaActual === 'postulants-log' && (
+        {/* TODO: Descomentar cuando los componentes estén creados */}
+        {/* {vistaActual === 'postulants-log' && (
           <PostulantStatusLog onVolver={handleVolver} />
         )}
         {vistaActual === 'postulants-document-log' && (
           <PostulantDocumentLog onVolver={handleVolver} />
-        )}
+        )} */}
         {vistaActual === 'postulant-profile' && (
           <PostulantProfile onVolver={handleVolver} />
         )}
