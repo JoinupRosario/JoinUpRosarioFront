@@ -49,8 +49,62 @@
 .tab { padding: 8px 14px; border-radius: 6px; background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; font-weight: 600; cursor: pointer; }
 .tab.active { background: #c41e3a; border-color: #c41e3a; color: #fff; }
 .tab.disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
-.companies-filters { display: flex; gap: 12px; margin: 10px 0; padding: 12px; background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; }
-.search-box { position: relative; flex: 1; }
+.companies-filters { 
+  display: flex; 
+  flex-direction: column;
+  gap: 15px; 
+  margin: 10px 0 20px 0; 
+  padding: 16px; 
+  background: #f8f9fa; 
+  border: 1px solid #e0e0e0; 
+  border-radius: 8px; 
+}
+.search-box { 
+  position: relative; 
+  width: 100%; 
+  max-width: 600px;
+}
+.filters-row { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+  gap: 12px; 
+  align-items: start;
+}
+.filters-row select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+.filters-row select:hover {
+  border-color: #c41e3a;
+}
+.filters-row select:focus {
+  outline: none;
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
+}
+.filters-row .btn-clear-filters {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.filters-row .btn-clear-filters:hover {
+  background: #f3f4f6;
+  border-color: #c41e3a;
+  color: #c41e3a;
+}
 .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280; z-index: 1; }
 .search-input { width: 100%; padding: 8px 34px 8px 34px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
 .btn-refresh-small {
@@ -185,7 +239,17 @@
   .companies-filters {
     flex-direction: column;
     padding: 12px;
+    gap: 12px;
+  }
+  
+  .filters-row {
+    grid-template-columns: 1fr;
     gap: 10px;
+  }
+  
+  .filters-row select,
+  .filters-row .btn-clear-filters {
+    width: 100%;
   }
 
   .search-box {

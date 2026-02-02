@@ -1793,11 +1793,10 @@ export default function Companies({ onVolver }) {
           </button>
         </div>
         
-        <div className="filters-row" style={{ display: 'flex', gap: '10px', marginTop: '15px', flexWrap: 'wrap' }}>
+        <div className="filters-row">
           <select 
             value={filters.status} 
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
           >
             <option value="">Todos los estados</option>
             <option value="pending_approval">Pendiente de Aprobación</option>
@@ -1808,7 +1807,6 @@ export default function Companies({ onVolver }) {
           <select 
             value={filters.sector} 
             onChange={(e) => handleFilterChange('sector', e.target.value)}
-            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', minWidth: '200px' }}
           >
             <option value="">Todos los sectores</option>
             {uniqueSectors.map(s => (
@@ -1819,7 +1817,6 @@ export default function Companies({ onVolver }) {
           <select 
             value={filters.city} 
             onChange={(e) => handleFilterChange('city', e.target.value)}
-            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', minWidth: '180px' }}
           >
             <option value="">Todas las ciudades</option>
             {uniqueCities.map(c => (
@@ -1830,7 +1827,6 @@ export default function Companies({ onVolver }) {
           <select 
             value={filters.country} 
             onChange={(e) => handleFilterChange('country', e.target.value)}
-            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', minWidth: '180px' }}
           >
             <option value="">Todos los países</option>
             {uniqueCountries.map(c => (
@@ -1841,7 +1837,6 @@ export default function Companies({ onVolver }) {
           <select 
             value={filters.size} 
             onChange={(e) => handleFilterChange('size', e.target.value)}
-            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
           >
             <option value="">Todos los tamaños</option>
             <option value="micro">Micro</option>
@@ -1852,8 +1847,8 @@ export default function Companies({ onVolver }) {
           
           {(filters.status || filters.sector || filters.city || filters.country || filters.size) && (
             <button 
+              className="btn-clear-filters"
               onClick={() => setFilters({ status: '', sector: '', city: '', country: '', size: '' })}
-              style={{ padding: '8px 15px', borderRadius: '4px', border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer' }}
             >
               Limpiar filtros
             </button>
