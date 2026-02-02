@@ -109,6 +109,12 @@
   border-bottom: none;
 }
 
+.configuracion-item.clickable:hover {
+  background-color: #f0f0f0;
+  transform: translateX(5px);
+  transition: all 0.3s ease;
+}
+
 .configuracion-icon {
   width: 42px;
   height: 42px;

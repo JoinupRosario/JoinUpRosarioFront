@@ -5,11 +5,21 @@ import {
   FiMail, 
   FiClock, 
   FiRefreshCw,
-  FiArrowLeft
+  FiArrowLeft,
+  FiMapPin
 } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import '../styles/Configuracion.css';
 
 export default function Configuracion({ onVolver }) {
+  const navigate = useNavigate();
+
+  const handleOptionClick = (opcion) => {
+    if (opcion.text === 'Gestión de Parámetros') {
+      navigate('/dashboard/ubicaciones');
+    }
+    // Aquí puedes agregar más navegaciones para otras opciones
+  };
   const opcionesConfiguracion = [
     { 
       text: 'Facultades y Programas', 
@@ -70,6 +80,11 @@ export default function Configuracion({ onVolver }) {
       text: 'Documentos para legalizar monitorías', 
       icon: FiFileText,
       descripcion: 'Documentos requeridos para legalización de monitorías'
+    },
+    { 
+      text: 'Gestión de Parámetros', 
+      icon: FiMapPin,
+      descripcion: 'Gestionar países, ciudades, tipos de documento, niveles de estudio, dedicación y ARLs'
     }
   ];
 
@@ -89,8 +104,14 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
+            const isClickable = opcion.text === 'Gestión de Parámetros';
             return (
-              <div key={index} className="configuracion-item">
+              <div 
+                key={index} 
+                className={`configuracion-item ${isClickable ? 'clickable' : ''}`}
+                onClick={() => isClickable && handleOptionClick(opcion)}
+                style={isClickable ? { cursor: 'pointer' } : {}}
+              >
                 <div className="configuracion-icon">
                   <IconComponent />
                 </div>

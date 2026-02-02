@@ -26,6 +26,7 @@ import ConfiguracionPersonal from './componentss/ConfiguracionPersonal';
 import Roles from './componentss/Roles';
 import Configuracion from './componentss/Configuracion';
 import Reportes from './componentss/Reportes';
+import Ubicaciones from './componentss/Ubicaciones';
 import Users from './componentss/Users';
 import Companies from './componentss/Companies';
 import Sucursales from './componentss/Sucursales';
@@ -66,7 +67,8 @@ export default function Dashboard() {
     '/dashboard/sucursales': 'sucursales',
     '/dashboard/reportes': 'reportes',
     '/dashboard/configuracion': 'configuracion',
-    '/dashboard/configuracion-personal': 'configuracion-personal'
+    '/dashboard/configuracion-personal': 'configuracion-personal',
+    '/dashboard/ubicaciones': 'ubicaciones'
   };
 
   // Mapeo de vistas a rutas
@@ -83,7 +85,8 @@ export default function Dashboard() {
     'sucursales': '/dashboard/sucursales',
     'reportes': '/dashboard/reportes',
     'configuracion': '/dashboard/configuracion',
-    'configuracion-personal': '/dashboard/configuracion-personal'
+    'configuracion-personal': '/dashboard/configuracion-personal',
+    'ubicaciones': '/dashboard/ubicaciones'
   };
 
   // Obtener vista actual basada en la URL
@@ -472,6 +475,9 @@ export default function Dashboard() {
         )}
         {vistaActual === 'estudiantes' && (
           <Student onVolver={handleVolver} />
+        )}
+        {vistaActual === 'ubicaciones' && (
+          <Ubicaciones onVolver={handleVolver} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}
