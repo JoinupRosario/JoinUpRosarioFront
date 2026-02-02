@@ -109,6 +109,13 @@ const Ubicaciones = ({ onVolver }) => {
   const [modalities, setModalities] = useState([]);
   const [activities, setActivities] = useState([]);
   
+  // Datos de ubicaciones
+  const [countries, setCountries] = useState([]);
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [allCountries, setAllCountries] = useState([]); // Para selectores
+  const [allStates, setAllStates] = useState([]); // Para selectores
+  
   // Paginación
   const [pagination, setPagination] = useState({
     page: 1,
@@ -126,7 +133,16 @@ const Ubicaciones = ({ onVolver }) => {
     status: 'active',
     estado: 'Activo',
     isActive: true,
-    valueForCalculations: ''
+    valueForCalculations: '',
+    // Campos específicos para ubicaciones
+    name: '',
+    sortname: '',
+    isoAlpha2: '',
+    isoNumeric: '',
+    dianCode: '',
+    codDian: '',
+    country: '',
+    state: ''
   });
 
   // Configuración de SweetAlert2
@@ -218,6 +234,19 @@ const Ubicaciones = ({ onVolver }) => {
     } else if (vistaActual === 'activities') {
       loadActivities(page, search);
     }
+    // Ubicaciones
+    else if (vistaActual === 'countries') {
+      loadCountries(page, search);
+      loadAllCountries();
+    } else if (vistaActual === 'states') {
+      loadStates(page, search);
+      loadAllCountries();
+      loadAllStates();
+    } else if (vistaActual === 'cities') {
+      loadCities(page, search);
+      loadAllCountries();
+      loadAllStates();
+    }
   }, [vistaActual]);
 
   // Búsqueda con debounce
@@ -274,6 +303,14 @@ const Ubicaciones = ({ onVolver }) => {
         loadModalities(page, searchTerm);
       } else if (vistaActual === 'activities') {
         loadActivities(page, searchTerm);
+      }
+      // Ubicaciones
+      else if (vistaActual === 'countries') {
+        loadCountries(page, searchTerm);
+      } else if (vistaActual === 'states') {
+        loadStates(page, searchTerm);
+      } else if (vistaActual === 'cities') {
+        loadCities(page, searchTerm);
       }
     }, 500);
 
@@ -423,36 +460,179 @@ const Ubicaciones = ({ onVolver }) => {
     await loadItems('activities', page, search);
   };
 
-  const handleCreate = () => {
+  // ==================== FUNCIONES DE CARGA - UBICACIONES ====================
+  const loadCountries = async (page = 1, search = '') => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10'
+      });
+      if (search) {
+        params.append('search', search);
+      }
+      
+      const response = await api.get(`/locations/countries?${params.toString()}`);
+      setCountries(response.data.data || []);
+      setPagination(response.data.pagination || { page: 1, limit: 10, total: 0, pages: 0 });
+    } catch (error) {
+      console.error('Error cargando países:', error);
+      showError('Error', 'No se pudieron cargar los países');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStates = async (page = 1, search = '', countryId = '') => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10'
+      });
+      if (search) {
+        params.append('search', search);
+      }
+      if (countryId) {
+        params.append('country', countryId);
+      }
+      
+      const response = await api.get(`/locations/states?${params.toString()}`);
+      setStates(response.data.data || []);
+      setPagination(response.data.pagination || { page: 1, limit: 10, total: 0, pages: 0 });
+    } catch (error) {
+      console.error('Error cargando estados:', error);
+      showError('Error', 'No se pudieron cargar los estados');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCities = async (page = 1, search = '', stateId = '') => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10'
+      });
+      if (search) {
+        params.append('search', search);
+      }
+      if (stateId) {
+        params.append('state', stateId);
+      }
+      
+      const response = await api.get(`/locations/cities?${params.toString()}`);
+      setCities(response.data.data || []);
+      setPagination(response.data.pagination || { page: 1, limit: 10, total: 0, pages: 0 });
+    } catch (error) {
+      console.error('Error cargando ciudades:', error);
+      showError('Error', 'No se pudieron cargar las ciudades');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cargar todos los países para selectores
+  const loadAllCountries = async () => {
+    try {
+      const response = await api.get('/locations/countries?limit=1000');
+      setAllCountries(response.data.data || []);
+    } catch (error) {
+      console.error('Error cargando todos los países:', error);
+    }
+  };
+
+  // Cargar todos los estados para selectores
+  const loadAllStates = async (countryId = '') => {
+    try {
+      const params = new URLSearchParams({ limit: '1000' });
+      if (countryId) {
+        params.append('country', countryId);
+      }
+      const response = await api.get(`/locations/states?${params.toString()}`);
+      setAllStates(response.data.data || []);
+    } catch (error) {
+      console.error('Error cargando todos los estados:', error);
+    }
+  };
+
+  const handleCreate = async () => {
     setEditingItem(null);
     resetForm();
     setShowForm(true);
+    
+    // Cargar datos necesarios para selectores
+    if (vistaActual === 'states' || vistaActual === 'cities') {
+      await loadAllCountries();
+    }
+    if (vistaActual === 'cities') {
+      await loadAllStates();
+    }
   };
 
   const handleEdit = async (item) => {
     setEditingItem(item);
     
-    // Mapear Item directamente a formulario usando los campos del modelo
-    const formDataObj = {
-      value: item.value || '',
-      description: item.description || '',
-      status: item.status || 'active',
-      isActive: item.isActive !== undefined ? item.isActive : true,
-      valueForCalculations: item.valueForCalculations || ''
-    };
-    
-    // Para vistas con estado, mapear status a estado
-    if (vistaActual === 'documentTypes' || vistaActual === 'linkageTypes' || 
-        vistaActual === 'geographicScopes' || vistaActual === 'modalities' || vistaActual === 'activities') {
-      formDataObj.estado = item.status === 'active' || item.status === 'ACTIVE' ? 'Activo' : 'Inactivo';
+    // Cargar datos necesarios para selectores
+    if (vistaActual === 'states' || vistaActual === 'cities') {
+      await loadAllCountries();
     }
     
-    setFormData(formDataObj);
+    // Mapear según el tipo de vista
+    if (vistaActual === 'countries') {
+      setFormData({
+        name: item.name || '',
+        sortname: item.sortname || '',
+        isoAlpha2: item.isoAlpha2 || '',
+        isoNumeric: item.isoNumeric || ''
+      });
+    } else if (vistaActual === 'states') {
+      const countryId = item.country?._id || item.country || '';
+      setFormData({
+        name: item.name || '',
+        dianCode: item.dianCode || '',
+        country: countryId
+      });
+      if (countryId) {
+        await loadAllStates(countryId);
+      }
+    } else if (vistaActual === 'cities') {
+      const stateId = item.state?._id || item.state || '';
+      const countryId = item.state?.country?._id || item.state?.country || '';
+      setFormData({
+        name: item.name || '',
+        codDian: item.codDian || '',
+        state: stateId,
+        country: countryId
+      });
+      if (countryId) {
+        await loadAllStates(countryId);
+      }
+    } else {
+      // Mapear Item directamente a formulario usando los campos del modelo
+      const formDataObj = {
+        value: item.value || '',
+        description: item.description || '',
+        status: item.status || 'active',
+        isActive: item.isActive !== undefined ? item.isActive : true,
+        valueForCalculations: item.valueForCalculations || ''
+      };
+      
+      // Para vistas con estado, mapear status a estado
+      if (vistaActual === 'documentTypes' || vistaActual === 'linkageTypes' || 
+          vistaActual === 'geographicScopes' || vistaActual === 'modalities' || vistaActual === 'activities') {
+        formDataObj.estado = item.status === 'active' || item.status === 'ACTIVE' ? 'Activo' : 'Inactivo';
+      }
+      
+      setFormData(formDataObj);
+    }
+    
     setShowForm(true);
   };
 
   const handleDelete = async (item) => {
-    const itemName = item.value || 'este elemento';
+    const itemName = item.name || item.value || 'este elemento';
     const result = await showConfirmation(
       '¿Eliminar?',
       `¿Estás seguro de eliminar ${itemName}?`
@@ -460,11 +640,30 @@ const Ubicaciones = ({ onVolver }) => {
 
     if (result.isConfirmed) {
       try {
-        await api.delete(`/locations/items/${item._id}`);
+        let endpoint = '';
+        if (vistaActual === 'countries') {
+          endpoint = `/locations/countries/${item._id}`;
+        } else if (vistaActual === 'states') {
+          endpoint = `/locations/states/${item._id}`;
+        } else if (vistaActual === 'cities') {
+          endpoint = `/locations/cities/${item._id}`;
+        } else {
+          endpoint = `/locations/items/${item._id}`;
+        }
+        
+        await api.delete(endpoint);
         showSuccess('Eliminado', 'El elemento ha sido eliminado exitosamente');
         
-        // Recargar datos usando la función genérica
-        await loadItems(vistaActual, pagination.page, searchTerm);
+        // Recargar datos
+        if (vistaActual === 'countries') {
+          await loadCountries(pagination.page, searchTerm);
+        } else if (vistaActual === 'states') {
+          await loadStates(pagination.page, searchTerm);
+        } else if (vistaActual === 'cities') {
+          await loadCities(pagination.page, searchTerm);
+        } else {
+          await loadItems(vistaActual, pagination.page, searchTerm);
+        }
       } catch (error) {
         console.error('Error al eliminar:', error);
         showError('Error', error.response?.data?.message || 'No se pudo eliminar el elemento');
@@ -476,6 +675,80 @@ const Ubicaciones = ({ onVolver }) => {
     e.preventDefault();
     
     try {
+      // Manejar ubicaciones (países, estados, ciudades)
+      if (vistaActual === 'countries') {
+        if (!formData.name || !formData.sortname) {
+          showError('Error', 'El nombre y el código de país son requeridos');
+          return;
+        }
+        
+        const payload = {
+          name: formData.name,
+          sortname: formData.sortname,
+          isoAlpha2: formData.isoAlpha2 || null,
+          isoNumeric: formData.isoNumeric || null
+        };
+        
+        if (editingItem) {
+          await api.put(`/locations/countries/${editingItem._id}`, payload);
+          showSuccess('Actualizado', 'País actualizado exitosamente');
+        } else {
+          await api.post('/locations/countries', payload);
+          showSuccess('Creado', 'País creado exitosamente');
+        }
+        
+        await loadCountries(pagination.page, searchTerm);
+        setShowForm(false);
+        return;
+      } else if (vistaActual === 'states') {
+        if (!formData.name || !formData.country) {
+          showError('Error', 'El nombre y el país son requeridos');
+          return;
+        }
+        
+        const payload = {
+          name: formData.name,
+          dianCode: formData.dianCode || null,
+          country: formData.country
+        };
+        
+        if (editingItem) {
+          await api.put(`/locations/states/${editingItem._id}`, payload);
+          showSuccess('Actualizado', 'Estado actualizado exitosamente');
+        } else {
+          await api.post('/locations/states', payload);
+          showSuccess('Creado', 'Estado creado exitosamente');
+        }
+        
+        await loadStates(pagination.page, searchTerm);
+        setShowForm(false);
+        return;
+      } else if (vistaActual === 'cities') {
+        if (!formData.name || !formData.state) {
+          showError('Error', 'El nombre y el estado son requeridos');
+          return;
+        }
+        
+        const payload = {
+          name: formData.name,
+          codDian: formData.codDian || null,
+          state: formData.state
+        };
+        
+        if (editingItem) {
+          await api.put(`/locations/cities/${editingItem._id}`, payload);
+          showSuccess('Actualizado', 'Ciudad actualizada exitosamente');
+        } else {
+          await api.post('/locations/cities', payload);
+          showSuccess('Creado', 'Ciudad creada exitosamente');
+        }
+        
+        await loadCities(pagination.page, searchTerm);
+        setShowForm(false);
+        return;
+      }
+      
+      // Manejar items genéricos
       const listId = VIEW_TO_LIST_ID[vistaActual];
       if (!listId) {
         showError('Error', 'No se pudo determinar el listId');
@@ -608,6 +881,14 @@ const Ubicaciones = ({ onVolver }) => {
       data = modalities;
     } else if (vistaActual === 'activities') {
       data = activities;
+    }
+    // Ubicaciones
+    else if (vistaActual === 'countries') {
+      data = countries;
+    } else if (vistaActual === 'states') {
+      data = states;
+    } else if (vistaActual === 'cities') {
+      data = cities;
     }
     return data;
   };
@@ -754,6 +1035,44 @@ const Ubicaciones = ({ onVolver }) => {
           }}
         >
           <FiTarget /> Área Desempeño
+        </button>
+        
+        {/* Separador visual */}
+        <div className="tab-separator"></div>
+        
+        {/* UBICACIONES */}
+        <button
+          className={`tab ${vistaActual === 'countries' ? 'active' : ''}`}
+          onClick={() => {
+            setVistaActual('countries');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiWorld /> Países
+        </button>
+        <button
+          className={`tab ${vistaActual === 'states' ? 'active' : ''}`}
+          onClick={() => {
+            setVistaActual('states');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiMapPin /> Estados/Departamentos
+        </button>
+        <button
+          className={`tab ${vistaActual === 'cities' ? 'active' : ''}`}
+          onClick={() => {
+            setVistaActual('cities');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiMapPin /> Ciudades
         </button>
         
         {/* Separador visual */}
@@ -908,6 +1227,10 @@ const Ubicaciones = ({ onVolver }) => {
           else if (vistaActual === 'geographicScopes') loadGeographicScopes(pagination.page, searchTerm);
           else if (vistaActual === 'modalities') loadModalities(pagination.page, searchTerm);
           else if (vistaActual === 'activities') loadActivities(pagination.page, searchTerm);
+          // Ubicaciones
+          else if (vistaActual === 'countries') loadCountries(pagination.page, searchTerm);
+          else if (vistaActual === 'states') loadStates(pagination.page, searchTerm);
+          else if (vistaActual === 'cities') loadCities(pagination.page, searchTerm);
         }}>
           <FiRefreshCw /> Actualizar
         </button>
@@ -1049,6 +1372,30 @@ const Ubicaciones = ({ onVolver }) => {
                     <th>Valor</th>
                     <th>Estado</th>
                     <th>Descripción</th>
+                  </>
+                )}
+                {/* Ubicaciones */}
+                {vistaActual === 'countries' && (
+                  <>
+                    <th>Nombre</th>
+                    <th>Código</th>
+                    <th>ISO Alpha 2</th>
+                    <th>ISO Numérico</th>
+                  </>
+                )}
+                {vistaActual === 'states' && (
+                  <>
+                    <th>Nombre</th>
+                    <th>Código DIAN</th>
+                    <th>País</th>
+                  </>
+                )}
+                {vistaActual === 'cities' && (
+                  <>
+                    <th>Nombre</th>
+                    <th>Código DIAN</th>
+                    <th>Estado</th>
+                    <th>País</th>
                   </>
                 )}
                 <th>Acciones</th>
@@ -1214,6 +1561,30 @@ const Ubicaciones = ({ onVolver }) => {
                         <td>{item.description || '-'}</td>
                       </>
                     )}
+                    {/* Ubicaciones */}
+                    {vistaActual === 'countries' && (
+                      <>
+                        <td>{item.name || '-'}</td>
+                        <td>{item.sortname || '-'}</td>
+                        <td>{item.isoAlpha2 || '-'}</td>
+                        <td>{item.isoNumeric || '-'}</td>
+                      </>
+                    )}
+                    {vistaActual === 'states' && (
+                      <>
+                        <td>{item.name || '-'}</td>
+                        <td>{item.dianCode || '-'}</td>
+                        <td>{item.country?.name || '-'}</td>
+                      </>
+                    )}
+                    {vistaActual === 'cities' && (
+                      <>
+                        <td>{item.name || '-'}</td>
+                        <td>{item.codDian || '-'}</td>
+                        <td>{item.state?.name || '-'}</td>
+                        <td>{item.state?.country?.name || '-'}</td>
+                      </>
+                    )}
                     <td>
                       <button
                         className="btn-edit"
@@ -1264,10 +1635,14 @@ const Ubicaciones = ({ onVolver }) => {
                 else if (vistaActual === 'experienceTypes') loadExperienceTypes(newPage, searchTerm);
                 else if (vistaActual === 'achievementTypes') loadAchievementTypes(newPage, searchTerm);
                 else if (vistaActual === 'practiceTypes') loadPracticeTypes(newPage, searchTerm);
-                // Legalización
-                else if (vistaActual === 'geographicScopes') loadGeographicScopes(newPage, searchTerm);
-                else if (vistaActual === 'modalities') loadModalities(newPage, searchTerm);
-                else if (vistaActual === 'activities') loadActivities(newPage, searchTerm);
+          // Legalización
+          else if (vistaActual === 'geographicScopes') loadGeographicScopes(newPage, searchTerm);
+          else if (vistaActual === 'modalities') loadModalities(newPage, searchTerm);
+          else if (vistaActual === 'activities') loadActivities(newPage, searchTerm);
+          // Ubicaciones
+          else if (vistaActual === 'countries') loadCountries(newPage, searchTerm);
+          else if (vistaActual === 'states') loadStates(newPage, searchTerm);
+          else if (vistaActual === 'cities') loadCities(newPage, searchTerm);
               }
             }}
             disabled={pagination.page === 1}
@@ -1306,6 +1681,10 @@ const Ubicaciones = ({ onVolver }) => {
                 else if (vistaActual === 'geographicScopes') loadGeographicScopes(newPage, searchTerm);
                 else if (vistaActual === 'modalities') loadModalities(newPage, searchTerm);
                 else if (vistaActual === 'activities') loadActivities(newPage, searchTerm);
+                // Ubicaciones
+                else if (vistaActual === 'countries') loadCountries(newPage, searchTerm);
+                else if (vistaActual === 'states') loadStates(newPage, searchTerm);
+                else if (vistaActual === 'cities') loadCities(newPage, searchTerm);
               }
             }}
             disabled={pagination.page === pagination.pages}
@@ -1320,26 +1699,187 @@ const Ubicaciones = ({ onVolver }) => {
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{editingItem ? 'Editar' : 'Crear'} {vistaActual.slice(0, -1)}</h3>
+              <h3>
+                {editingItem ? 'Editar' : 'Crear'}{' '}
+                {vistaActual === 'countries' ? 'País' :
+                 vistaActual === 'states' ? 'Estado/Departamento' :
+                 vistaActual === 'cities' ? 'Ciudad' :
+                 vistaActual.slice(0, -1)}
+              </h3>
               <button className="btn-close" onClick={() => setShowForm(false)}>
                 ×
               </button>
             </div>
             <form onSubmit={handleSubmit} className="ubicaciones-form">
               <div className="form-row">
-                {/* Formulario genérico usando campos del modelo Item */}
+                {/* Formularios específicos para ubicaciones */}
+                {vistaActual === 'countries' && (
+                  <>
+                    <div className="form-group">
+                      <label>Nombre del País *</label>
+                      <input
+                        type="text"
+                        value={formData.name || ''}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Ej: Colombia"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Código (Sortname) *</label>
+                      <input
+                        type="text"
+                        value={formData.sortname || ''}
+                        onChange={(e) => setFormData({ ...formData, sortname: e.target.value.toUpperCase() })}
+                        placeholder="Ej: COL"
+                        maxLength="3"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>ISO Alpha 2</label>
+                      <input
+                        type="text"
+                        value={formData.isoAlpha2 || ''}
+                        onChange={(e) => setFormData({ ...formData, isoAlpha2: e.target.value.toUpperCase() })}
+                        placeholder="Ej: CO"
+                        maxLength="2"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>ISO Numérico</label>
+                      <input
+                        type="number"
+                        value={formData.isoNumeric || ''}
+                        onChange={(e) => setFormData({ ...formData, isoNumeric: e.target.value ? parseInt(e.target.value) : null })}
+                        placeholder="Ej: 170"
+                      />
+                    </div>
+                  </>
+                )}
                 
-                {/* Campo Valor (value) - Principal */}
-                <div className="form-group">
-                  <label>Valor *</label>
-                  <input
-                    type="text"
-                    value={formData.value || ''}
-                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                    placeholder="Ingrese el valor..."
-                    required
-                  />
-                </div>
+                {vistaActual === 'states' && (
+                  <>
+                    <div className="form-group">
+                      <label>Nombre del Estado/Departamento *</label>
+                      <input
+                        type="text"
+                        value={formData.name || ''}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Ej: Antioquia"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Código DIAN</label>
+                      <input
+                        type="text"
+                        value={formData.dianCode || ''}
+                        onChange={(e) => setFormData({ ...formData, dianCode: e.target.value })}
+                        placeholder="Ej: 05"
+                        maxLength="3"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>País *</label>
+                      <select
+                        value={formData.country || ''}
+                        onChange={(e) => {
+                          setFormData({ ...formData, country: e.target.value });
+                        }}
+                        required
+                      >
+                        <option value="">Seleccione un país</option>
+                        {allCountries.map((country) => (
+                          <option key={country._id} value={country._id}>
+                            {country.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+                
+                {vistaActual === 'cities' && (
+                  <>
+                    <div className="form-group">
+                      <label>Nombre de la Ciudad *</label>
+                      <input
+                        type="text"
+                        value={formData.name || ''}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Ej: Medellín"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Código DIAN</label>
+                      <input
+                        type="text"
+                        value={formData.codDian || ''}
+                        onChange={(e) => setFormData({ ...formData, codDian: e.target.value })}
+                        placeholder="Ej: 05001"
+                        maxLength="30"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>País *</label>
+                      <select
+                        value={formData.country || ''}
+                        onChange={async (e) => {
+                          const countryId = e.target.value;
+                          setFormData({ ...formData, country: countryId, state: '' });
+                          if (countryId) {
+                            await loadAllStates(countryId);
+                          }
+                        }}
+                        required
+                      >
+                        <option value="">Seleccione un país</option>
+                        {allCountries.map((country) => (
+                          <option key={country._id} value={country._id}>
+                            {country.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Estado/Departamento *</label>
+                      <select
+                        value={formData.state || ''}
+                        onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                        disabled={!formData.country}
+                        required
+                      >
+                        <option value="">{formData.country ? 'Seleccione un estado' : 'Primero seleccione un país'}</option>
+                        {allStates
+                          .filter(state => !formData.country || state.country?._id === formData.country || state.country === formData.country)
+                          .map((state) => (
+                            <option key={state._id} value={state._id}>
+                              {state.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+                
+                {/* Formulario genérico usando campos del modelo Item - Solo si no es ubicación */}
+                {vistaActual !== 'countries' && vistaActual !== 'states' && vistaActual !== 'cities' && (
+                  <>
+                    {/* Campo Valor (value) - Principal */}
+                    <div className="form-group">
+                      <label>Valor *</label>
+                      <input
+                        type="text"
+                        value={formData.value || ''}
+                        onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                        placeholder="Ingrese el valor..."
+                        required
+                      />
+                    </div>
+                  </>
+                )}
                 
                 {/* Campo Estado (status) - Solo para vistas que lo requieren */}
                 {(vistaActual === 'documentTypes' || vistaActual === 'linkageTypes' || 
@@ -1366,16 +1906,18 @@ const Ubicaciones = ({ onVolver }) => {
                   </div>
                 )}
                 
-                {/* Campo Descripción */}
-                <div className="form-group">
-                  <label>Descripción</label>
-                  <textarea
-                    rows="3"
-                    value={formData.description || ''}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Descripción opcional..."
-                  />
-                </div>
+                {/* Campo Descripción - Solo para items genéricos */}
+                {vistaActual !== 'countries' && vistaActual !== 'states' && vistaActual !== 'cities' && (
+                  <div className="form-group">
+                    <label>Descripción</label>
+                    <textarea
+                      rows="3"
+                      value={formData.description || ''}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Descripción opcional..."
+                    />
+                  </div>
+                )}
                 
                 {/* Campo ID ARL (solo para ARLs) */}
                 {vistaActual === 'arls' && (
@@ -1390,9 +1932,10 @@ const Ubicaciones = ({ onVolver }) => {
                   </div>
                 )}
                 
-                {/* Switch para isActive (si aplica) */}
+                {/* Switch para isActive (si aplica) - Solo para items genéricos */}
                 {vistaActual !== 'documentTypes' && vistaActual !== 'linkageTypes' && 
-                 vistaActual !== 'geographicScopes' && vistaActual !== 'modalities' && vistaActual !== 'activities' && (
+                 vistaActual !== 'geographicScopes' && vistaActual !== 'modalities' && vistaActual !== 'activities' &&
+                 vistaActual !== 'countries' && vistaActual !== 'states' && vistaActual !== 'cities' && (
                   <div className="form-group form-group-switch">
                     <label>Estado</label>
                     <div className="switch-container">
