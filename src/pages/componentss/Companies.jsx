@@ -11,8 +11,24 @@ export default function Companies({ onVolver }) {
   const [loading, setLoading] = useState(true);
   const [companies, setCompanies] = useState([]);
   const [search, setSearch] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
   const [vista, setVista] = useState('lista'); // lista | form
   const [editing, setEditing] = useState(null); // company object or null
+  
+  // Paginación y filtros
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
+  });
+  const [filters, setFilters] = useState({
+    status: '',
+    sector: '',
+    city: '',
+    country: '',
+    size: ''
+  });
 
   const emptyForm = {
     // Identificación y nombres
@@ -152,19 +168,53 @@ export default function Companies({ onVolver }) {
     setProgramsModalOpen(false);
   };
 
+  // Debounce para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchDebounced(search);
+      setPagination(prev => ({ ...prev, page: 1 })); // Reset a página 1 al buscar
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const loadCompanies = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get('/companies', { params: { limit: 50 } });
-      setCompanies(data.companies || []);
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+        ...(searchDebounced && { search: searchDebounced }),
+        ...(filters.status && { status: filters.status }),
+        ...(filters.sector && { sector: filters.sector }),
+        ...(filters.city && { city: filters.city }),
+        ...(filters.country && { country: filters.country }),
+        ...(filters.size && { size: filters.size })
+      };
+      
+      const { data } = await api.get('/companies', { params });
+      setCompanies(data.data || []);
+      setPagination(prev => ({
+        ...prev,
+        total: data.pagination?.total || 0,
+        pages: data.pagination?.pages || 0
+      }));
     } catch (e) {
       console.error('Error cargando empresas', e);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al cargar las empresas',
+        confirmButtonColor: '#c41e3a'
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { loadCompanies(); }, []);
+  useEffect(() => {
+    loadCompanies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.page, pagination.limit, searchDebounced, filters.status, filters.sector, filters.city, filters.country, filters.size]);
 
   // Cargar datos dinámicos desde Item
   const loadItemsData = async () => {
@@ -201,16 +251,43 @@ export default function Companies({ onVolver }) {
     loadItemsData();
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return companies;
-    return companies.filter(c =>
-      c.name?.toLowerCase().includes(q) ||
-      c.nit?.toLowerCase().includes(q) ||
-      c.sector?.toLowerCase().includes(q) ||
-      c.city?.toLowerCase().includes(q)
-    );
-  }, [companies, search]);
+  // Obtener valores únicos para filtros (desde las empresas cargadas)
+  const uniqueSectors = useMemo(() => {
+    const sectors = new Set();
+    companies.forEach(c => {
+      if (c.sector) sectors.add(c.sector);
+    });
+    return Array.from(sectors).sort();
+  }, [companies]);
+
+  const uniqueCities = useMemo(() => {
+    const cities = new Set();
+    companies.forEach(c => {
+      if (c.city) cities.add(c.city);
+    });
+    return Array.from(cities).sort();
+  }, [companies]);
+
+  const uniqueCountries = useMemo(() => {
+    const countries = new Set();
+    companies.forEach(c => {
+      if (c.country) countries.add(c.country);
+    });
+    return Array.from(countries).sort();
+  }, [companies]);
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset a página 1 al filtrar
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setPagination(prev => ({ ...prev, limit: parseInt(newLimit), page: 1 }));
+  };
 
   const startCreate = () => {
     setEditing(null);
@@ -1709,11 +1786,78 @@ export default function Companies({ onVolver }) {
             className="search-input"
             value={search}
             onChange={(e)=>setSearch(e.target.value)}
-            placeholder="Buscar por nombre, NIT, sector o ciudad"
+            placeholder="Buscar por nombre, NIT, sector, ciudad, email..."
           />
           <button className="btn-refresh-small" onClick={loadCompanies} title="Refrescar lista">
             <FiRefreshCw />
           </button>
+        </div>
+        
+        <div className="filters-row" style={{ display: 'flex', gap: '10px', marginTop: '15px', flexWrap: 'wrap' }}>
+          <select 
+            value={filters.status} 
+            onChange={(e) => handleFilterChange('status', e.target.value)}
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+          >
+            <option value="">Todos los estados</option>
+            <option value="pending_approval">Pendiente de Aprobación</option>
+            <option value="active">Activa</option>
+            <option value="inactive">Inactiva</option>
+          </select>
+          
+          <select 
+            value={filters.sector} 
+            onChange={(e) => handleFilterChange('sector', e.target.value)}
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', minWidth: '200px' }}
+          >
+            <option value="">Todos los sectores</option>
+            {uniqueSectors.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          
+          <select 
+            value={filters.city} 
+            onChange={(e) => handleFilterChange('city', e.target.value)}
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', minWidth: '180px' }}
+          >
+            <option value="">Todas las ciudades</option>
+            {uniqueCities.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          
+          <select 
+            value={filters.country} 
+            onChange={(e) => handleFilterChange('country', e.target.value)}
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', minWidth: '180px' }}
+          >
+            <option value="">Todos los países</option>
+            {uniqueCountries.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          
+          <select 
+            value={filters.size} 
+            onChange={(e) => handleFilterChange('size', e.target.value)}
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+          >
+            <option value="">Todos los tamaños</option>
+            <option value="micro">Micro</option>
+            <option value="pequeña">Pequeña</option>
+            <option value="mediana">Mediana</option>
+            <option value="grande">Grande</option>
+          </select>
+          
+          {(filters.status || filters.sector || filters.city || filters.country || filters.size) && (
+            <button 
+              onClick={() => setFilters({ status: '', sector: '', city: '', country: '', size: '' })}
+              style={{ padding: '8px 15px', borderRadius: '4px', border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer' }}
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
       </div>
 
@@ -1736,38 +1880,142 @@ export default function Companies({ onVolver }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(c => (
-                <tr 
-                  key={c._id} 
-                  onClick={() => startEdit(c)}
-                  style={{ cursor: 'pointer' }}
-                  className="table-row-clickable"
-                >
-                  <td>{c.name}</td>
-                  <td>{c.nit}</td>
-                  <td>{c.sector}</td>
-                  <td>{c.size}</td>
-                  <td>{c.city}</td>
-                  <td>{c.phone}</td>
-                  <td>{c.contact?.name}</td>
-                  <td>{c.country}</td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <select 
-                      value={c.status || 'pending_approval'} 
-                      onChange={(e) => handleStatusChange(c, e.target.value, e)}
-                      className="status-select"
-                    >
-                      <option value="pending_approval">Pendiente de Aprobación</option>
-                      <option value="active">Activa</option>
-                      <option value="inactive">Inactiva</option>
-                    </select>
+              {companies.length === 0 ? (
+                <tr>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
+                    No se encontraron empresas
                   </td>
                 </tr>
-              ))}
+              ) : (
+                companies.map(c => (
+                  <tr 
+                    key={c._id} 
+                    onClick={() => startEdit(c)}
+                    style={{ cursor: 'pointer' }}
+                    className="table-row-clickable"
+                  >
+                    <td>{c.name || '-'}</td>
+                    <td>{c.nit || '-'}</td>
+                    <td>{c.sector || '-'}</td>
+                    <td>{c.size || '-'}</td>
+                    <td>{c.city || '-'}</td>
+                    <td>{c.phone || '-'}</td>
+                    <td>{c.contact?.name || '-'}</td>
+                    <td>{c.country || '-'}</td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <select 
+                        value={c.status || 'pending_approval'} 
+                        onChange={(e) => handleStatusChange(c, e.target.value, e)}
+                        className="status-select"
+                      >
+                        <option value="pending_approval">Pendiente de Aprobación</option>
+                        <option value="active">Activa</option>
+                        <option value="inactive">Inactiva</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         )}
       </div>
+      
+      {/* Paginación */}
+      {!loading && pagination.pages > 0 && (
+        <div className="pagination-container" style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginTop: '20px',
+          padding: '15px',
+          background: '#f9f9f9',
+          borderRadius: '8px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>Mostrar:</span>
+            <select 
+              value={pagination.limit} 
+              onChange={(e) => handleLimitChange(e.target.value)}
+              style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ddd' }}
+            >
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span>por página</span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>
+              Mostrando {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '5px' }}>
+            <button
+              onClick={() => handlePageChange(1)}
+              disabled={pagination.page === 1}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                background: pagination.page === 1 ? '#f5f5f5' : 'white',
+                cursor: pagination.page === 1 ? 'not-allowed' : 'pointer',
+                opacity: pagination.page === 1 ? 0.5 : 1
+              }}
+            >
+              ««
+            </button>
+            <button
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page === 1}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                background: pagination.page === 1 ? '#f5f5f5' : 'white',
+                cursor: pagination.page === 1 ? 'not-allowed' : 'pointer',
+                opacity: pagination.page === 1 ? 0.5 : 1
+              }}
+            >
+              «
+            </button>
+            <span style={{ padding: '8px 12px' }}>
+              Página {pagination.page} de {pagination.pages}
+            </span>
+            <button
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={pagination.page >= pagination.pages}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                background: pagination.page >= pagination.pages ? '#f5f5f5' : 'white',
+                cursor: pagination.page >= pagination.pages ? 'not-allowed' : 'pointer',
+                opacity: pagination.page >= pagination.pages ? 0.5 : 1
+              }}
+            >
+              »
+            </button>
+            <button
+              onClick={() => handlePageChange(pagination.pages)}
+              disabled={pagination.page >= pagination.pages}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                background: pagination.page >= pagination.pages ? '#f5f5f5' : 'white',
+                cursor: pagination.page >= pagination.pages ? 'not-allowed' : 'pointer',
+                opacity: pagination.page >= pagination.pages ? 0.5 : 1
+              }}
+            >
+              »»
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
