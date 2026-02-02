@@ -35,6 +35,12 @@ export default function Oportunidades({ onVolver }) {
   const [editShowSalarioEmocionalDropdown, setEditShowSalarioEmocionalDropdown] = useState(false);
   const [editCities, setEditCities] = useState([]);
   
+  // Estados para datos dinámicos desde Item
+  const [linkageTypes, setLinkageTypes] = useState([]);
+  const [dedicationTypes, setDedicationTypes] = useState([]);
+  const [performanceAreas, setPerformanceAreas] = useState([]);
+  const [selectedLinkageDescription, setSelectedLinkageDescription] = useState('');
+  
   // Estados para filtros, paginación y ordenamiento
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -205,7 +211,48 @@ export default function Oportunidades({ onVolver }) {
     }
     // Cargar países
     setCountries(Country.getAllCountries());
+    // Cargar datos dinámicos desde Item
+    loadItemsData();
   }, [isAdmin]);
+
+  // Función para cargar datos dinámicos desde Item
+  const loadItemsData = async () => {
+    try {
+      // Cargar Tipos de Vinculación (L_CONTRACT_TYPE_ACADEMIC_PRACTICE)
+      const { data: linkageData } = await api.get('/locations/items/L_CONTRACT_TYPE_ACADEMIC_PRACTICE', { params: { limit: 100 } });
+      setLinkageTypes(linkageData.data || []);
+
+      // Cargar Dedicación (L_DEDICATION_JOB_OFFER)
+      const { data: dedicationData } = await api.get('/locations/items/L_DEDICATION_JOB_OFFER', { params: { limit: 100 } });
+      setDedicationTypes(dedicationData.data || []);
+
+      // Cargar Áreas de Desempeño (L_INTEREST_AREA)
+      const { data: performanceData } = await api.get('/locations/items/L_INTEREST_AREA', { params: { limit: 100 } });
+      setPerformanceAreas(performanceData.data || []);
+    } catch (error) {
+      console.error('Error cargando datos dinámicos:', error);
+    }
+  };
+
+  // Actualizar descripción del tipo de vinculación cuando cambia el valor seleccionado
+  useEffect(() => {
+    if (formData.tipoVinculacion && linkageTypes.length > 0) {
+      const selectedLinkage = linkageTypes.find(linkage => linkage.value === formData.tipoVinculacion);
+      setSelectedLinkageDescription(selectedLinkage?.description || '');
+    } else {
+      setSelectedLinkageDescription('');
+    }
+  }, [formData.tipoVinculacion, linkageTypes]);
+
+  // Actualizar descripción del tipo de vinculación en modo edición
+  useEffect(() => {
+    if (editFormData?.tipoVinculacion && linkageTypes.length > 0) {
+      const selectedLinkage = linkageTypes.find(linkage => linkage.value === editFormData.tipoVinculacion);
+      setSelectedLinkageDescription(selectedLinkage?.description || '');
+    } else if (!editFormData?.tipoVinculacion) {
+      setSelectedLinkageDescription('');
+    }
+  }, [editFormData?.tipoVinculacion, linkageTypes]);
 
   useEffect(() => {
     loadOportunidades();
@@ -473,6 +520,17 @@ export default function Oportunidades({ onVolver }) {
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    // Manejo especial para tipo de vinculación - actualizar descripción
+    if (name === 'tipoVinculacion') {
+      const selectedLinkage = linkageTypes.find(linkage => linkage.value === value);
+      setSelectedLinkageDescription(selectedLinkage?.description || '');
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      return;
+    }
     
     // Manejo especial para apoyo económico
     if (name === 'apoyoEconomico') {
@@ -1014,6 +1072,7 @@ export default function Oportunidades({ onVolver }) {
       setSalarioEmocionalSearch('');
       setShowSalarioEmocionalDropdown(false);
       setTipoOportunidad(null);
+      setSelectedLinkageDescription('');
 
       // Recargar lista y volver a la vista de lista
       await loadOportunidades();
@@ -1083,6 +1142,7 @@ export default function Oportunidades({ onVolver }) {
     setVista('lista');
     setSelectedCompany(null);
     setCompanySearch('');
+    setSelectedLinkageDescription('');
     setTipoOportunidad(null);
     setSalarioEmocionalSearch('');
     setShowSalarioEmocionalDropdown(false);
@@ -1776,6 +1836,15 @@ export default function Oportunidades({ onVolver }) {
                   <label className="form-label-with-icon">
                     <FiFileText className="label-icon" />
                     Tipo de vinculación
+                    {selectedLinkageDescription && (
+                      <div className="info-tooltip-wrapper">
+                        <span className="info-icon">i</span>
+                        <div className="tooltip-content">
+                          <strong>Información</strong>
+                          <p>{selectedLinkageDescription}</p>
+                        </div>
+                      </div>
+                    )}
                   </label>
                   <select
                     name="tipoVinculacion"
@@ -1784,15 +1853,11 @@ export default function Oportunidades({ onVolver }) {
                     className="form-select"
                   >
                     <option value="">Seleccionar</option>
-                    <option value="contrato_laboral_nomina">Contrato laboral por nómina</option>
-                    <option value="contrato_aprendizaje">Contrato de aprendizaje</option>
-                    <option value="convenio_docencia_servicio">Convenio docencia servicio</option>
-                    <option value="acto_administrativo">Acto administrativo</option>
-                    <option value="acuerdo_vinculacion">Acuerdo de vinculación</option>
-                    <option value="otro_documento">Otro documento</option>
-                    <option value="contrato_laboral_prestacion">Contrato laboral por prestación de servicios</option>
-                    <option value="contrato_residentes">Contrato para residentes</option>
-                    <option value="judicatura">Judicatura</option>
+                    {linkageTypes.map(linkage => (
+                      <option key={linkage._id} value={linkage.value}>
+                        {linkage.value}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1918,9 +1983,11 @@ export default function Oportunidades({ onVolver }) {
                     className="form-select"
                   >
                     <option value="">Seleccionar</option>
-                    <option value="tiempo_completo">Tiempo completo</option>
-                    <option value="medio_tiempo">Medio tiempo</option>
-                    <option value="por_horas">Por horas</option>
+                    {dedicationTypes.map(dedication => (
+                      <option key={dedication._id} value={dedication.value}>
+                        {dedication.value}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -2003,36 +2070,11 @@ export default function Oportunidades({ onVolver }) {
                     className="form-select"
                   >
                     <option value="">Seleccionar</option>
-                    <option value="administrativa">Administrativa (Proyectos, Gerencia, Dirección Administrativa, Tesorería)</option>
-                    <option value="archivo">Archivo</option>
-                    <option value="area_contable">Area Contable</option>
-                    <option value="area_financiera">Área financiera</option>
-                    <option value="auditoria">Auditoría</option>
-                    <option value="bienestar">Bienestar</option>
-                    <option value="calidad">Calidad</option>
-                    <option value="capacitacion">Capacitación</option>
-                    <option value="compras_importaciones">Compras e importaciones</option>
-                    <option value="comunicaciones">Comunicaciones</option>
-                    <option value="contabilidad">Contabilidad</option>
-                    <option value="gerencia">Gerencia</option>
-                    <option value="investigacion">Investigación</option>
-                    <option value="juridica">Jurídica</option>
-                    <option value="logistica_cadena_suministro">Logística y cadena de suministro</option>
-                    <option value="mercadeo">Mercadeo</option>
-                    <option value="politica_publica">Política pública</option>
-                    <option value="presidencia">Presidencia</option>
-                    <option value="produccion">Producción</option>
-                    <option value="proyectos">Proyectos</option>
-                    <option value="recursos_humanos">Recursos humanos</option>
-                    <option value="responsabilidad_social">Responsabilidad social</option>
-                    <option value="riesgos">Riesgos</option>
-                    <option value="servicio_cliente">Servicio al cliente</option>
-                    <option value="sostenibilidad">Sostenibilidad</option>
-                    <option value="tecnologia">Tecnología</option>
-                    <option value="area_ambiental">Área ambiental</option>
-                    <option value="comercial_ventas_exportaciones">Comercial (Ventas - Exportaciones - Servicio al Cliente) y Mercadeo</option>
-                    <option value="finanzas">Finanzas</option>
-                    <option value="emprendimiento">Emprendimiento</option>
+                    {performanceAreas.map(area => (
+                      <option key={area._id} value={area.value}>
+                        {area.value}
+                      </option>
+                    ))}
                     <option value="planificacion_urbana_regional">Planificación urbana y regional</option>
                     <option value="instrumentos_planificacion_gestion_suelo">Instrumentos de planificación y gestión de suelo</option>
                     <option value="espacio_publico">Espacio público</option>
@@ -2544,6 +2586,7 @@ export default function Oportunidades({ onVolver }) {
             <button className="btn-volver" onClick={() => {
               setVista('detalle');
               setEditFormData(null);
+              setSelectedLinkageDescription('');
             }}>
               <FiArrowLeft className="btn-icon" />
               Volver
@@ -2649,6 +2692,15 @@ export default function Oportunidades({ onVolver }) {
                 <label className="form-label-with-icon">
                   <FiFileText className="label-icon" />
                   Tipo de vinculación
+                  {selectedLinkageDescription && (
+                    <div className="info-tooltip-wrapper">
+                      <span className="info-icon">i</span>
+                      <div className="tooltip-content">
+                        <strong>Información</strong>
+                        <p>{selectedLinkageDescription}</p>
+                      </div>
+                    </div>
+                  )}
                 </label>
                 <select
                   name="tipoVinculacion"
@@ -2657,12 +2709,11 @@ export default function Oportunidades({ onVolver }) {
                   className="form-select"
                 >
                   <option value="">Seleccionar</option>
-                  <option value="contrato_laboral_nomina">Contrato laboral por nómina</option>
-                  <option value="contrato_aprendizaje">Contrato de aprendizaje</option>
-                  <option value="convenio_docencia_servicio">Convenio docencia servicio</option>
-                  <option value="acto_administrativo">Acto administrativo</option>
-                  <option value="acuerdo_vinculacion">Acuerdo de vinculación</option>
-                  <option value="otro_documento">Otro documento</option>
+                  {linkageTypes.map(linkage => (
+                    <option key={linkage._id} value={linkage.value}>
+                      {linkage.value}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -2780,9 +2831,11 @@ export default function Oportunidades({ onVolver }) {
                   className="form-select"
                 >
                   <option value="">Seleccionar</option>
-                  <option value="tiempo_completo">Tiempo completo</option>
-                  <option value="medio_tiempo">Medio tiempo</option>
-                  <option value="por_horas">Por horas</option>
+                  {dedicationTypes.map(dedication => (
+                    <option key={dedication._id} value={dedication.value}>
+                      {dedication.value}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -3203,6 +3256,17 @@ export default function Oportunidades({ onVolver }) {
   const handleEditFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     
+    // Manejo especial para tipo de vinculación - actualizar descripción
+    if (name === 'tipoVinculacion') {
+      const selectedLinkage = linkageTypes.find(linkage => linkage.value === value);
+      setSelectedLinkageDescription(selectedLinkage?.description || '');
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      return;
+    }
+    
     if (name === 'apoyoEconomico') {
       const numericValue = getNumericValue(value);
       setEditFormData(prev => ({
@@ -3376,6 +3440,7 @@ export default function Oportunidades({ onVolver }) {
               setVista('lista');
               setOportunidadSeleccionada(null);
               setEditFormData(null);
+              setSelectedLinkageDescription('');
               setIsEditingDetail(false);
             }} title="Volver">
               <FiArrowLeft className="btn-icon" />
@@ -3546,6 +3611,15 @@ export default function Oportunidades({ onVolver }) {
                 <label className="form-label-with-icon">
                   <FiFileText className="label-icon" />
                   Tipo de vinculación
+                  {selectedLinkageDescription && (
+                    <div className="info-tooltip-wrapper">
+                      <span className="info-icon">i</span>
+                      <div className="tooltip-content">
+                        <strong>Información</strong>
+                        <p>{selectedLinkageDescription}</p>
+                      </div>
+                    </div>
+                  )}
                 </label>
                 <select
                   name="tipoVinculacion"
@@ -3555,15 +3629,11 @@ export default function Oportunidades({ onVolver }) {
                   disabled={!isEditingDetail}
                 >
                   <option value="">Seleccionar</option>
-                  <option value="contrato_laboral_nomina">Contrato laboral por nómina</option>
-                  <option value="contrato_aprendizaje">Contrato de aprendizaje</option>
-                  <option value="convenio_docencia_servicio">Convenio docencia servicio</option>
-                  <option value="acto_administrativo">Acto administrativo</option>
-                  <option value="acuerdo_vinculacion">Acuerdo de vinculación</option>
-                  <option value="otro_documento">Otro documento</option>
-                  <option value="contrato_laboral_prestacion">Contrato laboral por prestación de servicios</option>
-                  <option value="contrato_residentes">Contrato para residentes</option>
-                  <option value="judicatura">Judicatura</option>
+                  {linkageTypes.map(linkage => (
+                    <option key={linkage._id} value={linkage.value}>
+                      {linkage.value}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -3792,85 +3862,11 @@ export default function Oportunidades({ onVolver }) {
                   disabled={!isEditingDetail}
                 >
                   <option value="">Seleccionar</option>
-                  <option value="administrativa">Administrativa (Proyectos, Gerencia, Dirección Administrativa, Tesorería)</option>
-                  <option value="archivo">Archivo</option>
-                  <option value="area_contable">Area Contable</option>
-                  <option value="area_financiera">Área financiera</option>
-                  <option value="auditoria">Auditoría</option>
-                  <option value="bienestar">Bienestar</option>
-                  <option value="calidad">Calidad</option>
-                  <option value="capacitacion">Capacitación</option>
-                  <option value="compras_importaciones">Compras e importaciones</option>
-                  <option value="comunicaciones">Comunicaciones</option>
-                  <option value="contabilidad">Contabilidad</option>
-                  <option value="gerencia">Gerencia</option>
-                  <option value="investigacion">Investigación</option>
-                  <option value="juridica">Jurídica</option>
-                  <option value="logistica_cadena_suministro">Logística y cadena de suministro</option>
-                  <option value="mercadeo">Mercadeo</option>
-                  <option value="politica_publica">Política pública</option>
-                  <option value="presidencia">Presidencia</option>
-                  <option value="produccion">Producción</option>
-                  <option value="proyectos">Proyectos</option>
-                  <option value="recursos_humanos">Recursos humanos</option>
-                  <option value="responsabilidad_social">Responsabilidad social</option>
-                  <option value="riesgos">Riesgos</option>
-                  <option value="servicio_cliente">Servicio al cliente</option>
-                  <option value="sostenibilidad">Sostenibilidad</option>
-                  <option value="tecnologia">Tecnología</option>
-                  <option value="area_ambiental">Área ambiental</option>
-                  <option value="comercial_ventas_exportaciones">Comercial (Ventas - Exportaciones - Servicio al Cliente) y Mercadeo</option>
-                  <option value="finanzas">Finanzas</option>
-                  <option value="emprendimiento">Emprendimiento</option>
-                  <option value="planificacion_urbana_regional">Planificación urbana y regional</option>
-                  <option value="instrumentos_planificacion_gestion_suelo">Instrumentos de planificación y gestión de suelo</option>
-                  <option value="espacio_publico">Espacio público</option>
-                  <option value="movilidad_transporte">Movilidad y transporte</option>
-                  <option value="gestion_ambiental">Gestión ambiental</option>
-                  <option value="gestion_inmobiliaria">Gestión inmobiliaria</option>
-                  <option value="habitat_vivienda">Hábitat y vivienda</option>
-                  <option value="finanzas_publicas">Finanzas públicas</option>
-                  <option value="gestion_centros_historicos_patrimonio">Gestión de centros históricos y patrimonio</option>
-                  <option value="planeacion">Planeación</option>
-                  <option value="ingenieria_clinica_hospitalaria">Ingeniería clínica hospitalaria</option>
-                  <option value="ingenieria_rehabilitacion">Ingeniería de la rehabilitación</option>
-                  <option value="informatica_medica">Informática médica</option>
-                  <option value="procesamiento_imagenes_diagnosticas">Procesamiento de imágenes diagnósticas</option>
-                  <option value="nanotecnologia">Nanotecnología</option>
-                  <option value="inteligencia_artificial">Inteligencia artificial</option>
-                  <option value="medicina">Medicina</option>
-                  <option value="ingenieria_biomedica">Ingeniería Biomédica</option>
-                  <option value="geopolitica">Geopolítica</option>
-                  <option value="politica_internacional">Política internacional</option>
-                  <option value="seguridad">Seguridad</option>
-                  <option value="diplomacia">Diplomacia</option>
-                  <option value="inversiones">Inversiones</option>
-                  <option value="ciencia_politica">Ciencia Política</option>
-                  <option value="gestion_urbana">Gestión Urbana</option>
-                  <option value="urbanismo">Urbanismo</option>
-                  <option value="docencia">Docencia</option>
-                  <option value="acompanamiento_estudiantil">Acompañamiento estudiantil</option>
-                  <option value="mentoria">Mentoría</option>
-                  <option value="relaciones_internacionales">Relaciones internacionales</option>
-                  <option value="economia_politica">Economía Política</option>
-                  <option value="coyuntura_politica">Coyuntura Política</option>
-                  <option value="fronteras">Fronteras</option>
-                  <option value="sistemas_politicos">Sistemas Políticos</option>
-                  <option value="sistemas_urbanos">Sistemas Urbanos</option>
-                  <option value="gobierno_gerencia_publica">Gobierno y gerencia pública</option>
-                  <option value="politica_internacional_diplomacia">Política internacional y diplomacia</option>
-                  <option value="seguridad_paz_conflicto">Seguridad, paz y conflicto</option>
-                  <option value="desarrollo_participacion">Desarrollo y participación</option>
-                  <option value="ciudades_territorios_sostenibles">Ciudades y Territorios Sostenibles</option>
-                  <option value="migraciones_internacionales">Migraciones Internacionales</option>
-                  <option value="derechos_humanos">Derechos Humanos</option>
-                  <option value="justicia_transicional">Justicia Transicional</option>
-                  <option value="construccion_paz">Construcción de paz</option>
-                  <option value="artes_visuales">Artes visuales</option>
-                  <option value="artes_escenicas">Artes escénicas</option>
-                  <option value="artes_literarias">Artes literarias</option>
-                  <option value="audiovisuales">Audiovisuales</option>
-                  <option value="artes_electronicas">Artes electrónicas</option>
+                  {performanceAreas.map(area => (
+                    <option key={area._id} value={area.value}>
+                      {area.value}
+                    </option>
+                  ))}
                 </select>
               </div>
 

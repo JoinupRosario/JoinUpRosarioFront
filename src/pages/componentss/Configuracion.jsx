@@ -84,7 +84,7 @@ export default function Configuracion({ onVolver }) {
     { 
       text: 'Gestión de Parámetros', 
       icon: FiMapPin,
-      descripcion: 'Gestionar países, ciudades, tipos de documento, niveles de estudio, dedicación y ARLs'
+      descripcion: 'Gestionar tipos de documento, niveles de estudio, dedicación, ARLs y otros parámetros del sistema'
     }
   ];
 

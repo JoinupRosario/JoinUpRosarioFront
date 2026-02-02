@@ -81,6 +81,16 @@ export default function Companies({ onVolver }) {
   const [newProgramName, setNewProgramName] = useState('');
   const [showSedeForm, setShowSedeForm] = useState(false);
   const [editingSedeIndex, setEditingSedeIndex] = useState(null);
+  
+  // Estados para datos dinámicos desde Item
+  const [sectors, setSectors] = useState([]);
+  const [sectorMineTypes, setSectorMineTypes] = useState([]);
+  const [economicSectors, setEconomicSectors] = useState([]);
+  const [ciiuCodes, setCiiuCodes] = useState([]);
+  const [arls, setArls] = useState([]);
+  const [organizationSizes, setOrganizationSizes] = useState([]);
+  const [ciiuSearchTerm, setCiiuSearchTerm] = useState('');
+  const [showCiiuDropdown, setShowCiiuDropdown] = useState(false);
   // Estados para contactos
   const [contacts, setContacts] = useState([]);
   const [showContactForm, setShowContactForm] = useState(false);
@@ -155,6 +165,41 @@ export default function Companies({ onVolver }) {
   };
 
   useEffect(() => { loadCompanies(); }, []);
+
+  // Cargar datos dinámicos desde Item
+  const loadItemsData = async () => {
+    try {
+      // Cargar Sectores (L_SECTOR)
+      const { data: sectorsData } = await api.get('/locations/items/L_SECTOR', { params: { limit: 100 } });
+      setSectors(sectorsData.data || []);
+
+      // Cargar Sector MinE (L_SNIES_SECTOR)
+      const { data: sectorMineData } = await api.get('/locations/items/L_SNIES_SECTOR', { params: { limit: 100 } });
+      setSectorMineTypes(sectorMineData.data || []);
+
+      // Cargar Sector Económico (L_BUSINESS_SECTOR)
+      const { data: economicSectorsData } = await api.get('/locations/items/L_BUSINESS_SECTOR', { params: { limit: 100 } });
+      setEconomicSectors(economicSectorsData.data || []);
+
+      // Cargar Códigos CIIU (L_CIIU)
+      const { data: ciiuData } = await api.get('/locations/items/L_CIIU', { params: { limit: 1000 } });
+      setCiiuCodes(ciiuData.data || []);
+
+      // Cargar ARLs (L_ARL)
+      const { data: arlsData } = await api.get('/locations/items/L_ARL', { params: { limit: 100 } });
+      setArls(arlsData.data || []);
+
+      // Cargar Tamaños de Organización (L_COMPANY_SIZE)
+      const { data: sizesData } = await api.get('/locations/items/L_COMPANY_SIZE', { params: { limit: 100 } });
+      setOrganizationSizes(sizesData.data || []);
+    } catch (error) {
+      console.error('Error cargando datos dinámicos:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadItemsData();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -242,6 +287,8 @@ export default function Companies({ onVolver }) {
     setVista('lista');
     setEditing(null);
     setForm(emptyForm);
+    setCiiuSearchTerm('');
+    setShowCiiuDropdown(false);
     setShowSedeForm(false);
     setEditingSedeIndex(null);
     setNuevaSede({
@@ -800,10 +847,11 @@ export default function Companies({ onVolver }) {
               <label>Sector *</label>
               <select value={form.sector} onChange={e=>setForm({ ...form, sector: e.target.value })} required>
                 <option value="">Seleccionar</option>
-                <option value="Público">Público</option>
-                <option value="Privado">Privado</option>
-                <option value="Mixto">Mixto</option>
-                <option value="Multilateral">Multilateral</option>
+                {sectors.map(sector => (
+                  <option key={sector._id} value={sector.value}>
+                    {sector.value}
+                  </option>
+                ))}
               </select>
             </div>
             {/* Logo (opcional) */}
@@ -816,14 +864,11 @@ export default function Companies({ onVolver }) {
               <label>Sector MinE (SNIES) *</label>
               <select value={form.sectorMineSnies} onChange={e=>setForm({ ...form, sectorMineSnies: e.target.value })} required>
                 <option value="">Seleccionar</option>
-                <option value="Sector empresarial">Sector empresarial</option>
-                <option value="Sector administración pública">Sector administración pública</option>
-                <option value="Centro de investigación y desarrollo tecnológico">Centro de investigación y desarrollo tecnológico</option>
-                <option value="Hospitales y clínicas">Hospitales y clínicas</option>
-                <option value="Instituciones privadas sin ánimo de lucro">Instituciones privadas sin ánimo de lucro</option>
-                <option value="Institución de educación superior">Institución de educación superior</option>
-                <option value="Organismo multilateral">Organismo multilateral</option>
-                <option value="Otra">Otra</option>
+                {sectorMineTypes.map(sector => (
+                  <option key={sector._id} value={sector.value}>
+                    {sector.value}
+                  </option>
+                ))}
               </select>
             </div>
             {/* Autoriza uso de logo (switch) */}
@@ -831,32 +876,16 @@ export default function Companies({ onVolver }) {
               <label className="label-plain">¿Autoriza uso de su logo en la publicación de oportunidades?</label>
               <input type="checkbox" checked={form.authorizeLogoUsage} onChange={e=>setForm({ ...form, authorizeLogoUsage: e.target.checked })} />
             </div>
-            {/* Sector económico (obligatorio) */}
+            {/* Sector económico (obligatorio) - usa L_BUSINESS_SECTOR */}
             <div className="form-group">
               <label>Sector Económico *</label>
               <select value={form.economicSector} onChange={e=>setForm({ ...form, economicSector: e.target.value })} required>
                 <option value="">Seleccionar</option>
-                <option value="AGRICULTURA, GANADERÍA, CAZA, SILVICULTURA Y PESCA">AGRICULTURA, GANADERÍA, CAZA, SILVICULTURA Y PESCA</option>
-                <option value="EXPLOTACIÓN DE MINAS Y CANTERAS">EXPLOTACIÓN DE MINAS Y CANTERAS</option>
-                <option value="INDUSTRIAS MANUFACTURERAS">INDUSTRIAS MANUFACTURERAS</option>
-                <option value="SUMINISTRO DE ELECTRICIDAD, GAS, VAPOR Y AIRE ACONDICIONADO">SUMINISTRO DE ELECTRICIDAD, GAS, VAPOR Y AIRE ACONDICIONADO</option>
-                <option value="DISTRIBUCIÓN DE AGUA; EVACUACIÓN Y TRATAMIENTO DE AGUAS RESIDUALES, GESTIÓN DE DESECHOS Y ACTIVIDADES">DISTRIBUCIÓN DE AGUA; EVACUACIÓN Y TRATAMIENTO DE AGUAS RESIDUALES, GESTIÓN DE DESECHOS Y ACTIVIDADES</option>
-                <option value="CONSTRUCCIÓN">CONSTRUCCIÓN</option>
-                <option value="COMERCIO AL POR MAYOR Y AL POR MENOR; REPARACIÓN DE VEHÍCULOS AUTOMOTORES Y MOTOCICLETAS">COMERCIO AL POR MAYOR Y AL POR MENOR; REPARACIÓN DE VEHÍCULOS AUTOMOTORES Y MOTOCICLETAS</option>
-                <option value="TRANSPORTE Y ALMACENAMIENTO">TRANSPORTE Y ALMACENAMIENTO</option>
-                <option value="ALOJAMIENTO Y SERVICIOS DE COMIDA">ALOJAMIENTO Y SERVICIOS DE COMIDA</option>
-                <option value="INFORMACIÓN Y COMUNICACIONES">INFORMACIÓN Y COMUNICACIONES</option>
-                <option value="ACTIVIDADES FINANCIERAS Y DE SEGUROS">ACTIVIDADES FINANCIERAS Y DE SEGUROS</option>
-                <option value="ACTIVIDADES INMOBILIARIAS">ACTIVIDADES INMOBILIARIAS</option>
-                <option value="ACTIVIDADES PROFESIONALES, CIENTÍFICAS Y TÉCNICAS">ACTIVIDADES PROFESIONALES, CIENTÍFICAS Y TÉCNICAS</option>
-                <option value="ACTIVIDADES DE SERVICIOS ADMINISTRATIVOS Y DE APOYO">ACTIVIDADES DE SERVICIOS ADMINISTRATIVOS Y DE APOYO</option>
-                <option value="ADMINISTRACIÓN PÚBLICA Y DEFENSA; PLANES DE SEGURIDAD SOCIAL DE AFILIACIÓN OBLIGATORIA">ADMINISTRACIÓN PÚBLICA Y DEFENSA; PLANES DE SEGURIDAD SOCIAL DE AFILIACIÓN OBLIGATORIA</option>
-                <option value="EDUCACIÓN">EDUCACIÓN</option>
-                <option value="ACTIVIDADES DE ATENCIÓN DE LA SALUD HUMANA Y DE ASISTENCIA SOCIAL">ACTIVIDADES DE ATENCIÓN DE LA SALUD HUMANA Y DE ASISTENCIA SOCIAL</option>
-                <option value="ACTIVIDADES ARTÍSTICAS, DE ENTRETENIMIENTO Y RECREACIÓN">ACTIVIDADES ARTÍSTICAS, DE ENTRETENIMIENTO Y RECREACIÓN</option>
-                <option value="OTRAS ACTIVIDADES DE SERVICIOS">OTRAS ACTIVIDADES DE SERVICIOS</option>
-                <option value="ACTIVIDADES DE LOS HOGARES INDIVIDUALES EN CALIDAD DE EMPLEADORES; ACTIVIDADES NO DIFERENCIADAS DE LOS HOGARES">ACTIVIDADES DE LOS HOGARES INDIVIDUALES EN CALIDAD DE EMPLEADORES; ACTIVIDADES NO DIFERENCIADAS DE LOS HOGARES</option>
-                <option value="ACTIVIDADES DE ORGANIZACIONES Y ENTIDADES EXTRATERRITORIALES">ACTIVIDADES DE ORGANIZACIONES Y ENTIDADES EXTRATERRITORIALES</option>
+                {economicSectors.map(sector => (
+                  <option key={sector._id} value={sector.value}>
+                    {sector.value}
+                  </option>
+                ))}
               </select>
             </div>
             {/* Misión y Visión */}
@@ -864,17 +893,83 @@ export default function Companies({ onVolver }) {
               <label>Misión y Visión</label>
               <textarea rows={3} placeholder="Misión y Visión" value={form.missionVision} onChange={e=>setForm({ ...form, missionVision: e.target.value })} />
             </div>
-            {/* Código CIIU (select vacío por ahora) */}
-            <div className="form-group">
+            {/* Código CIIU con búsqueda */}
+            <div className="form-group" style={{ position: 'relative' }}>
               <label>Código CIIU</label>
-              <select value={form.ciiuCode} onChange={e=>setForm({ ...form, ciiuCode: e.target.value })}>
-                <option value="">Seleccionar</option>
-                <option value="6201 - Programación informática">6201 - Programación informática</option>
-                <option value="6202 - Consultoría en informática">6202 - Consultoría en informática</option>
-                <option value="7010 - Actividades de administración empresarial">7010 - Actividades de administración empresarial</option>
-              </select>
+              <input
+                type="text"
+                placeholder="Escriba el código o nombre para buscar..."
+                value={ciiuSearchTerm}
+                onChange={(e) => {
+                  const searchValue = e.target.value;
+                  setCiiuSearchTerm(searchValue);
+                  setShowCiiuDropdown(searchValue.length > 0);
+                }}
+                onFocus={() => {
+                  if (!ciiuSearchTerm && form.ciiuCode) {
+                    setCiiuSearchTerm(form.ciiuCode);
+                  }
+                  if (ciiuSearchTerm) {
+                    setShowCiiuDropdown(true);
+                  }
+                }}
+                onBlur={() => {
+                  // Al perder el foco, guardar el valor actual en el form
+                  setForm({ ...form, ciiuCode: ciiuSearchTerm });
+                  setTimeout(() => setShowCiiuDropdown(false), 200);
+                }}
+              />
+              {showCiiuDropdown && ciiuSearchTerm && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'white',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  zIndex: 1000,
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  {ciiuCodes
+                    .filter(ciiu => {
+                      const code = ciiu.value || ciiu.valueForCalculations || '';
+                      const description = ciiu.description || ciiu.valueForReports || '';
+                      const searchLower = ciiuSearchTerm.toLowerCase();
+                      return code.toLowerCase().includes(searchLower) ||
+                             description.toLowerCase().includes(searchLower);
+                    })
+                    .slice(0, 10)
+                    .map(ciiu => {
+                      const code = ciiu.value || ciiu.valueForCalculations || '';
+                      const description = ciiu.description || ciiu.valueForReports || '';
+                      return (
+                        <div
+                          key={ciiu._id}
+                          onMouseDown={(e) => {
+                            e.preventDefault(); // Prevenir que onBlur se ejecute antes del click
+                            setForm({ ...form, ciiuCode: code });
+                            setCiiuSearchTerm(`${code}${description ? ` - ${description}` : ''}`);
+                            setShowCiiuDropdown(false);
+                          }}
+                          style={{
+                            padding: '10px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #f0f0f0'
+                          }}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                        >
+                          <strong>{code}</strong> {description ? `- ${description}` : ''}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
-            {/* Tamaño de la compañía (mapeado a enum) */}
+            {/* Tamaño de la compañía */}
             <div className="form-group">
               <label>Tamaño de la compañía *</label>
               <select
@@ -883,10 +978,11 @@ export default function Companies({ onVolver }) {
                 required
               >
                 <option value="">Seleccionar</option>
-                <option value="micro">Menor a 11 trabajadores</option>
-                <option value="pequeña">Entre 11 y 50</option>
-                <option value="mediana">Entre 51 y 200</option>
-                <option value="grande">Superior a 200</option>
+                {organizationSizes.map(size => (
+                  <option key={size._id} value={size.value}>
+                    {size.value}
+                  </option>
+                ))}
               </select>
             </div>
             {/* Opera como Agencia (switch) */}
@@ -894,24 +990,16 @@ export default function Companies({ onVolver }) {
               <label className="label-plain">¿Opera como Agencia, bolsa de empleo o Head Hunter?</label>
               <input type="checkbox" checked={form.operatesAsAgency} onChange={e=>setForm({ ...form, operatesAsAgency: e.target.checked })} />
             </div>
-            {/* ARL (select) */}
+            {/* ARL */}
             <div className="form-group">
               <label>ARL</label>
               <select value={form.arl} onChange={e=>setForm({ ...form, arl: e.target.value })}>
                 <option value="">Seleccionar</option>
-                <option value="Colpatria ARP">Colpatria ARP</option>
-                <option value="Seguros Bolívar">Seguros Bolívar</option>
-                <option value="Seguros de Vida Aurora">Seguros de Vida Aurora</option>
-                <option value="Alfa">Alfa</option>
-                <option value="Liberty">Liberty</option>
-                <option value="Positiva Compañía de Seguros">Positiva Compañía de Seguros</option>
-                <option value="Colmena">Colmena</option>
-                <option value="ARP Sura (Antes Suratep)">ARP Sura (Antes Suratep)</option>
-                <option value="La Equidad Seguros">La Equidad Seguros</option>
-                <option value="Mapfre Colombia Vida Seguros S.A.">Mapfre Colombia Vida Seguros S.A.</option>
-                <option value="Seguro Médico Internacional">Seguro Médico Internacional</option>
-                <option value="Seguros del Estado">Seguros del Estado</option>
-                <option value="Colsanitas">Colsanitas</option>
+                {arls.map(arl => (
+                  <option key={arl._id} value={arl.value}>
+                    {arl.value}
+                  </option>
+                ))}
               </select>
             </div>
             {/* Dominio */}

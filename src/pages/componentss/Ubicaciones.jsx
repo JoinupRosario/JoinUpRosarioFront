@@ -34,9 +34,9 @@ const VIEW_TO_LIST_ID = {
   'practiceScenarioTypes': 'L_IDENTIFICATIONTYPE_COMPANY',
   'sectors': 'L_SECTOR',
   'sectorMineTypes': 'L_SNIES_SECTOR',
-  'economicSectors': 'L_CIIU',
+  'economicSectors': 'L_BUSINESS_SECTOR',
   'organizationSizes': 'L_COMPANY_SIZE',
-  'linkageTypes': 'L_OBTAINPRACTICE',
+  'linkageTypes': 'L_CONTRACT_TYPE_ACADEMIC_PRACTICE',
   'performanceAreas': 'L_INTEREST_AREA',
   'interestAreas': 'L_INTEREST_AREA',
   'competencies': 'L_SOFTWARE_SKILLS', // Verificar si es correcto
