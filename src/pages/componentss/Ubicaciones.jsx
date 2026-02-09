@@ -46,7 +46,9 @@ const VIEW_TO_LIST_ID = {
   'practiceTypes': 'L_PRACTICE_TYPE',
   'geographicScopes': 'L_STATE_COUNTRY', // Verificar si es correcto
   'modalities': 'L_FUNCTIONS',
-  'activities': 'L_MONITORING_ACTIVITY'
+  'activities': 'L_MONITORING_ACTIVITY',
+  'eps': 'L_EPS',
+  'banks': 'L_BANCO'
 };
 
 // Mapeo de campos de formulario a campos de Item
@@ -70,7 +72,9 @@ const VIEW_TO_FIELD = {
   'practiceTypes': 'tipoPractica',
   'geographicScopes': 'ambitoGeograficoPractica',
   'modalities': 'modalidad',
-  'activities': 'actividad'
+  'activities': 'actividad',
+  'eps': 'eps',
+  'banks': 'banco'
 };
 
 const Ubicaciones = ({ onVolver }) => {
@@ -115,6 +119,10 @@ const Ubicaciones = ({ onVolver }) => {
   const [cities, setCities] = useState([]);
   const [allCountries, setAllCountries] = useState([]); // Para selectores
   const [allStates, setAllStates] = useState([]); // Para selectores
+  
+  // EPS y Bancos
+  const [eps, setEps] = useState([]);
+  const [banks, setBanks] = useState([]);
   
   // Paginación
   const [pagination, setPagination] = useState({
@@ -247,6 +255,12 @@ const Ubicaciones = ({ onVolver }) => {
       loadAllCountries();
       loadAllStates();
     }
+    // EPS y Bancos
+    else if (vistaActual === 'eps') {
+      loadEPS(page, search);
+    } else if (vistaActual === 'banks') {
+      loadBanks(page, search);
+    }
   }, [vistaActual]);
 
   // Búsqueda con debounce
@@ -312,6 +326,12 @@ const Ubicaciones = ({ onVolver }) => {
       } else if (vistaActual === 'cities') {
         loadCities(page, searchTerm);
       }
+      // EPS y Bancos
+      else if (vistaActual === 'eps') {
+        loadEPS(page, searchTerm);
+      } else if (vistaActual === 'banks') {
+        loadBanks(page, searchTerm);
+      }
     }, 500);
 
     return () => clearTimeout(timeoutId);
@@ -359,7 +379,9 @@ const Ubicaciones = ({ onVolver }) => {
           'practiceTypes': setPracticeTypes,
           'geographicScopes': setGeographicScopes,
           'modalities': setModalities,
-          'activities': setActivities
+          'activities': setActivities,
+          'eps': setEps,
+          'banks': setBanks
         };
         
         const setter = setterMap[view];
@@ -458,6 +480,15 @@ const Ubicaciones = ({ onVolver }) => {
 
   const loadActivities = async (page = 1, search = '') => {
     await loadItems('activities', page, search);
+  };
+
+  // ==================== FUNCIONES DE CARGA - EPS Y BANCOS ====================
+  const loadEPS = async (page = 1, search = '') => {
+    await loadItems('eps', page, search);
+  };
+
+  const loadBanks = async (page = 1, search = '') => {
+    await loadItems('banks', page, search);
   };
 
   // ==================== FUNCIONES DE CARGA - UBICACIONES ====================
@@ -890,6 +921,12 @@ const Ubicaciones = ({ onVolver }) => {
     } else if (vistaActual === 'cities') {
       data = cities;
     }
+    // EPS y Bancos
+    else if (vistaActual === 'eps') {
+      data = eps;
+    } else if (vistaActual === 'banks') {
+      data = banks;
+    }
     return data;
   };
 
@@ -948,6 +985,28 @@ const Ubicaciones = ({ onVolver }) => {
           }}
         >
           <FiShield /> ARLs
+        </button>
+        <button
+          className={`tab ${vistaActual === 'eps' ? 'active' : ''}`}
+          onClick={() => {
+            setVistaActual('eps');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiActivity /> EPS
+        </button>
+        <button
+          className={`tab ${vistaActual === 'banks' ? 'active' : ''}`}
+          onClick={() => {
+            setVistaActual('banks');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiBriefcase /> Bancos
         </button>
         
         {/* Separador visual */}
@@ -1270,6 +1329,18 @@ const Ubicaciones = ({ onVolver }) => {
                     <th>Descripción</th>
                   </>
                 )}
+                {vistaActual === 'eps' && (
+                  <>
+                    <th>Valor</th>
+                    <th>Descripción</th>
+                  </>
+                )}
+                {vistaActual === 'banks' && (
+                  <>
+                    <th>Valor</th>
+                    <th>Descripción</th>
+                  </>
+                )}
                 {/* Escenario de Práctica */}
                 {vistaActual === 'practiceScenarioTypes' && (
                   <>
@@ -1437,6 +1508,18 @@ const Ubicaciones = ({ onVolver }) => {
                     {vistaActual === 'arls' && (
                       <>
                         <td>{item.valueForCalculations || '-'}</td>
+                        <td>{item.value || '-'}</td>
+                        <td>{item.description || '-'}</td>
+                      </>
+                    )}
+                    {vistaActual === 'eps' && (
+                      <>
+                        <td>{item.value || '-'}</td>
+                        <td>{item.description || '-'}</td>
+                      </>
+                    )}
+                    {vistaActual === 'banks' && (
+                      <>
                         <td>{item.value || '-'}</td>
                         <td>{item.description || '-'}</td>
                       </>
@@ -1619,6 +1702,8 @@ const Ubicaciones = ({ onVolver }) => {
                 else if (vistaActual === 'studyLevels') loadStudyLevels(newPage, searchTerm);
                 else if (vistaActual === 'dedicationTypes') loadDedicationTypes(newPage, searchTerm);
                 else if (vistaActual === 'arls') loadARLs(newPage, searchTerm);
+                else if (vistaActual === 'eps') loadEPS(newPage, searchTerm);
+                else if (vistaActual === 'banks') loadBanks(newPage, searchTerm);
                 // Escenario de Práctica
                 else if (vistaActual === 'practiceScenarioTypes') loadPracticeScenarioTypes(newPage, searchTerm);
                 else if (vistaActual === 'sectors') loadSectors(newPage, searchTerm);
@@ -1661,6 +1746,8 @@ const Ubicaciones = ({ onVolver }) => {
                 else if (vistaActual === 'studyLevels') loadStudyLevels(newPage, searchTerm);
                 else if (vistaActual === 'dedicationTypes') loadDedicationTypes(newPage, searchTerm);
                 else if (vistaActual === 'arls') loadARLs(newPage, searchTerm);
+                else if (vistaActual === 'eps') loadEPS(newPage, searchTerm);
+                else if (vistaActual === 'banks') loadBanks(newPage, searchTerm);
                 // Escenario de Práctica
                 else if (vistaActual === 'practiceScenarioTypes') loadPracticeScenarioTypes(newPage, searchTerm);
                 else if (vistaActual === 'sectors') loadSectors(newPage, searchTerm);
