@@ -25,6 +25,9 @@ import {
 import ConfiguracionPersonal from './componentss/ConfiguracionPersonal';
 import Roles from './componentss/Roles';
 import Configuracion from './componentss/Configuracion';
+import ProgramasYFacultades from './componentss/programasFacultades/ProgramasYFacultades';
+import ProgramDetail from './componentss/programasFacultades/ProgramDetail';
+import FacultyDetail from './componentss/programasFacultades/FacultyDetail';
 import Reportes from './componentss/Reportes';
 import Ubicaciones from './componentss/Ubicaciones';
 import Users from './componentss/Users';
@@ -68,7 +71,8 @@ export default function Dashboard() {
     '/dashboard/reportes': 'reportes',
     '/dashboard/configuracion': 'configuracion',
     '/dashboard/configuracion-personal': 'configuracion-personal',
-    '/dashboard/ubicaciones': 'ubicaciones'
+    '/dashboard/ubicaciones': 'ubicaciones',
+    '/dashboard/programas-facultades': 'programas-facultades'
   };
 
   // Mapeo de vistas a rutas
@@ -86,7 +90,8 @@ export default function Dashboard() {
     'reportes': '/dashboard/reportes',
     'configuracion': '/dashboard/configuracion',
     'configuracion-personal': '/dashboard/configuracion-personal',
-    'ubicaciones': '/dashboard/ubicaciones'
+    'ubicaciones': '/dashboard/ubicaciones',
+    'programas-facultades': '/dashboard/programas-facultades'
   };
 
   // Obtener vista actual basada en la URL
@@ -108,6 +113,14 @@ export default function Dashboard() {
     const postulantProfileMatch = path.match(/^\/dashboard\/postulantes\/([^/]+)$/);
     if (postulantProfileMatch) {
       return 'postulant-profile';
+    }
+    // Detalle de programa: /dashboard/programas-facultades/programa/:id
+    if (path.match(/^\/dashboard\/programas-facultades\/programa\/[^/]+$/)) {
+      return 'program-detail';
+    }
+    // Detalle de facultad: /dashboard/programas-facultades/facultad/:id
+    if (path.match(/^\/dashboard\/programas-facultades\/facultad\/[^/]+$/)) {
+      return 'faculty-detail';
     }
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
     return 'dashboard';
@@ -296,8 +309,14 @@ export default function Dashboard() {
           {vistaActual === 'configuracion-personal' && (
             <h1 className="header-page-title">Administrar notificaciones</h1>
           )}
-          {vistaActual === 'configuracion' && (
-            <h1 className="header-page-title">Configuración</h1>
+{vistaActual === 'configuracion' && (
+          <h1 className="header-page-title">Configuración</h1>
+        )}
+          {vistaActual === 'programas-facultades' && (
+            <h1 className="header-page-title">Programas y Facultades</h1>
+          )}
+          {vistaActual === 'faculty-detail' && (
+            <h1 className="header-page-title">Detalle de la facultad</h1>
           )}
           {vistaActual === 'reportes' && (
             <h1 className="header-page-title">Reportes</h1>
@@ -478,6 +497,15 @@ export default function Dashboard() {
         )}
         {vistaActual === 'ubicaciones' && (
           <Ubicaciones onVolver={handleVolver} />
+        )}
+        {vistaActual === 'programas-facultades' && (
+          <ProgramasYFacultades onVolver={handleVolver} />
+        )}
+        {vistaActual === 'program-detail' && (
+          <ProgramDetail onVolver={() => navigate('/dashboard/programas-facultades')} />
+        )}
+        {vistaActual === 'faculty-detail' && (
+          <FacultyDetail onVolver={() => navigate('/dashboard/programas-facultades')} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}

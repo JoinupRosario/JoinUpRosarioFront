@@ -1,0 +1,648 @@
+/* Programas y Facultades - Misma consistencia que Users */
+.programas-facultades-content,
+.configuracion-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: #fff;
+  max-height: calc(100vh - 70px - 50px);
+}
+
+.programas-facultades-content::-webkit-scrollbar,
+.configuracion-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.programas-facultades-content::-webkit-scrollbar-thumb,
+.configuracion-content::-webkit-scrollbar-thumb {
+  background: #c41e3a;
+  border-radius: 4px;
+}
+
+.pyf-section {
+  padding: 20px;
+  min-height: 100%;
+}
+
+/* Header igual que Users */
+.programas-facultades-content .users-header,
+.configuracion-content .users-header,
+.programas-facultades-content .pyf-detail-header,
+.configuracion-content .pyf-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.configuracion-actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* Botones igual que Users */
+.btn-volver,
+.pyf-btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s;
+  color: white;
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.btn-volver:hover,
+.pyf-btn-secondary:hover {
+  background: linear-gradient(135deg, #5a6268 0%, #4e555b 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  color: white;
+}
+
+.btn-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.section-header {
+  background-color: #2c2c2c;
+  color: white;
+  padding: 10px 16px;
+  margin-bottom: 0;
+  clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%);
+  width: fit-content;
+  min-width: 200px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Toolbar / Filtros igual que Users */
+.pyf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.pyf-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.pyf-search-icon {
+  position: absolute;
+  left: 12px;
+  color: #6b7280;
+  font-size: 18px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.pyf-search-input {
+  width: 100%;
+  padding: 8px 8px 8px 35px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #fff;
+}
+
+.pyf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: white;
+}
+
+.pyf-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.pyf-btn-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.pyf-btn-sync {
+  background: #fff;
+  color: #333;
+  border: 1px solid #d1d5db;
+}
+
+.pyf-btn-sync:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #c41e3a;
+  color: #c41e3a;
+}
+
+.pyf-btn-primary,
+.btn-guardar,
+.pyf-btn-editar {
+  background: linear-gradient(135deg, #c41e3a 0%, #8b1538 100%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.pyf-btn-primary:hover:not(:disabled),
+.btn-guardar:hover:not(:disabled),
+.pyf-btn-editar:hover:not(:disabled) {
+  background: linear-gradient(135deg, #a01730 0%, #781329 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(196, 30, 58, 0.4);
+  color: white;
+}
+
+/* Tabs */
+.pyf-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.pyf-tab {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 15px;
+  color: #666;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.pyf-tab:hover {
+  color: #c41e3a;
+}
+
+.pyf-tab.active {
+  color: #333;
+  background: #f5f5f5;
+  border-bottom-color: #c41e3a;
+}
+
+/* Table - igual que Users */
+.pyf-table-wrap {
+  margin-top: 15px;
+  border-top: 2px solid #c41e3a;
+  padding-top: 15px;
+  overflow-x: auto;
+  overflow-y: visible;
+  background: #fff;
+}
+
+.pyf-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.pyf-table thead {
+  background: #f8f9fa;
+}
+
+.pyf-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pyf-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.pyf-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.pyf-table tbody tr:hover {
+  background: #f5f5f5;
+}
+
+.pyf-facultad-cell {
+  font-weight: 500;
+  color: #333;
+}
+
+.pyf-facultad-bullet {
+  margin-right: 8px;
+  color: #c41e3a;
+}
+
+.pyf-facultad-empty {
+  visibility: hidden;
+  font-size: 0;
+}
+
+/* Switch estado (igual que Usuarios: activo = success verde) */
+.switch-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 22px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch input:disabled {
+  cursor: not-allowed;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.switch input:checked + .slider {
+  background-color: #10b981;
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.status-text {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  min-width: 40px;
+  text-align: center;
+}
+
+.status-text.active {
+  color: #10b981;
+}
+
+.status-text.inactive {
+  color: #ef4444;
+}
+
+/* Vistas de detalle - misma estructura que Users */
+.configuracion-content .pyf-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.configuracion-content .pyf-detail-header .configuracion-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.configuracion-content .pyf-section {
+  padding: 16px 20px;
+}
+
+.pyf-detail-section {
+  margin-bottom: 16px;
+}
+
+/* Card centrada para detalle de facultad - mitad de la pantalla */
+.pyf-faculty-card-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0 20px;
+}
+
+.pyf-faculty-card {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.pyf-faculty-card .pyf-detail-section-title {
+  margin-bottom: 16px;
+}
+
+.pyf-faculty-card .pyf-detail-fields-two-cols {
+  max-width: none;
+}
+
+.pyf-detail-section-title {
+  margin: 0 0 8px 0;
+  padding: 8px 14px;
+  background: #2c2c2c;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%);
+  width: fit-content;
+  min-width: 200px;
+}
+
+/* Grid más compacto: más columnas, menos gap y padding para reducir espacio en blanco */
+.pyf-detail-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 20px;
+  padding: 8px 0 4px 0;
+}
+
+/* Dos columnas fijas para detalle facultad: estilo label con barra roja + valor */
+.pyf-detail-fields-two-cols {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 32px;
+  max-width: 720px;
+}
+
+.pyf-detail-fields-two-cols .pyf-detail-field {
+  align-items: flex-start;
+}
+
+.pyf-detail-fields-two-cols .pyf-detail-field label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.pyf-detail-fields-two-cols .pyf-detail-field label::before {
+  content: '|';
+  color: #c41e3a;
+  font-weight: 700;
+  flex-shrink: 0;
+  width: 1ch;
+  margin-right: 8px;
+}
+
+/* Valor alineado con el inicio del texto del título (mismo punto de partida) */
+.pyf-detail-fields-two-cols .pyf-detail-field span {
+  font-size: 14px;
+  color: #111;
+  font-weight: 500;
+  margin-top: 2px;
+  padding-left: calc(1ch + 8px);
+  box-sizing: border-box;
+}
+
+.pyf-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pyf-detail-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.pyf-detail-field span {
+  font-size: 13px;
+  color: #333;
+}
+
+/* Modo edición facultad/programa: icono e inputs (estilo PostulantProfile) */
+.pyf-detail-field label:has(.pyf-field-edit-icon) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.pyf-field-edit-icon {
+  font-size: 14px;
+  color: #c41e3a;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.pyf-edit-input {
+  width: 100%;
+  padding: 10px 12px;
+  padding-left: calc(1ch + 8px);
+  margin-top: 2px;
+  border: none;
+  border-bottom: 2px solid #c41e3a;
+  background: #fef2f2;
+  border-radius: 4px 4px 0 0;
+  font-size: 14px;
+  color: #374151;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.pyf-edit-input:focus {
+  background: #fee2e2;
+  border-bottom-color: #a01730;
+}
+
+.pyf-edit-input::placeholder {
+  color: #9ca3af;
+}
+
+.pyf-edit-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23c41e3a' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 35px;
+  cursor: pointer;
+}
+
+/* Barra agregar facultad (modo edición programa) */
+.pyf-add-faculty-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 0;
+}
+
+.pyf-add-faculty-select {
+  min-width: 280px;
+  max-width: 400px;
+}
+
+/* Tabla dentro de detalle: mismo borde superior rojo, menos margen */
+.configuracion-content .pyf-detail-section .pyf-table-wrap {
+  margin-top: 10px;
+  border-top: 2px solid #c41e3a;
+  padding-top: 10px;
+}
+
+.pyf-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: inherit;
+}
+
+.pyf-link:hover {
+  color: #c41e3a;
+}
+
+.pyf-loading,
+.pyf-no-data {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.pyf-no-data {
+  color: #9ca3af;
+}
+
+/* Pagination */
+.pyf-pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 16px;
+  background: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  flex-wrap: wrap;
+}
+
+.pyf-page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.pyf-page-btn:hover:not(:disabled) {
+  border-color: #c41e3a;
+  color: #c41e3a;
+  background: #fff;
+}
+
+.pyf-page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pyf-page-btn.active {
+  background: #c41e3a;
+  border-color: #c41e3a;
+  color: #fff;
+}
+
+.pyf-page-info {
+  margin-left: 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .pyf-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pyf-search {
+    max-width: none;
+  }
+
+  .pyf-table {
+    font-size: 13px;
+  }
+
+  .pyf-table th,
+  .pyf-table td {
+    padding: 10px 12px;
+  }
+}

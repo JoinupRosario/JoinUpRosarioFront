@@ -18,7 +18,9 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Gestión de Parámetros') {
       navigate('/dashboard/ubicaciones');
     }
-    // Aquí puedes agregar más navegaciones para otras opciones
+    if (opcion.text === 'Facultades y Programas') {
+      navigate('/dashboard/programas-facultades');
+    }
   };
   const opcionesConfiguracion = [
     { 
@@ -104,7 +106,7 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
-            const isClickable = opcion.text === 'Gestión de Parámetros';
+            const isClickable = opcion.text === 'Gestión de Parámetros' || opcion.text === 'Facultades y Programas';
             return (
               <div 
                 key={index} 
