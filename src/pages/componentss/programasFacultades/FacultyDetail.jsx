@@ -9,7 +9,7 @@ const INITIAL_EDITED = {
   code: '',
   name: '',
   status: '',
-  branch_id: '',
+  sucursalId: '',
   authorized_signer: '',
   position_signer: '',
   identification_signer: '',
@@ -29,6 +29,7 @@ export default function FacultyDetail({ onVolver }) {
   })();
   const [loading, setLoading] = useState(true);
   const [faculty, setFaculty] = useState(null);
+  const [sucursales, setSucursales] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState(INITIAL_EDITED);
   const [saving, setSaving] = useState(false);
@@ -51,21 +52,34 @@ export default function FacultyDetail({ onVolver }) {
   }, [facultyId]);
 
   useEffect(() => {
+    const loadSucursales = async () => {
+      try {
+        const { data } = await api.get('/sucursales');
+        setSucursales(data?.data ?? data ?? []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadSucursales();
+  }, []);
+
+  useEffect(() => {
     if (isEditing && faculty) {
+      const sucursalId = faculty.sucursalId?._id ?? faculty.sucursalId ?? '';
       setEditedData({
         code: faculty.code ?? '',
         name: faculty.name ?? '',
         status: faculty.status ?? '',
-        branch_id: faculty.branch_id ?? '',
-        authorized_signer: faculty.authorized_signer ?? '',
-        position_signer: faculty.position_signer ?? '',
-        identification_signer: faculty.identification_signer ?? '',
-        identification_type_signer: faculty.identification_type_signer ?? '',
-        identification_from_signer: faculty.identification_from_signer ?? '',
-        academic_signer: faculty.academic_signer ?? '',
-        position_academic_signer: faculty.position_academic_signer ?? '',
-        mail_academic_signer: faculty.mail_academic_signer ?? '',
-        mail_signer: faculty.mail_signer ?? '',
+        sucursalId: sucursalId || '',
+        authorized_signer: faculty.authorizedSigner ?? faculty.authorized_signer ?? '',
+        position_signer: faculty.positionSigner ?? faculty.position_signer ?? '',
+        identification_signer: faculty.identificationSigner ?? faculty.identification_signer ?? '',
+        identification_type_signer: faculty.identificationTypeSigner ?? faculty.identification_type_signer ?? '',
+        identification_from_signer: faculty.identificationFromSigner ?? faculty.identification_from_signer ?? '',
+        academic_signer: faculty.academicSigner ?? faculty.academic_signer ?? '',
+        position_academic_signer: faculty.positionAcademicSigner ?? faculty.position_academic_signer ?? '',
+        mail_academic_signer: faculty.mailAcademicSigner ?? faculty.mail_academic_signer ?? '',
+        mail_signer: faculty.mailSigner ?? faculty.mail_signer ?? '',
       });
     } else if (!isEditing) {
       setEditedData(INITIAL_EDITED);
@@ -76,7 +90,22 @@ export default function FacultyDetail({ onVolver }) {
     if (!facultyId || saving) return;
     setSaving(true);
     try {
-      const { data } = await api.put(`/faculties/${facultyId}`, editedData);
+      const payload = {
+        code: editedData.code,
+        name: editedData.name,
+        status: editedData.status,
+        sucursalId: editedData.sucursalId || null,
+        authorizedSigner: editedData.authorized_signer,
+        positionSigner: editedData.position_signer,
+        identificationSigner: editedData.identification_signer,
+        identificationTypeSigner: editedData.identification_type_signer,
+        identificationFromSigner: editedData.identification_from_signer,
+        academicSigner: editedData.academic_signer,
+        positionAcademicSigner: editedData.position_academic_signer,
+        mailAcademicSigner: editedData.mail_academic_signer,
+        mailSigner: editedData.mail_signer,
+      };
+      const { data } = await api.put(`/faculties/${facultyId}`, payload);
       setFaculty(data);
       setIsEditing(false);
       await Swal.fire({
@@ -225,9 +254,14 @@ export default function FacultyDetail({ onVolver }) {
           <div className="pyf-detail-field">
             <label><b>Sede</b>{isEditing && <FiEdit className="pyf-field-edit-icon" />}</label>
             {isEditing ? (
-              <input type="text" className="pyf-edit-input" value={editedData.branch_id} onChange={(e) => setEditedData((d) => ({ ...d, branch_id: e.target.value }))} placeholder="Sede" />
+              <select className="pyf-edit-input pyf-edit-select" value={editedData.sucursalId} onChange={(e) => setEditedData((d) => ({ ...d, sucursalId: e.target.value }))}>
+                <option value="">Sin sede</option>
+                {sucursales.map((s) => (
+                  <option key={s._id} value={s._id}>{s.nombre} ({s.codigo})</option>
+                ))}
+              </select>
             ) : (
-              <span>{faculty.branch_id ?? '-'}</span>
+              <span>{faculty.sucursalId && typeof faculty.sucursalId === 'object' && faculty.sucursalId.nombre ? faculty.sucursalId.nombre : 'Sin sede'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -235,7 +269,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="text" className="pyf-edit-input" value={editedData.authorized_signer} onChange={(e) => setEditedData((d) => ({ ...d, authorized_signer: e.target.value }))} placeholder="Autorizado para firmas" />
             ) : (
-              <span>{faculty.authorized_signer ?? '-'}</span>
+              <span>{faculty.authorizedSigner ?? faculty.authorized_signer ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -243,7 +277,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="text" className="pyf-edit-input" value={editedData.position_signer} onChange={(e) => setEditedData((d) => ({ ...d, position_signer: e.target.value }))} placeholder="Cargo" />
             ) : (
-              <span>{faculty.position_signer ?? '-'}</span>
+              <span>{faculty.positionSigner ?? faculty.position_signer ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -251,7 +285,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="text" className="pyf-edit-input" value={editedData.identification_signer} onChange={(e) => setEditedData((d) => ({ ...d, identification_signer: e.target.value }))} placeholder="Identificación" />
             ) : (
-              <span>{faculty.identification_signer ?? '-'}</span>
+              <span>{faculty.identificationSigner ?? faculty.identification_signer ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -259,7 +293,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="text" className="pyf-edit-input" value={editedData.identification_type_signer} onChange={(e) => setEditedData((d) => ({ ...d, identification_type_signer: e.target.value }))} placeholder="Tipo" />
             ) : (
-              <span>{faculty.identification_type_signer ?? '-'}</span>
+              <span>{faculty.identificationTypeSigner ?? faculty.identification_type_signer ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -267,7 +301,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="text" className="pyf-edit-input" value={editedData.identification_from_signer} onChange={(e) => setEditedData((d) => ({ ...d, identification_from_signer: e.target.value }))} placeholder="Ciudad" />
             ) : (
-              <span>{faculty.identification_from_signer ?? '-'}</span>
+              <span>{faculty.identificationFromSigner ?? faculty.identification_from_signer ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -275,7 +309,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="text" className="pyf-edit-input" value={editedData.academic_signer} onChange={(e) => setEditedData((d) => ({ ...d, academic_signer: e.target.value }))} placeholder="Autorizado académico" />
             ) : (
-              <span>{faculty.academic_signer ?? '-'}</span>
+              <span>{faculty.academicSigner ?? faculty.academic_signer ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -283,7 +317,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="text" className="pyf-edit-input" value={editedData.position_academic_signer} onChange={(e) => setEditedData((d) => ({ ...d, position_academic_signer: e.target.value }))} placeholder="Cargo" />
             ) : (
-              <span>{faculty.position_academic_signer ?? '-'}</span>
+              <span>{faculty.positionAcademicSigner ?? faculty.position_academic_signer ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -291,7 +325,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="email" className="pyf-edit-input" value={editedData.mail_academic_signer} onChange={(e) => setEditedData((d) => ({ ...d, mail_academic_signer: e.target.value }))} placeholder="Correo" />
             ) : (
-              <span>{faculty.mail_academic_signer ?? '-'}</span>
+              <span>{faculty.mailAcademicSigner ?? faculty.mail_academic_signer ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
@@ -299,7 +333,7 @@ export default function FacultyDetail({ onVolver }) {
             {isEditing ? (
               <input type="email" className="pyf-edit-input" value={editedData.mail_signer} onChange={(e) => setEditedData((d) => ({ ...d, mail_signer: e.target.value }))} placeholder="Correo firmas" />
             ) : (
-              <span>{faculty.mail_signer ?? '-'}</span>
+              <span>{faculty.mailSigner ?? faculty.mail_signer ?? '-'}</span>
             )}
           </div>
           </div>
