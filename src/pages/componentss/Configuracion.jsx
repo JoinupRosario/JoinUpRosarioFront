@@ -21,9 +21,6 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Facultades y Programas') {
       navigate('/dashboard/programas-facultades');
     }
-    if (opcion.text === 'Gestión de períodos para prácticas y monitorías académicas') {
-      navigate('/dashboard/periodos');
-    }
   };
   const opcionesConfiguracion = [
     { 
@@ -109,7 +106,7 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
-            const isClickable = opcion.text === 'Gestión de Parámetros' || opcion.text === 'Facultades y Programas' || opcion.text === 'Gestión de períodos para prácticas y monitorías académicas';
+            const isClickable = opcion.text === 'Gestión de Parámetros' || opcion.text === 'Facultades y Programas';
             return (
               <div 
                 key={index} 

@@ -33,7 +33,6 @@ import Ubicaciones from './componentss/Ubicaciones';
 import Users from './componentss/Users';
 import Companies from './componentss/Companies';
 import Sucursales from './componentss/Sucursales';
-import Periodos from './componentss/periodos/Periodos';
 import Oportunidades from './componentss/Oportunidades';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
@@ -73,8 +72,7 @@ export default function Dashboard() {
     '/dashboard/configuracion': 'configuracion',
     '/dashboard/configuracion-personal': 'configuracion-personal',
     '/dashboard/ubicaciones': 'ubicaciones',
-    '/dashboard/programas-facultades': 'programas-facultades',
-    '/dashboard/periodos': 'periodos'
+    '/dashboard/programas-facultades': 'programas-facultades'
   };
 
   // Mapeo de vistas a rutas
@@ -93,8 +91,7 @@ export default function Dashboard() {
     'configuracion': '/dashboard/configuracion',
     'configuracion-personal': '/dashboard/configuracion-personal',
     'ubicaciones': '/dashboard/ubicaciones',
-    'programas-facultades': '/dashboard/programas-facultades',
-    'periodos': '/dashboard/periodos'
+    'programas-facultades': '/dashboard/programas-facultades'
   };
 
   // Obtener vista actual basada en la URL
@@ -315,9 +312,6 @@ export default function Dashboard() {
 {vistaActual === 'configuracion' && (
           <h1 className="header-page-title">Configuración</h1>
         )}
-          {vistaActual === 'periodos' && (
-            <h1 className="header-page-title">Gestión de períodos</h1>
-          )}
           {vistaActual === 'programas-facultades' && (
             <h1 className="header-page-title">Programas y Facultades</h1>
           )}
@@ -512,9 +506,6 @@ export default function Dashboard() {
         )}
         {vistaActual === 'faculty-detail' && (
           <FacultyDetail onVolver={() => navigate('/dashboard/programas-facultades')} />
-        )}
-        {vistaActual === 'periodos' && (
-          <Periodos onVolver={() => navigate('/dashboard/configuracion')} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}
