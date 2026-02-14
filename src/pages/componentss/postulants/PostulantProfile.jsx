@@ -15,7 +15,11 @@ import {
   FiInstagram,
   FiHelpCircle,
   FiUpload,
-  FiX
+  FiX,
+  FiCheck,
+  FiXCircle,
+  FiBook,
+  FiCalendar
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -54,6 +58,7 @@ const PostulantProfile = ({ onVolver }) => {
   const [selectingFile, setSelectingFile] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editedData, setEditedData] = useState({});
+  const [profileData, setProfileData] = useState(null);
   const fileInputRef = useRef(null);
   const fileSelectTimeoutRef = useRef(null);
 
@@ -70,27 +75,28 @@ const PostulantProfile = ({ onVolver }) => {
     );
   }, []);
 
-  // Cargar datos del postulante
   const loadPostulant = useCallback(async (id) => {
     if (!id) {
       setLoading(false);
+      setProfileData(null);
       return;
     }
-
     try {
       setLoading(true);
       setPostulant(null);
-      console.log('Cargando postulante con ID:', id);
-      const response = await api.get(`/postulants/${id}`);
-      console.log('Respuesta del servidor:', response.data);
-      if (response.data) {
-        setPostulant(response.data);
+      setProfileData(null);
+      const [postulantRes, profileRes] = await Promise.all([
+        api.get(`/postulants/${id}`),
+        api.get(`/postulants/${id}/profile-data`).catch(() => ({ data: null })),
+      ]);
+      if (postulantRes.data) {
+        setPostulant(postulantRes.data);
       } else {
         showError('Error', 'No se encontraron datos del postulante');
       }
+      if (profileRes?.data) setProfileData(profileRes.data);
     } catch (error) {
       console.error('Error loading postulant', error);
-      console.error('Error response:', error.response);
       const errorMessage = error.response?.data?.message || 'No se pudo cargar la información del postulante';
       showError('Error', errorMessage);
     } finally {
@@ -109,31 +115,28 @@ const PostulantProfile = ({ onVolver }) => {
     }
   }, [location.pathname, loadPostulant]);
 
-  // Cargar imagen de perfil si existe
+  // Cargar imagen de perfil si existe (solo si es una ruta válida, no ObjectId)
   useEffect(() => {
-    if (postulant?.profile_picture) {
-      // Si es una ruta relativa, construir la URL completa
-      const baseURL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-      let imageUrl;
-      
-      if (postulant.profile_picture.startsWith('http')) {
-        imageUrl = postulant.profile_picture;
-      } else {
-        // Limpiar la baseURL (remover /api si existe y trailing slash)
-        const cleanBaseURL = baseURL.replace('/api', '').replace(/\/$/, '');
-        
-        // Limpiar el path (remover src/ si existe)
-        const cleanPath = postulant.profile_picture.replace(/^src\//, '');
-        
-        // Construir la URL completa
-        imageUrl = `${cleanBaseURL}/${cleanPath}`;
-      }
-      
-      console.log('Loading profile picture:', imageUrl);
-      setPreviewImage(imageUrl);
-    } else {
+    const pic = postulant?.profile_picture;
+    if (!pic || typeof pic !== 'string') {
       setPreviewImage(null);
+      return;
     }
+    const isPath = pic.includes('upload') || pic.startsWith('src/');
+    const isUrl = pic.startsWith('http');
+    if (!isPath && !isUrl) {
+      setPreviewImage(null);
+      return;
+    }
+    let imageUrl;
+    if (isUrl) {
+      imageUrl = pic;
+    } else {
+      const baseURL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/api\/?$/, '').replace(/\/$/, '');
+      const cleanPath = pic.replace(/^src[/\\]/, '').replace(/\\/g, '/');
+      imageUrl = `${baseURL}/${cleanPath}`;
+    }
+    setPreviewImage(imageUrl);
   }, [postulant]);
 
   // Manejar selección de archivo
@@ -205,31 +208,17 @@ const PostulantProfile = ({ onVolver }) => {
         }
       );
 
-      // Construir URL de la imagen
-      const baseURL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
       const imagePath = response.data.profile_picture;
-      
-      // Limpiar la baseURL (remover /api si existe)
-      const cleanBaseURL = baseURL.replace('/api', '').replace(/\/$/, '');
-      
-      // Limpiar el path (remover src/ si existe)
-      const cleanPath = imagePath.replace(/^src\//, '');
-      
-      // Construir la URL completa
-      const imageUrl = imagePath.startsWith('http') 
-        ? imagePath 
-        : `${cleanBaseURL}/${cleanPath}`;
-      
-      console.log('Image URL constructed:', imageUrl);
-      console.log('Image path from response:', imagePath);
+      const baseURL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/api\/?$/, '').replace(/\/$/, '');
+      const cleanPath = (imagePath || '').replace(/^src[/\\]/, '').replace(/\\/g, '/');
+      const imageUrl = (imagePath && imagePath.startsWith('http'))
+        ? imagePath
+        : `${baseURL}/${cleanPath}`;
 
-      // Actualizar el postulante con la nueva foto
       setPostulant(prev => ({
         ...prev,
-        profile_picture: response.data.profile_picture
+        profile_picture: imagePath || prev.profile_picture
       }));
-
-      // Actualizar el preview inmediatamente
       setPreviewImage(imageUrl);
       setSelectedFile(null);
       
@@ -263,7 +252,7 @@ const PostulantProfile = ({ onVolver }) => {
         twitter_url: postulant.twitter_url || '',
         instagram_url: postulant.instagram_url || '',
         website_url: postulant.website_url || '',
-        type_doc_postulant: postulant.type_doc_postulant || '',
+        type_doc_postulant: postulant.type_doc_postulant?._id ?? postulant.type_doc_postulant ?? '',
         identity_postulant: postulant.identity_postulant || '',
         date_nac_postulant: dateValue,
         nac_country: postulant.nac_country?._id || '',
@@ -393,10 +382,12 @@ const PostulantProfile = ({ onVolver }) => {
     }
   }, [postulant, showError]);
 
-  // Calcular porcentaje de completitud
+  // Porcentaje de completitud: usar el del backend si viene, sino calcular local
   const calculateCompleteness = useCallback(() => {
     if (!postulant) return 0;
-    
+    if (postulant.filling_percentage != null && !Number.isNaN(Number(postulant.filling_percentage))) {
+      return Math.min(100, Math.max(0, Number(postulant.filling_percentage)));
+    }
     const fields = [
       postulant.identity_postulant,
       postulant.type_doc_postulant,
@@ -411,7 +402,6 @@ const PostulantProfile = ({ onVolver }) => {
       postulant.phone_number,
       postulant.mobile_number
     ];
-
     const completed = fields.filter(Boolean).length;
     return Math.round((completed / fields.length) * 100);
   }, [postulant]);
@@ -565,7 +555,9 @@ const PostulantProfile = ({ onVolver }) => {
 
       {/* Contenido principal */}
       <div className="postulant-profile-main">
-        {/* Sección de resumen */}
+        {/* Resumen, contacto y redes: solo en Datos personales */}
+        {activeTab === 'datos-personales' && (
+          <>
         <div className="postulant-profile-summary">
           <div className="profile-summary-left">
             <div className="profile-picture-container">
@@ -709,8 +701,6 @@ const PostulantProfile = ({ onVolver }) => {
 
         {/* Separador */}
         <div className="profile-separator"></div>
-
-        {/* Información de contacto y redes sociales */}
         <div className="profile-info">
           <div className="profile-contact-info">
         
@@ -833,6 +823,8 @@ const PostulantProfile = ({ onVolver }) => {
             </div>
           </div>
         </div>
+          </>
+        )}
         {/* Contenido de tabs */}
         {activeTab === 'datos-personales' && (
           <div className="profile-tab-content">
@@ -857,7 +849,11 @@ const PostulantProfile = ({ onVolver }) => {
                     </select>
                   </div>
                 ) : (
-                  <div className="profile-field-value">{postulant.type_doc_postulant || '-'}</div>
+                  <div className="profile-field-value">
+                    {typeof postulant.type_doc_postulant === 'object' && postulant.type_doc_postulant !== null
+                      ? (postulant.type_doc_postulant.name ?? postulant.type_doc_postulant.value ?? '-')
+                      : (postulant.type_doc_postulant || '-')}
+                  </div>
                 )}
               </div>
               <div className="profile-data-field">
@@ -886,7 +882,11 @@ const PostulantProfile = ({ onVolver }) => {
                   Sexo
                   {isEditing && <FiEdit className="field-edit-icon" />}
                 </label>
-                <div className="profile-field-value">{postulant.gender_postulant || '-'}</div>
+                <div className="profile-field-value">
+                {typeof postulant.gender_postulant === 'object' && postulant.gender_postulant !== null
+                  ? (postulant.gender_postulant.name ?? postulant.gender_postulant.value ?? '-')
+                  : (postulant.gender_postulant || '-')}
+              </div>
               </div>
               <div className="profile-data-field">
                 <label className="profile-field-label">
@@ -1079,26 +1079,430 @@ const PostulantProfile = ({ onVolver }) => {
         )}
 
         {activeTab === 'informacion-academica' && (
-          <div className="profile-tab-content">
-            <div className="empty-state">
-              <p>La información académica se mostrará aquí próximamente.</p>
+          <div className="profile-tab-content academic-tab">
+            <div className="academic-warning-banner">
+              Atención! La Universidad del Rosario no se hace responsable de la veracidad de la información ingresada en relación a los estudios o experiencia externos a la institución relacionados por el postulante.
             </div>
+
+            <section className="academic-section">
+              <h3 className="academic-section-title">Formación académica en curso - Registrada</h3>
+              {profileData?.enrolledPrograms?.length > 0 ? (
+                <ul className="academic-list academic-list-cards">
+                  {profileData.enrolledPrograms.map((ep) => (
+                    <li key={ep._id} className="academic-list-item">
+                      <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                      <span>{ep.programId?.name || ep.programId?.code || 'Programa'}</span>
+                      {(ep.programFacultyId?.facultyId?.name || ep.programFacultyId?.name) && <span> — {ep.programFacultyId?.facultyId?.name || ep.programFacultyId?.name}</span>}
+                      {(ep.cityId?.name || ep.countryId?.name) && (
+                        <span> ({[ep.cityId?.name, ep.countryId?.name].filter(Boolean).join(', ')})</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="academic-empty">
+                  <FiXCircle className="academic-empty-icon" />
+                  <span>No tiene formación en curso.</span>
+                </div>
+              )}
+            </section>
+
+            <section className="academic-section">
+              <h3 className="academic-section-title">Formación académica Rosario - Finalizada</h3>
+              {profileData?.graduatePrograms?.length > 0 ? (
+                <>
+                  <div className="academic-finished-grid">
+                    {profileData.graduatePrograms.map((gp) => (
+                      <div key={gp._id} className="academic-finished-row">
+                        <div className="academic-finished-field">
+                          <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                          <span className="academic-field-label">Título formación académica:</span>
+                          <span className="academic-field-value">{gp.programId?.name || gp.programId?.code || gp.title || '—'}</span>
+                        </div>
+                        <div className="academic-finished-field">
+                          <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                          <span className="academic-field-label">Facultad:</span>
+                          <span className="academic-field-value">{gp.programFacultyId?.facultyId?.name || gp.programFacultyId?.name || '—'}</span>
+                        </div>
+                        <div className="academic-finished-field">
+                          <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                          <span className="academic-field-label">Sede:</span>
+                          <span className="academic-field-value">
+                            {[gp.anotherUniversity, gp.cityId?.name, gp.stateId?.name, gp.countryId?.name].filter(Boolean).join(', ') || '—'}
+                          </span>
+                        </div>
+                        <div className="academic-finished-field">
+                          <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                          <span className="academic-field-label">Ciudad:</span>
+                          <span className="academic-field-value">{gp.cityId?.name ?? '—'}</span>
+                        </div>
+                        <div className="academic-finished-field">
+                          <span className="academic-item-icon academic-item-grad"><FiBook /></span>
+                          <span className="academic-field-label">Profesión:</span>
+                          <span className="academic-field-value">{gp.programId?.name || gp.programId?.code || '—'}</span>
+                        </div>
+                        <div className="academic-finished-field">
+                          <span className="academic-item-icon academic-item-grad"><FiBook /></span>
+                          <span className="academic-field-label">Nivel educativo:</span>
+                          <span className="academic-field-value">Pregrado</span>
+                        </div>
+                        <div className="academic-finished-field">
+                          <span className="academic-item-icon academic-item-cal"><FiCalendar /></span>
+                          <span className="academic-field-label">Fecha finalización:</span>
+                          <span className="academic-field-value">{gp.endDate ? formatDate(gp.endDate) : '—'}</span>
+                        </div>
+                        <div className="academic-finished-field">
+                          <span className="academic-item-icon academic-item-globe"><FiGlobe /></span>
+                          <span className="academic-field-label">País:</span>
+                          <span className="academic-field-value">{gp.countryId?.name || '—'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="academic-subtitle">Formación académica Finalizada - Registrada</p>
+                </>
+              ) : (
+                <div className="academic-empty">
+                  <FiXCircle className="academic-empty-icon" />
+                  <span>No tiene formación finalizada registrada.</span>
+                </div>
+              )}
+            </section>
+
+            <section className="academic-section">
+              <h3 className="academic-section-title">Otros Estudios</h3>
+              <p className="academic-other-note">*Por favor agregue, si los tiene, el estudio, institución y año de realización*</p>
+              {profileData?.otherStudies?.length > 0 ? (
+                <ul className="academic-list academic-other-list">
+                  {profileData.otherStudies.map((os) => (
+                    <li key={os._id} className="academic-other-item">
+                      <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                      <span>{os.studyName || '—'}</span>
+                      <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                      <span>{os.studyInstitution || '—'}</span>
+                      <span className="academic-item-icon academic-item-cal"><FiCalendar /></span>
+                      <span>{os.studyYear ?? '—'}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="academic-empty">
+                  <FiXCircle className="academic-empty-icon" />
+                  <span>No hay otros estudios registrados.</span>
+                </div>
+              )}
+            </section>
           </div>
         )}
 
         {activeTab === 'perfil' && (
-          <div className="profile-tab-content">
-            <div className="empty-state">
-              <p>El perfil se mostrará aquí próximamente.</p>
+          <div className="profile-tab-content perfil-tab">
+            <div className="perfil-warning-banner">
+              Atención! Recuerda que para generar tu hoja de vida necesitas crear y seleccionar un perfil, esto te permitirá aplicar a las oportunidades. La Universidad del Rosario no se hace responsable de la veracidad de la información ingresada en relación a los estudios o experiencia externa a la institución relacionados por el postulante.
             </div>
+
+            <div className="perfil-two-columns">
+              <div className="perfil-column perfil-column-left">
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Perfil profesional</h4>
+                  <p className="perfil-block-note">*Puede crear hasta 5 versiones diferentes de su perfil</p>
+                  {profileData?.postulantProfile?.profileText ? (
+                    <div className="perfil-field-with-check">
+                      <span className="perfil-check-icon"><FiCheck /></span>
+                      <span className="perfil-field-value">{profileData.postulantProfile.profileText.split('\n')[0] || profileData.postulantProfile.profileText}</span>
+                    </div>
+                  ) : (
+                    <div className="perfil-field-value perfil-field-empty">—</div>
+                  )}
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Habilidades técnicas y de software</h4>
+                  <div className="perfil-field-value">{profileData?.postulantProfile?.skillsTechnicalSoftware || '—'}</div>
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">¿Se encuentra en condición de discapacidad?</h4>
+                  <span className={`perfil-sino-badge ${profileData?.postulantProfile?.conditionDiscapacity ? 'sino-si' : 'sino-no'}`}>
+                    {profileData?.postulantProfile?.conditionDiscapacity ? 'Sí' : 'No'}
+                  </span>
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">¿Tengo mi propia empresa?</h4>
+                  <span className={`perfil-sino-badge ${profileData?.postulantProfile?.haveBusiness ? 'sino-si' : 'sino-no'}`}>
+                    {profileData?.postulantProfile?.haveBusiness ? 'Sí' : 'No'}
+                  </span>
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Años de experiencia</h4>
+                  <div className="perfil-field-value">{profileData?.postulantProfile?.yearsExperience != null ? String(profileData.postulantProfile.yearsExperience) : '—'}</div>
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Otros documentos de soporte</h4>
+                  <p className="perfil-block-desc">Puede ingresar hasta 5 archivos de Soporte, según su necesidad. El tamaño máximo de cada archivo es de 5Mb. Se permiten las siguientes extensiones: .doc, .docx, .xls, .xlsx, .pdf, .jpg, .jpeg y .png</p>
+                </div>
+              </div>
+
+              <div className="perfil-column perfil-column-right">
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Áreas de Interés</h4>
+                  {profileData?.interestAreas?.length > 0 ? (
+                    <ul className="perfil-tag-list">
+                      {profileData.interestAreas.map((ia) => (
+                        <li key={ia._id} className="perfil-tag-item">
+                          <span className="perfil-check-icon"><FiCheck /></span>
+                          {ia.area?.name ?? ia.area?.value ?? '—'}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="perfil-field-value perfil-field-empty">—</div>
+                  )}
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Competencias (Habilidades e intereses)</h4>
+                  {profileData?.skills?.length > 0 ? (
+                    <ul className="perfil-tag-list">
+                      {profileData.skills.map((s) => (
+                        <li key={s._id} className="perfil-tag-item">
+                          <span className="perfil-check-icon"><FiCheck /></span>
+                          {s.skillId?.name || '—'} {s.experienceYears != null ? `(${s.experienceYears} años)` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="perfil-field-value perfil-field-empty">—</div>
+                  )}
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Idiomas</h4>
+                  {profileData?.languages?.length > 0 ? (
+                    <ul className="perfil-lang-list">
+                      {profileData.languages.map((l) => (
+                        <li key={l._id} className="perfil-lang-item">
+                          <span>{l.language?.name ?? l.language?.value ?? '—'}</span>
+                          <span className="perfil-lang-level">{l.level?.name ?? l.level?.value ?? '—'}</span>
+                          <span className={`perfil-cert-badge ${l.certificationExam ? 'certified' : ''}`}>
+                            {l.certificationExam ? (l.certificationExamName || 'Certificado') : 'No Certificado'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="perfil-field-value perfil-field-empty">—</div>
+                  )}
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Independiente</h4>
+                  <span className={`perfil-sino-badge ${profileData?.postulantProfile?.independent ? 'sino-si' : 'sino-no'}`}>
+                    {profileData?.postulantProfile?.independent ? 'Sí' : 'No'}
+                  </span>
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Empleado</h4>
+                  <span className={`perfil-sino-badge ${profileData?.postulantProfile?.employee ? 'sino-si' : 'sino-no'}`}>
+                    {profileData?.postulantProfile?.employee ? 'Sí' : 'No'}
+                  </span>
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Tiempo total de experiencia laboral (En meses)</h4>
+                  <div className="perfil-field-value">{profileData?.postulantProfile?.totalTimeExperience != null ? String(profileData.postulantProfile.totalTimeExperience) : '0.0'}</div>
+                </div>
+
+                <div className="perfil-block">
+                  <h4 className="perfil-block-title">Hojas de vida</h4>
+                  <p className="perfil-block-desc">Puede generar hasta 5 archivos de Hoja de Vida, según los diferentes perfiles que tenga. El tamaño máximo de cada archivo es de 5Mb.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bloques de solo lectura debajo: texto completo perfil, premios, referencias */}
+            {(profileData?.postulantProfile?.profileText && profileData.postulantProfile.profileText.split('\n').length > 1) && (
+              <div className="perfil-extra-block">
+                <h4 className="perfil-block-title">Texto de perfil (completo)</h4>
+                <div className="perfil-field-value profile-text-block">{profileData.postulantProfile.profileText}</div>
+              </div>
+            )}
+            {profileData?.awards?.length > 0 && (
+              <div className="perfil-extra-block">
+                <h4 className="perfil-block-title">Logros / premios</h4>
+                <ul className="profile-list">
+                  {profileData.awards.map((a) => (
+                    <li key={a._id}>{a.name} — {a.awardType?.name ?? a.awardType?.value ?? ''} {a.awardDate ? formatDate(a.awardDate) : ''}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {profileData?.references?.length > 0 && (
+              <div className="perfil-extra-block">
+                <h4 className="perfil-block-title">Referencias</h4>
+                <ul className="profile-list">
+                  {profileData.references.map((r) => (
+                    <li key={r._id}>{r.firstname} {r.lastname} — {r.occupation} — {r.phone}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'experiencia' && (
-          <div className="profile-tab-content">
-            <div className="empty-state">
-              <p>La experiencia se mostrará aquí próximamente.</p>
+          <div className="profile-tab-content experiencia-tab">
+            <div className="experiencia-warning-banner">
+              Atención! La Universidad del Rosario no se hace responsable de la veracidad de la información ingresada en relación a los estudios o experiencia externos a la institución relacionados por el postulante.
             </div>
+
+            <section className="exp-section">
+              <h3 className="exp-section-title">Experiencias Laborales</h3>
+              <div className="exp-table-wrap">
+                <table className="exp-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha de inicio</th>
+                      <th>Fecha de finalización</th>
+                      <th>Cargo</th>
+                      <th>Empresa</th>
+                      <th>Sector</th>
+                      <th>Contacto</th>
+                      <th>Profesión</th>
+                      <th>País</th>
+                      <th>Departamento</th>
+                      <th>Ciudad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profileData?.workExperiences?.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP').length > 0 ? (
+                      profileData.workExperiences.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP').map((w) => (
+                        <tr key={w._id}>
+                          <td>{w.startDate ? formatDate(w.startDate) : '—'}</td>
+                          <td>{w.noEndDate ? 'Actualidad' : (w.endDate ? formatDate(w.endDate) : '—')}</td>
+                          <td>{w.jobTitle || '—'}</td>
+                          <td>{w.companyName || '—'}</td>
+                          <td>{w.companySector?.name ?? w.companySector?.value ?? '—'}</td>
+                          <td>{w.contact || '—'}</td>
+                          <td>{w.profession || '—'}</td>
+                          <td>{w.countryId?.name ?? '—'}</td>
+                          <td>{w.stateId?.name ?? '—'}</td>
+                          <td>{w.cityId?.name ?? '—'}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan={10} className="exp-table-empty">No hay experiencias laborales registradas.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="exp-section">
+              <h3 className="exp-section-title">Otras Experiencias</h3>
+              <div className="exp-table-wrap">
+                <table className="exp-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo de Experiencia</th>
+                      <th>Fecha de inicio</th>
+                      <th>Fecha de finalización</th>
+                      <th>Nombre</th>
+                      <th>Institución</th>
+                      <th>Investigación</th>
+                      <th>Asignatura</th>
+                      <th>País</th>
+                      <th>Departamento</th>
+                      <th>Ciudad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profileData?.workExperiences?.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP').length > 0 ? (
+                      profileData.workExperiences.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP').map((w) => (
+                        <tr key={w._id}>
+                          <td>{w.experienceType || '—'}</td>
+                          <td>{w.startDate ? formatDate(w.startDate) : '—'}</td>
+                          <td>{w.noEndDate ? 'Actualidad' : (w.endDate ? formatDate(w.endDate) : '—')}</td>
+                          <td>{w.jobTitle || w.companyName || '—'}</td>
+                          <td>{w.companyName || '—'}</td>
+                          <td>{w.investigationLine || '—'}</td>
+                          <td>{w.course || '—'}</td>
+                          <td>{w.countryId?.name ?? '—'}</td>
+                          <td>{w.stateId?.name ?? '—'}</td>
+                          <td>{w.cityId?.name ?? '—'}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan={10} className="exp-table-empty">No hay otras experiencias registradas.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="exp-section">
+              <h3 className="exp-section-title">Logros</h3>
+              <div className="exp-table-wrap">
+                <table className="exp-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo de Logro</th>
+                      <th>Fecha</th>
+                      <th>Nombre</th>
+                      <th>Descripción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profileData?.awards?.length > 0 ? (
+                      profileData.awards.map((a) => (
+                        <tr key={a._id}>
+                          <td>{a.awardType?.name ?? a.awardType?.value ?? '—'}</td>
+                          <td>{a.awardDate ? formatDate(a.awardDate) : '—'}</td>
+                          <td>{a.name || '—'}</td>
+                          <td>{a.description || '—'}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan={4} className="exp-table-empty">No hay logros registrados.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="exp-section">
+              <h3 className="exp-section-title">Referencias</h3>
+              <div className="exp-table-wrap">
+                <table className="exp-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Apellido</th>
+                      <th>Ocupación</th>
+                      <th>Teléfono</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profileData?.references?.length > 0 ? (
+                      profileData.references.map((r) => (
+                        <tr key={r._id}>
+                          <td>{r.firstname || '—'}</td>
+                          <td>{r.lastname || '—'}</td>
+                          <td>{r.occupation || '—'}</td>
+                          <td>{r.phone || '—'}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan={4} className="exp-table-empty">No hay referencias registradas.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
         )}
       </div>

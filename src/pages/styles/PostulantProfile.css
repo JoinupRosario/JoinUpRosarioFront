@@ -716,6 +716,450 @@ input:checked + .slider:before {
   }
 }
 
+/* Listas de perfil y experiencia (datos migrados) */
+.full-width {
+  width: 100%;
+}
+
+.profile-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.profile-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.profile-list li:last-child {
+  border-bottom: none;
+}
+
+.experience-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.experience-item {
+  padding: 16px;
+  margin-bottom: 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.experience-desc {
+  margin-top: 8px;
+  color: #555;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.profile-text-block {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: #374151;
+}
+
+/* ========== Tab Información académica (estilo plataforma anterior) ========== */
+.academic-tab {
+  padding: 0 20px 20px;
+}
+
+.academic-warning-banner {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.academic-section {
+  margin-bottom: 28px;
+}
+
+.academic-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 12px 0;
+}
+
+.academic-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.academic-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.academic-list-item:last-child {
+  border-bottom: none;
+}
+
+.academic-item-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.academic-item-check {
+  color: #059669;
+}
+
+.academic-item-grad,
+.academic-item-cal,
+.academic-item-globe {
+  color: #6b7280;
+}
+
+.academic-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.academic-empty-icon {
+  font-size: 22px;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.academic-finished-grid {
+  margin-bottom: 10px;
+}
+
+.academic-finished-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px 20px;
+  padding: 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.academic-finished-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.academic-field-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+}
+
+.academic-field-value {
+  color: #111827;
+  font-size: 13px;
+}
+
+.academic-subtitle {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 0 4px;
+}
+
+.academic-other-note {
+  font-size: 12px;
+  font-style: italic;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+}
+
+.academic-other-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.academic-other-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.academic-other-item:last-child {
+  border-bottom: none;
+}
+
+/* ========== Tab Perfil (dos columnas, estilo plataforma anterior) ========== */
+.perfil-tab {
+  padding: 0 20px 20px;
+}
+
+.perfil-warning-banner {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.perfil-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px 32px;
+  margin-bottom: 24px;
+}
+
+.perfil-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.perfil-block {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.perfil-block-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.perfil-block-note {
+  font-size: 12px;
+  font-style: italic;
+  color: #6b7280;
+  margin: 0 0 10px 0;
+}
+
+.perfil-block-desc {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.perfil-field-with-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.perfil-check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #059669;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.perfil-field-value {
+  font-size: 13px;
+  color: #374151;
+}
+
+.perfil-field-empty {
+  color: #9ca3af;
+}
+
+.perfil-option-group {
+  display: flex;
+  gap: 10px;
+}
+
+.perfil-option {
+  padding: 6px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  background: #fff;
+}
+
+.perfil-option.selected {
+  border-color: #c41e3a;
+  background: #fef2f2;
+  color: #c41e3a;
+  font-weight: 500;
+}
+
+.perfil-sino-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.perfil-sino-badge.sino-si {
+  background: #d1fae5;
+  color: #059669;
+  border: 1px solid #10b981;
+}
+
+.perfil-sino-badge.sino-no {
+  background: #fef2f2;
+  color: #c41e3a;
+  border: 1px solid #c41e3a;
+}
+
+.perfil-tag-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.perfil-tag-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: #374151;
+}
+
+.perfil-lang-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.perfil-lang-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.perfil-lang-level {
+  color: #6b7280;
+}
+
+.perfil-cert-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.perfil-cert-badge.certified {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.perfil-extra-block {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.perfil-extra-block .perfil-block-title {
+  margin-bottom: 10px;
+}
+
+/* ========== Tab Experiencia (secciones con tabla, línea roja en títulos) ========== */
+.experiencia-tab {
+  padding: 0 20px 20px;
+}
+
+.experiencia-warning-banner {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.exp-section {
+  margin-bottom: 28px;
+}
+
+.exp-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 12px 0;
+  padding-left: 12px;
+  border-left: 4px solid #c41e3a;
+}
+
+.exp-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.exp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.exp-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.exp-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.exp-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.exp-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.exp-table-empty {
+  color: #6b7280;
+  font-style: italic;
+  text-align: center;
+  padding: 20px !important;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .postulant-profile-actions {
@@ -756,6 +1200,10 @@ input:checked + .slider:before {
   }
 
   .profile-data-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .perfil-two-columns {
     grid-template-columns: 1fr;
   }
 }

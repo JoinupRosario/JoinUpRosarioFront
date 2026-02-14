@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft,
@@ -8,7 +8,9 @@ import {
   FiActivity,
   FiFileText,
   FiRefreshCw,
-  FiAlertCircle
+  FiAlertCircle,
+  FiChevronLeft,
+  FiChevronRight
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -34,6 +36,11 @@ const Postulants = ({ onVolver }) => {
   const [postulants, setPostulants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const searchDebounceRef = useRef(null);
   
 
   // Funciones de utilidad
@@ -101,38 +108,45 @@ const Postulants = ({ onVolver }) => {
   }, []);
 
 
-  // Carga de postulantes
+  // Parámetro de búsqueda enviado al API (debounced)
+  const [searchParam, setSearchParam] = useState('');
+
+  // Carga de postulantes con paginación
   const loadPostulants = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/postulants');
+      const params = {
+        page,
+        limit,
+        ...(searchParam && searchParam.trim() ? { search: searchParam.trim() } : {}),
+      };
+      const response = await api.get('/postulants', { params });
       setPostulants(response.data.data || []);
+      setTotal(response.data.total ?? 0);
+      setTotalPages(response.data.totalPages ?? 0);
     } catch (error) {
       console.error('Error loading postulants', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit, searchParam]);
 
- 
-  // Filtrado de postulantes
-  const postulantsFiltered = useCallback(() => {
-    if (!searchTerm.trim()) return postulants;
-    
-    const term = searchTerm.toLowerCase();
-    return postulants.filter(p => {
-      return (
-        (p.identity_postulant && String(p.identity_postulant).includes(searchTerm)) ||
-        (p.user?.name && p.user.name.toLowerCase().includes(term)) ||
-        (p.user?.lastname && p.user.lastname.toLowerCase().includes(term)) ||
-        (p.user?.email && p.user.email.toLowerCase().includes(term))
-      );
-    });
-  }, [postulants, searchTerm]);
+  // Debounce de búsqueda: al escribir, actualizar searchParam y volver a página 1 tras 400ms
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchParam(searchTerm);
+      setPage(1);
+    }, 400);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchTerm]);
 
   // Utilidades de visualización
   const getProfilePercent = useCallback((postulant) => {
-    return postulant.full_profile ? 100 : 60;
+    const value = postulant.filling_percentage ?? (postulant.full_profile ? 100 : 0);
+    return Math.min(100, Math.max(0, Number(value) || 0));
   }, []);
 
   const handleRowClick = useCallback((postulant) => {
@@ -190,14 +204,22 @@ const Postulants = ({ onVolver }) => {
     }
   }, [postulants, showConfirmationWithReason, showSuccess, showError, loadPostulants]);
 
-  // Efectos
+  // Cargar cuando cambian página, límite o búsqueda aplicada
   useEffect(() => {
     loadPostulants();
   }, [loadPostulants]);
 
-  const renderPostulantsTable = () => {
-    const filtered = postulantsFiltered();
+  const handlePageChange = useCallback((newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) setPage(newPage);
+  }, [totalPages]);
 
+  const handleLimitChange = useCallback((e) => {
+    const newLimit = Number(e.target.value) || 20;
+    setLimit(newLimit);
+    setPage(1);
+  }, []);
+
+  const renderPostulantsTable = () => {
     if (loading) {
       return (
         <div className="loading-container">
@@ -207,15 +229,15 @@ const Postulants = ({ onVolver }) => {
       );
     }
 
-    if (filtered.length === 0) {
+    if (postulants.length === 0) {
       return (
         <div className="empty-state">
           <FiUser className="empty-icon" />
           <h3>No se encontraron postulantes</h3>
           <p>
-            {postulants.length === 0
+            {total === 0 && !searchParam
               ? 'No hay postulantes registrados todavía.'
-              : 'Intenta con otros términos de búsqueda.'}
+              : 'Intenta con otros términos de búsqueda o cambia de página.'}
           </p>
         </div>
       );
@@ -226,8 +248,7 @@ const Postulants = ({ onVolver }) => {
         <thead>
           <tr>
             <th>IDENTIFICACIÓN</th>
-            <th>NOMBRES</th>
-            <th>APELLIDOS</th>
+            <th>NOMBRES Y APELLIDOS</th>
             <th>USUARIO</th>
             <th>PROGRAMAS</th>
             <th>ACTUALIZADO</th>
@@ -236,7 +257,7 @@ const Postulants = ({ onVolver }) => {
           </tr>
         </thead>
         <tbody>
-          {filtered.map((p) => {
+          {postulants.map((p) => {
             const estadoActual = p.estate_postulant || 'activo';
             const isActivo = estadoActual === 'activo';
             const nuevoEstado = isActivo ? 'inactivo' : 'activo';
@@ -273,7 +294,6 @@ const Postulants = ({ onVolver }) => {
                     p.user?.name ?? '-'
                   )}
                 </td>
-                <td>{p.user?.lastname ?? '-'}</td>
                 <td>{p.user?.email ?? '-'}</td>
                 <td>Ingeniería de Sistemas</td>
                 <td>{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '-'}</td>
@@ -364,6 +384,48 @@ const Postulants = ({ onVolver }) => {
         <div className="postulants-table-container">
           {renderPostulantsTable()}
         </div>
+
+        {total > 0 && (
+          <div className="postulants-pagination">
+            <div className="pagination-info">
+              Mostrando {((page - 1) * limit) + 1}-{Math.min(page * limit, total)} de {total}
+            </div>
+            <div className="pagination-controls">
+              <label className="pagination-limit">
+                Filas por página:
+                <select value={limit} onChange={handleLimitChange} className="pagination-select">
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
+              <div className="pagination-buttons">
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page <= 1}
+                  title="Página anterior"
+                >
+                  <FiChevronLeft />
+                </button>
+                <span className="pagination-page">
+                  Página {page} de {totalPages || 1}
+                </span>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= totalPages}
+                  title="Página siguiente"
+                >
+                  <FiChevronRight />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
