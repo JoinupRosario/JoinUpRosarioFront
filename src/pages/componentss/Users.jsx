@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FiPlus,
   FiEdit,
@@ -9,7 +9,8 @@ import {
   FiUserCheck,
   FiKey,
   FiCheck,
-  FiX
+  FiX,
+  FiRefreshCw
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
@@ -20,23 +21,33 @@ const Users = ({ onVolver }) => {
   const [usersAdministrativos, setUsersAdministrativos] = useState([]);
   const [roles, setRoles] = useState([]);
   const [sucursales, setSucursales] = useState([]);
+  const [tiposIdentificacion, setTiposIdentificacion] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [rolesSeleccionados, setRolesSeleccionados] = useState({});
+  const [programasSeleccionados, setProgramasSeleccionados] = useState({});
+  const [programSearchTerm, setProgramSearchTerm] = useState('');
+  const [programSearchQuery, setProgramSearchQuery] = useState('');
+  const programSearchTimeoutRef = useRef(null);
+  const [programCurrentPage, setProgramCurrentPage] = useState(1);
+  const PROGRAMAS_PAGE_SIZE = 15;
+  const [programs, setPrograms] = useState([]);
+  const [programPagination, setProgramPagination] = useState({ page: 1, limit: 15, total: 0, pages: 1 });
+  const [asociarTodosActivos, setAsociarTodosActivos] = useState(false);
+  const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [sedeSeleccionada, setSedeSeleccionada] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
 
   const [formData, setFormData] = useState({
+    tipoIdentificacion: '',
+    identificacion: '',
     nombres: '',
     apellidos: '',
-    cargo: '',
-    identificacion: '',
-    telefono: '',
-    extension: '',
-    movil: '',
+    phone: '',
     email: '',
+    directorioActivo: true,
     password: '',
     confirmPassword: '',
     estado: true
@@ -105,7 +116,17 @@ const Users = ({ onVolver }) => {
     cargarUsersAdministrativos();
     cargarRoles();
     cargarSucursales();
+    cargarTiposIdentificacion();
   }, []);
+
+  const cargarTiposIdentificacion = async () => {
+    try {
+      const { data } = await api.get('/locations/items/L_IDENTIFICATIONTYPE', { params: { limit: 100 } });
+      setTiposIdentificacion(data?.data ?? []);
+    } catch (err) {
+      console.error('Error al cargar tipos de identificación:', err);
+    }
+  };
 
   const cargarUsersAdministrativos = async () => {
     try {
@@ -161,14 +182,13 @@ const Users = ({ onVolver }) => {
   const startEdit = (user) => {
     setEditingUser(user);
     setFormData({
+      tipoIdentificacion: user.tipoIdentificacion?._id || user.tipoIdentificacion || '',
+      identificacion: user.identificacion || '',
       nombres: user.nombres || '',
       apellidos: user.apellidos || '',
-      cargo: user.cargo || '',
-      identificacion: user.identificacion || '',
-      telefono: user.telefono || '',
-      extension: user.extension || '',
-      movil: user.movil || '',
+      phone: user.phone || '',
       email: user.user?.email || '',
+      directorioActivo: !!user.user?.directorioActivo,
       password: '',
       confirmPassword: '',
       estado: user.estado !== undefined ? user.estado : true
@@ -176,69 +196,72 @@ const Users = ({ onVolver }) => {
     setVistaActual('crear');
   };
 
-  // Manejar creación de usuario administrativo
+  // Manejar creación/actualización de usuario administrativo
   const handleCrearUserAdministrativo = async (e) => {
     e.preventDefault();
 
-    // Validaciones básicas
-    if (!formData.nombres.trim() || !formData.apellidos.trim() ||
-      !formData.identificacion.trim() || !formData.email.trim()) {
-      showError('Error', 'Todos los campos obligatorios deben ser llenados');
+    if (!formData.nombres?.trim() || !formData.apellidos?.trim() ||
+      !formData.identificacion?.trim() || !formData.email?.trim()) {
+      showError('Error', 'Completa Tipo ID, Identificación, Nombres, Apellidos y Usuario (Directorio Activo).');
       return;
     }
 
-    // Solo validar contraseña si es creación nueva o si se está cambiando
-    if (!editingUser && !formData.password.trim()) {
-      showError('Error', 'La contraseña es obligatoria para nuevos usuarios');
-      return;
-    }
-
-    if (formData.password && formData.password !== formData.confirmPassword) {
-      showError('Error', 'Las contraseñas no coinciden');
-      return;
-    }
-
-    if (formData.password && formData.password.length < 6) {
-      showError('Error', 'La contraseña debe tener al menos 6 caracteres');
-      return;
+    const esDirectorioActivo = !!formData.directorioActivo;
+    if (!esDirectorioActivo) {
+      if (!editingUser && (!formData.password?.trim() || formData.password.length < 6)) {
+        showError('Error', 'Cuando Directorio Activo está desactivado, la contraseña es obligatoria y debe tener al menos 6 caracteres.');
+        return;
+      }
+      if (formData.password && formData.password !== formData.confirmPassword) {
+        showError('Error', 'Las contraseñas no coinciden.');
+        return;
+      }
+      if (formData.password && formData.password.length < 6) {
+        showError('Error', 'La contraseña debe tener al menos 6 caracteres.');
+        return;
+      }
     }
 
     try {
-      const { confirmPassword, ...dataToSend } = formData;
-      
-      // Si no hay contraseña en edición, no la enviamos
-      if (editingUser && !dataToSend.password) {
-        delete dataToSend.password;
+      const dataToSend = {
+        tipoIdentificacion: formData.tipoIdentificacion || undefined,
+        identificacion: formData.identificacion.trim(),
+        nombres: formData.nombres.trim(),
+        apellidos: formData.apellidos.trim(),
+        phone: formData.phone?.trim() || undefined,
+        email: formData.email.trim(),
+        directorioActivo: esDirectorioActivo,
+        estado: formData.estado
+      };
+      if (!esDirectorioActivo && formData.password?.trim()) {
+        dataToSend.password = formData.password;
       }
 
       let response;
       if (editingUser) {
-        // Actualizar usuario existente
         response = await api.put(`/users-administrativos/${editingUser._id}`, dataToSend);
         if (response.data.success) {
           await showSuccess('Éxito', 'Usuario administrativo actualizado correctamente');
         }
       } else {
-        // Crear nuevo usuario
         response = await api.post('/users-administrativos', dataToSend);
         if (response.data.success) {
           await showSuccess('Éxito', 'Usuario administrativo creado correctamente');
         }
       }
 
-      if (response.data.success) {
+      if (response?.data?.success) {
         cargarUsersAdministrativos();
         setVistaActual('buscar');
         setEditingUser(null);
         setFormData({
+          tipoIdentificacion: '',
+          identificacion: '',
           nombres: '',
           apellidos: '',
-          cargo: '',
-          identificacion: '',
-          telefono: '',
-          extension: '',
-          movil: '',
+          phone: '',
           email: '',
+          directorioActivo: true,
           password: '',
           confirmPassword: '',
           estado: true
@@ -291,8 +314,65 @@ const Users = ({ onVolver }) => {
     setVistaActual('roles');
   };
   const abrirGestionProgramas = (user) => {
-    showFuncionalidadEnDesarrollo('Asociar Programas / Opciones Académicas');
+    setSelectedUser(user);
+    setVistaActual('programas');
+    setProgramSearchTerm('');
+    setProgramSearchQuery('');
+    setProgramCurrentPage(1);
+    setAsociarTodosActivos(false);
+    if (user?.programas?.length) {
+      const initial = {};
+      user.programas.forEach(p => {
+        const id = p.program?._id || p.program;
+        if (id) initial[id] = true;
+      });
+      setProgramasSeleccionados(initial);
+    } else {
+      setProgramasSeleccionados({});
+    }
   };
+
+  // Búsqueda de programas con debounce (envía query al backend)
+  useEffect(() => {
+    if (vistaActual !== 'programas') return;
+    if (programSearchTimeoutRef.current) clearTimeout(programSearchTimeoutRef.current);
+    const t = setTimeout(() => {
+      setProgramSearchQuery(programSearchTerm.trim());
+      setProgramCurrentPage(1);
+    }, 400);
+    programSearchTimeoutRef.current = t;
+    return () => { clearTimeout(t); };
+  }, [vistaActual, programSearchTerm]);
+
+  // Cargar página de programas desde el backend
+  const fetchProgramsPage = async (page, search) => {
+    if (!selectedUser) return;
+    setLoadingPrograms(true);
+    try {
+      const { data } = await api.get('/programs', {
+        params: {
+          page: page || 1,
+          limit: PROGRAMAS_PAGE_SIZE,
+          search: (search || '').trim() || undefined,
+          status: 'ACTIVE'
+        }
+      });
+      setPrograms(data?.data ?? []);
+      setProgramPagination(data?.pagination ?? { page: 1, limit: PROGRAMAS_PAGE_SIZE, total: 0, pages: 1 });
+    } catch (err) {
+      console.error('Error al cargar programas:', err);
+      showError('Error', 'No se pudieron cargar los programas');
+      setPrograms([]);
+      setProgramPagination({ page: 1, limit: PROGRAMAS_PAGE_SIZE, total: 0, pages: 1 });
+    } finally {
+      setLoadingPrograms(false);
+    }
+  };
+
+  useEffect(() => {
+    if (vistaActual !== 'programas' || !selectedUser) return;
+    fetchProgramsPage(programCurrentPage, programSearchQuery);
+  }, [vistaActual, selectedUser?._id, programCurrentPage, programSearchQuery]);
 
   // Abrir gestión de sedes
   const abrirGestionSedes = (user) => {
@@ -323,6 +403,31 @@ const Users = ({ onVolver }) => {
     } catch (error) {
       console.error('Error al guardar sede:', error);
       showError('Error', 'Error al guardar la sede');
+    }
+  };
+
+  // Guardar programas del usuario
+  const guardarProgramas = async () => {
+    try {
+      const msg = asociarTodosActivos
+        ? `¿Asociar TODOS los programas con estado ACTIVE a "${selectedUser?.nombres} ${selectedUser?.apellidos}"?`
+        : `¿Guardar los programas asignados para "${selectedUser?.nombres} ${selectedUser?.apellidos}"?`;
+      const result = await showConfirmation('Guardar Programas', msg);
+      if (!result.isConfirmed) return;
+
+      const body = asociarTodosActivos
+        ? { asociarTodosActivos: true }
+        : { programIds: Object.keys(programasSeleccionados).filter(id => programasSeleccionados[id]) };
+      await api.put(`/users-administrativos/${selectedUser._id}/programas`, body);
+
+      await showSuccess('Éxito', 'Programas actualizados correctamente');
+      setVistaActual('buscar');
+      setSelectedUser(null);
+      setAsociarTodosActivos(false);
+      cargarUsersAdministrativos();
+    } catch (error) {
+      console.error('Error al guardar programas:', error);
+      showError('Error', 'Error al guardar los programas');
     }
   };
 
@@ -379,24 +484,32 @@ const Users = ({ onVolver }) => {
               Volver
             </button>
             <button
+              className="btn-volver"
+              onClick={() => cargarUsersAdministrativos()}
+              title="Actualizar lista"
+              disabled={loading}
+            >
+              <FiRefreshCw className="btn-icon" />
+              Refrescar
+            </button>
+            <button
               className="btn-guardar"
               onClick={() => {
-                setFormData({
-                  nombres: '',
-                  apellidos: '',
-                  cargo: '',
-                  identificacion: '',
-                  telefono: '',
-                  extension: '',
-                  movil: '',
-                  email: '',
-                  password: '',
-                  confirmPassword: '',
-                  estado: true
-                });
-                setSelectedUser(null);
-                setEditingUser(null);
-                setVistaActual('crear');
+        setFormData({
+          tipoIdentificacion: '',
+          identificacion: '',
+          nombres: '',
+          apellidos: '',
+          phone: '',
+          email: '',
+          directorioActivo: true,
+          password: '',
+          confirmPassword: '',
+          estado: true
+        });
+        setSelectedUser(null);
+        setEditingUser(null);
+        setVistaActual('crear');
               }}
             >
               <FiPlus className="btn-icon" />
@@ -479,13 +592,10 @@ const Users = ({ onVolver }) => {
                   <th>#</th>
                   <th>NOMBRES</th>
                   <th>APELLIDOS</th>
-                  <th>CARGO</th>
                   <th>IDENTIFICACIÓN</th>
                   <th>USUARIO</th>
                   <th>ROLES</th>
-                  <th>TELÉFONO</th>
-                  <th>EXTENSIÓN</th>
-                  <th>MÓVIL</th>
+                  <th>CELULAR</th>
                   <th>ESTADO</th>
                 </tr>
               </thead>
@@ -509,7 +619,6 @@ const Users = ({ onVolver }) => {
                     </td>
                     <td>{user.nombres}</td>
                     <td>{user.apellidos}</td>
-                    <td>{user.cargo || '-'}</td>
                     <td>{user.identificacion}</td>
                     <td>{user.user?.email}</td>
                     <td>
@@ -527,9 +636,7 @@ const Users = ({ onVolver }) => {
                         )}
                       </div>
                     </td>
-                    <td>{user.telefono || '-'}</td>
-                    <td>{user.extension || '-'}</td>
-                    <td>{user.movil || '-'}</td>
+                    <td>{user.phone || '-'}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="switch-container">
                         <label className="switch">
@@ -565,14 +672,13 @@ const Users = ({ onVolver }) => {
               setVistaActual('buscar');
               setEditingUser(null);
               setFormData({
+                tipoIdentificacion: '',
+                identificacion: '',
                 nombres: '',
                 apellidos: '',
-                cargo: '',
-                identificacion: '',
-                telefono: '',
-                extension: '',
-                movil: '',
+                phone: '',
                 email: '',
+                directorioActivo: true,
                 password: '',
                 confirmPassword: '',
                 estado: true
@@ -593,130 +699,69 @@ const Users = ({ onVolver }) => {
 
         <div className="user-form-container">
           <div className="form-section">
-            <h4 className="form-section-title">DATOS PERSONALES</h4>
+            <h4 className="form-section-title">Datos del usuario</h4>
 
-            <div className="form-layout">
-              {/* Columna izquierda - Datos Personales */}
-              <div className="form-column">
-                <div className="form-group">
-                  <label className="form-label">NOMBRES *</label>
-                  <input
-                    type="text"
-                    value={formData.nombres}
-                    onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
-                    className="form-input"
-                    required
-                    placeholder="Ingrese los nombres"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">APELLIDOS *</label>
-                  <input
-                    type="text"
-                    value={formData.apellidos}
-                    onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
-                    className="form-input"
-                    required
-                    placeholder="Ingrese los apellidos"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">CARGO</label>
-                  <input
-                    type="text"
-                    value={formData.cargo}
-                    onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
-                    className="form-input"
-                    placeholder="Ingrese el cargo"
-                  />
-                </div>
+            <div className="form-grid-datos">
+              <div className="form-group">
+                <label className="form-label">Tipo ID</label>
+                <select
+                  value={formData.tipoIdentificacion}
+                  onChange={(e) => setFormData({ ...formData, tipoIdentificacion: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="">Seleccione tipo</option>
+                  {tiposIdentificacion.map((item) => (
+                    <option key={item._id} value={item._id}>
+                      {item.description || item.value}
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              {/* Columna derecha - Identificación */}
-              <div className="form-column">
-                <div className="form-group">
-                  <label className="form-label">IDENTIFICACIÓN *</label>
-                  <input
-                    type="text"
-                    value={formData.identificacion}
-                    onChange={(e) => setFormData({ ...formData, identificacion: e.target.value })}
-                    className="form-input"
-                    required
-                    placeholder="Número de identificación"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">TELÉFONO</label>
-                  <input
-                    type="text"
-                    value={formData.telefono}
-                    onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                    className="form-input"
-                    placeholder="Número de teléfono"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">EXTENSIÓN</label>
-                  <input
-                    type="text"
-                    value={formData.extension}
-                    onChange={(e) => setFormData({ ...formData, extension: e.target.value })}
-                    className="form-input"
-                    placeholder="Extensión telefónica"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">MÓVIL</label>
-                  <input
-                    type="text"
-                    value={formData.movil}
-                    onChange={(e) => setFormData({ ...formData, movil: e.target.value })}
-                    className="form-input"
-                    placeholder="Número de móvil"
-                  />
-                </div>
+              <div className="form-group">
+                <label className="form-label">Identificación *</label>
+                <input
+                  type="text"
+                  value={formData.identificacion}
+                  onChange={(e) => setFormData({ ...formData, identificacion: e.target.value })}
+                  className="form-input"
+                  required
+                  placeholder="Número de identificación"
+                />
               </div>
-            </div>
-
-            {/* Sección de Credenciales */}
-            <div className="credentials-section">
-              <h4 className="form-section-title">CREDENCIALES</h4>
-              <div className="form-layout">
-                <div className="form-column">
-                  <div className="form-group">
-                    <label className="form-label">
-                      CONTRASEÑA {!editingUser && '*'}
-                      {editingUser && <span className="optional-label">(Dejar vacío para no cambiar)</span>}
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="form-input"
-                      required={!editingUser}
-                      placeholder={editingUser ? "Dejar vacío para no cambiar" : "Ingrese la contraseña"}
-                    />
-                  </div>
-                </div>
-                <div className="form-column">
-                  <div className="form-group">
-                    <label className="form-label">
-                      CONFIRMACIÓN {!editingUser && '*'}
-                      {editingUser && <span className="optional-label">(Solo si cambia contraseña)</span>}
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      className="form-input"
-                      required={!editingUser}
-                      placeholder={editingUser ? "Solo si cambia contraseña" : "Confirme la contraseña"}
-                    />
-                  </div>
-                </div>
+              <div className="form-group">
+                <label className="form-label">Nombres *</label>
+                <input
+                  type="text"
+                  value={formData.nombres}
+                  onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
+                  className="form-input"
+                  required
+                  placeholder="Ingrese los nombres"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Apellidos *</label>
+                <input
+                  type="text"
+                  value={formData.apellidos}
+                  onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
+                  className="form-input"
+                  required
+                  placeholder="Ingrese los apellidos"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Celular</label>
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="form-input"
+                  placeholder="Número de celular"
+                />
               </div>
               <div className="form-group full-width">
-                <label className="form-label">USUARIO (EMAIL) *</label>
+                <label className="form-label">Usuario (Directorio Activo) *</label>
                 <input
                   type="email"
                   value={formData.email}
@@ -724,15 +769,61 @@ const Users = ({ onVolver }) => {
                   className="form-input"
                   required
                   placeholder="correo@ejemplo.com"
-                  disabled={editingUser ? true : false}
+                  disabled={!!editingUser}
                 />
-                {editingUser && <small className="form-hint">El email no se puede modificar</small>}
+                {editingUser && <small className="form-hint">El usuario no se puede modificar</small>}
               </div>
-              {/* Estado solo en edición */}
+              <div className="form-group full-width">
+                <label className="form-label">Directorio Activo (Office 365)</label>
+                <div className="switch-container" style={{ justifyContent: 'flex-start' }}>
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={formData.directorioActivo}
+                      onChange={(e) => setFormData({ ...formData, directorioActivo: e.target.checked, password: '', confirmPassword: '' })}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                  <span className="status-text" style={{ marginLeft: 8 }}>
+                    {formData.directorioActivo ? 'Sí (ingreso con Office 365)' : 'No (ingreso con contraseña)'}
+                  </span>
+                </div>
+              </div>
+              {!formData.directorioActivo && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Contraseña {!editingUser && '*'}
+                      {editingUser && <span className="optional-label">(dejar vacío para no cambiar)</span>}
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="form-input"
+                      required={!editingUser}
+                      placeholder={editingUser ? 'Dejar vacío para no cambiar' : 'Mínimo 6 caracteres'}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Confirmar contraseña {!editingUser && '*'}
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      className="form-input"
+                      required={!editingUser}
+                      placeholder="Repetir contraseña"
+                    />
+                  </div>
+                </>
+              )}
               {editingUser && (
                 <div className="form-group full-width">
-                  <label className="form-label">ESTADO</label>
-                  <div className="switch-container">
+                  <label className="form-label">Estado</label>
+                  <div className="switch-container" style={{ justifyContent: 'flex-start' }}>
                     <label className="switch">
                       <input
                         type="checkbox"
@@ -741,7 +832,7 @@ const Users = ({ onVolver }) => {
                       />
                       <span className="slider"></span>
                     </label>
-                    <span className={`status-text ${formData.estado ? 'active' : 'inactive'}`}>
+                    <span className={`status-text ${formData.estado ? 'active' : 'inactive'}`} style={{ marginLeft: 8 }}>
                       {formData.estado ? 'Activo' : 'Inactivo'}
                     </span>
                   </div>
@@ -944,11 +1035,183 @@ const Users = ({ onVolver }) => {
     );
   };
 
+  // Renderizar vista de Gestión de Programas
+  const renderGestionProgramas = () => {
+    const totalProgramas = programPagination.total || 0;
+    const totalPages = Math.max(1, programPagination.pages || 1);
+    const page = Math.min(Math.max(1, programCurrentPage), totalPages);
+    const start = totalProgramas ? (page - 1) * PROGRAMAS_PAGE_SIZE + 1 : 0;
+    const end = Math.min(page * PROGRAMAS_PAGE_SIZE, totalProgramas);
+
+    if (!selectedUser) {
+      return (
+        <div className="users-content">
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Cargando información del usuario...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="users-content">
+        <div className="users-section">
+          <div className="users-header">
+            <div className="configuracion-actions">
+              <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
+                <FiArrowLeft className="btn-icon" />
+                Volver
+              </button>
+              <button className="btn-guardar" onClick={guardarProgramas}>
+                <FiKey className="btn-icon" />
+                Guardar Programas
+              </button>
+            </div>
+            <div className="section-header">
+              <h3>ASOCIAR PROGRAMAS</h3>
+            </div>
+          </div>
+
+          <div className="roles-container">
+            <div className="roles-header-info">
+              <h2 className="user-title">{selectedUser?.nombres} {selectedUser?.apellidos}</h2>
+              <div className="roles-stats">
+                <span>
+                  {asociarTodosActivos
+                    ? 'Al guardar: se asociarán todos los programas ACTIVE'
+                    : `${Object.values(programasSeleccionados).filter(Boolean).length} programas asignados`}
+                </span>
+              </div>
+            </div>
+
+            <div className="users-filters" style={{ marginBottom: 16 }}>
+              <div className="search-box">
+                <FiSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, código o nivel..."
+                  value={programSearchTerm}
+                  onChange={(e) => setProgramSearchTerm(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-volver"
+                  onClick={() => {
+                    setAsociarTodosActivos(true);
+                  }}
+                  style={{ padding: '6px 12px', fontSize: 12 }}
+                >
+                  Seleccionar todos (ACTIVE)
+                </button>
+                <button
+                  type="button"
+                  className="btn-volver"
+                  onClick={() => {
+                    setAsociarTodosActivos(false);
+                    setProgramasSeleccionados({});
+                  }}
+                  style={{ padding: '6px 12px', fontSize: 12 }}
+                >
+                  Deseleccionar todos
+                </button>
+              </div>
+            </div>
+
+            <div className="roles-layout">
+              <div className="roles-table">
+                <div className="roles-table-header">
+                  <div className="rol-col rol-col-nombre">PROGRAMA</div>
+                  <div className="rol-col rol-col-estado">ASIGNAR</div>
+                </div>
+                <div className="roles-table-body">
+                  {loadingPrograms ? (
+                    <div className="loading-container" style={{ padding: 24 }}>
+                      <div className="loading-spinner"></div>
+                      <p>Cargando programas...</p>
+                    </div>
+                  ) : programs.length === 0 ? (
+                    <div className="empty-state" style={{ padding: 24 }}>
+                      <p>{programSearchQuery ? 'No hay programas que coincidan con la búsqueda.' : 'No hay programas con estado ACTIVE.'}</p>
+                    </div>
+                  ) : (
+                    programs.map(program => (
+                      <div key={program._id} className="rol-table-row">
+                        <div className="rol-col rol-col-nombre">
+                          <span className="rol-name">
+                            {program.name}
+                            {program.code && <span style={{ color: '#6b7280', marginLeft: 6 }}>({program.code})</span>}
+                            {program.level && <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 4 }}> · {program.level}</span>}
+                          </span>
+                        </div>
+                        <div className="rol-col rol-col-estado">
+                          <div className="rol-switch-container">
+                            <label className="rol-switch">
+                              <input
+                                type="checkbox"
+                                checked={asociarTodosActivos || !!programasSeleccionados[program._id]}
+                                disabled={asociarTodosActivos}
+                                onChange={() => setProgramasSeleccionados(prev => ({
+                                  ...prev,
+                                  [program._id]: !prev[program._id]
+                                }))}
+                              />
+                              <span className="rol-slider"></span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {!loadingPrograms && totalProgramas > 0 && (
+              <div className="users-filters" style={{ marginTop: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontSize: 13, color: '#6b7280' }}>
+                  Mostrando {start}-{end} de {totalProgramas} programas
+                </span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn-volver"
+                    disabled={page <= 1 || loadingPrograms}
+                    onClick={() => setProgramCurrentPage(p => Math.max(1, p - 1))}
+                    style={{ padding: '6px 12px', fontSize: 12 }}
+                  >
+                    Anterior
+                  </button>
+                  <span style={{ fontSize: 13 }}>
+                    Página {page} de {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-volver"
+                    disabled={page >= totalPages || loadingPrograms}
+                    onClick={() => setProgramCurrentPage(p => Math.min(totalPages, p + 1))}
+                    style={{ padding: '6px 12px', fontSize: 12 }}
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       {vistaActual === 'buscar' && renderBuscarUsuario()}
       {vistaActual === 'crear' && renderCrearUsuario()}
       {vistaActual === 'roles' && renderGestionRoles()}
+      {vistaActual === 'programas' && renderGestionProgramas()}
       {vistaActual === 'sedes' && renderGestionSedes()}
     </>
   );

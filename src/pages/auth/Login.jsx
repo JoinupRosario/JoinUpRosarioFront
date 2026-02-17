@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import Swal from 'sweetalert2';
 import './Login.css';
 // Importar imágenes
 import arquitectonicoImg from '../../assets/images/login/arquitectonico.jpg';
@@ -85,6 +86,14 @@ export default function Login() {
       navigate('/dashboard');
     } else {
       setError(result.message);
+      if (result.message && result.message.includes('No está autorizado para ingresar por este medio')) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Acceso no permitido',
+          text: result.message,
+          confirmButtonColor: '#c41e3a'
+        });
+      }
     }
 
     setLoading(false);

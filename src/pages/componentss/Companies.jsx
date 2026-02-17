@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit, FiPlus, FiRefreshCw, FiSearch, FiTrash2 } from 'react-icons/fi';
 import { Country, State, City } from 'country-state-city';
 import Swal from 'sweetalert2';
+import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import '../styles/Companies.css';
 
@@ -44,6 +46,7 @@ export default function Companies({ onVolver }) {
     sectorMineSnies: '',
     economicSector: '',
     ciiuCode: '',
+    ciiuCodes: [], // Hasta 3 códigos CIIU (5 dígitos DANE)
     size: '',
     arl: '',
 
@@ -58,6 +61,7 @@ export default function Companies({ onVolver }) {
     email: '',
     website: '',
     domain: '',
+    domains: [], // Múltiples dominios para correos de contactos
     linkedinUrl: '',
 
     // Contenido
@@ -84,7 +88,7 @@ export default function Companies({ onVolver }) {
       firstName: '',
       lastName: '',
       email: '',
-      idType: 'CC',
+      idType: '',
       idNumber: ''
     },
     // Sedes
@@ -95,6 +99,8 @@ export default function Companies({ onVolver }) {
   const [programsModalOpen, setProgramsModalOpen] = useState(false);
   const [newProgramLevel, setNewProgramLevel] = useState('');
   const [newProgramName, setNewProgramName] = useState('');
+  const [programSearchTerm, setProgramSearchTerm] = useState('');
+  const [programsList, setProgramsList] = useState([]); // programas de la colección programs
   const [showSedeForm, setShowSedeForm] = useState(false);
   const [editingSedeIndex, setEditingSedeIndex] = useState(null);
   
@@ -102,15 +108,22 @@ export default function Companies({ onVolver }) {
   const [sectors, setSectors] = useState([]);
   const [sectorMineTypes, setSectorMineTypes] = useState([]);
   const [economicSectors, setEconomicSectors] = useState([]);
-  const [ciiuCodes, setCiiuCodes] = useState([]);
+  const [ciiuCodes, setCiiuCodes] = useState([]); // Lista ítems L_CIIU para búsqueda
   const [arls, setArls] = useState([]);
   const [organizationSizes, setOrganizationSizes] = useState([]);
   const [ciiuSearchTerm, setCiiuSearchTerm] = useState('');
   const [showCiiuDropdown, setShowCiiuDropdown] = useState(false);
+  const [idTypesEscenario, setIdTypesEscenario] = useState([]); // L_IDENTIFICATIONTYPE_COMPANY
+  const [idTypesRepresentante, setIdTypesRepresentante] = useState([]); // L_IDENTIFICATIONTYPE
+  const [nitError, setNitError] = useState('');
+  const [newDomainInput, setNewDomainInput] = useState('');
+  const [emailDomainError, setEmailDomainError] = useState('');
+  const [contactEmailDomainError, setContactEmailDomainError] = useState('');
   // Estados para contactos
   const [contacts, setContacts] = useState([]);
+  const [pendingContacts, setPendingContacts] = useState([]); // Contactos a crear al guardar (solo en creación)
   const [showContactForm, setShowContactForm] = useState(false);
-  const [editingContact, setEditingContact] = useState(null);
+  const [editingContact, setEditingContact] = useState(null); // _id al editar en BD, o índice (number) al editar pendiente
   const [contactForm, setContactForm] = useState({
     firstName: '',
     lastName: '',
@@ -122,7 +135,7 @@ export default function Companies({ onVolver }) {
     phone: '',
     extension: '',
     mobile: '',
-    idType: 'CC',
+    idType: '',
     identification: '',
     userEmail: '',
     dependency: '',
@@ -165,7 +178,15 @@ export default function Companies({ onVolver }) {
     setForm({ ...form, programsOfInterest: updated });
     setNewProgramLevel('');
     setNewProgramName('');
+    setProgramSearchTerm('');
     setProgramsModalOpen(false);
+  };
+
+  const closeProgramsModal = () => {
+    setProgramsModalOpen(false);
+    setNewProgramLevel('');
+    setNewProgramName('');
+    setProgramSearchTerm('');
   };
 
   // Debounce para búsqueda
@@ -242,6 +263,18 @@ export default function Companies({ onVolver }) {
       // Cargar Tamaños de Organización (L_COMPANY_SIZE)
       const { data: sizesData } = await api.get('/locations/items/L_COMPANY_SIZE', { params: { limit: 100 } });
       setOrganizationSizes(sizesData.data || []);
+
+      // Tipo identificación escenario de práctica (L_IDENTIFICATIONTYPE_COMPANY)
+      const { data: idEscenarioData } = await api.get('/locations/items/L_IDENTIFICATIONTYPE_COMPANY', { params: { limit: 100 } });
+      setIdTypesEscenario(idEscenarioData.data || []);
+
+      // Tipo identificación representante legal (L_IDENTIFICATIONTYPE)
+      const { data: idRepData } = await api.get('/locations/items/L_IDENTIFICATIONTYPE', { params: { limit: 100 } });
+      setIdTypesRepresentante(idRepData.data || []);
+
+      // Programas académicos (colección programs) para el modal de programas de interés
+      const { data: programsRes } = await api.get('/programs', { params: { limit: 500 } });
+      setProgramsList(programsRes?.data || []);
     } catch (error) {
       console.error('Error cargando datos dinámicos:', error);
     }
@@ -250,6 +283,28 @@ export default function Companies({ onVolver }) {
   useEffect(() => {
     loadItemsData();
   }, []);
+
+  // Revalidar correo R. Legal cuando cambien dominios o email (p. ej. al cargar en edición o al agregar/quitar dominio)
+  useEffect(() => {
+    if (vista !== 'form') return;
+    if ((form.domains || []).length === 0) {
+      setEmailDomainError('');
+      return;
+    }
+    if (form.legalRepresentative?.email) validateEmailDomain(form.legalRepresentative.email);
+  }, [vista, form.domains, form.legalRepresentative?.email]);
+
+  // Revalidar correo del contacto cuando esté abierto el formulario y cambien dominios (Entidad) o userEmail
+  useEffect(() => {
+    if (!showContactForm) return;
+    const raw = form.domains?.length ? form.domains : editing?.domains || [];
+    const domains = raw.map(d => String(d).trim()).filter(Boolean);
+    if (domains.length === 0) {
+      setContactEmailDomainError('');
+      return;
+    }
+    if (contactForm.userEmail) validateContactEmailDomain(contactForm.userEmail);
+  }, [showContactForm, form.domains, editing?.domains, contactForm.userEmail]);
 
   // Obtener valores únicos para filtros (desde las empresas cargadas)
   const uniqueSectors = useMemo(() => {
@@ -276,6 +331,99 @@ export default function Companies({ onVolver }) {
     return Array.from(countries).sort();
   }, [companies]);
 
+  // Niveles únicos desde el campo `level` de la colección programs (ej. "ES", "PR")
+  const programLevelOptions = useMemo(() => {
+    const levels = [...new Set(programsList.map(p => String(p.level || '').trim()).filter(Boolean))].sort();
+    return levels;
+  }, [programsList]);
+
+  // Programas filtrados por nivel elegido; luego por búsqueda (nombre o código)
+  const programsFilteredByLevel = useMemo(() => {
+    if (!newProgramLevel) return [];
+    return programsList.filter(p => String(p.level || '').trim() === newProgramLevel);
+  }, [programsList, newProgramLevel]);
+
+  const programsForSelect = useMemo(() => {
+    const term = (programSearchTerm || '').toLowerCase().trim();
+    if (!term) return programsFilteredByLevel;
+    return programsFilteredByLevel.filter(p => {
+      const name = (p.name || '').toLowerCase();
+      const code = (p.code || '').toLowerCase();
+      return name.includes(term) || code.includes(term);
+    });
+  }, [programsFilteredByLevel, programSearchTerm]);
+
+  /** Validar NIT Colombia: 10 dígitos (9 base + 1 verificación), algoritmo módulo 11 DIAN */
+  const validarNitColombia = (nit) => {
+    const str = String(nit || '').replace(/\D/g, '');
+    if (str.length !== 10) return false;
+    const weights = [41, 37, 29, 23, 19, 17, 13, 7, 3];
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(str[i], 10) * weights[i];
+    let digito = sum % 11;
+    if (digito > 1) digito = 11 - digito;
+    return parseInt(str[9], 10) === digito;
+  };
+
+  /** Validar que el correo del R. Legal pertenezca a uno de los dominios permitidos (si hay dominios configurados) */
+  const validateEmailDomain = (email, domainsOverride) => {
+    const domains = (domainsOverride !== undefined ? domainsOverride : (form.domains || [])).map(d => String(d).replace(/^@/, '').toLowerCase().trim()).filter(Boolean);
+    if (domains.length === 0) {
+      setEmailDomainError('');
+      return true;
+    }
+    const domain = (email || '').split('@')[1]?.toLowerCase();
+    if (!email || !domain) {
+      setEmailDomainError('');
+      return true; // no validar vacío aquí, lo hace required
+    }
+    if (domains.includes(domain)) {
+      setEmailDomainError('');
+      return true;
+    }
+    setEmailDomainError(`El correo debe ser de uno de los dominios permitidos: ${domains.join(', ')}`);
+    return false;
+  };
+
+  /** Validar que el correo del contacto (userEmail) pertenezca a uno de los dominios de la empresa (pestaña Entidad) */
+  const validateContactEmailDomain = (email, domainsOverride) => {
+    const raw = domainsOverride !== undefined ? domainsOverride : (form.domains?.length ? form.domains : editing?.domains || []);
+    const domains = raw.map(d => String(d).replace(/^@/, '').toLowerCase().trim()).filter(Boolean);
+    if (domains.length === 0) {
+      setContactEmailDomainError('');
+      return true;
+    }
+    const domain = (email || '').split('@')[1]?.toLowerCase();
+    if (!email || !domain) {
+      setContactEmailDomainError('');
+      return true;
+    }
+    if (domains.includes(domain)) {
+      setContactEmailDomainError('');
+      return true;
+    }
+    setContactEmailDomainError(`El correo debe ser de uno de los dominios permitidos: ${domains.join(', ')}`);
+    return false;
+  };
+
+  const handleNitBlur = () => {
+    const tipo = String(form.idType || '').toUpperCase();
+    const val = (form.idNumber || form.nit || '').replace(/\D/g, '');
+    if (tipo !== 'NIT' || !val) {
+      setNitError('');
+      return;
+    }
+    if (val.length !== 10) {
+      setNitError('El NIT debe tener exactamente 10 dígitos (9 base + 1 dígito de verificación).');
+      return;
+    }
+    if (!validarNitColombia(val)) {
+      setNitError('El dígito de verificación del NIT no es válido (algoritmo DIAN Colombia).');
+      return;
+    }
+    setNitError('');
+  };
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 })); // Reset a página 1 al filtrar
@@ -292,20 +440,28 @@ export default function Companies({ onVolver }) {
   const startCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setPendingContacts([]);
+    setContacts([]);
+    setShowContactForm(false);
+    setEditingContact(null);
+    setNitError('');
+    setEmailDomainError('');
     setVista('form');
   };
 
   const startEdit = async (company) => {
-    setEditing(company);
-    // Cargar contactos de la empresa
+    // Cargar empresa completa (incluye dominios y contactos) para validaciones
     try {
       const { data } = await api.get(`/companies/${company._id}`);
+      setEditing(data);
       setContacts(data.contacts || []);
+      company = data;
     } catch (e) {
-      console.error('Error cargando contactos', e);
+      console.error('Error cargando empresa/contactos', e);
+      setEditing(company);
       setContacts([]);
     }
-    
+
     // Buscar códigos si no existen
     let countryCode = company.countryCode || '';
     if (!countryCode && company.country) {
@@ -342,11 +498,15 @@ export default function Companies({ onVolver }) {
       };
     });
     
+    const ciiuCodesArr = (company.ciiuCodes && company.ciiuCodes.length) ? company.ciiuCodes : (company.ciiuCode ? [company.ciiuCode] : []);
+    const domainsArr = (company.domains && company.domains.length) ? company.domains : (company.domain ? [company.domain] : []);
     setForm({
       ...emptyForm,
       ...company,
       countryCode,
       stateCode,
+      ciiuCodes: ciiuCodesArr,
+      domains: domainsArr,
       contact: {
         ...emptyForm.contact,
         ...company.contact
@@ -357,6 +517,10 @@ export default function Companies({ onVolver }) {
       },
       branches: processedBranches
     });
+    setNitError('');
+    setEmailDomainError('');
+    setShowContactForm(false);
+    setEditingContact(null);
     setVista('form');
   };
 
@@ -366,6 +530,10 @@ export default function Companies({ onVolver }) {
     setForm(emptyForm);
     setCiiuSearchTerm('');
     setShowCiiuDropdown(false);
+    setNitError('');
+    setEmailDomainError('');
+    setShowContactForm(false);
+    setEditingContact(null);
     setShowSedeForm(false);
     setEditingSedeIndex(null);
     setNuevaSede({
@@ -464,8 +632,43 @@ export default function Companies({ onVolver }) {
 
   const saveForm = async (e) => {
     e.preventDefault();
-    
-    // Contacto es lo mismo que representante legal - siempre mapear desde legalRepresentative
+
+    // Validar al menos un código CIIU
+    if (!form.ciiuCodes || form.ciiuCodes.length === 0) {
+      await Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Seleccione al menos un código CIIU (Sector Económico).', confirmButtonColor: '#c41e3a' });
+      return;
+    }
+
+    // Validar que el correo del R. Legal sea de un dominio permitido (si hay dominios)
+    const allowedDomains = (form.domains || []).map(d => String(d).replace(/^@/, '').toLowerCase().trim()).filter(Boolean);
+    if (allowedDomains.length > 0 && form.legalRepresentative?.email) {
+      const emailDom = form.legalRepresentative.email.split('@')[1]?.toLowerCase();
+      if (!emailDom || !allowedDomains.includes(emailDom)) {
+        setEmailDomainError(`El correo del representante legal debe ser de uno de los dominios: ${allowedDomains.join(', ')}`);
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Correo no permitido',
+          text: `El correo debe pertenecer a uno de los dominios configurados: ${allowedDomains.join(', ')}`,
+          confirmButtonColor: '#c41e3a'
+        });
+        return;
+      }
+    }
+
+    // Validar NIT Colombia cuando el tipo es NIT
+    if (String(form.idType || '').toUpperCase() === 'NIT' && (form.idNumber || form.nit)) {
+      const nitStr = String(form.idNumber || form.nit).replace(/\D/g, '');
+      if (nitStr.length !== 10) {
+        setNitError('El NIT debe tener exactamente 10 dígitos (9 base + 1 dígito de verificación).');
+        return;
+      }
+      if (!validarNitColombia(nitStr)) {
+        setNitError('El dígito de verificación del NIT no es válido (algoritmo DIAN Colombia).');
+        return;
+      }
+    }
+
+    // Contacto es lo mismo que representante legal - mínimo 1 contacto obligatorio
     const formToSend = { ...form };
     formToSend.contact = {
       name: `${formToSend.legalRepresentative.firstName || ''} ${formToSend.legalRepresentative.lastName || ''}`.trim(),
@@ -480,19 +683,23 @@ export default function Companies({ onVolver }) {
         response = await api.put(`/companies/${editing._id}`, formToSend);
       } else {
         response = await api.post('/companies', formToSend);
+        const newCompanyId = response.data?.data?._id || response.data?._id;
+        if (newCompanyId && pendingContacts.length > 0) {
+          for (const payload of pendingContacts) {
+            await api.post(`/companies/${newCompanyId}/contacts`, payload);
+          }
+        }
       }
-      
-      // Mostrar mensaje de éxito
-      await Swal.fire({
-        icon: 'success',
-        title: 'Éxito',
-        text: response.data?.message || 'Empresa guardada correctamente',
-        confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#c41e3a'
-      });
       
       cancelForm();
       await loadCompanies();
+      await Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: response.data?.message || (editing ? 'Empresa actualizada correctamente' : 'Empresa y contactos creados correctamente'),
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#c41e3a'
+      });
     } catch (error) {
       console.error('Error guardando empresa', error);
       
@@ -580,6 +787,89 @@ export default function Companies({ onVolver }) {
     }
   };
 
+  const exportToExcel = async () => {
+    Swal.fire({
+      title: 'Exportando...',
+      text: 'Preparando el archivo. Puede tardar un momento.',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => { Swal.showLoading(); }
+    });
+    try {
+      const baseParams = {
+        limit: 500,
+        ...(searchDebounced && { search: searchDebounced }),
+        ...(filters.status && { status: filters.status }),
+        ...(filters.sector && { sector: filters.sector }),
+        ...(filters.city && { city: filters.city }),
+        ...(filters.country && { country: filters.country }),
+        ...(filters.size && { size: filters.size })
+      };
+      const { data: firstPage } = await api.get('/companies', { params: { ...baseParams, page: 1 } });
+      const total = firstPage.pagination?.total ?? (firstPage.data?.length ?? 0);
+      let list = [...(firstPage.data || [])];
+      const totalPages = firstPage.pagination?.pages ?? 1;
+      for (let page = 2; page <= totalPages; page++) {
+        const { data: nextPage } = await api.get('/companies', { params: { ...baseParams, page } });
+        list = list.concat(nextPage.data || []);
+      }
+      const contactCols = ['Contacto 1', 'Contacto 2', 'Contacto 3', 'Contacto 4', 'Contacto 5', 'Contacto 6', 'Contacto 7', 'Contacto 8'];
+      const headers = ['Razón Social', 'NIT', 'Sector', 'CIIU', 'Tamaño', 'Ciudad', 'Teléfono', ...contactCols, 'País', 'Estado'];
+      const safe = (v) => (v != null && v !== undefined ? String(v) : '');
+      const rowForCompany = (c) => {
+        const mainContact = c.contact?.name || [c.legalRepresentative?.firstName, c.legalRepresentative?.lastName].filter(Boolean).join(' ') || '';
+        const mainContactStr = mainContact && (c.contact?.email || c.legalRepresentative?.email)
+          ? `${mainContact} (${c.contact?.email || c.legalRepresentative?.email})`
+          : mainContact;
+        const additional = (c.contacts || []).slice(0, 7).map(ct => {
+          const nom = [ct.firstName, ct.lastName].filter(Boolean).join(' ').trim();
+          return nom && ct.userEmail ? `${nom} (${ct.userEmail})` : (nom || ct.userEmail || '');
+        });
+        const contactCells = [mainContactStr, ...additional];
+        while (contactCells.length < 8) contactCells.push('');
+        return [
+          safe(c.name),
+          safe(c.nit),
+          safe(c.sector),
+          (c.ciiuCodes && c.ciiuCodes.length) ? c.ciiuCodes.join('; ') : safe(c.ciiuCode),
+          safe(c.size),
+          safe(c.city),
+          safe(c.phone),
+          ...contactCells,
+          safe(c.country),
+          getStatusLabel(c.status)
+        ];
+      };
+      const rows = list.map(rowForCompany);
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const colWidths = [
+        { wch: 35 }, { wch: 14 }, { wch: 18 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 14 },
+        ...Array(8).fill({ wch: 32 }),
+        { wch: 14 }, { wch: 22 }
+      ];
+      ws['!cols'] = colWidths;
+      XLSX.utils.book_append_sheet(wb, ws, 'Entidades');
+      XLSX.writeFile(wb, `entidades_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      Swal.close();
+      await Swal.fire({
+        icon: 'success',
+        title: 'Exportado',
+        text: `Se exportaron ${list.length} entidad(es) a Excel.`,
+        confirmButtonColor: '#c41e3a'
+      });
+    } catch (e) {
+      console.error('Error exportando', e);
+      Swal.close();
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: e.response?.data?.message || e.message || 'No se pudo exportar. Intente de nuevo.',
+        confirmButtonColor: '#c41e3a'
+      });
+    }
+  };
+
   const getStatusLabel = (status) => {
     const labels = {
       'pending_approval': 'Pendiente de Aprobación',
@@ -591,9 +881,8 @@ export default function Companies({ onVolver }) {
 
   // ========== FUNCIONES PARA GESTIÓN DE CONTACTOS ==========
   
-  const openContactForm = (contact = null) => {
+  const openContactForm = (contact = null, pendingIndex = undefined) => {
     if (contact) {
-      // Editar contacto existente
       setContactForm({
         firstName: contact.firstName || '',
         lastName: contact.lastName || '',
@@ -612,11 +901,11 @@ export default function Companies({ onVolver }) {
         isPrincipal: contact.isPrincipal || false,
         position: contact.position || '',
         isPracticeTutor: contact.isPracticeTutor || false,
-        acceptsDataProcessing: true
+        acceptsDataProcessing: contact.acceptsDataProcessing !== false
       });
-      setEditingContact(contact._id);
+      setEditingContact(editing ? contact._id : pendingIndex);
+      setContactEmailDomainError('');
     } else {
-      // Nuevo contacto
       setContactForm({
         firstName: '',
         lastName: '',
@@ -628,7 +917,7 @@ export default function Companies({ onVolver }) {
         phone: '',
         extension: '',
         mobile: '',
-        idType: 'CC',
+        idType: '',
         identification: '',
         userEmail: '',
         dependency: '',
@@ -638,6 +927,7 @@ export default function Companies({ onVolver }) {
         acceptsDataProcessing: false
       });
       setEditingContact(null);
+      setContactEmailDomainError('');
     }
     setShowContactForm(true);
   };
@@ -645,6 +935,7 @@ export default function Companies({ onVolver }) {
   const cancelContactForm = () => {
     setShowContactForm(false);
     setEditingContact(null);
+    setContactEmailDomainError('');
     setContactForm({
       firstName: '',
       lastName: '',
@@ -656,7 +947,7 @@ export default function Companies({ onVolver }) {
       phone: '',
       extension: '',
       mobile: '',
-      idType: 'CC',
+      idType: '',
       identification: '',
       userEmail: '',
       dependency: '',
@@ -669,21 +960,38 @@ export default function Companies({ onVolver }) {
 
   const saveContact = async (e) => {
     e.preventDefault();
-    
-    if (!editing || !editing._id) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'No hay empresa seleccionada',
-        confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#c41e3a'
-      });
+
+    const contactDomains = (form.domains || []).map(d => String(d).replace(/^@/, '').toLowerCase().trim()).filter(Boolean);
+    if (contactDomains.length > 0 && contactForm.userEmail) {
+      const domain = (contactForm.userEmail || '').split('@')[1]?.toLowerCase();
+      if (!domain || !contactDomains.includes(domain)) {
+        setContactEmailDomainError(`El correo debe ser de uno de los dominios permitidos: ${contactDomains.join(', ')}`);
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Correo no permitido',
+          text: `El correo del contacto debe pertenecer a uno de los dominios de la empresa: ${contactDomains.join(', ')}`,
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#c41e3a'
+        });
+        return;
+      }
+    }
+
+    // Modo creación: añadir o actualizar en pendingContacts (sin API)
+    if (!editing) {
+      const payload = { ...contactForm };
+      if (typeof editingContact === 'number') {
+        setPendingContacts(prev => prev.map((c, i) => i === editingContact ? payload : c));
+      } else {
+        setPendingContacts(prev => (prev.length >= 7 ? prev : [...prev, payload]));
+      }
+      cancelContactForm();
       return;
     }
 
+    // Modo edición: guardar en API
     try {
       if (editingContact) {
-        // Actualizar contacto
         await api.put(`/companies/${editing._id}/contacts/${editingContact}`, contactForm);
         await Swal.fire({
           icon: 'success',
@@ -693,7 +1001,6 @@ export default function Companies({ onVolver }) {
           confirmButtonColor: '#c41e3a'
         });
       } else {
-        // Crear contacto
         await api.post(`/companies/${editing._id}/contacts`, contactForm);
         await Swal.fire({
           icon: 'success',
@@ -703,8 +1010,6 @@ export default function Companies({ onVolver }) {
           confirmButtonColor: '#c41e3a'
         });
       }
-      
-      // Recargar contactos
       const { data } = await api.get(`/companies/${editing._id}`);
       setContacts(data.contacts || []);
       cancelContactForm();
@@ -891,38 +1196,52 @@ export default function Companies({ onVolver }) {
           </button>
         </div>
         {activeTab === 'entidad' && (
+        <div className="entity-form-container">
         <form className="company-form" onSubmit={saveForm}>
-          <h3 className="entity-title">DATOS DE LA ENTIDAD</h3>
-          <div className="form-grid">
+          <div className="form-section">
+            <h4 className="form-section-title">Datos de la entidad</h4>
+            <div className="form-grid-datos">
             {/* Nombre Comercial (obligatorio) */}
             <div className="form-group">
-              <label>Nombre Comercial *</label>
-              <input placeholder="Nombre Comercial" value={form.commercialName} onChange={e=>setForm({ ...form, commercialName: e.target.value })} required />
+              <label className="form-label">Nombre Comercial *</label>
+              <input className="form-input" placeholder="Nombre Comercial" value={form.commercialName} onChange={e=>setForm({ ...form, commercialName: e.target.value })} required />
             </div>
-            {/* Tipo de Identificación (NIT, N/A, OTRO) */}
+            {/* Tipo de Identificación escenario (parametrizado L_IDENTIFICATIONTYPE_COMPANY) */}
             <div className="form-group">
-              <label>Tipo de Identificación *</label>
-              <select value={form.idType} onChange={e=>setForm({ ...form, idType: e.target.value })} required>
+              <label className="form-label">Tipo de Identificación escenario de práctica *</label>
+              <select className="form-input" value={form.idType} onChange={e=>{ setForm({ ...form, idType: e.target.value }); setNitError(''); }} required>
                 <option value="">Seleccionar</option>
-                <option value="NIT">NIT</option>
-                <option value="N/A">N/A</option>
-                <option value="OTRO">OTRO</option>
+                {idTypesEscenario.map(item => (
+                  <option key={item._id} value={item.value || item.description || item._id}>
+                    {item.description || item.value || item._id}
+                  </option>
+                ))}
               </select>
             </div>
             {/* Razón Social (obligatorio) */}
             <div className="form-group">
-              <label>Razón Social *</label>
-              <input placeholder="Razón Social" value={form.legalName} onChange={e=>setForm({ ...form, legalName: e.target.value, name: e.target.value })} required />
+              <label className="form-label">Razón Social *</label>
+              <input className="form-input" placeholder="Razón Social" value={form.legalName} onChange={e=>setForm({ ...form, legalName: e.target.value, name: e.target.value })} required />
             </div>
-            {/* Número de Identificación (obligatorio) */}
+            {/* Número de Identificación / NIT (10 dígitos + verificación cuando tipo es NIT) */}
             <div className="form-group">
-              <label>Número de Identificación *</label>
-              <input placeholder="Número de Identificación" value={form.idNumber} onChange={e=>setForm({ ...form, idNumber: e.target.value, nit: e.target.value })} required />
+              <label className="form-label">Número de Identificación (NIT) *</label>
+              <input
+                className="form-input"
+                placeholder={String(form.idType || '').toUpperCase() === 'NIT' ? '10 dígitos (9 base + 1 verificación)' : 'Número de Identificación'}
+                value={form.idNumber}
+                onChange={e=>{ const v = e.target.value.replace(/\D/g, '').slice(0, 10); setForm({ ...form, idNumber: v, nit: v }); setNitError(''); }}
+                onBlur={handleNitBlur}
+                required
+                maxLength={10}
+                style={nitError ? { borderColor: '#dc2626' } : {}}
+              />
+              {nitError && <span className="form-hint" style={{ color: '#dc2626', fontSize: 12 }}>{nitError}</span>}
             </div>
             {/* Sector (obligatorio) */}
             <div className="form-group">
-              <label>Sector *</label>
-              <select value={form.sector} onChange={e=>setForm({ ...form, sector: e.target.value })} required>
+              <label className="form-label">Sector *</label>
+              <select className="form-input" value={form.sector} onChange={e=>setForm({ ...form, sector: e.target.value })} required>
                 <option value="">Seleccionar</option>
                 {sectors.map(sector => (
                   <option key={sector._id} value={sector.value}>
@@ -933,13 +1252,13 @@ export default function Companies({ onVolver }) {
             </div>
             {/* Logo (opcional) */}
             <div className="form-group">
-              <label>Logo</label>
-              <input type="file" onChange={(e)=>{/* manejo posterior de upload */}} />
+              <label className="form-label">Logo</label>
+              <input className="form-input" type="file" onChange={(e)=>{/* manejo posterior de upload */}} />
             </div>
             {/* Sector MinE (SNIES) (obligatorio) */}
             <div className="form-group">
-              <label>Sector MinE (SNIES) *</label>
-              <select value={form.sectorMineSnies} onChange={e=>setForm({ ...form, sectorMineSnies: e.target.value })} required>
+              <label className="form-label">Sector MinE (SNIES) *</label>
+              <select className="form-input" value={form.sectorMineSnies} onChange={e=>setForm({ ...form, sectorMineSnies: e.target.value })} required>
                 <option value="">Seleccionar</option>
                 {sectorMineTypes.map(sector => (
                   <option key={sector._id} value={sector.value}>
@@ -950,106 +1269,126 @@ export default function Companies({ onVolver }) {
             </div>
             {/* Autoriza uso de logo (switch) */}
             <div className="form-group">
-              <label className="label-plain">¿Autoriza uso de su logo en la publicación de oportunidades?</label>
+              <label className="form-label label-plain">¿Autoriza uso de su logo en la publicación de oportunidades?</label>
               <input type="checkbox" checked={form.authorizeLogoUsage} onChange={e=>setForm({ ...form, authorizeLogoUsage: e.target.checked })} />
             </div>
-            {/* Sector económico (obligatorio) - usa L_BUSINESS_SECTOR */}
-            <div className="form-group">
-              <label>Sector Económico *</label>
-              <select value={form.economicSector} onChange={e=>setForm({ ...form, economicSector: e.target.value })} required>
-                <option value="">Seleccionar</option>
-                {economicSectors.map(sector => (
-                  <option key={sector._id} value={sector.value}>
-                    {sector.value}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {/* Misión y Visión */}
-            <div className="form-group">
-              <label>Misión y Visión</label>
-              <textarea rows={3} placeholder="Misión y Visión" value={form.missionVision} onChange={e=>setForm({ ...form, missionVision: e.target.value })} />
-            </div>
-            {/* Código CIIU con búsqueda */}
-            <div className="form-group" style={{ position: 'relative' }}>
-              <label>Código CIIU</label>
-              <input
-                type="text"
-                placeholder="Escriba el código o nombre para buscar..."
-                value={ciiuSearchTerm}
-                onChange={(e) => {
-                  const searchValue = e.target.value;
-                  setCiiuSearchTerm(searchValue);
-                  setShowCiiuDropdown(searchValue.length > 0);
-                }}
-                onFocus={() => {
-                  if (!ciiuSearchTerm && form.ciiuCode) {
-                    setCiiuSearchTerm(form.ciiuCode);
-                  }
-                  if (ciiuSearchTerm) {
-                    setShowCiiuDropdown(true);
-                  }
-                }}
-                onBlur={() => {
-                  // Al perder el foco, guardar el valor actual en el form
-                  setForm({ ...form, ciiuCode: ciiuSearchTerm });
-                  setTimeout(() => setShowCiiuDropdown(false), 200);
-                }}
-              />
-              {showCiiuDropdown && ciiuSearchTerm && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  backgroundColor: 'white',
-                  border: '1px solid #ddd',
-                  borderRadius: '6px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  zIndex: 1000,
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                }}>
-                  {ciiuCodes
-                    .filter(ciiu => {
-                      const code = ciiu.value || ciiu.valueForCalculations || '';
-                      const description = ciiu.description || ciiu.valueForReports || '';
-                      const searchLower = ciiuSearchTerm.toLowerCase();
-                      return code.toLowerCase().includes(searchLower) ||
-                             description.toLowerCase().includes(searchLower);
-                    })
-                    .slice(0, 10)
-                    .map(ciiu => {
-                      const code = ciiu.value || ciiu.valueForCalculations || '';
-                      const description = ciiu.description || ciiu.valueForReports || '';
-                      return (
-                        <div
-                          key={ciiu._id}
-                          onMouseDown={(e) => {
-                            e.preventDefault(); // Prevenir que onBlur se ejecute antes del click
-                            setForm({ ...form, ciiuCode: code });
-                            setCiiuSearchTerm(`${code}${description ? ` - ${description}` : ''}`);
-                            setShowCiiuDropdown(false);
-                          }}
-                          style={{
-                            padding: '10px',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid #f0f0f0'
-                          }}
-                          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-                          onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                        >
-                          <strong>{code}</strong> {description ? `- ${description}` : ''}
-                        </div>
-                      );
-                    })}
+            <div className="form-separator-line" />
+            {/* Sector Económico / Códigos CIIU: hasta 3 (selección múltiple, 5 dígitos DANE) */}
+            <div className="form-group full-width" style={{ position: 'relative' }}>
+              <label className="form-label">Códigos CIIU (Sector Económico) * — hasta 3</label>
+              {(form.ciiuCodes && form.ciiuCodes.length > 0) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                  {form.ciiuCodes.map((code, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '4px 10px',
+                        background: '#e5e7eb',
+                        borderRadius: 6,
+                        fontSize: 13
+                      }}
+                    >
+                      {code}
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, ciiuCodes: form.ciiuCodes.filter((_, i) => i !== idx) })}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#6b7280', fontSize: 16 }}
+                        aria-label="Quitar"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
                 </div>
               )}
+              {(!form.ciiuCodes || form.ciiuCodes.length < 3) && (
+                <>
+                  <input
+                    className="form-input"
+                    type="text"
+                    placeholder="Escriba los 3 primeros dígitos o nombre para buscar y agregar (máx. 3)"
+                    value={ciiuSearchTerm}
+                    onChange={(e) => {
+                      setCiiuSearchTerm(e.target.value);
+                      setShowCiiuDropdown(e.target.value.length > 0);
+                    }}
+                    onFocus={() => ciiuSearchTerm && setShowCiiuDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowCiiuDropdown(false), 200)}
+                  />
+                  {showCiiuDropdown && ciiuSearchTerm && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'white',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }}>
+                      {ciiuCodes
+                        .filter(ciiu => {
+                          const code = ciiu.value || ciiu.valueForCalculations || '';
+                          const description = (ciiu.description || ciiu.valueForReports || '').toLowerCase();
+                          const searchLower = ciiuSearchTerm.toLowerCase();
+                          return code.toLowerCase().includes(searchLower) || description.includes(searchLower);
+                        })
+                        .slice(0, 10)
+                        .map(ciiu => {
+                          const code = ciiu.value || ciiu.valueForCalculations || '';
+                          const description = ciiu.description || ciiu.valueForReports || '';
+                          const alreadyAdded = (form.ciiuCodes || []).includes(code);
+                          return (
+                            <div
+                              key={ciiu._id}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                if (alreadyAdded) return;
+                                const arr = form.ciiuCodes || [];
+                                if (arr.length >= 3) return;
+                                setForm({ ...form, ciiuCodes: [...arr, code], economicSector: arr[0] || code, ciiuCode: arr[0] || code });
+                                setCiiuSearchTerm('');
+                                setShowCiiuDropdown(false);
+                              }}
+                              style={{
+                                padding: '10px',
+                                cursor: alreadyAdded ? 'not-allowed' : 'pointer',
+                                borderBottom: '1px solid #f0f0f0',
+                                opacity: alreadyAdded ? 0.6 : 1
+                              }}
+                            >
+                              <strong>{code}</strong> {description ? `- ${description}` : ''}
+                              {alreadyAdded && ' (ya agregado)'}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </>
+              )}
+              {(!form.ciiuCodes || form.ciiuCodes.length === 0) && (
+                <span className="form-hint" style={{ fontSize: 12, color: '#6b7280' }}>Seleccione al menos un código CIIU (máximo 3).</span>
+              )}
             </div>
+            <div className="form-separator-line" />
+            {/* Misión y Visión */}
+            <div className="form-group full-width">
+              <label className="form-label">Misión y Visión</label>
+              <textarea className="form-input" rows={3} placeholder="Misión y Visión" value={form.missionVision} onChange={e=>setForm({ ...form, missionVision: e.target.value })} />
+            </div>
+            <div className="form-separator-line" />
+
             {/* Tamaño de la compañía */}
             <div className="form-group">
-              <label>Tamaño de la compañía *</label>
+              <label className="form-label">Tamaño de la compañía *</label>
               <select
+                className="form-input"
                 value={form.size}
                 onChange={e=>setForm({ ...form, size: e.target.value })}
                 required
@@ -1064,13 +1403,13 @@ export default function Companies({ onVolver }) {
             </div>
             {/* Opera como Agencia (switch) */}
             <div className="form-group">
-              <label className="label-plain">¿Opera como Agencia, bolsa de empleo o Head Hunter?</label>
+              <label className="form-label label-plain">¿Opera como Agencia, bolsa de empleo o Head Hunter?</label>
               <input type="checkbox" checked={form.operatesAsAgency} onChange={e=>setForm({ ...form, operatesAsAgency: e.target.checked })} />
             </div>
             {/* ARL */}
             <div className="form-group">
-              <label>ARL</label>
-              <select value={form.arl} onChange={e=>setForm({ ...form, arl: e.target.value })}>
+              <label className="form-label">ARL</label>
+              <select className="form-input" value={form.arl} onChange={e=>setForm({ ...form, arl: e.target.value })}>
                 <option value="">Seleccionar</option>
                 {arls.map(arl => (
                   <option key={arl._id} value={arl.value}>
@@ -1079,28 +1418,103 @@ export default function Companies({ onVolver }) {
                 ))}
               </select>
             </div>
-            {/* Dominio */}
-            <div className="form-group">
-              <label>Dominio</label>
-              <input placeholder="Dominio" value={form.domain} onChange={e=>setForm({ ...form, domain: e.target.value })} />
+            <div className="form-separator-line" />
+
+            {/* Dominios permitidos para correos de contactos */}
+            <div className="form-group full-width">
+              <label className="form-label">Dominios permitidos para correos de contactos</label>
+              <p className="form-hint" style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+                Los correos de los contactos (representante legal y adicionales) deberán pertenecer a uno de estos dominios.
+              </p>
+              {(form.domains && form.domains.length > 0) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                  {form.domains.map((d, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '4px 10px',
+                        background: '#e5e7eb',
+                        borderRadius: 6,
+                        fontSize: 13
+                      }}
+                    >
+                      {d}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newDomains = form.domains.filter((_, i) => i !== idx);
+                          setForm({ ...form, domains: newDomains, domain: form.domains[0] === d ? (form.domains[1] || '') : form.domain });
+                          validateEmailDomain(form.legalRepresentative?.email, newDomains);
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#6b7280', fontSize: 16 }}
+                        aria-label="Quitar dominio"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  className="form-input"
+                  placeholder="Ej: empresa.com (sin @)"
+                  value={newDomainInput}
+                  onChange={e => setNewDomainInput(e.target.value.replace(/@/g, '').trim())}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = newDomainInput.trim();
+                      if (val && !(form.domains || []).includes(val)) {
+                        const arr = [...(form.domains || []), val];
+                        setForm({ ...form, domains: arr, domain: form.domain || val });
+                        setNewDomainInput('');
+                      }
+                    }
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn-volver"
+                  onClick={() => {
+                    const val = newDomainInput.trim();
+                    if (val && !(form.domains || []).includes(val)) {
+                      const arr = [...(form.domains || []), val];
+                      setForm({ ...form, domains: arr, domain: form.domain || val });
+                      setNewDomainInput('');
+                      validateEmailDomain(form.legalRepresentative?.email, arr);
+                    }
+                  }}
+                  style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}
+                >
+                  Agregar dominio
+                </button>
+              </div>
             </div>
+            <div className="form-separator-line" />
+
             {/* Documentos */}
             <div className="form-group">
-              <label>Doc. Acreditación Agencia</label>
-              <input type="file" />
+              <label className="form-label">Doc. Acreditación Agencia</label>
+              <input className="form-input" type="file" />
             </div>
             <div className="form-group">
-              <label>Certificado Cámara de Comercio</label>
-              <input type="file" />
+              <label className="form-label">Certificado Cámara de Comercio</label>
+              <input className="form-input" type="file" />
             </div>
             <div className="form-group">
-              <label>RUT</label>
-              <input type="file" />
+              <label className="form-label">RUT</label>
+              <input className="form-input" type="file" />
             </div>
             {/* Convenio prácticas (switch) */}
             <div className="form-group">
-              <label className="label-plain">¿Desea realizar convenio de prácticas y pasantías?</label>
+              <label className="form-label label-plain">¿Desea realizar convenio de prácticas y pasantías?</label>
               <input type="checkbox" checked={form.wantsPracticeAgreement} onChange={e=>setForm({ ...form, wantsPracticeAgreement: e.target.checked })} />
+            </div>
             </div>
           </div>
 
@@ -1123,11 +1537,12 @@ export default function Companies({ onVolver }) {
             )}
           </div>
 
-          <h3 className="section-title">DATOS DEL CONTACTO</h3>
-          <div className="form-grid">
+          <div className="form-section">
+            <h4 className="form-section-title">Datos del contacto y ubicación</h4>
+            <div className="form-grid-datos">
             <div className="form-group">
-              <label>Nombres R. Legal *</label>
-              <input placeholder="Nombres" value={form.legalRepresentative.firstName} onChange={e=>{
+              <label className="form-label">Nombres R. Legal *</label>
+              <input className="form-input" placeholder="Nombres" value={form.legalRepresentative.firstName} onChange={e=>{
                 const newFirstName = e.target.value;
                 const newLegalRep = { ...form.legalRepresentative, firstName: newFirstName };
                 const newContactName = `${newFirstName} ${form.legalRepresentative.lastName || ''}`.trim();
@@ -1142,22 +1557,19 @@ export default function Companies({ onVolver }) {
               }} required />
             </div>
             <div className="form-group">
-              <label>Tipo de Identificación RL</label>
-              <select value={form.legalRepresentative.idType} onChange={e=>setForm({ ...form, legalRepresentative: { ...form.legalRepresentative, idType: e.target.value } })}>
+              <label className="form-label">Tipo de Identificación R. Legal *</label>
+              <select className="form-input" value={form.legalRepresentative.idType} onChange={e=>setForm({ ...form, legalRepresentative: { ...form.legalRepresentative, idType: e.target.value } })} required>
                 <option value="">Seleccionar</option>
-                <option value="CC">CC</option>
-                <option value="ID">ID</option>
-                <option value="DE">DE</option>
-                <option value="CE">CE</option>
-                <option value="PS">PS</option>
-                <option value="TI">TI</option>
-                <option value="CA">CA</option>
-                <option value="DNI">DNI</option>
+                {idTypesRepresentante.map(item => (
+                  <option key={item._id} value={item.value || item.description || item._id}>
+                    {item.description || item.value || item._id}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="form-group">
-              <label>Apellidos R. Legal *</label>
-              <input placeholder="Apellidos" value={form.legalRepresentative.lastName} onChange={e=>{
+              <label className="form-label">Apellidos R. Legal *</label>
+              <input className="form-input" placeholder="Apellidos" value={form.legalRepresentative.lastName} onChange={e=>{
                 const newLastName = e.target.value;
                 const newLegalRep = { ...form.legalRepresentative, lastName: newLastName };
                 const newContactName = `${form.legalRepresentative.firstName || ''} ${newLastName}`.trim();
@@ -1172,31 +1584,42 @@ export default function Companies({ onVolver }) {
               }} required />
             </div>
             <div className="form-group">
-              <label>Nro. Identificación RL *</label>
-              <input placeholder="999999999" value={form.legalRepresentative.idNumber} onChange={e=>setForm({ ...form, legalRepresentative: { ...form.legalRepresentative, idNumber: e.target.value } })} required />
+              <label className="form-label">Nro. Identificación RL *</label>
+              <input className="form-input" placeholder="999999999" value={form.legalRepresentative.idNumber} onChange={e=>setForm({ ...form, legalRepresentative: { ...form.legalRepresentative, idNumber: e.target.value } })} required />
             </div>
             <div className="form-group">
-              <label>Correo R. Legal *</label>
-              <input type="email" placeholder="email@dominio.com" value={form.legalRepresentative.email} onChange={e=>{
-                const newEmail = e.target.value;
-                setForm({ 
-                  ...form, 
-                  legalRepresentative: { ...form.legalRepresentative, email: newEmail },
-                  contact: { 
-                    ...form.contact, 
-                    email: newEmail
-                  }
-                });
-              }} required />
+              <label className="form-label">Correo R. Legal *</label>
+              <input
+                className="form-input"
+                type="email"
+                placeholder={(form.domains && form.domains.length) ? `Ej: contacto@${form.domains[0]}` : 'email@dominio.com'}
+                value={form.legalRepresentative.email}
+                onChange={e => {
+                  const newEmail = e.target.value;
+                  setForm({
+                    ...form,
+                    legalRepresentative: { ...form.legalRepresentative, email: newEmail },
+                    contact: { ...form.contact, email: newEmail }
+                  });
+                  if (emailDomainError) validateEmailDomain(newEmail);
+                }}
+                onBlur={() => validateEmailDomain(form.legalRepresentative.email)}
+                required
+                style={emailDomainError ? { borderColor: '#dc2626' } : {}}
+              />
+              {emailDomainError && (
+                <span className="form-hint" style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{emailDomainError}</span>
+              )}
             </div>
             <div className="form-group">
-              <label>Página Web</label>
-              <input placeholder="www.xxxx.xx" value={form.website} onChange={e=>setForm({ ...form, website: e.target.value })} />
+              <label className="form-label">Página Web</label>
+              <input className="form-input" placeholder="www.xxxx.xx" value={form.website} onChange={e=>setForm({ ...form, website: e.target.value })} />
             </div>
             <div className="form-group">
-              <label>País</label>
-              <select 
-                value={form.countryCode} 
+              <label className="form-label">País</label>
+              <select
+                className="form-input"
+                value={form.countryCode}
                 onChange={e => {
                   const selectedCountry = countries.find(c => c.isoCode === e.target.value);
                   setForm({ 
@@ -1218,14 +1641,15 @@ export default function Companies({ onVolver }) {
               </select>
             </div>
             <div className="form-group">
-              <label>Dirección LinkedIn</label>
-              <input placeholder="Dirección LinkedIn" value={form.linkedinUrl} onChange={e=>setForm({ ...form, linkedinUrl: e.target.value })} />
+              <label className="form-label">Dirección LinkedIn</label>
+              <input className="form-input" placeholder="Dirección LinkedIn" value={form.linkedinUrl} onChange={e=>setForm({ ...form, linkedinUrl: e.target.value })} />
             </div>
             {statesForForm.length > 0 && (
               <div className="form-group">
-                <label>Estado/Provincia</label>
-                <select 
-                  value={form.stateCode} 
+                <label className="form-label">Estado/Provincia</label>
+                <select
+                  className="form-input"
+                  value={form.stateCode}
                   onChange={e => {
                     const selectedState = statesForForm.find(s => s.isoCode === e.target.value);
                     setForm({ 
@@ -1246,9 +1670,10 @@ export default function Companies({ onVolver }) {
               </div>
             )}
             <div className="form-group">
-              <label>Ciudad</label>
-              <select 
-                value={form.city} 
+              <label className="form-label">Ciudad</label>
+              <select
+                className="form-input"
+                value={form.city}
                 onChange={e => setForm({ ...form, city: e.target.value })}
                 disabled={!form.countryCode}
               >
@@ -1261,12 +1686,13 @@ export default function Companies({ onVolver }) {
               </select>
             </div>
             <div className="form-group">
-              <label>Dirección</label>
-              <input placeholder="Dirección" value={form.address} onChange={e=>setForm({ ...form, address: e.target.value })} />
+              <label className="form-label">Dirección</label>
+              <input className="form-input" placeholder="Dirección" value={form.address} onChange={e=>setForm({ ...form, address: e.target.value })} />
             </div>
             <div className="form-group">
-              <label>Teléfono</label>
-              <input placeholder="Teléfono" value={form.phone} onChange={e=>setForm({ ...form, phone: e.target.value })} />
+              <label className="form-label">Teléfono</label>
+              <input className="form-input" placeholder="Teléfono" value={form.phone} onChange={e=>setForm({ ...form, phone: e.target.value })} />
+            </div>
             </div>
           </div>
 
@@ -1450,117 +1876,176 @@ export default function Companies({ onVolver }) {
             <button type="submit" className="btn-guardar">Guardar</button>
           </div>
         </form>
+        </div>
         )}
         
         {activeTab === 'contactos' && (
           <div className="contacts-section">
             <div className="contacts-header">
-              <button className="btn-guardar" onClick={() => openContactForm()} style={{marginBottom: '20px'}}>
+              <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
+                Máximo 8 contactos por escenario (incluye representante legal). Actual: <strong>{1 + (editing ? contacts.length : pendingContacts.length)}</strong>
+              </p>
+              <button
+                type="button"
+                className="btn-guardar"
+                onClick={() => openContactForm()}
+                style={{ marginBottom: '20px' }}
+                disabled={(editing ? contacts.length : pendingContacts.length) >= 7}
+                title={(editing ? contacts.length : pendingContacts.length) >= 7 ? 'Máximo 8 contactos (representante legal + 7 adicionales)' : ''}
+              >
                 <FiPlus className="btn-icon" />
-                Crear contacto
+                {editing ? 'Crear contacto' : 'Añadir contacto'}
               </button>
             </div>
 
             {!showContactForm ? (
               <div className="contacts-list">
-                {contacts.length === 0 ? (
-                  <div className="contacts-empty">No hay contactos agregados</div>
-                ) : (
-                  <table className="contacts-table">
-                    <thead>
-                      <tr>
-                        <th>NOMBRES</th>
-                        <th>APELLIDOS</th>
-                        <th>USUARIO</th>
-                        <th>TELÉFONO</th>
-                        <th>CARGO</th>
-                        <th>¿ES PRINCIPAL?</th>
-                        <th>ESTADO</th>
-                        <th>ACCIONES</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {contacts.map((contact) => (
-                        <tr key={contact._id}>
-                          <td>{contact.firstName}</td>
-                          <td>{contact.lastName}</td>
-                          <td>{contact.userEmail}</td>
-                          <td>{contact.phone || contact.mobile || '-'}</td>
-                          <td>{contact.position || '-'}</td>
-                          <td>{contact.isPrincipal ? 'Sí' : 'No'}</td>
-                          <td>
-                            <select 
-                              value={contact.status || 'active'} 
-                              onChange={(e) => handleContactStatusChange(contact, e.target.value, e)}
-                              className="status-select"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <option value="active">Activo</option>
-                              <option value="inactive">Inactivo</option>
-                            </select>
-                          </td>
-                          <td>
-                            <div className="contact-actions">
-                              <button 
-                                className="btn-action btn-outline" 
-                                onClick={() => openContactForm(contact)}
-                              >
-                                <FiEdit /> Editar
-                              </button>
-                              <button 
-                                className="btn-action btn-secondary" 
-                                onClick={() => resetContactPassword(contact._id)}
-                                title="Restablecer contraseña"
-                              >
-                                🔑
-                              </button>
-                            </div>
-                          </td>
+                {editing ? (
+                  contacts.length === 0 ? (
+                    <div className="contacts-empty">No hay contactos agregados</div>
+                  ) : (
+                    <table className="contacts-table">
+                      <thead>
+                        <tr>
+                          <th>NOMBRES</th>
+                          <th>APELLIDOS</th>
+                          <th>USUARIO</th>
+                          <th>TELÉFONO</th>
+                          <th>CARGO</th>
+                          <th>¿ES PRINCIPAL?</th>
+                          <th>ESTADO</th>
+                          <th>ACCIONES</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {contacts.map((contact) => (
+                          <tr key={contact._id}>
+                            <td>{contact.firstName}</td>
+                            <td>{contact.lastName}</td>
+                            <td>{contact.userEmail}</td>
+                            <td>{contact.phone || contact.mobile || '-'}</td>
+                            <td>{contact.position || '-'}</td>
+                            <td>{contact.isPrincipal ? 'Sí' : 'No'}</td>
+                            <td>
+                              <select 
+                                value={contact.status || 'active'} 
+                                onChange={(e) => handleContactStatusChange(contact, e.target.value, e)}
+                                className="status-select"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <option value="active">Activo</option>
+                                <option value="inactive">Inactivo</option>
+                              </select>
+                            </td>
+                            <td>
+                              <div className="contact-actions">
+                                <button 
+                                  className="btn-action btn-outline" 
+                                  onClick={() => openContactForm(contact)}
+                                >
+                                  <FiEdit /> Editar
+                                </button>
+                                <button 
+                                  className="btn-action btn-secondary" 
+                                  onClick={() => resetContactPassword(contact._id)}
+                                  title="Restablecer contraseña"
+                                >
+                                  🔑
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )
+                ) : (
+                  (() => {
+                    const list = pendingContacts;
+                    if (list.length === 0) {
+                      return <div className="contacts-empty">Añade contactos adicionales (el representante legal ya está en Datos del contacto). Al guardar la entidad se crearán todos.</div>;
+                    }
+                    return (
+                      <table className="contacts-table">
+                        <thead>
+                          <tr>
+                            <th>NOMBRES</th>
+                            <th>APELLIDOS</th>
+                            <th>USUARIO</th>
+                            <th>TELÉFONO</th>
+                            <th>CARGO</th>
+                            <th>ACCIONES</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {list.map((contact, idx) => (
+                            <tr key={idx}>
+                              <td>{contact.firstName}</td>
+                              <td>{contact.lastName}</td>
+                              <td>{contact.userEmail}</td>
+                              <td>{contact.phone || contact.mobile || '-'}</td>
+                              <td>{contact.position || '-'}</td>
+                              <td>
+                                <div className="contact-actions">
+                                  <button type="button" className="btn-action btn-outline" onClick={() => openContactForm(contact, idx)}>
+                                    <FiEdit /> Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-action btn-secondary"
+                                    onClick={() => setPendingContacts(prev => prev.filter((_, i) => i !== idx))}
+                                  >
+                                    <FiTrash2 /> Quitar
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  })()
                 )}
               </div>
             ) : (
-              <form className="contact-form" onSubmit={saveContact}>
+              <form className="contact-form entity-form-container" onSubmit={saveContact}>
                 <h3 className="section-title">DATOS PERSONALES</h3>
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Nombres <span className="required">*</span></label>
-                    <input 
-                      placeholder="Nombres" 
-                      value={contactForm.firstName} 
-                      onChange={e => setContactForm({ ...contactForm, firstName: e.target.value })} 
-                      required 
+                    <input
+                      placeholder="Nombres"
+                      value={contactForm.firstName}
+                      onChange={e => setContactForm({ ...contactForm, firstName: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group">
                     <label>Apellidos <span className="required">*</span></label>
-                    <input 
-                      placeholder="Apellidos" 
-                      value={contactForm.lastName} 
-                      onChange={e => setContactForm({ ...contactForm, lastName: e.target.value })} 
-                      required 
+                    <input
+                      placeholder="Apellidos"
+                      value={contactForm.lastName}
+                      onChange={e => setContactForm({ ...contactForm, lastName: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group">
                     <label>Correo Alterno</label>
-                    <input 
+                    <input
                       type="email"
-                      placeholder="email@dominio.com" 
-                      value={contactForm.alternateEmail} 
-                      onChange={e => setContactForm({ ...contactForm, alternateEmail: e.target.value })} 
+                      placeholder="email@dominio.com"
+                      value={contactForm.alternateEmail}
+                      onChange={e => setContactForm({ ...contactForm, alternateEmail: e.target.value })}
                     />
                   </div>
                   <div className="form-group">
                     <label>País</label>
-                    <select 
-                      value={contactForm.countryCode} 
+                    <select
+                      value={contactForm.countryCode}
                       onChange={e => {
                         const selectedCountry = countries.find(c => c.isoCode === e.target.value);
-                        setContactForm({ 
-                          ...contactForm, 
+                        setContactForm({
+                          ...contactForm,
                           countryCode: e.target.value,
                           country: selectedCountry?.name || '',
                           city: ''
@@ -1577,8 +2062,8 @@ export default function Companies({ onVolver }) {
                   </div>
                   <div className="form-group">
                     <label>Ciudad</label>
-                    <select 
-                      value={contactForm.city} 
+                    <select
+                      value={contactForm.city}
                       onChange={e => setContactForm({ ...contactForm, city: e.target.value })}
                       disabled={!contactForm.countryCode}
                     >
@@ -1592,36 +2077,36 @@ export default function Companies({ onVolver }) {
                   </div>
                   <div className="form-group">
                     <label>Dirección Entidad <span className="required">*</span></label>
-                    <input 
-                      placeholder="Dirección" 
-                      value={contactForm.address} 
-                      onChange={e => setContactForm({ ...contactForm, address: e.target.value })} 
-                      required 
+                    <input
+                      placeholder="Dirección"
+                      value={contactForm.address}
+                      onChange={e => setContactForm({ ...contactForm, address: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group">
                     <label>Teléfono Entidad <span className="required">*</span></label>
-                    <input 
-                      placeholder="Numero telefónico" 
-                      value={contactForm.phone} 
-                      onChange={e => setContactForm({ ...contactForm, phone: e.target.value })} 
-                      required 
+                    <input
+                      placeholder="Numero telefónico"
+                      value={contactForm.phone}
+                      onChange={e => setContactForm({ ...contactForm, phone: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group">
                     <label>Extensión Entidad</label>
-                    <input 
-                      placeholder="Número de extensión" 
-                      value={contactForm.extension} 
-                      onChange={e => setContactForm({ ...contactForm, extension: e.target.value })} 
+                    <input
+                      placeholder="Número de extensión"
+                      value={contactForm.extension}
+                      onChange={e => setContactForm({ ...contactForm, extension: e.target.value })}
                     />
                   </div>
                   <div className="form-group">
                     <label>Celular Entidad</label>
-                    <input 
-                      placeholder="Número de celular" 
-                      value={contactForm.mobile} 
-                      onChange={e => setContactForm({ ...contactForm, mobile: e.target.value })} 
+                    <input
+                      placeholder="Número de celular"
+                      value={contactForm.mobile}
+                      onChange={e => setContactForm({ ...contactForm, mobile: e.target.value })}
                     />
                   </div>
                 </div>
@@ -1630,33 +2115,43 @@ export default function Companies({ onVolver }) {
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Usuario <span className="required">*</span></label>
-                    <input 
+                    <input
                       type="email"
-                      placeholder="email@dominio.com" 
-                      value={contactForm.userEmail} 
-                      onChange={e => setContactForm({ ...contactForm, userEmail: e.target.value })} 
-                      required 
+                      placeholder={((form.domains?.length ? form.domains : editing?.domains) || [])[0] ? `Ej: contacto@${(form.domains?.length ? form.domains : editing?.domains)[0]}` : 'email@dominio.com'}
+                      value={contactForm.userEmail}
+                      onChange={e => {
+                        const newEmail = e.target.value;
+                        setContactForm({ ...contactForm, userEmail: newEmail });
+                        if (contactEmailDomainError) validateContactEmailDomain(newEmail);
+                      }}
+                      onBlur={() => validateContactEmailDomain(contactForm.userEmail)}
+                      required
+                      style={contactEmailDomainError ? { borderColor: '#dc2626' } : {}}
                     />
+                    {contactEmailDomainError && (
+                      <span className="form-hint" style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{contactEmailDomainError}</span>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Tipo Identificación</label>
-                    <select 
-                      value={contactForm.idType} 
+                    <select
+                      value={contactForm.idType}
                       onChange={e => setContactForm({ ...contactForm, idType: e.target.value })}
                     >
-                      <option value="CC">CC</option>
-                      <option value="CE">CE</option>
-                      <option value="PASAPORTE">PASAPORTE</option>
-                      <option value="NIT">NIT</option>
-                      <option value="OTRO">OTRO</option>
+                      <option value="">Seleccionar</option>
+                      {idTypesRepresentante.map(item => (
+                        <option key={item._id} value={item.value || item.description || item._id}>
+                          {item.description || item.value || item._id}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="form-group">
                     <label>Identificación</label>
-                    <input 
-                      placeholder="Número de identificación" 
-                      value={contactForm.identification} 
-                      onChange={e => setContactForm({ ...contactForm, identification: e.target.value })} 
+                    <input
+                      placeholder="Número de identificación"
+                      value={contactForm.identification}
+                      onChange={e => setContactForm({ ...contactForm, identification: e.target.value })}
                     />
                   </div>
                 </div>
@@ -1665,90 +2160,118 @@ export default function Companies({ onVolver }) {
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Dependencia</label>
-                    <input 
-                      placeholder="Dependencia dentro de la empresa" 
-                      value={contactForm.dependency} 
-                      onChange={e => setContactForm({ ...contactForm, dependency: e.target.value })} 
+                    <input
+                      placeholder="Dependencia dentro de la empresa"
+                      value={contactForm.dependency}
+                      onChange={e => setContactForm({ ...contactForm, dependency: e.target.value })}
                     />
                   </div>
                   <div className="form-group">
                     <label>Cargo <span className="required">*</span></label>
-                    <input 
-                      placeholder="Cargo dentro de la empresa" 
-                      value={contactForm.position} 
-                      onChange={e => setContactForm({ ...contactForm, position: e.target.value })} 
-                      required 
+                    <input
+                      placeholder="Cargo dentro de la empresa"
+                      value={contactForm.position}
+                      onChange={e => setContactForm({ ...contactForm, position: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group">
                     <label className="label-plain">¿Es usuario principal?</label>
-                    <input 
-                      type="checkbox" 
-                      checked={contactForm.isPrincipal} 
-                      onChange={e => setContactForm({ ...contactForm, isPrincipal: e.target.checked })} 
+                    <input
+                      type="checkbox"
+                      checked={contactForm.isPrincipal}
+                      onChange={e => setContactForm({ ...contactForm, isPrincipal: e.target.checked })}
                     />
                   </div>
                   <div className="form-group">
                     <label className="label-plain">Es tutor de práctica académica</label>
-                    <input 
-                      type="checkbox" 
-                      checked={contactForm.isPracticeTutor} 
-                      onChange={e => setContactForm({ ...contactForm, isPracticeTutor: e.target.checked })} 
+                    <input
+                      type="checkbox"
+                      checked={contactForm.isPracticeTutor}
+                      onChange={e => setContactForm({ ...contactForm, isPracticeTutor: e.target.checked })}
                     />
                   </div>
                   <div className="form-group">
                     <label className="label-plain">Acepto y autorizo el tratamiento de mis datos personales <span className="required">*</span></label>
-                    <input 
-                      type="checkbox" 
-                      checked={contactForm.acceptsDataProcessing} 
-                      onChange={e => setContactForm({ ...contactForm, acceptsDataProcessing: e.target.checked })} 
-                      required 
+                    <input
+                      type="checkbox"
+                      checked={contactForm.acceptsDataProcessing}
+                      onChange={e => setContactForm({ ...contactForm, acceptsDataProcessing: e.target.checked })}
+                      required
                     />
                   </div>
                 </div>
 
                 <div className="form-actions">
                   <button type="button" className="btn-volver" onClick={cancelContactForm}>Cancelar</button>
-                  <button type="submit" className="btn-guardar">Registrar Contacto</button>
+                  <button type="submit" className="btn-guardar">
+                    {editing ? (editingContact ? 'Guardar cambios' : 'Registrar contacto') : 'Añadir'}
+                  </button>
                 </div>
               </form>
             )}
           </div>
         )}
         </div>
-        {programsModalOpen && (
-          <div className="modal-overlay" onClick={()=>setProgramsModalOpen(false)}>
-            <div className="modal" onClick={(e)=>e.stopPropagation()}>
+        {programsModalOpen && createPortal(
+          <div className="modal-overlay modal-overlay-programas" onClick={closeProgramsModal}>
+            <div className="modal modal-programas" onClick={(e)=>e.stopPropagation()}>
               <div className="modal-header">
-                <h4>Programas</h4>
-                <button className="modal-close" onClick={()=>setProgramsModalOpen(false)}>×</button>
+                <h4>Programas de interés</h4>
+                <button className="modal-close" onClick={closeProgramsModal} aria-label="Cerrar">×</button>
               </div>
               <div className="modal-body">
                 <div className="modal-field">
                   <label>Nivel <span className="required">*</span></label>
-                  <select value={newProgramLevel} onChange={e=>setNewProgramLevel(e.target.value)}>
-                    <option value="">- Seleccione un Nivel -</option>
-                    <option value="Pregrado">Pregrado</option>
-                    <option value="Posgrado">Posgrado</option>
-                    <option value="Tecnológico">Tecnológico</option>
+                  <select
+                    value={newProgramLevel}
+                    onChange={e => {
+                      setNewProgramLevel(e.target.value);
+                      setNewProgramName('');
+                      setProgramSearchTerm('');
+                    }}
+                  >
+                    <option value="">Seleccione un nivel</option>
+                    {programLevelOptions.map(level => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="modal-field">
-                  <label>Programa</label>
-                  <select value={newProgramName} onChange={e=>setNewProgramName(e.target.value)}>
-                    <option value="">- Seleccione un programa -</option>
-                    <option value="Administración de Empresas">Administración de Empresas</option>
-                    <option value="Ingeniería">Ingeniería</option>
-                    <option value="Economía">Economía</option>
+                  <label>Programa <span className="required">*</span></label>
+                  <input
+                    type="text"
+                    className="modal-program-search"
+                    placeholder="Buscar por nombre o código..."
+                    value={programSearchTerm}
+                    onChange={e => setProgramSearchTerm(e.target.value)}
+                  />
+                  <select
+                    value={newProgramName}
+                    onChange={e=>setNewProgramName(e.target.value)}
+                    disabled={!newProgramLevel}
+                  >
+                    <option value="">Seleccione un programa</option>
+                    {programsForSelect.map(prog => (
+                      <option key={prog._id} value={prog.name}>
+                        {prog.code ? `${prog.code} - ` : ''}{prog.name}
+                      </option>
+                    ))}
                   </select>
+                  {newProgramLevel && programsForSelect.length === 0 && (
+                    <span className="form-hint" style={{ fontSize: 12, color: '#6b7280' }}>
+                      {programSearchTerm ? 'Sin resultados. Pruebe otro término.' : 'No hay programas para este nivel.'}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="modal-footer">
-                <button className="btn-secondary" onClick={()=>setProgramsModalOpen(false)}>Cerrar</button>
-                <button className="btn-guardar" onClick={addProgram}>Añadir</button>
+                <button type="button" className="btn-secondary" onClick={closeProgramsModal}>Cerrar</button>
+                <button type="button" className="btn-guardar" onClick={addProgram}>Añadir</button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     );
@@ -1767,6 +2290,13 @@ export default function Companies({ onVolver }) {
           }}>
             <FiArrowLeft className="btn-icon" />
             Volver
+          </button>
+          <button type="button" className="btn-volver" onClick={loadCompanies} title="Refrescar lista">
+            <FiRefreshCw className="btn-icon" />
+            Refrescar
+          </button>
+          <button type="button" className="btn-volver" onClick={exportToExcel} title="Exportar todas las entidades (según filtros actuales)">
+            Exportar Excel
           </button>
           <button className="btn-guardar" onClick={startCreate}>
             <FiPlus className="btn-icon" />
@@ -1788,9 +2318,6 @@ export default function Companies({ onVolver }) {
             onChange={(e)=>setSearch(e.target.value)}
             placeholder="Buscar por nombre, NIT, sector, ciudad, email..."
           />
-          <button className="btn-refresh-small" onClick={loadCompanies} title="Refrescar lista">
-            <FiRefreshCw />
-          </button>
         </div>
         
         <div className="filters-row">
@@ -1866,6 +2393,7 @@ export default function Companies({ onVolver }) {
                 <th>Razón Social</th>
                 <th>NIT</th>
                 <th>Sector</th>
+                <th>CIIU</th>
                 <th>Tamaño</th>
                 <th>Ciudad</th>
                 <th>Teléfono</th>
@@ -1877,7 +2405,7 @@ export default function Companies({ onVolver }) {
             <tbody>
               {companies.length === 0 ? (
                 <tr>
-                  <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
+                  <td colSpan="10" style={{ textAlign: 'center', padding: '20px' }}>
                     No se encontraron empresas
                   </td>
                 </tr>
@@ -1892,6 +2420,7 @@ export default function Companies({ onVolver }) {
                     <td>{c.name || '-'}</td>
                     <td>{c.nit || '-'}</td>
                     <td>{c.sector || '-'}</td>
+                    <td>{(c.ciiuCodes && c.ciiuCodes.length) ? c.ciiuCodes.join(', ') : (c.ciiuCode || '-')}</td>
                     <td>{c.size || '-'}</td>
                     <td>{c.city || '-'}</td>
                     <td>{c.phone || '-'}</td>

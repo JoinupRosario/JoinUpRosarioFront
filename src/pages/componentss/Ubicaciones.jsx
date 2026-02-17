@@ -35,6 +35,7 @@ const VIEW_TO_LIST_ID = {
   'sectors': 'L_SECTOR',
   'sectorMineTypes': 'L_SNIES_SECTOR',
   'economicSectors': 'L_BUSINESS_SECTOR',
+  'codigosCiiu': 'L_CIIU',
   'organizationSizes': 'L_COMPANY_SIZE',
   'linkageTypes': 'L_CONTRACT_TYPE_ACADEMIC_PRACTICE',
   'performanceAreas': 'L_INTEREST_AREA',
@@ -61,6 +62,7 @@ const VIEW_TO_FIELD = {
   'sectors': 'tipoSector',
   'sectorMineTypes': 'tipoSectorMine',
   'economicSectors': 'tipoSectorEconomico',
+  'codigosCiiu': 'codigoCiiu',
   'organizationSizes': 'tipoTamanioOrganizacion',
   'linkageTypes': 'tipoVinculacion',
   'performanceAreas': 'areaDesempeno',
@@ -94,6 +96,7 @@ const Ubicaciones = ({ onVolver }) => {
   const [sectors, setSectors] = useState([]);
   const [sectorMineTypes, setSectorMineTypes] = useState([]);
   const [economicSectors, setEconomicSectors] = useState([]);
+  const [codigosCiiu, setCodigosCiiu] = useState([]);
   const [organizationSizes, setOrganizationSizes] = useState([]);
   
   // Nuevos datos - Oportunidades
@@ -211,6 +214,8 @@ const Ubicaciones = ({ onVolver }) => {
       loadSectorMineTypes(page, search);
     } else if (vistaActual === 'economicSectors') {
       loadEconomicSectors(page, search);
+    } else if (vistaActual === 'codigosCiiu') {
+      loadCodigosCiiu(page, search);
     } else if (vistaActual === 'organizationSizes') {
       loadOrganizationSizes(page, search);
     }
@@ -287,6 +292,8 @@ const Ubicaciones = ({ onVolver }) => {
         loadSectorMineTypes(page, searchTerm);
       } else if (vistaActual === 'economicSectors') {
         loadEconomicSectors(page, searchTerm);
+      } else if (vistaActual === 'codigosCiiu') {
+        loadCodigosCiiu(page, searchTerm);
       } else if (vistaActual === 'organizationSizes') {
         loadOrganizationSizes(page, searchTerm);
       }
@@ -368,6 +375,7 @@ const Ubicaciones = ({ onVolver }) => {
           'sectors': setSectors,
           'sectorMineTypes': setSectorMineTypes,
           'economicSectors': setEconomicSectors,
+          'codigosCiiu': setCodigosCiiu,
           'organizationSizes': setOrganizationSizes,
           'linkageTypes': setLinkageTypes,
           'performanceAreas': setPerformanceAreas,
@@ -429,6 +437,10 @@ const Ubicaciones = ({ onVolver }) => {
 
   const loadEconomicSectors = async (page = 1, search = '') => {
     await loadItems('economicSectors', page, search);
+  };
+
+  const loadCodigosCiiu = async (page = 1, search = '') => {
+    await loadItems('codigosCiiu', page, search);
   };
 
   const loadOrganizationSizes = async (page = 1, search = '') => {
@@ -882,6 +894,8 @@ const Ubicaciones = ({ onVolver }) => {
       data = sectorMineTypes;
     } else if (vistaActual === 'economicSectors') {
       data = economicSectors;
+    } else if (vistaActual === 'codigosCiiu') {
+      data = codigosCiiu;
     } else if (vistaActual === 'organizationSizes') {
       data = organizationSizes;
     }
@@ -1056,6 +1070,17 @@ const Ubicaciones = ({ onVolver }) => {
           }}
         >
           <FiTrendingUp /> Sector Económico
+        </button>
+        <button
+          className={`tab ${vistaActual === 'codigosCiiu' ? 'active' : ''}`}
+          onClick={() => {
+            setVistaActual('codigosCiiu');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiFileText /> Código CIIU
         </button>
         <button
           className={`tab ${vistaActual === 'organizationSizes' ? 'active' : ''}`}
@@ -1271,6 +1296,7 @@ const Ubicaciones = ({ onVolver }) => {
           else if (vistaActual === 'sectors') loadSectors(pagination.page, searchTerm);
           else if (vistaActual === 'sectorMineTypes') loadSectorMineTypes(pagination.page, searchTerm);
           else if (vistaActual === 'economicSectors') loadEconomicSectors(pagination.page, searchTerm);
+          else if (vistaActual === 'codigosCiiu') loadCodigosCiiu(pagination.page, searchTerm);
           else if (vistaActual === 'organizationSizes') loadOrganizationSizes(pagination.page, searchTerm);
           // Oportunidades
           else if (vistaActual === 'linkageTypes') loadLinkageTypes(pagination.page, searchTerm);
@@ -1362,7 +1388,13 @@ const Ubicaciones = ({ onVolver }) => {
                 )}
                 {vistaActual === 'economicSectors' && (
                   <>
-                    <th>Código CIIU</th>
+                    <th>Sector económico</th>
+                    <th>Descripción</th>
+                  </>
+                )}
+                {vistaActual === 'codigosCiiu' && (
+                  <>
+                    <th>Código</th>
                     <th>Descripción</th>
                   </>
                 )}
@@ -1549,6 +1581,12 @@ const Ubicaciones = ({ onVolver }) => {
                         <td>{item.description || item.valueForReports || '-'}</td>
                       </>
                     )}
+                    {vistaActual === 'codigosCiiu' && (
+                      <>
+                        <td>{item.value || item.valueForCalculations || '-'}</td>
+                        <td>{item.description || item.valueForReports || '-'}</td>
+                      </>
+                    )}
                     {vistaActual === 'organizationSizes' && (
                       <>
                         <td>{item.value || '-'}</td>
@@ -1709,6 +1747,7 @@ const Ubicaciones = ({ onVolver }) => {
                 else if (vistaActual === 'sectors') loadSectors(newPage, searchTerm);
                 else if (vistaActual === 'sectorMineTypes') loadSectorMineTypes(newPage, searchTerm);
                 else if (vistaActual === 'economicSectors') loadEconomicSectors(newPage, searchTerm);
+                else if (vistaActual === 'codigosCiiu') loadCodigosCiiu(newPage, searchTerm);
                 else if (vistaActual === 'organizationSizes') loadOrganizationSizes(newPage, searchTerm);
                 // Oportunidades
                 else if (vistaActual === 'linkageTypes') loadLinkageTypes(newPage, searchTerm);
@@ -1753,6 +1792,7 @@ const Ubicaciones = ({ onVolver }) => {
                 else if (vistaActual === 'sectors') loadSectors(newPage, searchTerm);
                 else if (vistaActual === 'sectorMineTypes') loadSectorMineTypes(newPage, searchTerm);
                 else if (vistaActual === 'economicSectors') loadEconomicSectors(newPage, searchTerm);
+                else if (vistaActual === 'codigosCiiu') loadCodigosCiiu(newPage, searchTerm);
                 else if (vistaActual === 'organizationSizes') loadOrganizationSizes(newPage, searchTerm);
                 // Oportunidades
                 else if (vistaActual === 'linkageTypes') loadLinkageTypes(newPage, searchTerm);
@@ -1791,6 +1831,7 @@ const Ubicaciones = ({ onVolver }) => {
                 {vistaActual === 'countries' ? 'País' :
                  vistaActual === 'states' ? 'Estado/Departamento' :
                  vistaActual === 'cities' ? 'Ciudad' :
+                 vistaActual === 'codigosCiiu' ? 'Código CIIU' :
                  vistaActual.slice(0, -1)}
               </h3>
               <button className="btn-close" onClick={() => setShowForm(false)}>

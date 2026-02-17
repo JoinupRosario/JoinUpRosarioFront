@@ -11,7 +11,8 @@ export default function Oportunidades({ onVolver }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [oportunidades, setOportunidades] = useState([]);
-  const [companies, setCompanies] = useState([]);
+  const [companySearchResults, setCompanySearchResults] = useState([]);
+  const [companySearchLoading, setCompanySearchLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [vista, setVista] = useState('lista'); // lista | crear | detalle | editar
   const [oportunidadSeleccionada, setOportunidadSeleccionada] = useState(null);
@@ -196,19 +197,38 @@ export default function Oportunidades({ onVolver }) {
     }
   };
 
-  const loadCompanies = async () => {
-    try {
-      const { data } = await api.get('/companies', { params: { limit: 100 } });
-      setCompanies(data.companies || []);
-    } catch (e) {
-      console.error('Error cargando empresas', e);
+  // Búsqueda de empresas solo al escribir (query al backend con coincidencias)
+  const companySearchDebounceRef = useRef(null);
+  useEffect(() => {
+    if (!isAdmin) {
+      return () => {};
     }
-  };
+    const q = companySearch.trim();
+    if (q.length === 0) {
+      setCompanySearchResults([]);
+      return () => {
+        if (companySearchDebounceRef.current) clearTimeout(companySearchDebounceRef.current);
+      };
+    }
+    if (companySearchDebounceRef.current) clearTimeout(companySearchDebounceRef.current);
+    companySearchDebounceRef.current = setTimeout(async () => {
+      try {
+        setCompanySearchLoading(true);
+        const { data } = await api.get('/companies', { params: { search: q, limit: 20, page: 1 } });
+        setCompanySearchResults(data?.data || data?.companies || []);
+      } catch (e) {
+        console.error('Error buscando empresas', e);
+        setCompanySearchResults([]);
+      } finally {
+        setCompanySearchLoading(false);
+      }
+    }, 300);
+    return () => {
+      if (companySearchDebounceRef.current) clearTimeout(companySearchDebounceRef.current);
+    };
+  }, [isAdmin, companySearch]);
 
   useEffect(() => {
-    if (isAdmin) {
-      loadCompanies();
-    }
     // Cargar países
     setCountries(Country.getAllCountries());
     // Cargar datos dinámicos desde Item
@@ -363,16 +383,6 @@ export default function Oportunidades({ onVolver }) {
     }
   }, [showModalInfo, pendingTipoOportunidad]);
 
-  const filteredCompanies = useMemo(() => {
-    if (!companySearch.trim()) return companies.slice(0, 10);
-    const q = companySearch.toLowerCase();
-    return companies.filter(c =>
-      c.name?.toLowerCase().includes(q) ||
-      c.commercialName?.toLowerCase().includes(q) ||
-      c.nit?.toLowerCase().includes(q)
-    ).slice(0, 10);
-  }, [companies, companySearch]);
-
   const filteredOportunidades = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return oportunidades;
@@ -467,10 +477,11 @@ export default function Oportunidades({ onVolver }) {
     // Cerrar dropdowns y resetear estados antes de cambiar de vista
     setShowSalarioEmocionalDropdown(false);
     setVista('crear');
-    // Si es admin, resetear la selección de empresa
     if (isAdmin) {
       setSelectedCompany(null);
       setCompanySearch('');
+      setShowCompanyDropdown(false);
+      setCompanySearchResults([]);
     }
   };
 
@@ -1680,25 +1691,33 @@ export default function Oportunidades({ onVolver }) {
                     <input
                       type="text"
                       className="company-search-input"
-                      placeholder="Buscar empresa..."
+                      placeholder="Escriba nombre de la empresa para buscar..."
                       value={companySearch}
                       onChange={(e) => {
                         setCompanySearch(e.target.value);
                         setShowCompanyDropdown(true);
                       }}
-                      onFocus={() => setShowCompanyDropdown(true)}
+                      onFocus={() => {
+                        if (companySearch.trim()) setShowCompanyDropdown(true);
+                      }}
                     />
-                    {showCompanyDropdown && filteredCompanies.length > 0 && (
+                    {showCompanyDropdown && companySearch.trim() !== '' && (
                       <div className="company-dropdown">
-                        {filteredCompanies.map(company => (
-                          <div
-                            key={company._id}
-                            className="company-dropdown-item"
-                            onClick={() => handleSelectCompany(company)}
-                          >
-                            {company.name || company.commercialName}
-                          </div>
-                        ))}
+                        {companySearchLoading ? (
+                          <div className="company-dropdown-item company-dropdown-empty">Buscando...</div>
+                        ) : companySearchResults.length > 0 ? (
+                          companySearchResults.map(company => (
+                            <div
+                              key={company._id}
+                              className="company-dropdown-item"
+                              onClick={() => handleSelectCompany(company)}
+                            >
+                              {company.name || company.commercialName}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="company-dropdown-item company-dropdown-empty">Sin coincidencias</div>
+                        )}
                       </div>
                     )}
                   </div>
