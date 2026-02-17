@@ -25,9 +25,9 @@ import Swal from 'sweetalert2';
 import '../styles/Ubicaciones.css';
 import api from '../../services/api';
 
-// Mapeo de vistas a listId
+// Mapeo de vistas a listId (tipos de documento = misma lista que tipo de identificación en facultad)
 const VIEW_TO_LIST_ID = {
-  'documentTypes': 'L_DOCUMENT_TYPE',
+  'documentTypes': 'L_IDENTIFICATIONTYPE',
   'studyLevels': 'L_LEVEL_PROGRAM',
   'dedicationTypes': 'L_DEDICATION_JOB_OFFER',
   'arls': 'L_ARL',

@@ -505,13 +505,13 @@ export default function Dashboard() {
           <Ubicaciones onVolver={handleVolver} />
         )}
         {vistaActual === 'programas-facultades' && (
-          <ProgramasYFacultades onVolver={handleVolver} />
+          <ProgramasYFacultades onVolver={() => navigate('/dashboard/configuracion')} />
         )}
         {vistaActual === 'program-detail' && (
           <ProgramDetail onVolver={() => navigate('/dashboard/programas-facultades')} />
         )}
         {vistaActual === 'faculty-detail' && (
-          <FacultyDetail onVolver={() => navigate('/dashboard/programas-facultades')} />
+          <FacultyDetail onVolver={() => navigate('/dashboard/programas-facultades?tab=facultades')} />
         )}
         {vistaActual === 'periodos' && (
           <Periodos onVolver={() => navigate('/dashboard/configuracion')} />

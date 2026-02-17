@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FiArrowLeft, FiEdit, FiCheck, FiX } from 'react-icons/fi';
+import React, { useState, useEffect, useRef } from 'react';
+import { FiArrowLeft, FiEdit, FiCheck, FiX, FiSearch } from 'react-icons/fi';
 import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -30,6 +30,14 @@ export default function FacultyDetail({ onVolver }) {
   const [loading, setLoading] = useState(true);
   const [faculty, setFaculty] = useState(null);
   const [sucursales, setSucursales] = useState([]);
+  const [identificationTypes, setIdentificationTypes] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [citySearchTerm, setCitySearchTerm] = useState('');
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
+  const [citySearchLoading, setCitySearchLoading] = useState(false);
+  const [selectedCityName, setSelectedCityName] = useState('');
+  const citySearchTimeoutRef = useRef(null);
+  const cityDropdownRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState(INITIAL_EDITED);
   const [saving, setSaving] = useState(false);
@@ -64,8 +72,52 @@ export default function FacultyDetail({ onVolver }) {
   }, []);
 
   useEffect(() => {
+    const loadIdentificationTypes = async () => {
+      try {
+        const { data } = await api.get('/locations/items/L_IDENTIFICATIONTYPE', { params: { limit: 100 } });
+        setIdentificationTypes(data?.data ?? []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadIdentificationTypes();
+  }, []);
+
+  const fetchCities = async (search = '') => {
+    setCitySearchLoading(true);
+    try {
+      const { data } = await api.get('/locations/cities', { params: { search: search || undefined, limit: 50 } });
+      setCities(data?.data ?? []);
+    } catch (err) {
+      console.error(err);
+      setCities([]);
+    } finally {
+      setCitySearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!cityDropdownOpen) return;
+    if (citySearchTimeoutRef.current) clearTimeout(citySearchTimeoutRef.current);
+    const t = setTimeout(() => fetchCities(citySearchTerm), 300);
+    citySearchTimeoutRef.current = t;
+    return () => { clearTimeout(t); };
+  }, [cityDropdownOpen, citySearchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(e.target)) setCityDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
     if (isEditing && faculty) {
       const sucursalId = faculty.sucursalId?._id ?? faculty.sucursalId ?? '';
+      const idTypeId = faculty.identificationTypeSigner?._id ?? faculty.identificationTypeSigner ?? '';
+      const idFromId = faculty.identificationFromSigner?._id ?? faculty.identificationFromSigner ?? '';
+      setSelectedCityName(faculty.identificationFromSigner?.name ?? '');
       setEditedData({
         code: faculty.code ?? '',
         name: faculty.name ?? '',
@@ -74,8 +126,8 @@ export default function FacultyDetail({ onVolver }) {
         authorized_signer: faculty.authorizedSigner ?? faculty.authorized_signer ?? '',
         position_signer: faculty.positionSigner ?? faculty.position_signer ?? '',
         identification_signer: faculty.identificationSigner ?? faculty.identification_signer ?? '',
-        identification_type_signer: faculty.identificationTypeSigner ?? faculty.identification_type_signer ?? '',
-        identification_from_signer: faculty.identificationFromSigner ?? faculty.identification_from_signer ?? '',
+        identification_type_signer: idTypeId || '',
+        identification_from_signer: idFromId || '',
         academic_signer: faculty.academicSigner ?? faculty.academic_signer ?? '',
         position_academic_signer: faculty.positionAcademicSigner ?? faculty.position_academic_signer ?? '',
         mail_academic_signer: faculty.mailAcademicSigner ?? faculty.mail_academic_signer ?? '',
@@ -83,6 +135,8 @@ export default function FacultyDetail({ onVolver }) {
       });
     } else if (!isEditing) {
       setEditedData(INITIAL_EDITED);
+      setSelectedCityName('');
+      setCitySearchTerm('');
     }
   }, [isEditing, faculty]);
 
@@ -98,8 +152,8 @@ export default function FacultyDetail({ onVolver }) {
         authorizedSigner: editedData.authorized_signer,
         positionSigner: editedData.position_signer,
         identificationSigner: editedData.identification_signer,
-        identificationTypeSigner: editedData.identification_type_signer,
-        identificationFromSigner: editedData.identification_from_signer,
+        identificationTypeSigner: editedData.identification_type_signer || null,
+        identificationFromSigner: editedData.identification_from_signer || null,
         academicSigner: editedData.academic_signer,
         positionAcademicSigner: editedData.position_academic_signer,
         mailAcademicSigner: editedData.mail_academic_signer,
@@ -108,6 +162,8 @@ export default function FacultyDetail({ onVolver }) {
       const { data } = await api.put(`/faculties/${facultyId}`, payload);
       setFaculty(data);
       setIsEditing(false);
+      setSelectedCityName(data?.identificationFromSigner?.name ?? '');
+      setCityDropdownOpen(false);
       await Swal.fire({
         icon: 'success',
         title: 'Facultad actualizada',
@@ -129,6 +185,16 @@ export default function FacultyDetail({ onVolver }) {
   const handleCancelar = () => {
     setIsEditing(false);
     setEditedData(INITIAL_EDITED);
+    setSelectedCityName('');
+    setCitySearchTerm('');
+    setCityDropdownOpen(false);
+  };
+
+  const handleSelectCity = (city) => {
+    setEditedData((d) => ({ ...d, identification_from_signer: city._id }));
+    setSelectedCityName(city.name ?? '');
+    setCitySearchTerm('');
+    setCityDropdownOpen(false);
   };
 
   if (loading) {
@@ -226,7 +292,7 @@ export default function FacultyDetail({ onVolver }) {
           <div className="pyf-detail-field">
             <label><b>Código</b>{isEditing && <FiEdit className="pyf-field-edit-icon" />}</label>
             {isEditing ? (
-              <input type="text" className="pyf-edit-input" value={editedData.code} onChange={(e) => setEditedData((d) => ({ ...d, code: e.target.value }))} placeholder="Código" />
+              <input type="text" className="pyf-edit-input pyf-edit-input-readonly" value={editedData.code} readOnly placeholder="Código" />
             ) : (
               <span>{faculty.code ?? '-'}</span>
             )}
@@ -234,7 +300,7 @@ export default function FacultyDetail({ onVolver }) {
           <div className="pyf-detail-field">
             <label><b>Nombre</b>{isEditing && <FiEdit className="pyf-field-edit-icon" />}</label>
             {isEditing ? (
-              <input type="text" className="pyf-edit-input" value={editedData.name} onChange={(e) => setEditedData((d) => ({ ...d, name: e.target.value }))} placeholder="Nombre" />
+              <input type="text" className="pyf-edit-input pyf-edit-input-readonly" value={editedData.name} readOnly placeholder="Nombre" />
             ) : (
               <span>{faculty.name ?? '-'}</span>
             )}
@@ -291,17 +357,58 @@ export default function FacultyDetail({ onVolver }) {
           <div className="pyf-detail-field">
             <label><b>Tipo de identificación</b>{isEditing && <FiEdit className="pyf-field-edit-icon" />}</label>
             {isEditing ? (
-              <input type="text" className="pyf-edit-input" value={editedData.identification_type_signer} onChange={(e) => setEditedData((d) => ({ ...d, identification_type_signer: e.target.value }))} placeholder="Tipo" />
+              <select
+                className="pyf-edit-input pyf-edit-select"
+                value={editedData.identification_type_signer}
+                onChange={(e) => setEditedData((d) => ({ ...d, identification_type_signer: e.target.value }))}
+              >
+                <option value="">Seleccionar tipo</option>
+                {identificationTypes.map((item) => (
+                  <option key={item._id} value={item._id}>{item.value ?? item.description ?? item._id}</option>
+                ))}
+              </select>
             ) : (
-              <span>{faculty.identificationTypeSigner ?? faculty.identification_type_signer ?? '-'}</span>
+              <span>{faculty.identificationTypeSigner?.value ?? faculty.identificationTypeSigner?.name ?? (typeof faculty.identificationTypeSigner === 'string' ? faculty.identificationTypeSigner : faculty.identification_type_signer) ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">
             <label><b>Ciudad de expedición</b>{isEditing && <FiEdit className="pyf-field-edit-icon" />}</label>
             {isEditing ? (
-              <input type="text" className="pyf-edit-input" value={editedData.identification_from_signer} onChange={(e) => setEditedData((d) => ({ ...d, identification_from_signer: e.target.value }))} placeholder="Ciudad" />
+              <div className="pyf-city-combobox" ref={cityDropdownRef}>
+                <div className="pyf-city-combobox-input-wrap">
+                  <FiSearch className="pyf-city-search-icon" />
+                  <input
+                    type="text"
+                    className="pyf-edit-input pyf-city-input"
+                    value={cityDropdownOpen ? citySearchTerm : (selectedCityName || 'Buscar ciudad...')}
+                    onFocus={() => { setCityDropdownOpen(true); setCitySearchTerm(''); }}
+                    onChange={(e) => { setCitySearchTerm(e.target.value); setCityDropdownOpen(true); }}
+                    placeholder="Buscar ciudad..."
+                  />
+                </div>
+                {cityDropdownOpen && (
+                  <ul className="pyf-city-dropdown">
+                    {citySearchLoading ? (
+                      <li className="pyf-city-dropdown-item pyf-city-loading">Cargando...</li>
+                    ) : cities.length === 0 ? (
+                      <li className="pyf-city-dropdown-item pyf-city-empty">Sin resultados. Escriba para buscar.</li>
+                    ) : (
+                      cities.map((city) => (
+                        <li
+                          key={city._id}
+                          className="pyf-city-dropdown-item"
+                          onClick={() => handleSelectCity(city)}
+                        >
+                          {city.name}
+                          {city.state?.name && <span className="pyf-city-state"> ({city.state.name})</span>}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+              </div>
             ) : (
-              <span>{faculty.identificationFromSigner ?? faculty.identification_from_signer ?? '-'}</span>
+              <span>{faculty.identificationFromSigner?.name ?? (typeof faculty.identificationFromSigner === 'string' ? faculty.identificationFromSigner : faculty.identification_from_signer) ?? '-'}</span>
             )}
           </div>
           <div className="pyf-detail-field">

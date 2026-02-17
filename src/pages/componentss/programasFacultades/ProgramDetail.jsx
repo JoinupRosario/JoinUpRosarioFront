@@ -7,6 +7,29 @@ import '../../styles/ProgramasYFacultades.css';
 
 const INITIAL_EDITED = { code: '', name: '', level: '', status: '' };
 
+const INITIAL_ADD_FACULTY = {
+  facultyId: '',
+  code: '',
+  costCentre: '',
+  snies: '',
+  registroCalificado: '',
+  fechaRegistroCalificado: '',
+};
+
+function parseDDMMYYYY(str) {
+  if (!str || typeof str !== 'string') return null;
+  const trimmed = str.trim();
+  const parts = trimmed.split(/[/.-]/);
+  if (parts.length !== 3) return null;
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const year = parseInt(parts[2], 10);
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+  const d = new Date(year, month, day);
+  if (isNaN(d.getTime()) || d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) return null;
+  return d;
+}
+
 export default function ProgramDetail({ onVolver }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,8 +44,11 @@ export default function ProgramDetail({ onVolver }) {
   const [editedData, setEditedData] = useState(INITIAL_EDITED);
   const [saving, setSaving] = useState(false);
   const [facultiesList, setFacultiesList] = useState([]);
-  const [selectedFacultyToAdd, setSelectedFacultyToAdd] = useState('');
+  const [showAddFacultyForm, setShowAddFacultyForm] = useState(false);
+  const [addFacultyForm, setAddFacultyForm] = useState(INITIAL_ADD_FACULTY);
+  const [addFacultyError, setAddFacultyError] = useState('');
   const [addingFaculty, setAddingFaculty] = useState(false);
+  const [updatingPfId, setUpdatingPfId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -56,7 +82,9 @@ export default function ProgramDetail({ onVolver }) {
       });
     } else if (!isEditing) {
       setEditedData(INITIAL_EDITED);
-      setSelectedFacultyToAdd('');
+      setShowAddFacultyForm(false);
+      setAddFacultyForm(INITIAL_ADD_FACULTY);
+      setAddFacultyError('');
     }
   }, [isEditing, program]);
 
@@ -108,19 +136,44 @@ export default function ProgramDetail({ onVolver }) {
     if (facultyId) navigate(`/dashboard/programas-facultades/facultad/${facultyId}`);
   };
 
+  const handleOpenAddFaculty = () => {
+    setAddFacultyError('');
+    setAddFacultyForm({ ...INITIAL_ADD_FACULTY, code: program?.code ?? '' });
+    setShowAddFacultyForm(true);
+  };
+
+  const handleCancelAddFaculty = () => {
+    setShowAddFacultyForm(false);
+    setAddFacultyForm(INITIAL_ADD_FACULTY);
+    setAddFacultyError('');
+  };
+
   const handleAgregarFacultad = async () => {
-    if (!programId || !selectedFacultyToAdd || addingFaculty) return;
+    if (!programId || addingFaculty) return;
+    if (!addFacultyForm.facultyId || !addFacultyForm.facultyId.trim()) {
+      setAddFacultyError('Campo requerido');
+      return;
+    }
+    setAddFacultyError('');
     setAddingFaculty(true);
     try {
-      await api.post('/program-faculties', {
+      const fechaDate = parseDDMMYYYY(addFacultyForm.fechaRegistroCalificado);
+      const payload = {
         program: programId,
-        faculty: selectedFacultyToAdd,
+        faculty: addFacultyForm.facultyId,
+        code: addFacultyForm.code?.trim() || undefined,
+        centroCosto: addFacultyForm.costCentre?.trim() || undefined,
+        snies: addFacultyForm.snies?.trim() || undefined,
+        registroCalificado: addFacultyForm.registroCalificado?.trim() || undefined,
+        fechaRegistroCalificado: fechaDate ? fechaDate.toISOString() : undefined,
         status: 'ACTIVE',
         activo: 'SI',
-      });
+      };
+      await api.post('/program-faculties', payload);
       const { data } = await api.get('/program-faculties', { params: { programId, limit: 200 } });
       setProgramFaculties(data.data || []);
-      setSelectedFacultyToAdd('');
+      setShowAddFacultyForm(false);
+      setAddFacultyForm(INITIAL_ADD_FACULTY);
       await Swal.fire({
         icon: 'success',
         title: 'Facultad agregada',
@@ -139,8 +192,58 @@ export default function ProgramDetail({ onVolver }) {
     }
   };
 
-  const alreadyLinkedFacultyIds = programFaculties.map((pf) => pf.faculty?._id || pf.faculty).filter(Boolean);
-  const facultiesToSelect = facultiesList.filter((f) => f._id && !alreadyLinkedFacultyIds.includes(f._id));
+  const handleToggleProgramFaculty = async (pf, currentActive) => {
+    const id = pf._id;
+    if (!id || updatingPfId) return;
+    const nextActivo = currentActive ? 'NO' : 'SI';
+    const nextStatus = currentActive ? 'INACTIVE' : 'ACTIVE';
+    const confirmMsg = currentActive
+      ? `¿Desactivar la relación "${pf.nombreFacultad ?? pf.faculty?.name ?? 'esta facultad'}"?`
+      : `¿Activar la relación "${pf.nombreFacultad ?? pf.faculty?.name ?? 'esta facultad'}"?`;
+    const { isConfirmed } = await Swal.fire({
+      title: currentActive ? 'Desactivar relación' : 'Activar relación',
+      text: confirmMsg,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#c41e3a',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: currentActive ? 'Sí, desactivar' : 'Sí, activar',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!isConfirmed) return;
+    setUpdatingPfId(id);
+    try {
+      await api.put(`/program-faculties/${id}`, { activo: nextActivo, status: nextStatus });
+      setProgramFaculties((prev) =>
+        prev.map((p) => (p._id === id ? { ...p, activo: nextActivo, status: nextStatus, estado: nextStatus } : p))
+      );
+      await Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: nextActivo === 'SI' ? 'Relación activada.' : 'Relación desactivada.',
+        confirmButtonColor: '#c41e3a',
+      });
+    } catch (err) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err.response?.data?.message || 'No se pudo actualizar.',
+        confirmButtonColor: '#c41e3a',
+      });
+    } finally {
+      setUpdatingPfId(null);
+    }
+  };
+
+  const alreadyLinkedIdsSet = new Set(
+    programFaculties
+      .map((pf) => pf.faculty?._id ?? pf.faculty)
+      .filter(Boolean)
+      .map((id) => String(id))
+  );
+  const facultiesToSelect = facultiesList.filter(
+    (f) => f._id && !alreadyLinkedIdsSet.has(String(f._id))
+  );
 
   if (loading) {
     return (
@@ -281,31 +384,115 @@ export default function ProgramDetail({ onVolver }) {
 
       <section className="pyf-detail-section">
         <h4 className="pyf-detail-section-title">FACULTADES</h4>
-        {isEditing && (
+        {isEditing && !showAddFacultyForm && (
           <div className="pyf-add-faculty-bar">
-            <select
-              className="pyf-edit-input pyf-edit-select pyf-add-faculty-select"
-              value={selectedFacultyToAdd}
-              onChange={(e) => setSelectedFacultyToAdd(e.target.value)}
-              disabled={addingFaculty}
-            >
-              <option value="">Seleccionar facultad...</option>
-              {facultiesToSelect.map((f) => (
-                <option key={f._id} value={f._id}>
-                  {f.code ?? ''} - {f.name ?? ''}
-                </option>
-              ))}
-            </select>
             <button
               type="button"
               className="pyf-btn pyf-btn-primary"
-              onClick={handleAgregarFacultad}
-              disabled={!selectedFacultyToAdd || addingFaculty}
+              onClick={handleOpenAddFaculty}
               title="Agregar facultad al programa"
             >
               <FiPlus className="pyf-btn-icon" />
-              {addingFaculty ? 'Agregando...' : 'Agregar facultad'}
+              Agregar facultad
             </button>
+          </div>
+        )}
+        {isEditing && showAddFacultyForm && (
+          <div className="pyf-add-faculty-form">
+            <h5 className="pyf-add-faculty-form-title">Nueva facultad asociada</h5>
+            <p className="pyf-add-faculty-hint">
+              {facultiesToSelect.length} facultad{facultiesToSelect.length !== 1 ? 'es' : ''} disponible{facultiesToSelect.length !== 1 ? 's' : ''} para agregar (las ya asociadas no se muestran).
+            </p>
+            <div className="pyf-detail-fields pyf-detail-fields-two-cols">
+              <div className="pyf-detail-field">
+                <label>Facultad: <span className="pyf-required">*</span></label>
+                <select
+                  className={`pyf-edit-input pyf-edit-select ${addFacultyError ? 'pyf-input-error' : ''}`}
+                  value={addFacultyForm.facultyId}
+                  onChange={(e) => { setAddFacultyForm((f) => ({ ...f, facultyId: e.target.value })); setAddFacultyError(''); }}
+                  disabled={addingFaculty}
+                >
+                  <option value="">Seleccionar</option>
+                  {facultiesToSelect.map((f) => (
+                    <option key={f._id} value={f._id}>{f.code ?? ''} - {f.name ?? ''}</option>
+                  ))}
+                </select>
+                {addFacultyError && <span className="pyf-field-error">{addFacultyError}</span>}
+              </div>
+              <div className="pyf-detail-field">
+                <label>Código Programa:</label>
+                <input
+                  type="text"
+                  className="pyf-edit-input"
+                  value={addFacultyForm.code}
+                  onChange={(e) => setAddFacultyForm((f) => ({ ...f, code: e.target.value }))}
+                  placeholder="Cod. programa"
+                  disabled={addingFaculty}
+                />
+              </div>
+              <div className="pyf-detail-field">
+                <label>Centro de Costo:</label>
+                <input
+                  type="text"
+                  className="pyf-edit-input"
+                  value={addFacultyForm.costCentre}
+                  onChange={(e) => setAddFacultyForm((f) => ({ ...f, costCentre: e.target.value }))}
+                  placeholder="Centro de Costo"
+                  disabled={addingFaculty}
+                />
+              </div>
+              <div className="pyf-detail-field">
+                <label>Registro Calificado:</label>
+                <input
+                  type="text"
+                  className="pyf-edit-input"
+                  value={addFacultyForm.registroCalificado}
+                  onChange={(e) => setAddFacultyForm((f) => ({ ...f, registroCalificado: e.target.value }))}
+                  placeholder="Registro"
+                  disabled={addingFaculty}
+                />
+              </div>
+              <div className="pyf-detail-field">
+                <label>SNIES:</label>
+                <input
+                  type="text"
+                  className="pyf-edit-input"
+                  value={addFacultyForm.snies}
+                  onChange={(e) => setAddFacultyForm((f) => ({ ...f, snies: e.target.value }))}
+                  placeholder="SNIES"
+                  disabled={addingFaculty}
+                />
+              </div>
+              <div className="pyf-detail-field">
+                <label>Fecha Registro Calificado:</label>
+                <input
+                  type="text"
+                  className="pyf-edit-input"
+                  value={addFacultyForm.fechaRegistroCalificado}
+                  onChange={(e) => setAddFacultyForm((f) => ({ ...f, fechaRegistroCalificado: e.target.value }))}
+                  placeholder="DD/MM/YYYY"
+                  disabled={addingFaculty}
+                />
+              </div>
+            </div>
+            <div className="pyf-add-faculty-form-actions">
+              <button
+                type="button"
+                className="pyf-btn pyf-btn-primary"
+                onClick={handleAgregarFacultad}
+                disabled={addingFaculty}
+              >
+                {addingFaculty ? 'Guardando...' : 'Guardar'}
+              </button>
+              <button
+                type="button"
+                className="pyf-btn pyf-btn-secondary"
+                onClick={handleCancelAddFaculty}
+                disabled={addingFaculty}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         )}
         <div className="pyf-table-wrap">
@@ -324,6 +511,7 @@ export default function ProgramDetail({ onVolver }) {
                   <th>SNIES</th>
                   <th>REGISTRO CALIFICADO</th>
                   <th>FECHA REGISTRO</th>
+                  <th>ESTADO</th>
                 </tr>
               </thead>
               <tbody>
@@ -331,6 +519,8 @@ export default function ProgramDetail({ onVolver }) {
                   const facultyId = pf.faculty?._id || pf.faculty;
                   const facultyName = pf.nombreFacultad ?? pf.faculty?.name ?? '-';
                   const facultyCode = pf.codigoFacultad ?? pf.faculty?.code ?? '-';
+                  const estadoRelacion = (pf.estado ?? pf.status ?? '').toString().toUpperCase();
+                  const isActive = estadoRelacion === 'ACTIVE';
                   return (
                     <tr key={pf._id}>
                       <td>{pf.codigoPrograma ?? pf.code ?? '-'}</td>
@@ -352,6 +542,22 @@ export default function ProgramDetail({ onVolver }) {
                       <td>{pf.snies ?? '-'}</td>
                       <td>{pf.registroCalificado ?? pf.official_registration ?? '-'}</td>
                       <td>{pf.fechaRegistroCalificado ?? (pf.official_registration_date ? new Date(pf.official_registration_date).toLocaleDateString() : '-')}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div className="switch-container">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={isActive}
+                              onChange={() => handleToggleProgramFaculty(pf, isActive)}
+                              disabled={updatingPfId === pf._id}
+                            />
+                            <span className="slider" />
+                          </label>
+                          <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>
+                            {isActive ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
