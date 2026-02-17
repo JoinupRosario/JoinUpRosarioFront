@@ -44,6 +44,7 @@ import Postulants  from './componentss/postulants/postulants';
 // import PostulantDocumentLog from './componentss/postulants/logs/PostulantDocumentLog';
 import PostulantProfile from './componentss/postulants/PostulantProfile';
 import Student from './componentss/students/student';
+import api from '../services/api';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
 import userAvatarImg from '../assets/images/login/user.png';
@@ -174,21 +175,23 @@ export default function Dashboard() {
     recentActivity: []
   });
 
-  // Simular carga de datos
+  // Cargar datos del dashboard (stats reales desde MongoDB)
   useEffect(() => {
     const loadDashboardData = async () => {
       setLoading(true);
-      
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Datos de ejemplo
-      setDashboardData({
+      let apiStats = { totalStudents: 0, availableOpportunities: 0, registeredCompanies: 0 };
+      try {
+        const statsRes = await api.get('/dashboard/stats');
+        apiStats = statsRes?.data || apiStats;
+      } catch (err) {
+        console.error('Error cargando estadísticas del dashboard', err);
+      }
+      setDashboardData((prev) => ({
         stats: {
-          totalStudents: 1247,
-          activePractices: 89,
-          availableOpportunities: 23,
-          registeredCompanies: 156
+          totalStudents: apiStats.totalStudents ?? 0,
+          activePractices: prev.stats.activePractices ?? 0,
+          availableOpportunities: apiStats.availableOpportunities ?? 0,
+          registeredCompanies: apiStats.registeredCompanies ?? 0
         },
         charts: {
           applicationsByMonth: [
@@ -215,44 +218,13 @@ export default function Dashboard() {
           ]
         },
         recentActivity: [
-          {
-            type: 'application',
-            description: 'Nueva postulación de María González para práctica en Microsoft',
-            user: 'María González',
-            timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 min ago
-            status: 'pending'
-          },
-          {
-            type: 'company',
-            description: 'Nueva empresa registrada: TechCorp Solutions',
-            user: 'Admin',
-            timestamp: new Date(Date.now() - 15 * 60 * 1000), // 15 min ago
-            status: 'approved'
-          },
-          {
-            type: 'practice',
-            description: 'Práctica completada por Juan Pérez en Google',
-            user: 'Juan Pérez',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-            status: 'completed'
-          },
-          {
-            type: 'approval',
-            description: 'Aprobación de práctica para Ana Rodríguez',
-            user: 'Admin',
-            timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-            status: 'approved'
-          },
-          {
-            type: 'notification',
-            description: 'Recordatorio: 5 prácticas vencen esta semana',
-            user: 'Sistema',
-            timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-            status: 'pending'
-          }
+          { type: 'application', description: 'Nueva postulación de María González para práctica en Microsoft', user: 'María González', timestamp: new Date(Date.now() - 5 * 60 * 1000), status: 'pending' },
+          { type: 'company', description: 'Nueva empresa registrada: TechCorp Solutions', user: 'Admin', timestamp: new Date(Date.now() - 15 * 60 * 1000), status: 'approved' },
+          { type: 'practice', description: 'Práctica completada por Juan Pérez en Google', user: 'Juan Pérez', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), status: 'completed' },
+          { type: 'approval', description: 'Aprobación de práctica para Ana Rodríguez', user: 'Admin', timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), status: 'approved' },
+          { type: 'notification', description: 'Recordatorio: 5 prácticas vencen esta semana', user: 'Sistema', timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), status: 'pending' }
         ]
-      });
-      
+      }));
       setLoading(false);
     };
 
