@@ -1444,7 +1444,8 @@ const PostulantProfile = ({ onVolver }) => {
       const dateValue = postulant.date_nac_postulant 
         ? new Date(postulant.date_nac_postulant).toISOString().split('T')[0]
         : '';
-      
+      // Número de documento desde profile-data (postulantProfile.studentCode)
+      const studentCode = profileData?.postulantProfile?.studentCode ?? postulant.identity_postulant ?? '';
       setEditedData({
         mobile_number: postulant.mobile_number || '',
         phone_number: postulant.phone_number || '',
@@ -1454,6 +1455,7 @@ const PostulantProfile = ({ onVolver }) => {
         website_url: postulant.website_url || '',
         type_doc_postulant: postulant.type_doc_postulant?._id ?? postulant.type_doc_postulant ?? '',
         identity_postulant: postulant.identity_postulant || '',
+        student_code: studentCode,
         date_nac_postulant: dateValue,
         nac_country: postulant.nac_country?._id || '',
         nac_department: postulant.nac_department?._id || '',
@@ -1466,7 +1468,7 @@ const PostulantProfile = ({ onVolver }) => {
     } else if (!isEditing) {
       setEditedData({});
     }
-  }, [isEditing, postulant]);
+  }, [isEditing, postulant, profileData?.postulantProfile?.studentCode]);
 
   // Guardar cambios del perfil
   const handleSaveProfile = useCallback(async () => {
@@ -1520,14 +1522,18 @@ const PostulantProfile = ({ onVolver }) => {
           })()
         : (profileData?.postulantProfile?._id?.toString?.() || profileData?.postulantProfile?._id);
       if (baseId) {
-        await api.put(`/postulants/${postulant._id}/profiles/${baseId}`, {
+        const profilePayload = {
           conditionDiscapacity: profileEditFields.conditionDiscapacity,
           haveBusiness: profileEditFields.haveBusiness,
           independent: profileEditFields.independent,
           employee: profileEditFields.employee,
           totalTimeExperience: profileEditFields.totalTimeExperience === '' ? undefined : Number(profileEditFields.totalTimeExperience),
           skillsTechnicalSoftware: profileEditFields.skillsTechnicalSoftware,
-        });
+        };
+        if (editedData.student_code !== undefined && editedData.student_code !== null) {
+          profilePayload.studentCode = String(editedData.student_code).trim() || undefined;
+        }
+        await api.put(`/postulants/${postulant._id}/profiles/${baseId}`, profilePayload);
         loadProfileDataForProfile(postulant._id, baseId, selectedProfileIdForView);
       }
 
@@ -2120,13 +2126,15 @@ const PostulantProfile = ({ onVolver }) => {
                     <input 
                       type="text" 
                       className="profile-field-input" 
-                      value={editedData.identity_postulant || ''} 
-                      onChange={(e) => handleInputChange('identity_postulant', e.target.value)}
+                      value={editedData.student_code ?? ''} 
+                      onChange={(e) => handleInputChange('student_code', e.target.value)}
                       placeholder="Número de documento"
                     />
                   </div>
                 ) : (
-                  <div className="profile-field-value">{postulant.identity_postulant || '-'}</div>
+                  <div className="profile-field-value">
+                    {(profileData?.postulantProfile?.studentCode ?? postulant?.identity_postulant ?? '-') || '-'}
+                  </div>
                 )}
               </div>
               <div className="profile-data-field">
@@ -2362,7 +2370,9 @@ const PostulantProfile = ({ onVolver }) => {
                   <div className="contact-icon-wrapper">
                     <FiFileText className="contact-icon" />
                   </div>
-                  <span className="contact-text">{postulant?.identity_postulant || '—'}</span>
+                  <span className="contact-text">
+                    {profileData?.postulantProfile?.studentCode ?? postulant?.identity_postulant ?? '—'}
+                  </span>
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft,
@@ -108,11 +108,16 @@ const Postulants = ({ onVolver }) => {
     });
   }, []);
 
-  // Carga de postulantes con paginación
+  // Búsqueda que se envía al backend (con debounce)
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchDebounceRef = useRef(null);
+
+  // Carga de postulantes con paginación y búsqueda en backend
   const loadPostulants = useCallback(async () => {
     try {
       setLoading(true);
       const params = { page, limit };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
       const response = await api.get('/postulants', { params });
       const raw = response.data;
       const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
@@ -124,20 +129,20 @@ const Postulants = ({ onVolver }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, limit]);
+  }, [page, limit, searchQuery]);
 
-  // Filtrado de postulantes en cliente (por identificación, nombre, apellido, email)
-  const postulantsFiltered = useCallback(() => {
-    if (!searchTerm.trim()) return postulants;
-    const term = searchTerm.toLowerCase();
-    return postulants.filter(p => {
-      const id = (p.identity_postulant ?? p.code ?? p.user?.code ?? '').toLowerCase();
-      const name = (p.name ?? p.user?.name ?? '').toLowerCase();
-      const lastname = (p.user?.lastname ?? '').toLowerCase();
-      const email = (p.email ?? p.user?.email ?? '').toLowerCase();
-      return id.includes(term) || name.includes(term) || lastname.includes(term) || email.includes(term);
-    });
-  }, [postulants, searchTerm]);
+  // Debounce: al escribir en la barra, actualizar searchQuery tras 400ms y volver a página 1
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchQuery(searchTerm);
+      setPage(1);
+      searchDebounceRef.current = null;
+    }, 400);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchTerm]);
 
   // Utilidades de visualización
   const getProfilePercent = useCallback((postulant) => {
@@ -261,16 +266,15 @@ const Postulants = ({ onVolver }) => {
       );
     }
 
-    const filtered = postulantsFiltered();
-    if (filtered.length === 0) {
+    if (postulants.length === 0) {
       return (
         <div className="empty-state">
           <FiUser className="empty-icon" />
           <h3>No se encontraron postulantes</h3>
           <p>
-            {postulants.length === 0
-              ? 'No hay postulantes registrados todavía.'
-              : 'Intenta con otros términos de búsqueda.'}
+            {searchQuery
+              ? 'No hay resultados para tu búsqueda. Prueba con otros términos.'
+              : 'No hay postulantes registrados todavía.'}
           </p>
         </div>
       );
@@ -290,7 +294,7 @@ const Postulants = ({ onVolver }) => {
           </tr>
         </thead>
         <tbody>
-          {filtered.map((p) => {
+          {postulants.map((p) => {
             const estadoActual = p.estate_postulant || 'activo';
             const isActivo = estadoActual === 'activo';
             const nuevoEstado = isActivo ? 'inactivo' : 'activo';
@@ -308,10 +312,10 @@ const Postulants = ({ onVolver }) => {
                       className="postulant-link"
                       style={{ cursor: 'pointer' }}
                     >
-                      {(p.identity_postulant ?? p.code ?? p.user?.code ?? '').trim() || '-'}
+                      {(p.student_code ?? p.identity_postulant ?? p.code ?? p.user?.code ?? '').trim() || '-'}
                     </span>
                   ) : (
-                    (p.identity_postulant ?? p.code ?? p.user?.code ?? '').trim() || '-'
+                    (p.student_code ?? p.identity_postulant ?? p.code ?? p.user?.code ?? '').trim() || '-'
                   )}
                 </td>
                 <td>
