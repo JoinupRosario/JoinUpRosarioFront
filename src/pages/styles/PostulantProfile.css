@@ -493,8 +493,8 @@ input:checked + .slider:before {
 /* Información de contacto */
 .profile-contact-info {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  gap: 28px;
+  align-items: flex-start;
   flex-wrap: wrap;
   justify-content: center;
   margin-bottom: 20px;
@@ -510,6 +510,9 @@ input:checked + .slider:before {
   font-size: 13px;
   position: relative;
   flex-shrink: 0;
+  min-width: 160px;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .contact-icon-wrapper {
@@ -535,8 +538,10 @@ input:checked + .slider:before {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 100%;
+  width: 100%;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .contact-input {
@@ -716,6 +721,35 @@ input:checked + .slider:before {
   }
 }
 
+/* Overlay al cambiar de perfil/versión */
+.perfil-profile-data-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.perfil-profile-data-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 32px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  font-size: 14px;
+  color: #374151;
+}
+
+.perfil-profile-data-loading-box .loading-spinner {
+  margin-bottom: 0;
+}
+
 /* Listas de perfil y experiencia (datos migrados) */
 .full-width {
   width: 100%;
@@ -768,9 +802,24 @@ input:checked + .slider:before {
   padding: 0 20px 20px;
 }
 
-.academic-warning-banner {
-  background: #dbeafe;
-  color: #1e40af;
+/* Fila de resumen con iconos en Información académica (email, SSC, tipo doc, número doc) */
+.academic-summary-row {
+  margin-bottom: 24px;
+}
+
+.academic-summary-row .academic-summary-contact {
+  margin-bottom: 0;
+  padding: 16px 0;
+}
+
+/* Banner unificado para todos los tabs (consistencia plataforma) */
+.profile-tab-banner,
+.academic-warning-banner,
+.perfil-warning-banner,
+.experiencia-warning-banner {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 24px;
@@ -778,8 +827,56 @@ input:checked + .slider:before {
   line-height: 1.5;
 }
 
+/* Fila de título de sección con acciones (lápiz + agregar) - consistente en todos los tabs */
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.section-title-row .academic-section-title,
+.section-title-row .exp-section-title,
+.section-title-row .perfil-block-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.section-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #c41e3a;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.section-action-btn:hover {
+  background: #fef2f2;
+  color: #a01730;
+}
+
 .academic-section {
   margin-bottom: 28px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px 18px;
 }
 
 .academic-section-title {
@@ -839,6 +936,18 @@ input:checked + .slider:before {
   flex-shrink: 0;
 }
 
+.academic-table-wrap {
+  margin-top: 0;
+}
+
+.academic-table .academic-item-icon {
+  margin-right: 6px;
+}
+
+.academic-row-actions {
+  position: relative;
+}
+
 .academic-finished-grid {
   margin-bottom: 10px;
 }
@@ -878,6 +987,10 @@ input:checked + .slider:before {
   margin: 0 0 0 4px;
 }
 
+.academic-subtitle--above-table {
+  margin: 0 0 10px 4px;
+}
+
 .academic-other-note {
   font-size: 12px;
   font-style: italic;
@@ -909,15 +1022,6 @@ input:checked + .slider:before {
   padding: 0 20px 20px;
 }
 
-.perfil-warning-banner {
-  background: #dbeafe;
-  color: #1e40af;
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 24px;
-  font-size: 13px;
-  line-height: 1.5;
-}
 
 .perfil-two-columns {
   display: grid;
@@ -959,6 +1063,701 @@ input:checked + .slider:before {
   line-height: 1.5;
   margin: 0;
 }
+
+/* Lista de perfiles profesionales (hasta 5) - estilo referencia */
+.perfil-block-profesional {
+  margin-bottom: 4px;
+}
+
+.perfil-profile-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px 0;
+}
+
+.perfil-profile-item {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.perfil-profile-item:last-of-type {
+  margin-bottom: 0;
+}
+
+.perfil-profile-item-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #059669;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.perfil-profile-item-name {
+  flex: 1;
+  font-size: 13px;
+  color: #111827;
+  min-width: 0;
+}
+
+.perfil-profile-item-actions {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.perfil-opciones-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.perfil-opciones-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.perfil-ver-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid #c41e3a;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  color: #c41e3a;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.perfil-ver-btn:hover {
+  background: #fef2f2;
+}
+
+.perfil-profile-item.perfil-profile-item-selected {
+  background: #fef2f2 !important;
+  border: 2px solid #c41e3a !important;
+  box-shadow: 0 0 0 1px rgba(196, 30, 58, 0.2);
+}
+.perfil-profile-item.perfil-profile-item-selected .perfil-profile-item-check {
+  background: #c41e3a;
+  color: #fff;
+}
+.perfil-profile-item-active-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c41e3a;
+  background: rgba(196, 30, 58, 0.1);
+  border-radius: 4px;
+}
+.perfil-profile-item-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.perfil-profile-item-action-icon:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+.perfil-profile-item-action-view {
+  border-color: #c41e3a;
+  color: #c41e3a;
+}
+.perfil-profile-item-action-view:hover {
+  background: #fef2f2;
+  border-color: #c41e3a;
+}
+.perfil-profile-item-action-edit {
+  color: #2563eb;
+}
+.perfil-profile-item-action-edit:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+.perfil-profile-item-action-delete {
+  color: #dc2626;
+}
+.perfil-profile-item-action-delete:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+.perfil-opciones-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.perfil-opciones-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 120px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 11;
+  overflow: hidden;
+}
+
+/* Menú hacia arriba: evita que Editar/Eliminar queden ocultos en el último ítem */
+.perfil-opciones-menu.perfil-opciones-menu--above {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+/* Menú con posición fija: sobresale del div y no lo recorta el overflow del contenedor (tabla, etc.) */
+.perfil-opciones-menu.perfil-opciones-menu--fixed {
+  top: auto;
+  bottom: auto;
+  left: auto;
+  right: auto;
+  margin: 0;
+}
+.perfil-opciones-menu.perfil-opciones-menu--fixed.perfil-opciones-menu--above {
+  bottom: auto;
+  margin-bottom: 0;
+}
+
+.perfil-opciones-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: #374151;
+  text-align: left;
+  cursor: pointer;
+}
+
+.perfil-opciones-menu button:hover {
+  background: #f3f4f6;
+}
+
+.perfil-opciones-menu button + button {
+  border-top: 1px solid #e5e7eb;
+}
+
+.perfil-btn-nuevo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 14px;
+  border: 1px solid #c41e3a;
+  border-radius: 6px;
+  background: transparent;
+  color: #c41e3a;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.perfil-btn-nuevo:hover {
+  background: #fef2f2;
+}
+
+.perfil-profile-list-loading,
+.perfil-profile-list-empty {
+  padding: 14px 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.perfiles-only-tab {
+  max-width: 640px;
+}
+
+/* Modal crear/editar perfil */
+.perfil-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.perfil-modal {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.perfil-modal-title {
+  margin: 0;
+  padding: 18px 20px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.perfil-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.perfil-modal-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.perfil-modal-input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+}
+
+.perfil-modal-input:focus {
+  outline: none;
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 2px rgba(196, 30, 58, 0.15);
+}
+
+.perfil-modal-row {
+  display: flex;
+  gap: 12px;
+}
+
+.perfil-modal-row .perfil-modal-input {
+  flex: 1;
+}
+
+.perfil-modal-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.perfil-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Modales de formulario (estilo form group como Crear período) */
+.form-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+}
+
+.form-modal-content {
+  background: #fff;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  max-width: 720px;
+  width: 100%;
+  max-height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.form-modal-content--wide {
+  max-width: 900px;
+}
+
+.form-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Cabecera roja como Crear período */
+.form-modal-header {
+  position: relative;
+  background: #a91e2a;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.form-modal-title {
+  margin: 0;
+  font-weight: 700;
+  color: #fff;
+  font-size: 1.15rem;
+  flex: 1;
+  text-align: center;
+}
+
+.form-modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.9);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 0;
+  position: absolute;
+  right: 1rem;
+}
+
+.form-modal-close:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+.form-modal-body {
+  padding: 1.25rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  flex-shrink: 1;
+}
+
+.form-modal-char-count {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.form-modal-two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 560px) {
+  .form-modal-two-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-modal-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+}
+.form-modal-label-inline {
+  font-size: 14px;
+  color: #374151;
+}
+.form-modal-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  border: none;
+  background: #e5e7eb;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  flex-shrink: 0;
+}
+.form-modal-toggle.on {
+  background: #c41e3a;
+}
+.form-modal-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+.form-modal-toggle.on .form-modal-toggle-thumb {
+  transform: translateX(20px);
+}
+
+/* Floating labels Bootstrap: color de enfoque acorde a la plataforma */
+.form-modal-content .form-control:focus,
+.form-modal-content .form-select:focus {
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 0.25rem rgba(196, 30, 58, 0.15);
+}
+
+.form-modal-footer {
+  border-top: 1px solid #e9ecef;
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.form-modal-btn-cancel {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  background: #fff;
+  color: #495057;
+  cursor: pointer;
+}
+
+.form-modal-btn-cancel:hover {
+  background: #e9ecef;
+}
+
+.form-modal-btn-save {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #a91e2a;
+  background: #a91e2a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.form-modal-btn-save:hover {
+  background: #8b1824;
+  border-color: #8b1824;
+}
+
+/* Form group: etiqueta en mayúsculas, campo debajo (estilo Crear período) */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #212529;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+}
+
+.form-group-label .form-modal-required {
+  color: #c41e3a;
+  margin-left: 2px;
+}
+
+.form-modal-input,
+.form-modal-select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #212529;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+}
+
+.form-modal-input::placeholder {
+  color: #6c757d;
+}
+
+.form-modal-input:focus,
+.form-modal-select:focus {
+  outline: none;
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 0.2rem rgba(196, 30, 58, 0.15);
+}
+
+.form-modal-select {
+  padding-right: 36px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c757d' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+}
+
+/* Secciones colapsables (accordion) como Crear período */
+.form-accordion {
+  margin-bottom: 0.5rem;
+}
+
+.form-accordion-item {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.form-accordion-item:last-child {
+  margin-bottom: 0;
+}
+
+.form-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: #f8f9fa;
+  border: none;
+  border-bottom: 1px solid #dee2e6;
+  font-size: 14px;
+  font-weight: 600;
+  color: #212529;
+  text-align: left;
+  cursor: pointer;
+}
+
+.form-accordion-item.expanded .form-accordion-header {
+  border-bottom-color: #dee2e6;
+}
+
+.form-accordion-header-icon {
+  font-size: 18px;
+  color: #6c757d;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.form-accordion-body {
+  padding: 14px;
+  background: #fff;
+}
+
+.form-accordion-item:not(.expanded) .form-accordion-body {
+  display: none;
+}
+
+.form-accordion-body .form-group {
+  margin-bottom: 0.75rem;
+}
+
+.form-accordion-body .form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Compatibilidad: campos sin accordion */
+.form-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 1rem;
+}
+
+.form-modal-field:last-child {
+  margin-bottom: 0;
+}
+
+.form-modal-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #212529;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.form-modal-label-icon {
+  font-size: 12px;
+  color: #c41e3a;
+}
+
+.form-modal-required {
+  color: #c41e3a;
+  margin-left: 2px;
+}
+
+.form-modal-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-modal-row:last-child {
+  margin-bottom: 0;
+}
+
+.form-modal-row-actions {
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+}
+
+.form-modal-row-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 640px) {
+  .form-modal-row,
+  .form-modal-row-actions,
+  .form-modal-row-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 .perfil-field-with-check {
   display: flex;
@@ -1029,6 +1828,23 @@ input:checked + .slider:before {
   border: 1px solid #c41e3a;
 }
 
+.perfil-switch-row {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+.perfil-skills-textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  font-size: 13px;
+}
+.perfil-field-char-count {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
 .perfil-tag-list {
   list-style: none;
   padding: 0;
@@ -1042,6 +1858,72 @@ input:checked + .slider:before {
   padding: 6px 0;
   font-size: 13px;
   color: #374151;
+}
+.perfil-tag-item-text {
+  flex: 1;
+  min-width: 0;
+}
+.perfil-tag-item-delete {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+  color: #374151;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+.perfil-tag-item-delete:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+.perfil-doc-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+}
+.perfil-doc-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.perfil-doc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.perfil-doc-link {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: #c41e3a;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.perfil-doc-link:hover {
+  color: #9a1830;
+  text-decoration: underline;
 }
 
 .perfil-lang-list {
@@ -1057,6 +1939,9 @@ input:checked + .slider:before {
   padding: 8px 0;
   font-size: 13px;
   flex-wrap: wrap;
+}
+.perfil-lang-item .perfil-tag-item-delete {
+  margin-left: auto;
 }
 
 .perfil-lang-level {
@@ -1088,23 +1973,21 @@ input:checked + .slider:before {
   margin-bottom: 10px;
 }
 
+.perfil-profesional-top {
+  margin-bottom: 24px;
+}
+
 /* ========== Tab Experiencia (secciones con tabla, línea roja en títulos) ========== */
 .experiencia-tab {
   padding: 0 20px 20px;
 }
 
-.experiencia-warning-banner {
-  background: #dbeafe;
-  color: #1e40af;
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 24px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
 .exp-section {
   margin-bottom: 28px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px 18px;
 }
 
 .exp-section-title {
@@ -1206,4 +2089,247 @@ input:checked + .slider:before {
   .perfil-two-columns {
     grid-template-columns: 1fr;
   }
+}
+
+/* Pestaña Perfiles (hojas de vida) */
+.profile-tab-badge {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #e8f4fd;
+  color: #0c63b4;
+}
+
+.profile-summary-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.profiles-tab {
+  padding: 20px 0;
+}
+
+.profiles-tab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.profiles-tab-desc {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.btn-add-profile {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profiles-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.profile-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.profile-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.profile-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.profile-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.profile-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-icon-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-icon-small:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.btn-icon-small.btn-danger:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.profile-card-body {
+  padding: 16px;
+}
+
+.profile-card-text,
+.profile-card-salary,
+.profile-card-skills,
+.profile-card-empty {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+.profile-card-body p:last-child {
+  margin-bottom: 0;
+}
+
+.profile-card-empty {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Modal formulario perfil */
+.profile-form-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.profile-form-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.profile-form-modal h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: #111827;
+}
+
+.profile-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.profile-form-fields label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.profile-form-fields input[type="text"],
+.profile-form-fields input[type="number"],
+.profile-form-fields textarea {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.profile-form-fields textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.profile-form-fields .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.profile-form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Modal Actualizar Info Básica (Universitas) - tablita de comparación */
+.universitas-modal-desc {
+  margin-bottom: 10px;
+  color: #374151;
+  font-size: 14px;
+}
+.universitas-tablita {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.universitas-tablita th,
+.universitas-tablita td {
+  border: 1px solid #ddd;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: middle;
+  word-break: break-word;
+}
+.universitas-tablita thead th {
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #444;
+}
+.universitas-tablita .u-campo {
+  font-weight: 500;
+  color: #222;
+  width: 28%;
+}
+.universitas-tablita .u-actual {
+  color: #666;
+  width: 36%;
+}
+.universitas-tablita .u-nuevo {
+  color: #0d9488;
+  font-weight: 500;
+  width: 36%;
 }

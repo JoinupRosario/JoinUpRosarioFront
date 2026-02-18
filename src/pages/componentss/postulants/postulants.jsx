@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft,
   FiSearch,
   FiUser,
-  FiPlus,
   FiActivity,
   FiFileText,
   FiRefreshCw,
   FiAlertCircle,
   FiChevronLeft,
-  FiChevronRight
+  FiChevronRight,
+  FiMoreVertical,
+  FiBook
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -40,8 +41,8 @@ const Postulants = ({ onVolver }) => {
   const [limit, setLimit] = useState(20);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const searchDebounceRef = useRef(null);
-  
+  const [actionsOpenForId, setActionsOpenForId] = useState(null);
+  const [cursosModal, setCursosModal] = useState({ open: false, postulant: null, loading: false, enrolled: [], graduate: [] });
 
   // Funciones de utilidad
   const showAlert = useCallback((icon, title, text, confirmButtonText) => {
@@ -107,41 +108,36 @@ const Postulants = ({ onVolver }) => {
     });
   }, []);
 
-
-  // Parámetro de búsqueda enviado al API (debounced)
-  const [searchParam, setSearchParam] = useState('');
-
   // Carga de postulantes con paginación
   const loadPostulants = useCallback(async () => {
     try {
       setLoading(true);
-      const params = {
-        page,
-        limit,
-        ...(searchParam && searchParam.trim() ? { search: searchParam.trim() } : {}),
-      };
+      const params = { page, limit };
       const response = await api.get('/postulants', { params });
-      setPostulants(response.data.data || []);
-      setTotal(response.data.total ?? 0);
-      setTotalPages(response.data.totalPages ?? 0);
+      const raw = response.data;
+      const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
+      setPostulants(list);
+      setTotal(raw?.total ?? 0);
+      setTotalPages(raw?.totalPages ?? 0);
     } catch (error) {
       console.error('Error loading postulants', error);
     } finally {
       setLoading(false);
     }
-  }, [page, limit, searchParam]);
+  }, [page, limit]);
 
-  // Debounce de búsqueda: al escribir, actualizar searchParam y volver a página 1 tras 400ms
-  useEffect(() => {
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      setSearchParam(searchTerm);
-      setPage(1);
-    }, 400);
-    return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    };
-  }, [searchTerm]);
+  // Filtrado de postulantes en cliente (por identificación, nombre, apellido, email)
+  const postulantsFiltered = useCallback(() => {
+    if (!searchTerm.trim()) return postulants;
+    const term = searchTerm.toLowerCase();
+    return postulants.filter(p => {
+      const id = (p.identity_postulant ?? p.code ?? p.user?.code ?? '').toLowerCase();
+      const name = (p.name ?? p.user?.name ?? '').toLowerCase();
+      const lastname = (p.user?.lastname ?? '').toLowerCase();
+      const email = (p.email ?? p.user?.email ?? '').toLowerCase();
+      return id.includes(term) || name.includes(term) || lastname.includes(term) || email.includes(term);
+    });
+  }, [postulants, searchTerm]);
 
   // Utilidades de visualización
   const getProfilePercent = useCallback((postulant) => {
@@ -150,15 +146,15 @@ const Postulants = ({ onVolver }) => {
   }, []);
 
   const handleRowClick = useCallback((postulant) => {
-    if (postulant.user?._id) {
-      navigate(`/dashboard/postulantes/${postulant.user._id}`);
+    if (postulant._id) {
+      navigate(`/dashboard/postulantes/${postulant._id}`);
     }
   }, [navigate]);
 
   const handleLinkClick = useCallback((e, postulant) => {
     e.stopPropagation();
-    if (postulant.user?._id) {
-      navigate(`/dashboard/postulantes/${postulant.user._id}`);
+    if (postulant._id) {
+      navigate(`/dashboard/postulantes/${postulant._id}`);
     }
   }, [navigate]);
 
@@ -166,9 +162,9 @@ const Postulants = ({ onVolver }) => {
   const toggleEstadoPostulant = useCallback(async (postulantId, nuevoEstado) => {
     const postulant = postulants.find(p => p._id === postulantId);
     const estadoTexto = nuevoEstado === 'activo' ? 'activar' : 'desactivar';
-    const nombreCompleto = postulant?.user?.name 
-      ? `${postulant.user.name} ${postulant.user.lastname || ''}`.trim()
-      : postulant?.identity_postulant || 'este postulante';
+    const nombreCompleto = (postulant?.name ?? postulant?.user?.name)
+      ? `${(postulant?.name ?? postulant?.user?.name) || ''} ${(postulant?.user?.lastname || '')}`.trim()
+      : (postulant?.identity_postulant ?? postulant?.code) || 'este postulante';
 
     const result = await showConfirmationWithReason(
       `${nuevoEstado === 'activo' ? 'Activar' : 'Desactivar'} Postulante`,
@@ -209,6 +205,13 @@ const Postulants = ({ onVolver }) => {
     loadPostulants();
   }, [loadPostulants]);
 
+  useEffect(() => {
+    if (!actionsOpenForId) return;
+    const close = () => setActionsOpenForId(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [actionsOpenForId]);
+
   const handlePageChange = useCallback((newPage) => {
     if (newPage >= 1 && newPage <= totalPages) setPage(newPage);
   }, [totalPages]);
@@ -217,6 +220,35 @@ const Postulants = ({ onVolver }) => {
     const newLimit = Number(e.target.value) || 20;
     setLimit(newLimit);
     setPage(1);
+  }, []);
+
+  const toggleActions = useCallback((e, postulantId) => {
+    e.stopPropagation();
+    setActionsOpenForId((prev) => (prev === postulantId ? null : postulantId));
+  }, []);
+
+  const openCursosModal = useCallback(async (e, postulant) => {
+    e.stopPropagation();
+    setActionsOpenForId(null);
+    setCursosModal({ open: true, postulant, loading: true, enrolled: [], graduate: [] });
+    try {
+      const res = await api.get(`/postulants/${postulant._id}/profile-data`);
+      const data = res.data || {};
+      setCursosModal((m) => ({
+        ...m,
+        loading: false,
+        enrolled: data.enrolledPrograms || [],
+        graduate: data.graduatePrograms || [],
+      }));
+    } catch (err) {
+      console.error('Error cargando cursos:', err);
+      setCursosModal((m) => ({ ...m, loading: false }));
+      showError('Error', 'No se pudieron cargar los cursos del postulante.');
+    }
+  }, [showError]);
+
+  const closeCursosModal = useCallback(() => {
+    setCursosModal({ open: false, postulant: null, loading: false, enrolled: [], graduate: [] });
   }, []);
 
   const renderPostulantsTable = () => {
@@ -229,15 +261,16 @@ const Postulants = ({ onVolver }) => {
       );
     }
 
-    if (postulants.length === 0) {
+    const filtered = postulantsFiltered();
+    if (filtered.length === 0) {
       return (
         <div className="empty-state">
           <FiUser className="empty-icon" />
           <h3>No se encontraron postulantes</h3>
           <p>
-            {total === 0 && !searchParam
+            {postulants.length === 0
               ? 'No hay postulantes registrados todavía.'
-              : 'Intenta con otros términos de búsqueda o cambia de página.'}
+              : 'Intenta con otros términos de búsqueda.'}
           </p>
         </div>
       );
@@ -250,14 +283,14 @@ const Postulants = ({ onVolver }) => {
             <th>IDENTIFICACIÓN</th>
             <th>NOMBRES Y APELLIDOS</th>
             <th>USUARIO</th>
-            <th>PROGRAMAS</th>
             <th>ACTUALIZADO</th>
             <th>% COMPLETITUD</th>
             <th>ESTADO</th>
+            <th>ACCIONES</th>
           </tr>
         </thead>
         <tbody>
-          {postulants.map((p) => {
+          {filtered.map((p) => {
             const estadoActual = p.estate_postulant || 'activo';
             const isActivo = estadoActual === 'activo';
             const nuevoEstado = isActivo ? 'inactivo' : 'activo';
@@ -269,33 +302,32 @@ const Postulants = ({ onVolver }) => {
                 className="table-row-clickable"
               >
                 <td>
-                  {p.user?._id ? (
+                  {p._id ? (
                     <span
                       onClick={(e) => handleLinkClick(e, p)}
                       className="postulant-link"
                       style={{ cursor: 'pointer' }}
                     >
-                      {p.identity_postulant ?? '-'}
+                      {(p.identity_postulant ?? p.code ?? p.user?.code ?? '').trim() || '-'}
                     </span>
                   ) : (
-                    p.identity_postulant ?? '-'
+                    (p.identity_postulant ?? p.code ?? p.user?.code ?? '').trim() || '-'
                   )}
                 </td>
                 <td>
-                  {p.user?._id ? (
+                  {p._id ? (
                     <span
                       onClick={(e) => handleLinkClick(e, p)}
                       className="postulant-link"
                       style={{ cursor: 'pointer' }}
                     >
-                      {p.user?.name ?? '-'}
+                      {[p.name ?? p.user?.name ?? '', p.user?.lastname ?? ''].map(s => String(s).trim()).filter(Boolean).join(' ') || '-'}
                     </span>
                   ) : (
-                    p.user?.name ?? '-'
+                    [p.name ?? p.user?.name ?? '', p.user?.lastname ?? ''].map(s => String(s).trim()).filter(Boolean).join(' ') || '-'
                   )}
                 </td>
-                <td>{p.user?.email ?? '-'}</td>
-                <td>Ingeniería de Sistemas</td>
+                <td>{(p.email ?? p.user?.email ?? '').trim() || '-'}</td>
                 <td>{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '-'}</td>
                 <td>{getProfilePercent(p)}%</td>
                 <td onClick={(e) => e.stopPropagation()}>
@@ -311,6 +343,32 @@ const Postulants = ({ onVolver }) => {
                     <span className={`status-text ${isActivo ? 'active' : 'inactive'}`}>
                       {isActivo ? 'Activo' : 'Inactivo'}
                     </span>
+                  </div>
+                </td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <div className="postulant-actions-cell">
+                    <button
+                      type="button"
+                      className="btn-actions-trigger"
+                      onClick={(e) => toggleActions(e, p._id)}
+                      title="Opciones"
+                      aria-expanded={actionsOpenForId === p._id}
+                    >
+                      <FiMoreVertical />
+                      <span>Opciones</span>
+                    </button>
+                    {actionsOpenForId === p._id && (
+                      <div className="postulant-actions-dropdown" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="postulant-actions-option"
+                          onClick={(e) => openCursosModal(e, p)}
+                        >
+                          <FiBook className="btn-icon" />
+                          Ver cursos
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -427,6 +485,62 @@ const Postulants = ({ onVolver }) => {
           </div>
         )}
       </div>
+
+      {cursosModal.open && (
+        <div className="cursos-modal-overlay" onClick={closeCursosModal}>
+          <div className="cursos-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cursos-modal-header">
+              <h3>
+                Cursos — {cursosModal.postulant ? [cursosModal.postulant.name ?? cursosModal.postulant.user?.name, cursosModal.postulant.user?.lastname].filter(Boolean).join(' ') || cursosModal.postulant.identity_postulant || 'Postulante' : 'Postulante'}
+              </h3>
+              <button type="button" className="cursos-modal-close" onClick={closeCursosModal} aria-label="Cerrar">
+                ×
+              </button>
+            </div>
+            <div className="cursos-modal-body">
+              {cursosModal.loading ? (
+                <div className="cursos-modal-loading">Cargando cursos...</div>
+              ) : (
+                <>
+                  <section className="cursos-modal-section">
+                    <h4>Formación en curso</h4>
+                    {cursosModal.enrolled.length === 0 ? (
+                      <p className="cursos-empty">Sin programas en curso.</p>
+                    ) : (
+                      <ul className="cursos-list">
+                        {cursosModal.enrolled.map((e) => (
+                          <li key={e._id}>
+                            {(e.programId?.name || e.programId?.code || 'Programa').trim()}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                  <section className="cursos-modal-section">
+                    <h4>Programas finalizados</h4>
+                    {cursosModal.graduate.length === 0 ? (
+                      <p className="cursos-empty">Sin programas finalizados.</p>
+                    ) : (
+                      <ul className="cursos-list">
+                        {cursosModal.graduate.map((g) => (
+                          <li key={g._id}>
+                            {(g.programId?.name || g.programId?.code || 'Programa').trim()}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </>
+              )}
+            </div>
+            <div className="cursos-modal-footer">
+              <button type="button" className="btn-action btn-outline" onClick={closeCursosModal}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
