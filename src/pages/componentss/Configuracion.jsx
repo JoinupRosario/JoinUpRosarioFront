@@ -21,8 +21,11 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Facultades y Programas') {
       navigate('/dashboard/programas-facultades');
     }
-    if (opcion.text === 'Gestión de períodos para prácticas y monitorías académicas') {
-      navigate('/dashboard/periodos');
+    if (opcion.text === 'Gestión de periodos para prácticas') {
+      navigate('/dashboard/periodos?tipo=practica');
+    }
+    if (opcion.text === 'Gestión de periodos para monitorías') {
+      navigate('/dashboard/periodos?tipo=monitoria');
     }
   };
   const opcionesConfiguracion = [
@@ -67,9 +70,14 @@ export default function Configuracion({ onVolver }) {
       descripcion: 'Plantillas para notificaciones de prácticas'
     },
     { 
-      text: 'Gestión de períodos para prácticas y monitorías académicas', 
+      text: 'Gestión de periodos para prácticas', 
       icon: FiClock,
-      descripcion: 'Administrar períodos académicos'
+      descripcion: 'Parametrización de período académico para prácticas (RQ 4.3)'
+    },
+    { 
+      text: 'Gestión de periodos para monitorías', 
+      icon: FiClock,
+      descripcion: 'Parametrización de período académico para monitorías (RQ 4.2.1): período, rango de fechas sistema académico, estado'
     },
     { 
       text: 'Gestión de estados para prácticas académicas', 
@@ -109,7 +117,7 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
-            const isClickable = opcion.text === 'Gestión de Parámetros' || opcion.text === 'Facultades y Programas' || opcion.text === 'Gestión de períodos para prácticas y monitorías académicas';
+            const isClickable = opcion.text === 'Gestión de Parámetros' || opcion.text === 'Facultades y Programas' || opcion.text === 'Gestión de periodos para prácticas' || opcion.text === 'Gestión de periodos para monitorías';
             return (
               <div 
                 key={index} 

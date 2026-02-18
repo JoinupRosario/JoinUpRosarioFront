@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   FiPlus,
   FiEdit,
@@ -56,6 +57,10 @@ const periodToFormData = (p) => ({
 });
 
 export default function Periodos({ onVolver }) {
+  const [searchParams] = useSearchParams();
+  const tipo = (searchParams.get('tipo') || 'practica') === 'monitoria' ? 'monitoria' : 'practica';
+  const isMonitoria = tipo === 'monitoria';
+
   const [showModal, setShowModal] = useState(false);
   const [periodos, setPeriodos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +90,7 @@ export default function Periodos({ onVolver }) {
     setLoading(true);
     try {
       const { data } = await api.get('/periodos', {
-        params: { page, limit: perPage, search: searchTerm.trim() || undefined },
+        params: { page, limit: perPage, search: searchTerm.trim() || undefined, tipo },
       });
       setPeriodos(data.data || []);
       setPagination(data.pagination || { total: 0, pages: 1 });
@@ -96,7 +101,7 @@ export default function Periodos({ onVolver }) {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, searchTerm]);
+  }, [page, perPage, searchTerm, tipo]);
 
   useEffect(() => {
     loadPeriodos();
@@ -132,13 +137,18 @@ export default function Periodos({ onVolver }) {
 
   const toPayload = () => {
     const toDateOrNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
-    return {
+    const base = {
+      tipo,
       codigo: formData.codigo.trim(),
       estado: formData.estado || 'Inactivo',
       fechaSistemaAcademico: {
         inicio: toDateOrNull(formData.fechaSistemaAcademicoInicio),
         fin: toDateOrNull(formData.fechaSistemaAcademicoFin),
       },
+    };
+    if (isMonitoria) return base;
+    return {
+      ...base,
       fechaInicioPractica: {
         inicio: toDateOrNull(formData.fechaInicioPracticaInicio),
         fin: toDateOrNull(formData.fechaInicioPracticaFin),
@@ -210,7 +220,7 @@ export default function Periodos({ onVolver }) {
               </button>
             </div>
             <div className="section-header">
-              <h3>BUSCAR PERÍODOS</h3>
+              <h3>{isMonitoria ? 'GESTIÓN DE PERÍODOS PARA MONITORÍAS' : 'GESTIÓN DE PERÍODOS PARA PRÁCTICAS'}</h3>
             </div>
           </div>
 
@@ -269,13 +279,17 @@ export default function Periodos({ onVolver }) {
                 <thead>
                   <tr>
                     <th className="th-check" />
-                    <th>Periodo activo para realizar practica</th>
+                    <th>{isMonitoria ? 'Período académico' : 'Periodo activo para realizar practica'}</th>
                     <th>Rango de Fechas del periodo según Sistema Académico</th>
-                    <th>Rango de Fechas de Inicio de práctica académica</th>
-                    <th>Fecha máxima de Finalización de práctica académica</th>
-                    <th>Rango de fechas de autorización para practica</th>
-                    <th>Rango de legalización de práctica</th>
-                    <th>Rango de fechas para publicar ofertas de práctica</th>
+                    {!isMonitoria && (
+                      <>
+                        <th>Rango de Fechas de Inicio de práctica académica</th>
+                        <th>Fecha máxima de Finalización de práctica académica</th>
+                        <th>Rango de fechas de autorización para practica</th>
+                        <th>Rango de legalización de práctica</th>
+                        <th>Rango de fechas para publicar ofertas de práctica</th>
+                      </>
+                    )}
                     <th>ESTADO</th>
                   </tr>
                 </thead>
@@ -297,11 +311,15 @@ export default function Periodos({ onVolver }) {
                       </td>
                       <td>{p.codigo || '-'}</td>
                       <td>{formatDateRange(p.fechaSistemaAcademico?.inicio, p.fechaSistemaAcademico?.fin)}</td>
-                      <td>{formatDateRange(p.fechaInicioPractica?.inicio, p.fechaInicioPractica?.fin)}</td>
-                      <td>{p.fechaMaxFinPractica ? new Date(p.fechaMaxFinPractica).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</td>
-                      <td>{formatDateRange(p.fechaAutorizacion?.inicio, p.fechaAutorizacion?.fin)}</td>
-                      <td>{formatDateRange(p.fechaLegalizacion?.inicio, p.fechaLegalizacion?.fin)}</td>
-                      <td>{formatDateRange(p.fechaPublicarOfertas?.inicio, p.fechaPublicarOfertas?.fin)}</td>
+                      {!isMonitoria && (
+                        <>
+                          <td>{formatDateRange(p.fechaInicioPractica?.inicio, p.fechaInicioPractica?.fin)}</td>
+                          <td>{p.fechaMaxFinPractica ? new Date(p.fechaMaxFinPractica).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</td>
+                          <td>{formatDateRange(p.fechaAutorizacion?.inicio, p.fechaAutorizacion?.fin)}</td>
+                          <td>{formatDateRange(p.fechaLegalizacion?.inicio, p.fechaLegalizacion?.fin)}</td>
+                          <td>{formatDateRange(p.fechaPublicarOfertas?.inicio, p.fechaPublicarOfertas?.fin)}</td>
+                        </>
+                      )}
                       <td>
                         <span className={`status-pill ${p.estado === 'Activo' ? 'activo' : 'inactivo'}`}>
                           <span className="status-dot" />
@@ -338,7 +356,6 @@ export default function Periodos({ onVolver }) {
       <Modal
         show={showModal}
         onHide={closeModal}
-        // size="xl"
         centered
         scrollable
         className="periodos-modal"
@@ -346,19 +363,43 @@ export default function Periodos({ onVolver }) {
         container={typeof document !== 'undefined' ? document.body : null}
       >
         <Modal.Header closeButton>
-          <Modal.Title>{editingPeriodo ? 'Editar período' : 'Crear período'}</Modal.Title>
+          <Modal.Title>
+            {editingPeriodo ? 'Editar período' : 'Crear período'}
+            {isMonitoria ? ' (monitorías)' : ' (prácticas)'}
+          </Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleGuardarPeriodo} noValidate>
           <Modal.Body>
-            {/* Gestión de período */}
             <Form.Group className="mb-3">
-              <Form.Label>Período <span className="text-danger">*</span></Form.Label>
+              <Form.Label>Período académico (alfanumérico) <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Período"
+                placeholder="Ej: 2024-1"
                 value={formData.codigo}
                 onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
               />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Rango de Fechas del periodo según Sistema Académico</Form.Label>
+              <div className="row g-2">
+                <div className="col-md-6">
+                  <Form.Label className="small">Inicio</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={formData.fechaSistemaAcademicoInicio}
+                    onChange={(e) => setFormData({ ...formData, fechaSistemaAcademicoInicio: e.target.value })}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <Form.Label className="small">Fin</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={formData.fechaSistemaAcademicoFin}
+                    onChange={(e) => setFormData({ ...formData, fechaSistemaAcademicoFin: e.target.value })}
+                  />
+                </div>
+              </div>
             </Form.Group>
 
             <Form.Group className="mb-3">
@@ -372,35 +413,8 @@ export default function Periodos({ onVolver }) {
               </Form.Select>
             </Form.Group>
 
-            <Accordion defaultActiveKey="0" className="mb-2">
-              <Accordion.Item eventKey="0">
-                <Accordion.Header>Rango de fechas del periodo según sistema académico</Accordion.Header>
-                <Accordion.Body>
-                  <div className="row g-2">
-                    <div className="col-md-6">
-                      <Form.Group className="mb-2">
-                        <Form.Label className="small">Inicio <span className="text-danger">*</span></Form.Label>
-                        <Form.Control
-                          type="date"
-                          value={formData.fechaSistemaAcademicoInicio}
-                          onChange={(e) => setFormData({ ...formData, fechaSistemaAcademicoInicio: e.target.value })}
-                        />
-                      </Form.Group>
-                    </div>
-                    <div className="col-md-6">
-                      <Form.Group className="mb-2">
-                        <Form.Label className="small">Fin <span className="text-danger">*</span></Form.Label>
-                        <Form.Control
-                          type="date"
-                          value={formData.fechaSistemaAcademicoFin}
-                          onChange={(e) => setFormData({ ...formData, fechaSistemaAcademicoFin: e.target.value })}
-                        />
-                      </Form.Group>
-                    </div>
-                  </div>
-                </Accordion.Body>
-              </Accordion.Item>
-
+            {!isMonitoria && (
+            <Accordion defaultActiveKey="1" className="mb-2">
               <Accordion.Item eventKey="1">
                 <Accordion.Header>Rango de fechas de inicio de práctica académica</Accordion.Header>
                 <Accordion.Body>
@@ -527,6 +541,7 @@ export default function Periodos({ onVolver }) {
                 </Accordion.Body>
               </Accordion.Item>
             </Accordion>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={closeModal}>
