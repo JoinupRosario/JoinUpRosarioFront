@@ -735,20 +735,109 @@
   cursor: not-allowed;
 }
 
-/* Modal comparativo facultades BD vs Universitas */
-.pyf-compare-modal {
+/* ── Modal de sincronización con Universitas ──────────────────────────── */
+.pyf-compare-modal { text-align: left; }
+.pyf-compare-modal p { margin: 0 0 10px; }
+.pyf-compare-list { margin: 8px 0; padding-left: 18px; }
+.pyf-compare-list li { margin-bottom: 5px; font-size: 13px; }
+
+/* Modal tabulado (sync programas / facultades) */
+.pyf-sync-modal {
   text-align: left;
+  font-size: 14px;
 }
-.pyf-compare-modal p {
-  margin: 0 0 10px;
+
+/* Barra de pestañas */
+.pyf-tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e9ecef;
 }
-.pyf-compare-list {
-  margin: 10px 0;
-  padding-left: 20px;
+.pyf-tab-btn {
+  padding: 5px 13px;
+  border-radius: 20px;
+  border: 1.5px solid;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1.4;
 }
-.pyf-compare-list li {
-  margin-bottom: 6px;
+.pyf-tab-info    { color: #6c757d; border-color: #6c757d; }
+.pyf-tab-green   { color: #28a745; border-color: #28a745; }
+.pyf-tab-red     { color: #dc3545; border-color: #dc3545; }
+.pyf-tab-orange  { color: #e07b00; border-color: #e07b00; }
+.pyf-tab-active.pyf-tab-info   { background: #6c757d; color: #fff; }
+.pyf-tab-active.pyf-tab-green  { background: #28a745; color: #fff; }
+.pyf-tab-active.pyf-tab-red    { background: #dc3545; color: #fff; }
+.pyf-tab-active.pyf-tab-orange { background: #e07b00; color: #fff; }
+
+/* Cuerpo con scroll fijo */
+.pyf-tab-body {
+  min-height: 100px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
+.pyf-tab-body::-webkit-scrollbar { width: 5px; }
+.pyf-tab-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+.pyf-tab-body::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+
+.pyf-tab-pane         { display: none; }
+.pyf-tab-pane-active  { display: block; }
+
+/* Resumen: grid de estadísticas */
+.pyf-sync-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.pyf-sync-stat-item {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px 6px;
+  text-align: center;
+}
+.pyf-sync-stat-label {
+  display: block;
+  font-size: 11px;
+  color: #6c757d;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+.pyf-sync-stat-value {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  color: #212529;
+}
+
+/* Chips de resumen de cambios */
+.pyf-sync-changes { display: flex; flex-direction: column; gap: 6px; }
+.pyf-sync-change {
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.pyf-sync-change.green  { background: #d4edda; color: #155724; }
+.pyf-sync-change.red    { background: #f8d7da; color: #721c24; }
+.pyf-sync-change.orange { background: #fff3cd; color: #856404; }
+.pyf-sync-change.gray   { background: #e2e3e5; color: #383d41; }
+
+/* Título de sub-sección dentro de una pestaña */
+.pyf-sync-section-title {
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: #495057;
+  font-size: 13px;
+}
+.pyf-sync-section-title + .pyf-sync-section-title { margin-top: 14px; }
 
 /* Combobox ciudad de expedición (edición facultad) */
 .pyf-city-combobox {

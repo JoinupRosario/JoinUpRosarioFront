@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FiSearch,
   FiSave,
@@ -11,6 +11,35 @@ import api from '../../../services/api';
 import '../../styles/ProgramasYFacultades.css';
 
 const FACULTIES_LIMIT_OPTIONS = [10, 25, 50, 100];
+
+// Helper: grid de estadísticas para la pestaña Resumen de los modales de sync
+const buildSyncResumenHtml = ({ dbProgramsCount, apiProgramsCount, dbRelationsCount, apiRelationsCount, dbFacultiesCount, apiFacultiesCount }) => {
+  const stats = [
+    dbProgramsCount   != null && { label: 'BD Programas',   value: dbProgramsCount },
+    apiProgramsCount  != null && { label: 'UXXI Programas', value: apiProgramsCount },
+    dbRelationsCount  != null && { label: 'BD Relaciones',  value: dbRelationsCount },
+    apiRelationsCount != null && { label: 'UXXI Relaciones',value: apiRelationsCount },
+    dbFacultiesCount  != null && { label: 'BD Facultades',  value: dbFacultiesCount },
+    apiFacultiesCount != null && { label: 'UXXI Facultades',value: apiFacultiesCount },
+  ].filter(Boolean);
+  const cols = stats.length <= 2 ? stats.length : stats.length <= 4 ? 2 : 3;
+  const items = stats.map(s =>
+    `<div class="pyf-sync-stat-item"><span class="pyf-sync-stat-label">${s.label}</span><span class="pyf-sync-stat-value">${s.value}</span></div>`
+  ).join('');
+  return `<div class="pyf-sync-stats" style="grid-template-columns:repeat(${cols},1fr);margin-bottom:14px">${items}</div>`;
+};
+
+// Helper: construye y controla pestañas en un modal Swal ya abierto
+const wireSyncTabs = (popup) => {
+  popup.querySelectorAll('.pyf-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      popup.querySelectorAll('.pyf-tab-btn').forEach(b => b.classList.remove('pyf-tab-active'));
+      popup.querySelectorAll('.pyf-tab-pane').forEach(p => p.classList.remove('pyf-tab-pane-active'));
+      btn.classList.add('pyf-tab-active');
+      popup.querySelector(`[data-pane="${btn.dataset.tab}"]`).classList.add('pyf-tab-pane-active');
+    });
+  });
+};
 
 export default function ProgramasYFacultades({ onVolver }) {
   const navigate = useNavigate();
@@ -32,37 +61,48 @@ export default function ProgramasYFacultades({ onVolver }) {
   const [syncing, setSyncing] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
   const [searchPrograma, setSearchPrograma] = useState('');
+  const searchDebounceRef = useRef(null);
 
-  const [programFaculties, setProgramFaculties] = useState([]);
+  const [programs, setPrograms] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const [faculties, setFaculties] = useState([]);
   const [facultiesPagination, setFacultiesPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const facultiesLoadIdRef = useRef(0);
 
-  const loadProgramFaculties = async (page = 1, statusFilter = null) => {
+  // Carga programas únicos desde la colección `programs`
+  const loadPrograms = async (page = 1, statusFilter = null, searchOverride = undefined) => {
     setLoading(true);
     const status = statusFilter ?? (subTabProgramas === 'inactivos' ? 'INACTIVE' : 'ACTIVE');
+    const search = searchOverride !== undefined ? searchOverride : searchPrograma.trim();
     try {
-      const { data } = await api.get('/program-faculties', { params: { page, limit: 10, status } });
-      setProgramFaculties(data.data || []);
+      const params = { page, limit: 10, status };
+      if (search) params.search = search;
+      const { data } = await api.get('/programs', { params });
+      setPrograms(data.data || []);
       setPagination({ page: data.pagination?.page ?? 1, limit: data.pagination?.limit ?? 10, total: data.pagination?.total ?? 0, pages: data.pagination?.pages ?? 1 });
     } catch (err) {
       console.error(err);
-      setProgramFaculties([]);
+      setPrograms([]);
       Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudieron cargar programas.' });
     } finally {
       setLoading(false);
     }
   };
 
-  const loadFaculties = async (page, limit, statusFilter = null) => {
+  // Mantener alias para compatibilidad con callbacks de sync
+  const loadProgramFaculties = (page = 1) => loadPrograms(page);
+
+  const loadFaculties = async (page, limit, statusFilter = null, searchOverride = undefined) => {
     const effectivePage = Math.max(1, parseInt(page, 10) || 1);
     const effectiveLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || facultiesPagination.limit || 10));
     const status = statusFilter ?? (subTabFacultades === 'inactivos' ? 'inactive' : 'ACTIVE');
+    const search = searchOverride !== undefined ? searchOverride : searchPrograma.trim();
     const loadId = ++facultiesLoadIdRef.current;
     setLoading(true);
     try {
-      const { data } = await api.get('/faculties', { params: { page: effectivePage, limit: effectiveLimit, status } });
+      const params = { page: effectivePage, limit: effectiveLimit, status };
+      if (search) params.search = search;
+      const { data } = await api.get('/faculties', { params });
       if (loadId !== facultiesLoadIdRef.current) return;
       setFaculties(data.data || []);
       setFacultiesPagination({
@@ -84,15 +124,32 @@ export default function ProgramasYFacultades({ onVolver }) {
   useEffect(() => {
     if (tab === 'programas') {
       setPagination((prev) => ({ ...prev, page: 1 }));
-      loadProgramFaculties(1);
+      loadPrograms(1);
     }
   }, [tab, subTabProgramas]);
+
   useEffect(() => {
     if (tab === 'facultades') {
       setFacultiesPagination((prev) => ({ ...prev, page: 1 }));
       loadFaculties(1, facultiesPagination.limit);
     }
   }, [tab, subTabFacultades]);
+
+  // Debounce: buscar en backend 400ms después de que el usuario deje de escribir
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      const q = searchPrograma.trim();
+      if (tab === 'programas') {
+        setPagination((prev) => ({ ...prev, page: 1 }));
+        loadPrograms(1, null, q);
+      } else if (tab === 'facultades') {
+        setFacultiesPagination((prev) => ({ ...prev, page: 1 }));
+        loadFaculties(1, facultiesPagination.limit, null, q);
+      }
+    }, 400);
+    return () => clearTimeout(searchDebounceRef.current);
+  }, [searchPrograma]);
 
   const handleSyncProgramas = async () => {
     setSyncing(true);
@@ -105,90 +162,162 @@ export default function ProgramasYFacultades({ onVolver }) {
       });
       const { data } = await api.get('/program-faculties/compare-universitas', { timeout: 60000 });
       Swal.close();
+
       if (!data.success) {
         Swal.fire({ icon: 'info', title: 'Comparación con Universitas', text: data.message || 'No se pudo comparar.' });
         return;
       }
+
       const {
-        dbProgramsCount,
-        apiProgramsCount,
-        newProgramsCount,
-        newPrograms,
-        dbRelationsCount,
-        apiRelationsCount,
-        newRelationsCount,
-        newRelations,
+        dbProgramsCount, apiProgramsCount,
+        newProgramsCount, newPrograms = [],
+        dbRelationsCount, apiRelationsCount,
+        newRelationsCount, newRelations = [],
+        toDeactivateRelations = [],
+        toDeactivatePrograms = [],
+        duplicatePrograms = [],
       } = data;
 
-      const programsLabel = `Programas: BD ${dbProgramsCount} · Universitas ${apiProgramsCount}`;
-      const relationsLabel = `Relaciones programa-facultad: BD ${dbRelationsCount} · Universitas ${apiRelationsCount}`;
+      const hayCambios = newProgramsCount > 0 || newRelationsCount > 0 ||
+        toDeactivateRelations.length > 0 || toDeactivatePrograms.length > 0 || duplicatePrograms.length > 0;
 
-      if (newProgramsCount === 0 && newRelationsCount === 0) {
+      if (!hayCambios) {
         Swal.fire({
-          icon: 'info',
-          title: 'Comparación con Universitas',
-          html: `<div class="pyf-compare-modal"><p><strong>${programsLabel}</strong></p><p><strong>${relationsLabel}</strong></p><p>No hay programas ni relaciones nuevas para agregar.</p></div>`,
+          icon: 'success',
+          title: 'Todo sincronizado',
+          html: buildSyncResumenHtml({ dbProgramsCount, apiProgramsCount, dbRelationsCount, apiRelationsCount }),
           confirmButtonColor: '#c41e3a',
+          width: '560px',
         });
         return;
       }
 
-      const parts = [];
-      if (newProgramsCount > 0) parts.push(`${newProgramsCount} programa(s) nuevo(s)`);
-      if (newRelationsCount > 0) parts.push(`${newRelationsCount} relación(es) programa-facultad nueva(s)`);
-      const summary = parts.join(' y ');
+      // ── Construir pestañas ────────────────────────────────────────────────
+      const tabs = [{ id: 'resumen', label: 'Resumen', type: 'info' }];
+      const panes = [];
+
+      // Pestaña Resumen
+      const resumenChanges = [
+        newProgramsCount > 0    && `<div class="pyf-sync-change green">➕ ${newProgramsCount} programa(s) por crear</div>`,
+        newRelationsCount > 0   && `<div class="pyf-sync-change green">➕ ${newRelationsCount} relación(es) por crear</div>`,
+        toDeactivatePrograms.length > 0 && `<div class="pyf-sync-change red">🔴 ${toDeactivatePrograms.length} programa(s) no en Universitas → inactivar</div>`,
+        duplicatePrograms.length > 0    && `<div class="pyf-sync-change red">🔴 ${duplicatePrograms.length} programa(s) duplicado(s) → inactivar</div>`,
+        toDeactivateRelations.length > 0 && `<div class="pyf-sync-change orange">⚠️ ${toDeactivateRelations.length} relación(es) → inactivar</div>`,
+      ].filter(Boolean).join('');
+      panes.push({ id: 'resumen', html: `${buildSyncResumenHtml({ dbProgramsCount, apiProgramsCount, dbRelationsCount, apiRelationsCount })}<div class="pyf-sync-changes">${resumenChanges}</div>` });
+
+      // Pestaña nuevos
+      if (newProgramsCount > 0 || newRelationsCount > 0) {
+        const total = newProgramsCount + newRelationsCount;
+        tabs.push({ id: 'nuevos', label: `➕ Nuevos (${total})`, type: 'green' });
+        let html = '';
+        if (newProgramsCount > 0) {
+          html += `<p class="pyf-sync-section-title">Programas nuevos (${newProgramsCount})</p><ul class="pyf-compare-list">`;
+          html += newPrograms.map(p => `<li>${p.nombre_programa || '-'} <em style="color:#6c757d">(${p.tipo_estudio || '-'})</em></li>`).join('');
+          html += '</ul>';
+        }
+        if (newRelationsCount > 0)
+          html += `<p class="pyf-sync-section-title" style="margin-top:10px">Relaciones nuevas: ${newRelationsCount} (ver detalle al aplicar)</p>`;
+        panes.push({ id: 'nuevos', html });
+      }
+
+      // Pestaña inactivar programas
+      const totalInac = toDeactivatePrograms.length + duplicatePrograms.length;
+      if (totalInac > 0) {
+        tabs.push({ id: 'inactivar', label: `🔴 Programas (${totalInac})`, type: 'red' });
+        let html = '';
+        if (toDeactivatePrograms.length > 0) {
+          html += `<p class="pyf-sync-section-title">No están en Universitas (${toDeactivatePrograms.length})</p><ul class="pyf-compare-list">`;
+          html += toDeactivatePrograms.map(p => `<li>${p.name || '-'}</li>`).join('');
+          html += '</ul>';
+        }
+        if (duplicatePrograms.length > 0) {
+          html += `<p class="pyf-sync-section-title" style="margin-top:10px">Duplicados — se conserva el más antiguo (${duplicatePrograms.length})</p><ul class="pyf-compare-list">`;
+          html += duplicatePrograms.map(p => `<li>${p.name || '-'}</li>`).join('');
+          html += '</ul>';
+        }
+        panes.push({ id: 'inactivar', html });
+      }
+
+      // Pestaña inactivar relaciones
+      if (toDeactivateRelations.length > 0) {
+        tabs.push({ id: 'relaciones', label: `⚠️ Relaciones (${toDeactivateRelations.length})`, type: 'orange' });
+        const html = `<p class="pyf-sync-section-title">Relaciones ya no en Universitas (${toDeactivateRelations.length})</p><ul class="pyf-compare-list">` +
+          toDeactivateRelations.map(r => `<li><strong>${r.code}</strong> – ${r.programName || '-'}</li>`).join('') + '</ul>';
+        panes.push({ id: 'relaciones', html });
+      }
+
+      const tabBtnsHtml = tabs.map((t, i) =>
+        `<button class="pyf-tab-btn pyf-tab-${t.type}${i === 0 ? ' pyf-tab-active' : ''}" data-tab="${t.id}">${t.label}</button>`
+      ).join('');
+      const panesHtml = panes.map((p, i) =>
+        `<div class="pyf-tab-pane${i === 0 ? ' pyf-tab-pane-active' : ''}" data-pane="${p.id}">${p.html}</div>`
+      ).join('');
 
       const result = await Swal.fire({
         icon: 'question',
-        title: 'Programas y relaciones nuevas en Universitas',
-        html: `<div class="pyf-compare-modal"><p><strong>${programsLabel}</strong></p><p><strong>${relationsLabel}</strong></p><p>Faltan por crear: ${summary}.</p><p>¿Desea crearlos en la base de datos?</p></div>`,
+        title: 'Actualizar programas y relaciones',
+        html: `<div class="pyf-sync-modal"><div class="pyf-tab-bar">${tabBtnsHtml}</div><div class="pyf-tab-body">${panesHtml}</div></div>`,
         showCancelButton: true,
-        confirmButtonText: 'Sí, crearlos',
+        confirmButtonText: 'Sí, aplicar cambios',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#c41e3a',
         cancelButtonColor: '#6c757d',
+        width: '640px',
+        didOpen: wireSyncTabs,
       });
 
-      if (result.isConfirmed) {
-        Swal.fire({
-          title: 'Creando en la base de datos',
-          text: 'Creando programas y relaciones...',
-          allowOutsideClick: false,
-          didOpen: () => { Swal.showLoading(); },
-        });
-        const createRes = await api.post(
-          '/program-faculties/create-from-universitas',
-          { newPrograms: newPrograms || [], newRelations: newRelations || [] },
-          { timeout: 120000 }
-        );
-        Swal.close();
-        const resData = createRes.data || {};
-        const errList = resData.errors;
-        if (errList && errList.length > 0) {
-          const createdSummary = `${resData.createdPrograms?.length ?? 0} programa(s), ${(resData.createdRelations?.length ?? 0)} relación(es)`;
-          const errorsHtml = `<ul class="pyf-compare-list">${errList.map((e) => `<li><strong>${e.item || '—'}</strong>: ${e.message || ''}</li>`).join('')}</ul>`;
-          Swal.fire({
-            icon: 'warning',
-            title: 'Proceso completado con observaciones',
-            html: `<div class="pyf-compare-modal"><p>${resData.message || 'Completado.'}</p><p><strong>Creados:</strong> ${createdSummary}</p><p><strong>Errores (${errList.length}):</strong></p>${errorsHtml}</div>`,
-            confirmButtonColor: '#c41e3a',
-            width: '560px',
-          });
-        } else {
-          Swal.fire({
-            icon: 'success',
-            title: 'Listo',
-            text: resData.message || 'Proceso completado.',
-            confirmButtonColor: '#c41e3a',
-          });
-        }
-        loadProgramFaculties(1);
+      if (!result.isConfirmed) return;
+
+      Swal.fire({
+        title: 'Aplicando cambios',
+        text: 'Creando programas, relaciones e inactivando...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); },
+      });
+
+      const createRes = await api.post(
+        '/program-faculties/create-from-universitas',
+        { newPrograms, newRelations, toDeactivateRelations, toDeactivatePrograms, duplicatePrograms },
+        { timeout: 180000 }
+      );
+      Swal.close();
+
+      const resData    = createRes.data || {};
+      const errList    = resData.errors ?? [];
+      const createdP   = resData.createdPrograms?.length ?? 0;
+      const createdR   = resData.createdRelations?.length ?? 0;
+      const deactivatedR = resData.deactivatedRelationsCount ?? 0;
+      const deactivatedP = resData.deactivatedProgramsCount ?? 0;
+
+      const resultChanges = [
+        createdP > 0      && `<div class="pyf-sync-change green">✅ Programas creados: <strong>${createdP}</strong></div>`,
+        createdR > 0      && `<div class="pyf-sync-change green">✅ Relaciones creadas: <strong>${createdR}</strong></div>`,
+        deactivatedP > 0  && `<div class="pyf-sync-change red">🔴 Programas inactivados: <strong>${deactivatedP}</strong></div>`,
+        deactivatedR > 0  && `<div class="pyf-sync-change orange">⚠️ Relaciones inactivadas: <strong>${deactivatedR}</strong></div>`,
+      ].filter(Boolean).join('');
+
+      let summaryHtml = `<div class="pyf-sync-modal"><div class="pyf-sync-changes">${resultChanges}</div>`;
+      if (errList.length > 0) {
+        const errHtml = errList.map(e => `<li><strong>${e.item || e.context || '—'}</strong>: ${e.message || ''}</li>`).join('');
+        summaryHtml += `<p class="pyf-sync-section-title" style="margin-top:12px">Errores (${errList.length})</p><ul class="pyf-compare-list">${errHtml}</ul>`;
       }
+      summaryHtml += '</div>';
+
+      Swal.fire({
+        icon: errList.length > 0 ? 'warning' : 'success',
+        title: errList.length > 0 ? 'Completado con observaciones' : 'Programas actualizados',
+        html: summaryHtml,
+        confirmButtonColor: '#c41e3a',
+        width: '540px',
+      });
+
+      loadProgramFaculties(1);
     } catch (err) {
       Swal.close();
       const isTimeout = err.code === 'ECONNABORTED' || (err.message && String(err.message).toLowerCase().includes('timeout'));
       const msg = isTimeout
-        ? 'La solicitud tardó demasiado. Si el servidor siguió procesando, los datos pueden haberse creado. Revise la lista de programas o intente de nuevo.'
+        ? 'La solicitud tardó demasiado. Revise la lista de programas o intente de nuevo.'
         : (err.response?.data?.message || 'Error al comparar con Universitas. Revisar URL_OSB, USS_URJOB y PASS_URJOB en el backend.');
       Swal.fire({ icon: 'error', title: 'Error', text: msg });
       if (isTimeout) loadProgramFaculties(1);
@@ -208,68 +337,107 @@ export default function ProgramasYFacultades({ onVolver }) {
       });
       const { data } = await api.get('/faculties/compare-universitas', { timeout: 60000 });
       Swal.close();
+
       if (!data.success) {
         Swal.fire({ icon: 'info', title: 'Comparación con Universitas', text: data.message || 'No se pudo comparar.' });
         return;
       }
-      const { dbCount, universitasCount, newFaculties } = data;
-      const dbLabel = `Base de datos: ${dbCount} facultad${dbCount !== 1 ? 'es' : ''}`;
-      const uniLabel = `Universitas: ${universitasCount} facultad${universitasCount !== 1 ? 'es' : ''}`;
 
-      if (newFaculties.length === 0) {
+      const { dbCount, universitasCount, newFaculties = [], toDeactivate = [] } = data;
+      const hayCambiosFac = newFaculties.length > 0 || toDeactivate.length > 0;
+
+      if (!hayCambiosFac) {
         Swal.fire({
-          icon: 'info',
-          title: 'Comparación con Universitas',
-          html: `<div class="pyf-compare-modal"><p><strong>${dbLabel}</strong></p><p><strong>${uniLabel}</strong></p><p>No hay facultades nuevas para agregar.</p></div>`,
+          icon: 'success',
+          title: 'Todo sincronizado',
+          html: `<div class="pyf-sync-modal">${buildSyncResumenHtml({ dbFacultiesCount: dbCount, apiFacultiesCount: universitasCount })}<div class="pyf-sync-changes"><div class="pyf-sync-change gray">✅ La base de datos está al día con Universitas.</div></div></div>`,
           confirmButtonColor: '#c41e3a',
+          width: '480px',
         });
         return;
       }
 
-      const listHtml = newFaculties.map((f) => `<li><strong>${f.cod_facultad}</strong> – ${f.nombre_facultad || '-'}</li>`).join('');
-      const result = await Swal.fire({
+      // ── Pestañas facultades ───────────────────────────────────────────────
+      const facTabs = [{ id: 'resumen', label: 'Resumen', type: 'info' }];
+      const facPanes = [];
+
+      const facChanges = [
+        newFaculties.length > 0  && `<div class="pyf-sync-change green">➕ ${newFaculties.length} facultad(es) por crear</div>`,
+        toDeactivate.length > 0  && `<div class="pyf-sync-change red">🔴 ${toDeactivate.length} facultad(es) a inactivar</div>`,
+      ].filter(Boolean).join('');
+      facPanes.push({ id: 'resumen', html: `${buildSyncResumenHtml({ dbFacultiesCount: dbCount, apiFacultiesCount: universitasCount })}<div class="pyf-sync-changes">${facChanges}</div>` });
+
+      if (newFaculties.length > 0) {
+        facTabs.push({ id: 'nuevas', label: `➕ Nuevas (${newFaculties.length})`, type: 'green' });
+        const html = `<p class="pyf-sync-section-title">Facultades nuevas en Universitas (${newFaculties.length})</p><ul class="pyf-compare-list">` +
+          newFaculties.map(f => `<li><strong>${f.cod_facultad}</strong> – ${f.nombre_facultad || '-'}</li>`).join('') + '</ul>';
+        facPanes.push({ id: 'nuevas', html });
+      }
+      if (toDeactivate.length > 0) {
+        facTabs.push({ id: 'inactivar', label: `🔴 A inactivar (${toDeactivate.length})`, type: 'red' });
+        const html = `<p class="pyf-sync-section-title">En BD pero no en Universitas (${toDeactivate.length})</p><ul class="pyf-compare-list">` +
+          toDeactivate.map(f => `<li><strong>${f.code}</strong> – ${f.name || '-'}</li>`).join('') + '</ul>';
+        facPanes.push({ id: 'inactivar', html });
+      }
+
+      const facTabBtns = facTabs.map((t, i) =>
+        `<button class="pyf-tab-btn pyf-tab-${t.type}${i === 0 ? ' pyf-tab-active' : ''}" data-tab="${t.id}">${t.label}</button>`
+      ).join('');
+      const facPanesHtml = facPanes.map((p, i) =>
+        `<div class="pyf-tab-pane${i === 0 ? ' pyf-tab-pane-active' : ''}" data-pane="${p.id}">${p.html}</div>`
+      ).join('');
+
+      const resultFac = await Swal.fire({
         icon: 'question',
-        title: 'Facultades nuevas en Universitas',
-        html: `<div class="pyf-compare-modal"><p>${dbLabel}</p><p>${uniLabel}</p><p>Las ${newFaculties.length} facultad(es) adicional(es) son:</p><ul class="pyf-compare-list">${listHtml}</ul><p>¿Desea crearlas en la base de datos?</p></div>`,
+        title: 'Actualizar facultades',
+        html: `<div class="pyf-sync-modal"><div class="pyf-tab-bar">${facTabBtns}</div><div class="pyf-tab-body">${facPanesHtml}</div></div>`,
         showCancelButton: true,
-        confirmButtonText: 'Sí, crearlas',
+        confirmButtonText: 'Sí, aplicar cambios',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#c41e3a',
         cancelButtonColor: '#6c757d',
+        width: '580px',
+        didOpen: wireSyncTabs,
       });
 
-      if (result.isConfirmed) {
-        Swal.fire({
-          title: 'Creando en la base de datos',
-          text: 'Creando facultades...',
-          allowOutsideClick: false,
-          didOpen: () => { Swal.showLoading(); },
-        });
-        const createRes = await api.post('/faculties/create-from-universitas', { faculties: newFaculties }, { timeout: 120000 });
-        Swal.close();
-        const resData = createRes.data || {};
-        const errList = resData.errors;
-        if (errList && errList.length > 0) {
-          const createdCount = resData.created?.length ?? 0;
-          const errorsHtml = `<ul class="pyf-compare-list">${errList.map((e) => `<li><strong>${e.item || '—'}</strong>: ${e.message || ''}</li>`).join('')}</ul>`;
-          Swal.fire({
-            icon: 'warning',
-            title: 'Proceso completado con observaciones',
-            html: `<div class="pyf-compare-modal"><p>${resData.message || 'Completado.'}</p><p><strong>Creadas:</strong> ${createdCount} facultad(es)</p><p><strong>Errores (${errList.length}):</strong></p>${errorsHtml}</div>`,
-            confirmButtonColor: '#c41e3a',
-            width: '560px',
-          });
-        } else {
-          const created = resData.created?.length ?? 0;
-          Swal.fire({ icon: 'success', title: 'Listo', text: resData.message || `Se crearon ${created} facultad(es).`, confirmButtonColor: '#c41e3a' });
-        }
-        loadFaculties(1, facultiesPagination.limit);
+      if (!resultFac.isConfirmed) return;
+
+      Swal.fire({ title: 'Aplicando cambios', text: 'Procesando facultades...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+      const [createRes, deactivateRes] = await Promise.allSettled([
+        newFaculties.length > 0
+          ? api.post('/faculties/create-from-universitas', { faculties: newFaculties }, { timeout: 120000 })
+          : Promise.resolve({ data: { created: [], errors: [] } }),
+        toDeactivate.length > 0
+          ? api.post('/faculties/deactivate-from-universitas', { codes: toDeactivate.map(f => f.code) }, { timeout: 60000 })
+          : Promise.resolve({ data: { deactivated: 0 } }),
+      ]);
+      Swal.close();
+
+      const createdCount    = createRes.status === 'fulfilled' ? (createRes.value.data?.created?.length ?? 0) : 0;
+      const deactivatedCount = deactivateRes.status === 'fulfilled' ? (deactivateRes.value.data?.deactivated ?? 0) : 0;
+      const createErrors    = createRes.status === 'fulfilled' ? (createRes.value.data?.errors ?? []) : [{ message: createRes.reason?.message || 'Error al crear' }];
+      const hasErrors       = createErrors.length > 0 || createRes.status === 'rejected' || deactivateRes.status === 'rejected';
+
+      const facResultChanges = [
+        createdCount > 0    && `<div class="pyf-sync-change green">✅ Facultades creadas: <strong>${createdCount}</strong></div>`,
+        deactivatedCount > 0 && `<div class="pyf-sync-change red">🔴 Facultades inactivadas: <strong>${deactivatedCount}</strong></div>`,
+      ].filter(Boolean).join('');
+      let facSummaryHtml = `<div class="pyf-sync-modal"><div class="pyf-sync-changes">${facResultChanges}</div>`;
+      if (createErrors.length > 0) {
+        const errHtml = createErrors.map(e => `<li><strong>${e.item || '—'}</strong>: ${e.message || ''}</li>`).join('');
+        facSummaryHtml += `<p class="pyf-sync-section-title" style="margin-top:12px">Errores (${createErrors.length})</p><ul class="pyf-compare-list">${errHtml}</ul>`;
       }
+      facSummaryHtml += '</div>';
+
+      Swal.fire({ icon: hasErrors ? 'warning' : 'success', title: hasErrors ? 'Completado con observaciones' : 'Facultades actualizadas', html: facSummaryHtml, confirmButtonColor: '#c41e3a', width: '480px' });
+
+      loadFaculties(1, facultiesPagination.limit);
     } catch (err) {
       Swal.close();
       const isTimeout = err.code === 'ECONNABORTED' || (err.message && String(err.message).toLowerCase().includes('timeout'));
       const msg = isTimeout
-        ? 'La solicitud tardó demasiado. Si el servidor siguió procesando, los datos pueden haberse creado. Revise la lista de facultades o intente de nuevo.'
+        ? 'La solicitud tardó demasiado. Revise la lista de facultades o intente de nuevo.'
         : (err.response?.data?.message || 'Error al comparar con Universitas. Revisar URL_OSB, USS_URJOB y PASS_URJOB en el backend.');
       Swal.fire({ icon: 'error', title: 'Error', text: msg });
       if (isTimeout) loadFaculties(1, facultiesPagination.limit);
@@ -281,18 +449,21 @@ export default function ProgramasYFacultades({ onVolver }) {
   const showConfirmation = (title, text, confirmButtonText = 'Sí, continuar') =>
     Swal.fire({ title, text, icon: 'warning', showCancelButton: true, confirmButtonColor: '#c41e3a', cancelButtonColor: '#6c757d', confirmButtonText, cancelButtonText: 'Cancelar' });
 
-  const handleToggleProgramFaculty = async (pf, currentActive) => {
-    const id = pf._id;
+  const handleToggleProgram = async (prog, currentActive) => {
+    const id = prog._id;
     if (!id || updatingId) return;
-    const result = await showConfirmation(currentActive ? 'Desactivar programa' : 'Activar programa', `¿Está seguro de que desea ${currentActive ? 'desactivar' : 'activar'} "${pf.nombrePrograma ?? pf.program?.name ?? 'este programa'}"?`, `Sí, ${currentActive ? 'desactivar' : 'activar'}`);
+    const result = await showConfirmation(
+      currentActive ? 'Desactivar programa' : 'Activar programa',
+      `¿Está seguro de que desea ${currentActive ? 'desactivar' : 'activar'} "${prog.name ?? 'este programa'}"?`,
+      `Sí, ${currentActive ? 'desactivar' : 'activar'}`
+    );
     if (!result.isConfirmed) return;
-    const nextActivo = currentActive ? 'NO' : 'SI';
     const nextStatus = currentActive ? 'INACTIVE' : 'ACTIVE';
     setUpdatingId(id);
     try {
-      await api.put(`/program-faculties/${id}`, { activo: nextActivo, status: nextStatus });
-      await Swal.fire({ icon: 'success', title: 'Éxito', text: nextActivo === 'SI' ? 'Programa activado correctamente.' : 'Programa desactivado correctamente.', confirmButtonColor: '#c41e3a' });
-      loadProgramFaculties(pagination.page);
+      await api.put(`/programs/${id}`, { status: nextStatus });
+      await Swal.fire({ icon: 'success', title: 'Éxito', text: nextStatus === 'ACTIVE' ? 'Programa activado.' : 'Programa desactivado.', confirmButtonColor: '#c41e3a' });
+      loadPrograms(pagination.page);
     } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo actualizar.', confirmButtonColor: '#c41e3a' }); }
     finally { setUpdatingId(null); }
   };
@@ -312,18 +483,6 @@ export default function ProgramasYFacultades({ onVolver }) {
     finally { setUpdatingId(null); }
   };
 
-  const groupedByFaculty = useMemo(() => {
-    const filtered = searchPrograma.trim() ? programFaculties.filter((pf) => (pf.nombrePrograma || '').toLowerCase().includes(searchPrograma.toLowerCase()) || (pf.codigoPrograma || '').toLowerCase().includes(searchPrograma.toLowerCase())) : programFaculties;
-    const map = new Map();
-    filtered.forEach((pf) => {
-      const key = pf.faculty?._id || pf.codigoFacultad || 'sin-facultad';
-      const label = pf.nombreFacultad || pf.faculty?.name || 'Sin facultad';
-      const code = pf.codigoFacultad || pf.faculty?.code || '';
-      if (!map.has(key)) map.set(key, { label, code, rows: [] });
-      map.get(key).rows.push(pf);
-    });
-    return Array.from(map.entries()).map(([key, { label, code, rows }]) => ({ key, label, code, rows }));
-  }, [programFaculties, searchPrograma]);
 
   return (
     <div className="programas-facultades-content">
@@ -341,62 +500,51 @@ export default function ProgramasYFacultades({ onVolver }) {
         <div className="pyf-toolbar">
         <div className="pyf-search">
           <FiSearch className="pyf-search-icon" />
-          <input type="text" placeholder="Buscar programa" value={searchPrograma} onChange={(e) => setSearchPrograma(e.target.value)} className="pyf-search-input" />
+          <input type="text" placeholder={tab === 'facultades' ? 'Buscar facultad...' : 'Buscar programa...'} value={searchPrograma} onChange={(e) => setSearchPrograma(e.target.value)} className="pyf-search-input" />
         </div>
       </div>
       <div className="pyf-tabs">
-        <button type="button" className={`pyf-tab ${tab === 'programas' ? 'active' : ''}`} onClick={() => { setTab('programas'); updateUrl('programas', subTabProgramas); }}>Programas</button>
-        <button type="button" className={`pyf-tab ${tab === 'facultades' ? 'active' : ''}`} onClick={() => { setTab('facultades'); updateUrl('facultades', subTabFacultades); }}>Facultades</button>
+        <button type="button" className={`pyf-tab ${tab === 'programas' ? 'active' : ''}`} onClick={() => { setTab('programas'); setSearchPrograma(''); updateUrl('programas', subTabProgramas); }}>Programas</button>
+        <button type="button" className={`pyf-tab ${tab === 'facultades' ? 'active' : ''}`} onClick={() => { setTab('facultades'); setSearchPrograma(''); updateUrl('facultades', subTabFacultades); }}>Facultades</button>
       </div>
       {tab === 'programas' && (
         <div className="pyf-subtabs">
-          <button type="button" className={`pyf-subtab ${subTabProgramas === 'activos' ? 'active' : ''}`} onClick={() => { setSubTabProgramas('activos'); setPagination((p) => ({ ...p, page: 1 })); updateUrl('programas', 'activos'); loadProgramFaculties(1); }}>Activos</button>
-          <button type="button" className={`pyf-subtab ${subTabProgramas === 'inactivos' ? 'active' : ''}`} onClick={() => { setSubTabProgramas('inactivos'); setPagination((p) => ({ ...p, page: 1 })); updateUrl('programas', 'inactivos'); loadProgramFaculties(1); }}>Inactivos</button>
+          <button type="button" className={`pyf-subtab ${subTabProgramas === 'activos' ? 'active' : ''}`} onClick={() => { setSubTabProgramas('activos'); setPagination((p) => ({ ...p, page: 1 })); updateUrl('programas', 'activos'); loadPrograms(1, 'ACTIVE'); }}>Activos</button>
+          <button type="button" className={`pyf-subtab ${subTabProgramas === 'inactivos' ? 'active' : ''}`} onClick={() => { setSubTabProgramas('inactivos'); setPagination((p) => ({ ...p, page: 1 })); updateUrl('programas', 'inactivos'); loadPrograms(1, 'INACTIVE'); }}>Inactivos</button>
         </div>
       )}
       {tab === 'facultades' && (
         <div className="pyf-subtabs">
-          <button type="button" className={`pyf-subtab ${subTabFacultades === 'activos' ? 'active' : ''}`} onClick={() => { setSubTabFacultades('activos'); setFacultiesPagination((p) => ({ ...p, page: 1 })); updateUrl('facultades', 'activos'); loadFaculties(1, facultiesPagination.limit); }}>Activos</button>
-          <button type="button" className={`pyf-subtab ${subTabFacultades === 'inactivos' ? 'active' : ''}`} onClick={() => { setSubTabFacultades('inactivos'); setFacultiesPagination((p) => ({ ...p, page: 1 })); updateUrl('facultades', 'inactivos'); loadFaculties(1, facultiesPagination.limit); }}>Inactivos</button>
+          <button type="button" className={`pyf-subtab ${subTabFacultades === 'activos' ? 'active' : ''}`} onClick={() => { setSubTabFacultades('activos'); setFacultiesPagination((p) => ({ ...p, page: 1 })); updateUrl('facultades', 'activos'); loadFaculties(1, facultiesPagination.limit, 'ACTIVE'); }}>Activos</button>
+          <button type="button" className={`pyf-subtab ${subTabFacultades === 'inactivos' ? 'active' : ''}`} onClick={() => { setSubTabFacultades('inactivos'); setFacultiesPagination((p) => ({ ...p, page: 1 })); updateUrl('facultades', 'inactivos'); loadFaculties(1, facultiesPagination.limit, 'inactive'); }}>Inactivos</button>
         </div>
       )}
       {tab === 'programas' && (
         <div className="pyf-table-wrap">
           {loading ? <div className="pyf-loading">Cargando programas...</div> : (
             <table className="pyf-table">
-              <thead><tr><th>FACULTAD(ES)</th><th>CÓD. PROGRAMA</th><th>PROGRAMA</th><th>NIVEL</th><th>ESTADO</th></tr></thead>
+              <thead><tr><th>CÓDIGO</th><th>PROGRAMA</th><th>NIVEL</th><th>ESTADO</th></tr></thead>
               <tbody>
-                {groupedByFaculty.length === 0 ? (
-                  <tr><td colSpan={5} className="pyf-no-data">No hay programas. Use &quot;Actualizar Info Programas (Universitas)&quot; o registre manualmente.</td></tr>
+                {programs.length === 0 ? (
+                  <tr><td colSpan={4} className="pyf-no-data">No hay programas. Use &quot;Actualizar Info Programas (Universitas)&quot; o registre manualmente.</td></tr>
                 ) : (
-                  groupedByFaculty.map(({ key, label, code, rows }) =>
-                    rows.map((pf, idx) => (
-                      <tr key={pf._id || `${key}-${idx}`}>
+                  programs.map((prog) => {
+                    const isActive = (prog.status ?? '').toUpperCase() === 'ACTIVE';
+                    return (
+                      <tr key={prog._id}>
+                        <td>{prog.code ?? '-'}</td>
                         <td>
-                          <span className="pyf-facultad-cell">
-                            <span className="pyf-facultad-bullet">•</span>
-                            {code ? `${code}-` : ''}{label}
-                          </span>
+                          <button type="button" className="pyf-link" onClick={() => navigate(`/dashboard/programas-facultades/programa/${prog._id}`)}>
+                            {prog.name ?? '-'}
+                          </button>
                         </td>
-                        <td>{pf.codigoPrograma ?? pf.program?.code ?? pf.code ?? '-'}</td>
-                        <td>
-                          {pf.program?._id ? (
-                            <button type="button" className="pyf-link" onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/programas-facultades/programa/${pf.program._id}`); }}>
-                              {pf.nombrePrograma ?? pf.program?.name ?? '-'}
-                            </button>
-                          ) : (
-                            pf.nombrePrograma ?? pf.program?.name ?? '-'
-                          )}
-                        </td>
-                        <td>{pf.program?.level ?? pf.program?.label_level ?? '-'}</td>
+                        <td>{prog.labelLevel ?? prog.level ?? '-'}</td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {(() => {
-                            const estadoRelacion = (pf.estado ?? pf.status ?? '').toString().toUpperCase();
-                            const isActive = estadoRelacion === 'ACTIVE';
                             return (
                               <div className="switch-container">
                                 <label className="switch">
-                                  <input type="checkbox" checked={isActive} onChange={() => handleToggleProgramFaculty(pf, isActive)} disabled={updatingId === pf._id} />
+                                  <input type="checkbox" checked={isActive} onChange={() => handleToggleProgram(prog, isActive)} disabled={updatingId === prog._id} />
                                   <span className="slider" />
                                 </label>
                                 <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>{isActive ? 'Activo' : 'Inactivo'}</span>
@@ -405,19 +553,20 @@ export default function ProgramasYFacultades({ onVolver }) {
                           })()}
                         </td>
                       </tr>
-                    ))
-                  )
-                )}
+                    );
+                  })
+                )
+                }
               </tbody>
             </table>
           )}
-          {tab === 'programas' && pagination.pages > 1 && (
+          {pagination.pages > 1 && (
             <div className="pyf-pagination">
-              <button type="button" className="pyf-page-btn" disabled={pagination.page <= 1} onClick={() => loadProgramFaculties(1)}>&laquo;&laquo;</button>
-              <button type="button" className="pyf-page-btn" disabled={pagination.page <= 1} onClick={() => loadProgramFaculties(pagination.page - 1)}>&laquo;</button>
-              {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => { const p = pagination.page <= 3 ? i + 1 : Math.max(1, pagination.page - 2 + i); if (p > pagination.pages) return null; return <button key={p} type="button" className={`pyf-page-btn ${p === pagination.page ? 'active' : ''}`} onClick={() => loadProgramFaculties(p)}>{p}</button>; })}
-              <button type="button" className="pyf-page-btn" disabled={pagination.page >= pagination.pages} onClick={() => loadProgramFaculties(pagination.page + 1)}>&raquo;</button>
-              <button type="button" className="pyf-page-btn" disabled={pagination.page >= pagination.pages} onClick={() => loadProgramFaculties(pagination.pages)}>&raquo;&raquo;</button>
+              <button type="button" className="pyf-page-btn" disabled={pagination.page <= 1} onClick={() => loadPrograms(1)}>&laquo;&laquo;</button>
+              <button type="button" className="pyf-page-btn" disabled={pagination.page <= 1} onClick={() => loadPrograms(pagination.page - 1)}>&laquo;</button>
+              {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => { const p = pagination.page <= 3 ? i + 1 : Math.max(1, pagination.page - 2 + i); if (p > pagination.pages) return null; return <button key={p} type="button" className={`pyf-page-btn ${p === pagination.page ? 'active' : ''}`} onClick={() => loadPrograms(p)}>{p}</button>; })}
+              <button type="button" className="pyf-page-btn" disabled={pagination.page >= pagination.pages} onClick={() => loadPrograms(pagination.page + 1)}>&raquo;</button>
+              <button type="button" className="pyf-page-btn" disabled={pagination.page >= pagination.pages} onClick={() => loadPrograms(pagination.pages)}>&raquo;&raquo;</button>
               <span className="pyf-page-info">{pagination.total} resultado(s) · Página {pagination.page} de {pagination.pages}</span>
             </div>
           )}
