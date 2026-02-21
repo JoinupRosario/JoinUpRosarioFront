@@ -36,6 +36,7 @@ import Sucursales from './componentss/Sucursales';
 import Periodos from './componentss/periodos/Periodos';
 import ConfiguracionAsignaturas from './componentss/ConfiguracionAsignaturas';
 import Oportunidades from './componentss/Oportunidades';
+import OportunidadesMTM from './componentss/OportunidadesMTM';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
 import RecentActivity from '../components/ui/RecentActivity';
@@ -463,7 +464,11 @@ export default function Dashboard() {
         )}
         {vistaActual === 'oportunidades' && (
           <Oportunidades onVolver={handleVolver} />
-        )}{vistaActual === 'postulants' && (
+        )}
+        {vistaActual === 'monitorias' && (
+          <OportunidadesMTM onVolver={handleVolver} />
+        )}
+        {vistaActual === 'postulants' && (
           <Postulants onVolver={handleVolver} />
         )}
         {/* TODO: Descomentar cuando los componentes estén creados */}
