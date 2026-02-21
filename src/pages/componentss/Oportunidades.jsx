@@ -68,6 +68,7 @@ export default function Oportunidades({ onVolver }) {
   const [tipoOportunidad, setTipoOportunidad] = useState(null); // 'practica' | 'monitoria'
   const [showModalInfo, setShowModalInfo] = useState(false);
   const [pendingTipoOportunidad, setPendingTipoOportunidad] = useState(null); // Estado intermedio para cambiar tipo después de cerrar modal
+  const [loadingUniversidad, setLoadingUniversidad] = useState(false);
   const [showSalarioEmocionalDropdown, setShowSalarioEmocionalDropdown] = useState(false);
   const [salarioEmocionalSearch, setSalarioEmocionalSearch] = useState('');
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0, bottom: null });
@@ -491,18 +492,45 @@ export default function Oportunidades({ onVolver }) {
     setShowCompanyDropdown(false);
   };
 
-  const handleSelectTipo = (tipo) => {
+  const handleSelectTipo = async (tipo) => {
     if (tipo === 'practica') {
+      // Mostrar modal informativo antes de ir al formulario
       setShowModalInfo(true);
-    } else {
-      // Por ahora solo implementamos práctica
-      Swal.fire({
-        icon: 'info',
-        title: 'En desarrollo',
-        text: 'La funcionalidad de Monitorías, tutorías y mentorías estará disponible próximamente',
-        confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#c41e3a'
-      });
+    } else if (tipo === 'monitoria') {
+      // Auto-seleccionar UNIVERSIDAD DEL ROSARIO por NIT
+      setLoadingUniversidad(true);
+      try {
+        const { data } = await api.get('/companies', { params: { search: '8600077593', limit: 10, page: 1 } });
+        const results = data?.data || data?.companies || [];
+        const universidad = results.find(
+          (c) =>
+            (c.nit || '').replace(/\D/g, '') === '8600077593' ||
+            (c.name || '').toUpperCase().includes('ROSARIO') ||
+            (c.commercialName || '').toUpperCase().includes('ROSARIO')
+        );
+        if (!universidad) {
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Empresa no encontrada',
+            text: 'No se encontró la empresa Universidad del Rosario (NIT 8600077593). Contacte al administrador del sistema.',
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#c41e3a',
+          });
+          return;
+        }
+        setSelectedCompany(universidad);
+        setTipoOportunidad('monitoria');
+      } catch (e) {
+        console.error('Error buscando empresa universidad', e);
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo cargar la empresa de la universidad.',
+          confirmButtonColor: '#c41e3a',
+        });
+      } finally {
+        setLoadingUniversidad(false);
+      }
     }
   };
 
@@ -1665,13 +1693,18 @@ export default function Oportunidades({ onVolver }) {
                     <HiOutlineAcademicCap style={{ marginRight: '8px', display: 'inline-block' }} />
                     PRÁCTICA
                   </>
+                ) : tipoOportunidad === 'monitoria' ? (
+                  <>
+                    <FiBookOpen style={{ marginRight: '8px', display: 'inline-block' }} />
+                    MONITORÍA / TUTORÍA / MENTORÍA
+                  </>
                 ) : (
                   'CREAR OPORTUNIDAD'
                 )}
               </h3>
             </div>
           </div>
-          {tipoOportunidad === 'practica' && (
+          {(tipoOportunidad === 'practica' || tipoOportunidad === 'monitoria') && (
             <div className="form-header-right">
               <button className="btn-guardar-header" onClick={handleSaveForm}>
                 <FiFileText className="btn-icon" />
@@ -1683,85 +1716,80 @@ export default function Oportunidades({ onVolver }) {
 
         <div className="oportunidades-section">
           {!tipoOportunidad ? (
-            <>
-              {isAdmin && (
-                <div className="company-selection-container">
-                  <label className="company-selection-label">Seleccione la empresa:</label>
-                  <div className="company-search-wrapper">
-                    <input
-                      type="text"
-                      className="company-search-input"
-                      placeholder="Escriba nombre de la empresa para buscar..."
-                      value={companySearch}
-                      onChange={(e) => {
-                        setCompanySearch(e.target.value);
-                        setShowCompanyDropdown(true);
-                      }}
-                      onFocus={() => {
-                        if (companySearch.trim()) setShowCompanyDropdown(true);
-                      }}
-                    />
-                    {showCompanyDropdown && companySearch.trim() !== '' && (
-                      <div className="company-dropdown">
-                        {companySearchLoading ? (
-                          <div className="company-dropdown-item company-dropdown-empty">Buscando...</div>
-                        ) : companySearchResults.length > 0 ? (
-                          companySearchResults.map(company => (
-                            <div
-                              key={company._id}
-                              className="company-dropdown-item"
-                              onClick={() => handleSelectCompany(company)}
-                            >
-                              {company.name || company.commercialName}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="company-dropdown-item company-dropdown-empty">Sin coincidencias</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {selectedCompany && (
-                    <div className="selected-company">
-                      Empresa seleccionada: <strong>{selectedCompany.name || selectedCompany.commercialName}</strong>
+            /* ── PASO 1: Selección de tipo ─────────────────────────────── */
+            <div className="tipo-oportunidad-container">
+              <h2 className="tipo-oportunidad-title">¿Qué tipo de oferta deseas crear?</h2>
+              {loadingUniversidad ? (
+                <div className="select-company-message"><p>Cargando empresa de la universidad...</p></div>
+              ) : (
+                <div className="tipo-oportunidad-options">
+                  <div className="tipo-oportunidad-card" onClick={() => handleSelectTipo('practica')}>
+                    <div className="tipo-oportunidad-icon practica">
+                      <HiOutlineAcademicCap />
                     </div>
-                  )}
+                    <span className="tipo-oportunidad-text">Práctica</span>
+                  </div>
+                  <div className="tipo-oportunidad-card" onClick={() => handleSelectTipo('monitoria')}>
+                    <div className="tipo-oportunidad-icon monitoria">
+                      <FiBookOpen />
+                    </div>
+                    <span className="tipo-oportunidad-text">Monitorías, tutorías y mentorías</span>
+                  </div>
                 </div>
               )}
-              
-              <div className="tipo-oportunidad-container">
-                {(!isAdmin || selectedCompany) ? (
-                  <>
-                    <h2 className="tipo-oportunidad-title">¿Qué tipo de oferta deseas crear?</h2>
-                    <div className="tipo-oportunidad-options">
-                      <div
-                        className="tipo-oportunidad-card"
-                        onClick={() => handleSelectTipo('practica')}
-                      >
-                      <div className="tipo-oportunidad-icon practica">
-                        <HiOutlineAcademicCap />
-                      </div>
-                        <span className="tipo-oportunidad-text">Práctica</span>
-                      </div>
-                      <div
-                        className="tipo-oportunidad-card"
-                        onClick={() => handleSelectTipo('monitoria')}
-                      >
-                        <div className="tipo-oportunidad-icon monitoria">
-                          <FiBookOpen />
+            </div>
+          ) : tipoOportunidad === 'practica' && isAdmin && !selectedCompany ? (
+            /* ── PASO 2 (solo Práctica + Admin): Selección de empresa ──── */
+            <div className="company-selection-step">
+            <div className="company-selection-container">
+              <div className="company-selection-back">
+                <button
+                  type="button"
+                  className="btn-volver-tipo"
+                  onClick={() => { setTipoOportunidad(null); setSelectedCompany(null); setCompanySearch(''); }}
+                >
+                  ← Cambiar tipo de oferta
+                </button>
+              </div>
+              <label className="company-selection-label">Seleccione la empresa para la práctica:</label>
+              <div className="company-search-wrapper">
+                <input
+                  type="text"
+                  className="company-search-input"
+                  placeholder="Escriba nombre o NIT de la empresa para buscar..."
+                  value={companySearch}
+                  onChange={(e) => { setCompanySearch(e.target.value); setShowCompanyDropdown(true); }}
+                  onFocus={() => { if (companySearch.trim()) setShowCompanyDropdown(true); }}
+                />
+                {showCompanyDropdown && companySearch.trim() !== '' && (
+                  <div className="company-dropdown">
+                    {companySearchLoading ? (
+                      <div className="company-dropdown-item company-dropdown-empty">Buscando...</div>
+                    ) : companySearchResults.length > 0 ? (
+                      companySearchResults.map(company => (
+                        <div
+                          key={company._id}
+                          className="company-dropdown-item"
+                          onClick={() => handleSelectCompany(company)}
+                        >
+                          {company.name || company.commercialName}
+                          {company.nit ? <span className="company-dropdown-nit"> · NIT {company.nit}</span> : null}
                         </div>
-                        <span className="tipo-oportunidad-text">Monitorías, tutorías y mentorías</span>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="select-company-message">
-                    <p>Por favor seleccione una empresa para continuar</p>
+                      ))
+                    ) : (
+                      <div className="company-dropdown-item company-dropdown-empty">Sin coincidencias</div>
+                    )}
                   </div>
                 )}
               </div>
-            </>
-          ) : tipoOportunidad === 'practica' ? (
+              {selectedCompany && (
+                <div className="selected-company">
+                  Empresa seleccionada: <strong>{selectedCompany.name || selectedCompany.commercialName}</strong>
+                </div>
+              )}
+            </div>
+            </div>
+          ) : (tipoOportunidad === 'practica' || tipoOportunidad === 'monitoria') ? (
             <div className="formulario-practica-container">
               <form className="practica-form">
                 {/* Nombre del cargo */}

@@ -8,6 +8,8 @@ const initialState = {
   token: null,
   isAuthenticated: false,
   loading: true,
+  permissions: [],  // array de { codigo, nombre, modulo }
+  roles: [],        // array de { _id, nombre }
 };
 
 const authReducer = (state, action) => {
@@ -19,6 +21,8 @@ const authReducer = (state, action) => {
         token: action.payload.token,
         isAuthenticated: true,
         loading: false,
+        permissions: action.payload.permissions ?? state.permissions,
+        roles: action.payload.roles ?? state.roles,
       };
     case 'LOGOUT':
       return {
@@ -27,6 +31,8 @@ const authReducer = (state, action) => {
         token: null,
         isAuthenticated: false,
         loading: false,
+        permissions: [],
+        roles: [],
       };
     case 'SET_LOADING':
       return {
@@ -35,6 +41,22 @@ const authReducer = (state, action) => {
       };
     default:
       return state;
+  }
+};
+
+/** Carga los permisos del usuario administrativo desde el backend y los persiste en localStorage. */
+const fetchAndStorePermissions = async (token) => {
+  try {
+    const { data } = await api.get('/users/my-permissions', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const permissions = data.permissions ?? [];
+    const roles = data.roles ?? [];
+    localStorage.setItem('permissions', JSON.stringify(permissions));
+    localStorage.setItem('roles', JSON.stringify(roles));
+    return { permissions, roles };
+  } catch {
+    return { permissions: [], roles: [] };
   }
 };
 
@@ -74,27 +96,34 @@ export const AuthProvider = ({ children }) => {
               if (userData.modulo) {
                 localStorage.setItem('modulo', userData.modulo);
               }
+
+              // Restaurar permisos desde localStorage
+              let permissions = [];
+              let roles = [];
+              try {
+                permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
+                roles = JSON.parse(localStorage.getItem('roles') || '[]');
+              } catch { /* ignorar */ }
               
               // Restaurar el estado de autenticación
               dispatch({
                 type: 'LOGIN_SUCCESS',
-                payload: {
-                  token,
-                  user: userData,
-                },
+                payload: { token, user: userData, permissions, roles },
               });
               return;
             }
           } catch (parseError) {
             console.error('Error al parsear datos de usuario:', parseError);
             // Si hay error al parsear, limpiar datos corruptos
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('modulo');
-          }
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('modulo');
+          localStorage.removeItem('permissions');
+          localStorage.removeItem('roles');
         }
-        
-        // Si no hay token o hay error, marcar como no autenticado
+      }
+      
+      // Si no hay token o hay error, marcar como no autenticado
         dispatch({ type: 'SET_LOADING', payload: false });
       } catch (error) {
         console.error('Error al verificar autenticación:', error);
@@ -102,6 +131,8 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('modulo');
+        localStorage.removeItem('permissions');
+        localStorage.removeItem('roles');
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
@@ -119,10 +150,17 @@ export const AuthProvider = ({ children }) => {
       if (user.modulo) {
         localStorage.setItem('modulo', user.modulo);
       }
+
+      // Cargar permisos para usuarios administrativos
+      let permissions = [];
+      let roles = [];
+      if (user.modulo === 'administrativo') {
+        ({ permissions, roles } = await fetchAndStorePermissions(token));
+      }
       
       dispatch({
         type: 'LOGIN_SUCCESS',
-        payload: { token, user },
+        payload: { token, user, permissions, roles },
       });
       
       return { success: true, modulo: user.modulo };
@@ -148,15 +186,22 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Usado por el flujo SAML: recibe token + usuario ya validados por el backend
-  const loginWithToken = (token, user) => {
+  const loginWithToken = async (token, user) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     if (user.modulo) {
       localStorage.setItem('modulo', user.modulo);
     }
+
+    let permissions = [];
+    let roles = [];
+    if (user.modulo === 'administrativo') {
+      ({ permissions, roles } = await fetchAndStorePermissions(token));
+    }
+
     dispatch({
       type: 'LOGIN_SUCCESS',
-      payload: { token, user },
+      payload: { token, user, permissions, roles },
     });
   };
 
@@ -165,12 +210,20 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGOUT' });
   };
 
+  /** Helper para verificar si el usuario tiene un permiso por su código. */
+  const hasPermission = (codigo) => state.permissions.some((p) => p.codigo === codigo);
+
+  /** Helper para verificar si el usuario tiene alguno de los permisos dados. */
+  const hasAnyPermission = (...codigos) => codigos.some((c) => hasPermission(c));
+
   const value = {
     ...state,
     login,
     loginWithToken,
     register,
     logout,
+    hasPermission,
+    hasAnyPermission,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,0 +1,254 @@
+.asig-content {
+  flex: 1;
+  background: white;
+  overflow-y: auto;
+  max-height: calc(100vh - 70px);
+}
+
+.asig-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.asig-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.asig-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.asig-btn-sync,
+.asig-btn-excel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.asig-btn-sync {
+  background: #c41e3a;
+  color: white;
+}
+.asig-btn-sync:hover:not(:disabled) { background: #a31832; }
+.asig-btn-sync:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.asig-btn-excel {
+  background: #1d6f42;
+  color: white;
+}
+.asig-btn-excel:hover:not(:disabled) { background: #155233; }
+.asig-btn-excel:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toolbar */
+.asig-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f3f4f6;
+  flex-wrap: wrap;
+}
+
+.asig-search {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.asig-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.asig-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.asig-search-input:focus {
+  outline: none;
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.08);
+}
+
+.asig-select-periodo {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  min-width: 180px;
+}
+
+.asig-select-periodo:focus {
+  outline: none;
+  border-color: #c41e3a;
+}
+
+/* Tabla */
+.asig-table-wrap {
+  overflow-x: auto;
+  padding: 0 20px 16px;
+}
+
+.asig-loading {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.asig-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 1100px;
+}
+
+.asig-table thead tr {
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.asig-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.asig-table td {
+  padding: 9px 12px;
+  color: #111827;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.asig-table tbody tr:hover { background: #fafafa; }
+
+.asig-row-inactive td { color: #9ca3af; }
+
+.asig-col-nombre {
+  min-width: 220px;
+  max-width: 300px;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.asig-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.asig-badge-nivel {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.asig-no-data {
+  text-align: center;
+  padding: 40px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Estado */
+.asig-estado {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.asig-estado.active   { background: #dcfce7; color: #166534; }
+.asig-estado.inactive { background: #f3f4f6; color: #6b7280; }
+
+/* Paginación */
+.asig-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px 20px;
+  flex-wrap: wrap;
+}
+
+.asig-page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  background: white;
+  font-size: 13px;
+  cursor: pointer;
+  color: #374151;
+  transition: all 0.15s;
+}
+
+.asig-page-btn:hover:not(:disabled) { background: #fdf2f3; border-color: #c41e3a; color: #c41e3a; }
+.asig-page-btn.active               { background: #c41e3a; border-color: #c41e3a; color: white; font-weight: 700; }
+.asig-page-btn:disabled             { opacity: 0.4; cursor: not-allowed; }
+
+.asig-page-info {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Swal resumen */
+.asig-resumen {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.asig-resumen-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #f9fafb;
+  font-size: 14px;
+}
+
+.asig-resumen-row.new  { background: #f0fdf4; }
+.asig-resumen-row.skip { background: #fefce8; }
+.asig-resumen-row.deact { background: #fef2f2; }

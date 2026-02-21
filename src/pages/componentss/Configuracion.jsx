@@ -6,7 +6,8 @@ import {
   FiClock, 
   FiRefreshCw,
   FiArrowLeft,
-  FiMapPin
+  FiMapPin,
+  FiBook
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import '../styles/Configuracion.css';
@@ -26,6 +27,9 @@ export default function Configuracion({ onVolver }) {
     }
     if (opcion.text === 'Gestión de periodos para monitorías') {
       navigate('/dashboard/periodos?tipo=monitoria');
+    }
+    if (opcion.text === 'Configuración Asignaturas') {
+      navigate('/dashboard/asignaturas');
     }
   };
   const opcionesConfiguracion = [
@@ -98,6 +102,11 @@ export default function Configuracion({ onVolver }) {
       text: 'Gestión de Parámetros', 
       icon: FiMapPin,
       descripcion: 'Gestionar tipos de documento, niveles de estudio, dedicación, ARLs y otros parámetros del sistema'
+    },
+    {
+      text: 'Configuración Asignaturas',
+      icon: FiBook,
+      descripcion: 'Cargar y gestionar asignaturas ofertadas desde el servidor SFTP (ASIGNATURAS_OFERTADAS_UXXI)'
     }
   ];
 
@@ -117,7 +126,7 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
-            const isClickable = opcion.text === 'Gestión de Parámetros' || opcion.text === 'Facultades y Programas' || opcion.text === 'Gestión de periodos para prácticas' || opcion.text === 'Gestión de periodos para monitorías';
+            const isClickable = ['Gestión de Parámetros', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas'].includes(opcion.text);
             return (
               <div 
                 key={index} 
