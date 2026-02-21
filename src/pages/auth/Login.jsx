@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import './Login.css';
@@ -21,8 +21,9 @@ export default function Login() {
   const [error, setError] = useState('');
   const [language, setLanguage] = useState('es');
 
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Textos traducidos
   const translations = {
@@ -68,6 +69,27 @@ export default function Login() {
 
   const t = translations[language];
 
+  // Mostrar error si viene redirigido desde el backend SAML
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    const msgParam = searchParams.get('msg');
+    if (errorParam) {
+      const messages = {
+        saml_unauthorized: msgParam
+          ? decodeURIComponent(msgParam)
+          : 'No tienes acceso con esa cuenta institucional. Contacta al administrador.',
+        saml_error: 'Ocurrió un error durante la autenticación con la cuenta institucional.',
+        saml_session_error: 'Error de sesión. Por favor intenta de nuevo.',
+        saml_init_failed: 'No se pudo iniciar la autenticación institucional.',
+      };
+      setError(messages[errorParam] || 'Error en la autenticación institucional.');
+    }
+  }, [searchParams]);
+
+  const handleUniversityLogin = () => {
+    window.location.href = '/api/auth/saml/login';
+  };
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -83,16 +105,30 @@ export default function Login() {
     const result = await login(formData.email, formData.password);
 
     if (result.success) {
-      navigate('/dashboard');
+      if (result.modulo === 'administrativo') {
+        navigate('/dashboard');
+      } else {
+        // entidades y cualquier otro módulo: plataforma en construcción
+        await Swal.fire({
+          icon: 'info',
+          title: 'Módulo en construcción',
+          html: 'Tu módulo estará disponible próximamente.<br/>Gracias por tu paciencia.',
+          confirmButtonColor: '#c41e3a',
+          confirmButtonText: 'Entendido',
+        });
+        logout();
+      }
     } else {
-      setError(result.message);
-      if (result.message && result.message.includes('No está autorizado para ingresar por este medio')) {
+      if (result.code === 'USE_SAML') {
         Swal.fire({
           icon: 'warning',
-          title: 'Acceso no permitido',
+          title: 'Acceso institucional requerido',
           text: result.message,
-          confirmButtonColor: '#c41e3a'
+          confirmButtonColor: '#c41e3a',
+          confirmButtonText: 'Entendido',
         });
+      } else {
+        setError(result.message);
       }
     }
 
@@ -149,7 +185,11 @@ export default function Login() {
             {/* Sección USUARIOS */}
             <div className="form-section">
               <h2 className="section-title">{t.users}</h2>
-              <button className="university-login-btn">
+              <button
+                className="university-login-btn"
+                onClick={handleUniversityLogin}
+                type="button"
+              >
                 {t.universityLogin}
               </button>
               <div className="links">

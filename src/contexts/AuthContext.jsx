@@ -114,11 +114,8 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/login', { email, password });
       const { token, user } = response.data;
       
-      // Guardar token y usuario en localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      
-      // Guardar modulo por separado para fácil acceso
       if (user.modulo) {
         localStorage.setItem('modulo', user.modulo);
       }
@@ -128,10 +125,11 @@ export const AuthProvider = ({ children }) => {
         payload: { token, user },
       });
       
-      return { success: true };
+      return { success: true, modulo: user.modulo };
     } catch (error) {
       return {
         success: false,
+        code: error.response?.data?.code || null,
         message: error.response?.data?.message || 'Error al iniciar sesión',
       };
     }
@@ -149,14 +147,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Usado por el flujo SAML: recibe token + usuario ya validados por el backend
+  const loginWithToken = (token, user) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    if (user.modulo) {
+      localStorage.setItem('modulo', user.modulo);
+    }
+    dispatch({
+      type: 'LOGIN_SUCCESS',
+      payload: { token, user },
+    });
+  };
+
   const logout = () => {
-    localStorage.clear(); // Limpiar todo el localStorage
+    localStorage.clear();
     dispatch({ type: 'LOGOUT' });
   };
 
   const value = {
     ...state,
     login,
+    loginWithToken,
     register,
     logout,
   };
