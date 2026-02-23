@@ -78,7 +78,9 @@ export default function Login() {
         saml_unauthorized: msgParam
           ? decodeURIComponent(msgParam)
           : 'No tienes acceso con esa cuenta institucional. Contacta al administrador.',
-        saml_error: 'Ocurrió un error durante la autenticación con la cuenta institucional.',
+        saml_error: msgParam
+          ? `Error SAML: ${decodeURIComponent(msgParam)}`
+          : 'Ocurrió un error durante la autenticación con la cuenta institucional.',
         saml_session_error: 'Error de sesión. Por favor intenta de nuevo.',
         saml_init_failed: 'No se pudo iniciar la autenticación institucional.',
       };
