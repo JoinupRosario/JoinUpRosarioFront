@@ -25,8 +25,17 @@ import Swal from 'sweetalert2';
 import '../styles/Ubicaciones.css';
 import api from '../../services/api';
 
+// ── Parámetros exclusivos de Monitoría / Tutoría / Mentoría ──────────────────
+const MTM_VIEWS = ['dedicacionHorasMTM', 'valorPorHoraMTM', 'tipoVinculacionMTM', 'categoriaMTM'];
+
 // Mapeo de vistas a listId (tipos de documento = misma lista que tipo de identificación en facultad)
 const VIEW_TO_LIST_ID = {
+  // Monitoría
+  'dedicacionHorasMTM':  'L_DEDICATON_HOURS',
+  'valorPorHoraMTM':     'L_REMUNERATION_HOURS_PER_WEEK',
+  'tipoVinculacionMTM':  'L_CONTRACT_TYPE_STUDY_WORKING',
+  'categoriaMTM':        'L_MONITORING_TYPE',
+  // Prácticas / General
   'documentTypes': 'L_IDENTIFICATIONTYPE',
   'studyLevels': 'L_LEVEL_PROGRAM',
   'dedicationTypes': 'L_DEDICATION_JOB_OFFER',
@@ -54,6 +63,10 @@ const VIEW_TO_LIST_ID = {
 
 // Mapeo de campos de formulario a campos de Item
 const VIEW_TO_FIELD = {
+  'dedicacionHorasMTM': 'dedicacionHoras',
+  'valorPorHoraMTM':    'valorPorHora',
+  'tipoVinculacionMTM': 'tipoVinculacionMTM',
+  'categoriaMTM':       'categoriaMTM',
   'documentTypes': 'tipo',
   'studyLevels': 'nivelEstudio',
   'dedicationTypes': 'dedicacion',
@@ -81,9 +94,17 @@ const VIEW_TO_FIELD = {
 
 const Ubicaciones = ({ onVolver }) => {
   const navigate = useNavigate();
+  // 'practica' | 'monitoria' — controla qué grupo de sub-tabs se muestra
+  const [tabGroup, setTabGroup] = useState('practica');
   const [vistaActual, setVistaActual] = useState('documentTypes');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // ── Parámetros Monitoría ──
+  const [dedicacionHorasMTM, setDedicacionHorasMTM] = useState([]);
+  const [valorPorHoraMTM, setValorPorHoraMTM] = useState([]);
+  const [tipoVinculacionMTM, setTipoVinculacionMTM] = useState([]);
+  const [categoriaMTM, setCategoriaMTM] = useState([]);
   
   // Datos existentes
   const [documentTypes, setDocumentTypes] = useState([]);
@@ -194,9 +215,14 @@ const Ubicaciones = ({ onVolver }) => {
   useEffect(() => {
     const page = 1;
     const search = '';
-    
+
+    // Monitoría
+    if      (vistaActual === 'dedicacionHorasMTM')  loadDedicacionHorasMTM(page, search);
+    else if (vistaActual === 'valorPorHoraMTM')     loadValorPorHoraMTM(page, search);
+    else if (vistaActual === 'tipoVinculacionMTM')  loadTipoVinculacionMTM(page, search);
+    else if (vistaActual === 'categoriaMTM')        loadCategoriaMTM(page, search);
     // Parámetros básicos
-    if (vistaActual === 'documentTypes') {
+    else if (vistaActual === 'documentTypes') {
       loadDocumentTypes(page, search);
     } else if (vistaActual === 'studyLevels') {
       loadStudyLevels(page, search);
@@ -273,8 +299,12 @@ const Ubicaciones = ({ onVolver }) => {
     const timeoutId = setTimeout(() => {
       const page = 1;
       setPagination(prev => ({ ...prev, page: 1 }));
-      
-      if (vistaActual === 'documentTypes') {
+
+      if      (vistaActual === 'dedicacionHorasMTM') loadDedicacionHorasMTM(page, searchTerm);
+      else if (vistaActual === 'valorPorHoraMTM')    loadValorPorHoraMTM(page, searchTerm);
+      else if (vistaActual === 'tipoVinculacionMTM') loadTipoVinculacionMTM(page, searchTerm);
+      else if (vistaActual === 'categoriaMTM')       loadCategoriaMTM(page, searchTerm);
+      else if (vistaActual === 'documentTypes') {
         loadDocumentTypes(page, searchTerm);
       } else if (vistaActual === 'studyLevels') {
         loadStudyLevels(page, searchTerm);
@@ -367,6 +397,10 @@ const Ubicaciones = ({ onVolver }) => {
       if (response.data.data) {
         // Mapear los items a los estados correspondientes
         const setterMap = {
+          'dedicacionHorasMTM': setDedicacionHorasMTM,
+          'valorPorHoraMTM':    setValorPorHoraMTM,
+          'tipoVinculacionMTM': setTipoVinculacionMTM,
+          'categoriaMTM':       setCategoriaMTM,
           'documentTypes': setDocumentTypes,
           'studyLevels': setStudyLevels,
           'dedicationTypes': setDedicationTypes,
@@ -405,6 +439,12 @@ const Ubicaciones = ({ onVolver }) => {
       setLoading(false);
     }
   };
+
+  // ── Parámetros Monitoría ──────────────────────────────────────────────────────
+  const loadDedicacionHorasMTM  = async (p = 1, s = '') => loadItems('dedicacionHorasMTM',  p, s);
+  const loadValorPorHoraMTM     = async (p = 1, s = '') => loadItems('valorPorHoraMTM',     p, s);
+  const loadTipoVinculacionMTM  = async (p = 1, s = '') => loadItems('tipoVinculacionMTM',  p, s);
+  const loadCategoriaMTM        = async (p = 1, s = '') => loadItems('categoriaMTM',        p, s);
 
   const loadDocumentTypes = async (page = 1, search = '') => {
     await loadItems('documentTypes', page, search);
@@ -875,8 +915,13 @@ const Ubicaciones = ({ onVolver }) => {
 
   const getCurrentData = () => {
     let data = [];
+    // Parámetros Monitoría
+    if (vistaActual === 'dedicacionHorasMTM') data = dedicacionHorasMTM;
+    else if (vistaActual === 'valorPorHoraMTM')    data = valorPorHoraMTM;
+    else if (vistaActual === 'tipoVinculacionMTM') data = tipoVinculacionMTM;
+    else if (vistaActual === 'categoriaMTM')       data = categoriaMTM;
     // Parámetros básicos
-    if (vistaActual === 'documentTypes') {
+    else if (vistaActual === 'documentTypes') {
       data = documentTypes;
     } else if (vistaActual === 'studyLevels') {
       data = studyLevels;
@@ -954,7 +999,56 @@ const Ubicaciones = ({ onVolver }) => {
         <h2>Gestión de Parámetros</h2>
       </div>
 
-      {/* Tabs */}
+      {/* ── Macro-tabs: Prácticas / Monitoría ── */}
+      <div className="ubicaciones-macro-tabs">
+        <button
+          className={`macro-tab ${tabGroup === 'practica' ? 'active' : ''}`}
+          onClick={() => {
+            setTabGroup('practica');
+            setVistaActual('documentTypes');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiBriefcase /> Parámetros Prácticas
+        </button>
+        <button
+          className={`macro-tab monitoria ${tabGroup === 'monitoria' ? 'active' : ''}`}
+          onClick={() => {
+            setTabGroup('monitoria');
+            setVistaActual('dedicacionHorasMTM');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiBook /> Parámetros Monitorías / Tutorías / Mentorías
+        </button>
+      </div>
+
+      {/* ── Sub-tabs Monitoría ── */}
+      {tabGroup === 'monitoria' && (
+        <div className="ubicaciones-tabs">
+          {[
+            { key: 'dedicacionHorasMTM',  label: 'Dedicación Horas/Semana', icon: <FiClock /> },
+            { key: 'valorPorHoraMTM',     label: 'Valor por Hora',          icon: <FiTrendingUp /> },
+            { key: 'tipoVinculacionMTM',  label: 'Tipo de Vinculación',     icon: <FiShield /> },
+            { key: 'categoriaMTM',        label: 'Categoría (Tipo MTM)',     icon: <FiLayers /> },
+          ].map(({ key, label, icon }) => (
+            <button
+              key={key}
+              className={`tab ${vistaActual === key ? 'active' : ''}`}
+              onClick={() => { setVistaActual(key); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+            >
+              {icon} {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Sub-tabs Prácticas (los originales, solo visibles cuando tabGroup=practica) ── */}
+      {tabGroup === 'practica' && (
       <div className="ubicaciones-tabs">
         <button
           className={`tab ${vistaActual === 'documentTypes' ? 'active' : ''}`}
@@ -1268,6 +1362,7 @@ const Ubicaciones = ({ onVolver }) => {
           <FiActivity /> Actividad
         </button>
       </div>
+      )}{/* fin tabGroup === 'practica' */}
 
       {/* Filtros */}
       {/* Barra de búsqueda y acciones */}
@@ -1287,7 +1382,11 @@ const Ubicaciones = ({ onVolver }) => {
           <FiPlus /> Crear Nuevo
         </button>
         <button className="btn-secondary" onClick={() => {
-          if (vistaActual === 'documentTypes') loadDocumentTypes(pagination.page, searchTerm);
+          if      (vistaActual === 'dedicacionHorasMTM') loadDedicacionHorasMTM(pagination.page, searchTerm);
+          else if (vistaActual === 'valorPorHoraMTM')    loadValorPorHoraMTM(pagination.page, searchTerm);
+          else if (vistaActual === 'tipoVinculacionMTM') loadTipoVinculacionMTM(pagination.page, searchTerm);
+          else if (vistaActual === 'categoriaMTM')       loadCategoriaMTM(pagination.page, searchTerm);
+          else if (vistaActual === 'documentTypes') loadDocumentTypes(pagination.page, searchTerm);
           else if (vistaActual === 'studyLevels') loadStudyLevels(pagination.page, searchTerm);
           else if (vistaActual === 'dedicationTypes') loadDedicationTypes(pagination.page, searchTerm);
           else if (vistaActual === 'arls') loadARLs(pagination.page, searchTerm);
@@ -1329,6 +1428,13 @@ const Ubicaciones = ({ onVolver }) => {
           <table className="ubicaciones-table">
             <thead>
               <tr>
+                {MTM_VIEWS.includes(vistaActual) && (
+                  <>
+                    <th>Valor</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                  </>
+                )}
                 {vistaActual === 'documentTypes' && (
                   <>
                     <th>Valor</th>
@@ -1514,6 +1620,17 @@ const Ubicaciones = ({ onVolver }) => {
               ) : (
                 getCurrentData().map((item) => (
                   <tr key={item._id}>
+                    {MTM_VIEWS.includes(vistaActual) && (
+                      <>
+                        <td>{item.value || '-'}</td>
+                        <td>{item.description || '-'}</td>
+                        <td>
+                          <span className={`badge ${item.isActive ? 'active' : 'inactive'}`}>
+                            {item.isActive ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                      </>
+                    )}
                     {vistaActual === 'documentTypes' && (
                       <>
                         <td>{item.value || '-'}</td>
@@ -1729,97 +1846,71 @@ const Ubicaciones = ({ onVolver }) => {
       )}
 
       {/* Paginación */}
-      {pagination.pages > 1 && (
-        <div className="pagination">
-          <button
-            className="pagination-btn"
-            onClick={() => {
-              const newPage = pagination.page - 1;
-              if (newPage >= 1) {
-                if (vistaActual === 'documentTypes') loadDocumentTypes(newPage, searchTerm);
-                else if (vistaActual === 'studyLevels') loadStudyLevels(newPage, searchTerm);
-                else if (vistaActual === 'dedicationTypes') loadDedicationTypes(newPage, searchTerm);
-                else if (vistaActual === 'arls') loadARLs(newPage, searchTerm);
-                else if (vistaActual === 'eps') loadEPS(newPage, searchTerm);
-                else if (vistaActual === 'banks') loadBanks(newPage, searchTerm);
-                // Escenario de Práctica
-                else if (vistaActual === 'practiceScenarioTypes') loadPracticeScenarioTypes(newPage, searchTerm);
-                else if (vistaActual === 'sectors') loadSectors(newPage, searchTerm);
-                else if (vistaActual === 'sectorMineTypes') loadSectorMineTypes(newPage, searchTerm);
-                else if (vistaActual === 'economicSectors') loadEconomicSectors(newPage, searchTerm);
-                else if (vistaActual === 'codigosCiiu') loadCodigosCiiu(newPage, searchTerm);
-                else if (vistaActual === 'organizationSizes') loadOrganizationSizes(newPage, searchTerm);
-                // Oportunidades
-                else if (vistaActual === 'linkageTypes') loadLinkageTypes(newPage, searchTerm);
-                else if (vistaActual === 'performanceAreas') loadPerformanceAreas(newPage, searchTerm);
-                // Estudiantes-Postulantes
-                else if (vistaActual === 'interestAreas') loadInterestAreas(newPage, searchTerm);
-                else if (vistaActual === 'competencies') loadCompetencies(newPage, searchTerm);
-                else if (vistaActual === 'languages') loadLanguages(newPage, searchTerm);
-                else if (vistaActual === 'experienceTypes') loadExperienceTypes(newPage, searchTerm);
-                else if (vistaActual === 'achievementTypes') loadAchievementTypes(newPage, searchTerm);
-                else if (vistaActual === 'practiceTypes') loadPracticeTypes(newPage, searchTerm);
-          // Legalización
-          else if (vistaActual === 'geographicScopes') loadGeographicScopes(newPage, searchTerm);
-          else if (vistaActual === 'modalities') loadModalities(newPage, searchTerm);
-          else if (vistaActual === 'activities') loadActivities(newPage, searchTerm);
-          // Ubicaciones
-          else if (vistaActual === 'countries') loadCountries(newPage, searchTerm);
-          else if (vistaActual === 'states') loadStates(newPage, searchTerm);
-          else if (vistaActual === 'cities') loadCities(newPage, searchTerm);
-              }
-            }}
-            disabled={pagination.page === 1}
-          >
-            Anterior
-          </button>
-          <span className="pagination-info">
-            Página {pagination.page} de {pagination.pages} ({pagination.total} total)
-          </span>
-          <button
-            className="pagination-btn"
-            onClick={() => {
-              const newPage = pagination.page + 1;
-              if (newPage <= pagination.pages) {
-                if (vistaActual === 'documentTypes') loadDocumentTypes(newPage, searchTerm);
-                else if (vistaActual === 'studyLevels') loadStudyLevels(newPage, searchTerm);
-                else if (vistaActual === 'dedicationTypes') loadDedicationTypes(newPage, searchTerm);
-                else if (vistaActual === 'arls') loadARLs(newPage, searchTerm);
-                else if (vistaActual === 'eps') loadEPS(newPage, searchTerm);
-                else if (vistaActual === 'banks') loadBanks(newPage, searchTerm);
-                // Escenario de Práctica
-                else if (vistaActual === 'practiceScenarioTypes') loadPracticeScenarioTypes(newPage, searchTerm);
-                else if (vistaActual === 'sectors') loadSectors(newPage, searchTerm);
-                else if (vistaActual === 'sectorMineTypes') loadSectorMineTypes(newPage, searchTerm);
-                else if (vistaActual === 'economicSectors') loadEconomicSectors(newPage, searchTerm);
-                else if (vistaActual === 'codigosCiiu') loadCodigosCiiu(newPage, searchTerm);
-                else if (vistaActual === 'organizationSizes') loadOrganizationSizes(newPage, searchTerm);
-                // Oportunidades
-                else if (vistaActual === 'linkageTypes') loadLinkageTypes(newPage, searchTerm);
-                else if (vistaActual === 'performanceAreas') loadPerformanceAreas(newPage, searchTerm);
-                // Estudiantes-Postulantes
-                else if (vistaActual === 'interestAreas') loadInterestAreas(newPage, searchTerm);
-                else if (vistaActual === 'competencies') loadCompetencies(newPage, searchTerm);
-                else if (vistaActual === 'languages') loadLanguages(newPage, searchTerm);
-                else if (vistaActual === 'experienceTypes') loadExperienceTypes(newPage, searchTerm);
-                else if (vistaActual === 'achievementTypes') loadAchievementTypes(newPage, searchTerm);
-                else if (vistaActual === 'practiceTypes') loadPracticeTypes(newPage, searchTerm);
-                // Legalización
-                else if (vistaActual === 'geographicScopes') loadGeographicScopes(newPage, searchTerm);
-                else if (vistaActual === 'modalities') loadModalities(newPage, searchTerm);
-                else if (vistaActual === 'activities') loadActivities(newPage, searchTerm);
-                // Ubicaciones
-                else if (vistaActual === 'countries') loadCountries(newPage, searchTerm);
-                else if (vistaActual === 'states') loadStates(newPage, searchTerm);
-                else if (vistaActual === 'cities') loadCities(newPage, searchTerm);
-              }
-            }}
-            disabled={pagination.page === pagination.pages}
-          >
-            Siguiente
-          </button>
-        </div>
-      )}
+      {pagination.pages > 1 && (() => {
+        const goTo = (p) => {
+          if (p < 1 || p > pagination.pages) return;
+          if      (MTM_VIEWS.includes(vistaActual))          loadItems(vistaActual, p, searchTerm);
+          else if (vistaActual === 'documentTypes')          loadDocumentTypes(p, searchTerm);
+          else if (vistaActual === 'studyLevels')            loadStudyLevels(p, searchTerm);
+          else if (vistaActual === 'dedicationTypes')        loadDedicationTypes(p, searchTerm);
+          else if (vistaActual === 'arls')                   loadARLs(p, searchTerm);
+          else if (vistaActual === 'eps')                    loadEPS(p, searchTerm);
+          else if (vistaActual === 'banks')                  loadBanks(p, searchTerm);
+          else if (vistaActual === 'practiceScenarioTypes')  loadPracticeScenarioTypes(p, searchTerm);
+          else if (vistaActual === 'sectors')                loadSectors(p, searchTerm);
+          else if (vistaActual === 'sectorMineTypes')        loadSectorMineTypes(p, searchTerm);
+          else if (vistaActual === 'economicSectors')        loadEconomicSectors(p, searchTerm);
+          else if (vistaActual === 'codigosCiiu')            loadCodigosCiiu(p, searchTerm);
+          else if (vistaActual === 'organizationSizes')      loadOrganizationSizes(p, searchTerm);
+          else if (vistaActual === 'linkageTypes')           loadLinkageTypes(p, searchTerm);
+          else if (vistaActual === 'performanceAreas')       loadPerformanceAreas(p, searchTerm);
+          else if (vistaActual === 'interestAreas')          loadInterestAreas(p, searchTerm);
+          else if (vistaActual === 'competencies')           loadCompetencies(p, searchTerm);
+          else if (vistaActual === 'languages')              loadLanguages(p, searchTerm);
+          else if (vistaActual === 'experienceTypes')        loadExperienceTypes(p, searchTerm);
+          else if (vistaActual === 'achievementTypes')       loadAchievementTypes(p, searchTerm);
+          else if (vistaActual === 'practiceTypes')          loadPracticeTypes(p, searchTerm);
+          else if (vistaActual === 'geographicScopes')       loadGeographicScopes(p, searchTerm);
+          else if (vistaActual === 'modalities')             loadModalities(p, searchTerm);
+          else if (vistaActual === 'activities')             loadActivities(p, searchTerm);
+          else if (vistaActual === 'countries')              loadCountries(p, searchTerm);
+          else if (vistaActual === 'states')                 loadStates(p, searchTerm);
+          else if (vistaActual === 'cities')                 loadCities(p, searchTerm);
+        };
+
+        // Genera los números de página visibles con ellipsis
+        const cur   = pagination.page;
+        const total = pagination.pages;
+        const pages = [];
+        if (total <= 7) {
+          for (let i = 1; i <= total; i++) pages.push(i);
+        } else {
+          pages.push(1);
+          if (cur > 3) pages.push('...');
+          for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
+          if (cur < total - 2) pages.push('...');
+          pages.push(total);
+        }
+
+        return (
+          <div className="pagination">
+            <span className="pagination-info">{pagination.total} registros · página {cur} de {total}</span>
+            <div className="pagination-controls">
+              <button className="pagination-btn" onClick={() => goTo(cur - 1)} disabled={cur === 1}>‹</button>
+              {pages.map((p, i) =>
+                p === '...'
+                  ? <span key={`dots-${i}`} className="pagination-dots">…</span>
+                  : <button
+                      key={p}
+                      className={`pagination-btn${p === cur ? ' active-page' : ''}`}
+                      onClick={() => goTo(p)}
+                    >{p}</button>
+              )}
+              <button className="pagination-btn" onClick={() => goTo(cur + 1)} disabled={cur === total}>›</button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal de formulario */}
       {showForm && (

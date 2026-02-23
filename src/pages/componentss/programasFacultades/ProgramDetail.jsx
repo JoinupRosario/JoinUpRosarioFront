@@ -504,7 +504,7 @@ export default function ProgramDetail({ onVolver }) {
             <table className="pyf-table">
               <thead>
                 <tr>
-                  <th>COD PROGRAMA</th>
+                  <th>PLAN ESTUDIO</th>
                   <th>COD FACULTAD</th>
                   <th>FACULTAD</th>
                   <th>CENTRO DE COSTO</th>
@@ -523,7 +523,7 @@ export default function ProgramDetail({ onVolver }) {
                   const isActive = estadoRelacion === 'ACTIVE';
                   return (
                     <tr key={pf._id}>
-                      <td>{pf.codigoPrograma ?? pf.code ?? '-'}</td>
+                      <td>{pf.code ?? pf.codigoPrograma ?? '-'}</td>
                       <td>{facultyCode}</td>
                       <td>
                         {facultyId ? (

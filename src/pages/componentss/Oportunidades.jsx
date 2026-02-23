@@ -15,6 +15,7 @@ export default function Oportunidades({ onVolver }) {
   const [companySearchLoading, setCompanySearchLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [vista, setVista] = useState('lista'); // lista | crear | detalle | editar
+  const [listaTab, setListaTab] = useState('practicas'); // practicas | monitorias
   const [oportunidadSeleccionada, setOportunidadSeleccionada] = useState(null);
   const [showModalAprobacion, setShowModalAprobacion] = useState(false);
   const [showModalRechazo, setShowModalRechazo] = useState(false);
@@ -68,6 +69,7 @@ export default function Oportunidades({ onVolver }) {
   const [tipoOportunidad, setTipoOportunidad] = useState(null); // 'practica' | 'monitoria'
   const [showModalInfo, setShowModalInfo] = useState(false);
   const [pendingTipoOportunidad, setPendingTipoOportunidad] = useState(null); // Estado intermedio para cambiar tipo después de cerrar modal
+  const [loadingUniversidad, setLoadingUniversidad] = useState(false);
   const [showSalarioEmocionalDropdown, setShowSalarioEmocionalDropdown] = useState(false);
   const [salarioEmocionalSearch, setSalarioEmocionalSearch] = useState('');
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0, bottom: null });
@@ -78,6 +80,13 @@ export default function Oportunidades({ onVolver }) {
   const [showProgramsModal, setShowProgramsModal] = useState(false);
   const [newProgramLevel, setNewProgramLevel] = useState('');
   const [newProgramName, setNewProgramName] = useState('');
+  // Modal de programas MTM
+  const [showMtmProgramsModal, setShowMtmProgramsModal] = useState(false);
+  const [newMtmProgramLevel, setNewMtmProgramLevel] = useState('');
+  const [newMtmProgramName, setNewMtmProgramName] = useState('');
+  // Programas dinámicos desde el modelo Program (compartido por ambos modales)
+  const [allPrograms, setAllPrograms] = useState([]);
+  const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [showLanguagesModal, setShowLanguagesModal] = useState(false);
   const [newLanguage, setNewLanguage] = useState('');
   const [newLanguageLevel, setNewLanguageLevel] = useState('');
@@ -117,9 +126,34 @@ export default function Oportunidades({ onVolver }) {
     requisitos: ''
   });
   
-  // Estados para países y ciudades
+  // ── Estados para países y ciudades
   const [countries, setCountries] = useState([]);
   const [cities, setCities] = useState([]);
+
+  // ── Estados exclusivos para formulario MTM ─────────────────────────────────
+  const [mtmDedicacionHoras, setMtmDedicacionHoras] = useState('');
+  const [mtmValorPorHora, setMtmValorPorHora] = useState('');
+  const [mtmCategoria, setMtmCategoria] = useState('');
+  const [mtmNombreProfesor, setMtmNombreProfesor] = useState('');
+  const [mtmUnidadAcademica, setMtmUnidadAcademica] = useState('');
+  const [mtmGrupo, setMtmGrupo] = useState('');
+  const [mtmAsignaturas, setMtmAsignaturas] = useState([]);
+  const [mtmProgramas, setMtmProgramas] = useState([]);
+  const [mtmAsigSearch, setMtmAsigSearch] = useState('');
+  const [mtmAsigResults, setMtmAsigResults] = useState([]);
+  const [mtmAsigLoading, setMtmAsigLoading] = useState(false);
+  const [showMtmAsigDrop, setShowMtmAsigDrop] = useState(false);
+  const [mtmProgramaSearch, setMtmProgramaSearch] = useState('');
+  const [mtmProgramaResults, setMtmProgramaResults] = useState([]);
+  const [showMtmProgramaDrop, setShowMtmProgramaDrop] = useState(false);
+  const mtmAsigTimer = useRef(null);
+  const mtmProgramaTimer = useRef(null);
+  // Datos paramétricos MTM
+  const [mtmDedicacionItems, setMtmDedicacionItems] = useState([]);
+  const [mtmValorItems, setMtmValorItems] = useState([]);
+  const [mtmVinculacionItems, setMtmVinculacionItems] = useState([]);
+  const [mtmCategoriaItems, setMtmCategoriaItems] = useState([]);
+  const [mtmPeriodos, setMtmPeriodos] = useState([]);
 
   // Opciones de salario emocional
   const opcionesSalarioEmocional = [
@@ -176,13 +210,30 @@ export default function Oportunidades({ onVolver }) {
       
       // Limpiar parámetros undefined
       Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
-      
-      const { data } = await api.get('/opportunities', { params });
-      // El backend devuelve { opportunities, total, totalPages, currentPage }
-      setOportunidades(data.opportunities || data.data || []);
-      setTotalPages(data.totalPages || 1);
-      setTotalRecords(data.total || 0);
-      setCurrentPage(data.currentPage || 1);
+
+      // Traer prácticas y monitorías MTM en paralelo
+      const [practRes, mtmRes] = await Promise.all([
+        api.get('/opportunities', { params }),
+        api.get('/oportunidades-mtm', { params: { search: params.search, limit: 100 } }).catch(() => ({ data: { data: [] } }))
+      ]);
+
+      const regular = practRes.data.opportunities || practRes.data.data || [];
+      const mtm = (mtmRes.data?.data || []).map(op => ({
+        ...op,
+        tipo: 'monitoria',
+        _isMTM: true,
+        // Normalizar campos para que las cards funcionen igual
+        estado: op.estado === 'Activa' ? 'Activa' : op.estado === 'Inactiva' ? 'Cerrada' : 'Creada',
+        postulaciones: op.postulaciones || [],
+        apoyoEconomico: null,
+        formacionAcademica: [],
+        company: op.company || null
+      }));
+
+      setOportunidades([...regular, ...mtm]);
+      setTotalPages(practRes.data.totalPages || 1);
+      setTotalRecords((practRes.data.total || 0) + mtm.length);
+      setCurrentPage(practRes.data.currentPage || 1);
     } catch (e) {
       console.error('Error cargando oportunidades', e);
       await Swal.fire({
@@ -383,6 +434,72 @@ export default function Oportunidades({ onVolver }) {
     }
   }, [showModalInfo, pendingTipoOportunidad]);
 
+  // ── Cargar programas del modelo Program cuando abre el modal ──────────────
+  useEffect(() => {
+    if (!showProgramsModal && !showMtmProgramsModal) return;
+    if (allPrograms.length > 0) return; // ya cargados
+    setLoadingPrograms(true);
+    api.get('/programs?status=ACTIVE&limit=500')
+      .then(res => setAllPrograms(res.data.data || []))
+      .catch(e => console.error('[Programs modal] load error:', e))
+      .finally(() => setLoadingPrograms(false));
+  }, [showProgramsModal, showMtmProgramsModal]);
+
+  // Limpiar selección al cambiar nivel (práctica)
+  useEffect(() => { setNewProgramName(''); }, [newProgramLevel]);
+  // Limpiar selección al cambiar nivel (MTM)
+  useEffect(() => { setNewMtmProgramName(''); }, [newMtmProgramLevel]);
+
+  // ── Cargar parámetros MTM cuando se selecciona "monitoria" ────────────────
+  const loadMtmParams = async () => {
+    try {
+      const [ded, val, vinc, cat, per] = await Promise.all([
+        api.get('/locations/items/L_DEDICATON_HOURS?limit=100'),
+        api.get('/locations/items/L_REMUNERATION_HOURS_PER_WEEK?limit=100'),
+        api.get('/locations/items/L_CONTRACT_TYPE_STUDY_WORKING?limit=100'),
+        api.get('/locations/items/L_MONITORING_TYPE?limit=100'),
+        api.get('/periodos?tipo=monitoria&estado=Activo&limit=100')
+      ]);
+      setMtmDedicacionItems(ded.data?.data || ded.data || []);
+      setMtmValorItems(val.data?.data || val.data || []);
+      setMtmVinculacionItems(vinc.data?.data || vinc.data || []);
+      setMtmCategoriaItems(cat.data?.data || cat.data || []);
+      setMtmPeriodos(per.data?.data || per.data || []);
+    } catch (e) {
+      console.error('[MTM] loadMtmParams:', e);
+    }
+  };
+
+  // Autocomplete de asignaturas MTM
+  useEffect(() => {
+    if (mtmAsigSearch.length < 3) { setMtmAsigResults([]); setShowMtmAsigDrop(false); return; }
+    clearTimeout(mtmAsigTimer.current);
+    mtmAsigTimer.current = setTimeout(async () => {
+      setMtmAsigLoading(true);
+      try {
+        const res = await api.get(`/asignaturas?search=${encodeURIComponent(mtmAsigSearch)}&limit=15`);
+        setMtmAsigResults(res.data.data || []);
+        setShowMtmAsigDrop(true);
+      } catch { setMtmAsigResults([]); }
+      finally { setMtmAsigLoading(false); }
+    }, 350);
+    return () => clearTimeout(mtmAsigTimer.current);
+  }, [mtmAsigSearch]);
+
+  // Autocomplete de programas MTM
+  useEffect(() => {
+    if (mtmProgramaSearch.length < 2) { setMtmProgramaResults([]); setShowMtmProgramaDrop(false); return; }
+    clearTimeout(mtmProgramaTimer.current);
+    mtmProgramaTimer.current = setTimeout(async () => {
+      try {
+        const res = await api.get(`/programs?search=${encodeURIComponent(mtmProgramaSearch)}&status=ACTIVE&limit=20`);
+        setMtmProgramaResults(res.data.data || []);
+        setShowMtmProgramaDrop(true);
+      } catch { setMtmProgramaResults([]); }
+    }, 350);
+    return () => clearTimeout(mtmProgramaTimer.current);
+  }, [mtmProgramaSearch]);
+
   const filteredOportunidades = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return oportunidades;
@@ -491,18 +608,39 @@ export default function Oportunidades({ onVolver }) {
     setShowCompanyDropdown(false);
   };
 
-  const handleSelectTipo = (tipo) => {
+  const handleSelectTipo = async (tipo) => {
     if (tipo === 'practica') {
       setShowModalInfo(true);
-    } else {
-      // Por ahora solo implementamos práctica
-      Swal.fire({
-        icon: 'info',
-        title: 'En desarrollo',
-        text: 'La funcionalidad de Monitorías, tutorías y mentorías estará disponible próximamente',
-        confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#c41e3a'
-      });
+    } else if (tipo === 'monitoria') {
+      // Auto-seleccionar UNIVERSIDAD DEL ROSARIO e ir directo al formulario
+      setLoadingUniversidad(true);
+      try {
+        const { data } = await api.get('/companies', { params: { search: 'UNIVERSIDAD DEL ROSARIO', limit: 10, page: 1 } });
+        const results = data?.data || data?.companies || [];
+        const universidad = results.find(
+          (c) =>
+            (c.nit || '').replace(/\D/g, '') === '8600077593' ||
+            (c.name || '').toUpperCase().includes('ROSARIO') ||
+            (c.legalName || '').toUpperCase().includes('ROSARIO')
+        );
+        if (!universidad) {
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Empresa no encontrada',
+            text: 'No se encontró la empresa Universidad del Rosario (NIT 8600077593). Contacte al administrador.',
+            confirmButtonColor: '#c41e3a',
+          });
+          return;
+        }
+        setSelectedCompany(universidad);
+        setTipoOportunidad('monitoria');
+        loadMtmParams();
+      } catch (e) {
+        console.error('Error buscando empresa universidad', e);
+        await Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la empresa de la universidad.', confirmButtonColor: '#c41e3a' });
+      } finally {
+        setLoadingUniversidad(false);
+      }
     }
   };
 
@@ -673,12 +811,30 @@ export default function Oportunidades({ onVolver }) {
     setShowProgramsModal(false);
   };
 
-  // Función para eliminar programa
+  // Función para eliminar programa (práctica)
   const handleRemoveProgram = (index) => {
     setFormData(prev => ({
       ...prev,
       formacionAcademica: prev.formacionAcademica.filter((_, i) => i !== index)
     }));
+  };
+
+  // Agregar programa MTM desde modal
+  const handleAddMtmProgram = () => {
+    if (!newMtmProgramLevel || !newMtmProgramName) {
+      Swal.fire({ icon: 'warning', title: 'Campos requeridos', text: 'Selecciona el nivel y el programa.', confirmButtonText: 'Aceptar', confirmButtonColor: '#c41e3a' });
+      return;
+    }
+    const prog = allPrograms.find(p => p.name === newMtmProgramName);
+    if (!prog) return;
+    if (mtmProgramas.find(x => x._id === prog._id)) {
+      setNewMtmProgramLevel(''); setNewMtmProgramName(''); setShowMtmProgramsModal(false);
+      return;
+    }
+    setMtmProgramas(prev => [...prev, prog]);
+    setNewMtmProgramLevel('');
+    setNewMtmProgramName('');
+    setShowMtmProgramsModal(false);
   };
 
   // Función para agregar idioma
@@ -905,6 +1061,60 @@ export default function Oportunidades({ onVolver }) {
         return;
       }
 
+      if (!selectedCompany) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error de validación',
+          text: 'Debe seleccionar una empresa',
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#c41e3a'
+        });
+        return;
+      }
+
+      // ── FLUJO MTM ────────────────────────────────────────────────────────────
+      if (tipoOportunidad === 'monitoria') {
+        Swal.fire({ title: 'Guardando...', text: 'Por favor espere', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        const mtmPayload = {
+          company: selectedCompany._id,
+          nombreCargo: formData.nombreCargo,
+          dedicacionHoras: mtmDedicacionHoras || null,
+          valorPorHora: mtmValorPorHora || null,
+          tipoVinculacion: formData.tipoVinculacion || null,
+          categoria: mtmCategoria || null,
+          periodo: formData.periodo || null,
+          vacantes: formData.vacantes ? parseInt(formData.vacantes) : null,
+          fechaVencimiento: formData.fechaVencimiento || null,
+          asignaturas: mtmAsignaturas.map(a => a._id),
+          promedioMinimo: formData.promedioMinimoRequerido ? parseFloat(formData.promedioMinimoRequerido) : null,
+          nombreProfesor: mtmNombreProfesor || null,
+          unidadAcademica: mtmUnidadAcademica || null,
+          horario: formData.horario || null,
+          grupo: mtmGrupo || null,
+          programas: mtmProgramas.map(p => p._id),
+          funciones: formData.funciones || null,
+          requisitos: formData.requisitos || null
+        };
+
+        await api.post('/oportunidades-mtm', mtmPayload);
+        Swal.close();
+        await Swal.fire({ icon: 'success', title: '¡Éxito!', text: 'La oportunidad de monitoría se ha creado correctamente', confirmButtonText: 'Aceptar', confirmButtonColor: '#c41e3a' });
+
+        // Resetear estados MTM
+        setMtmDedicacionHoras(''); setMtmValorPorHora(''); setMtmCategoria('');
+        setMtmNombreProfesor(''); setMtmUnidadAcademica(''); setMtmGrupo('');
+        setMtmAsignaturas([]); setMtmProgramas([]);
+        setMtmAsigSearch(''); setMtmProgramaSearch('');
+        setFormData({ nombreCargo: '', auxilioEconomico: false, requiereConfidencialidad: false, apoyoEconomico: '', tipoVinculacion: '', periodo: '', vacantes: '', fechaVencimiento: '', pais: '', ciudad: '', jornadaOrdinariaSemanal: '', dedicacion: '', jornadaSemanalPractica: '', fechaInicioPractica: '', fechaFinPractica: '', horario: '', areaDesempeno: '', enlacesFormatoEspecificos: '', primerDocumento: null, primerDocumentoNombre: '', primerDocumentoRequerido: false, segundoDocumento: null, segundoDocumentoNombre: '', tercerDocumento: null, tercerDocumentoNombre: '', salarioEmocional: [], promedioMinimoRequerido: '', formacionAcademica: [], idiomas: [], funciones: '', requisitos: '' });
+        setTipoOportunidad(null);
+        setSelectedCompany(null);
+        await loadOportunidades();
+        setVista('lista');
+        return;
+      }
+
+      // ── FLUJO PRÁCTICA ───────────────────────────────────────────────────────
       if (!formData.requisitos) {
         await Swal.fire({
           icon: 'error',
@@ -921,17 +1131,6 @@ export default function Oportunidades({ onVolver }) {
           icon: 'error',
           title: 'Error de validación',
           text: 'Las funciones deben tener al menos 60 caracteres',
-          confirmButtonText: 'Aceptar',
-          confirmButtonColor: '#c41e3a'
-        });
-        return;
-      }
-
-      if (!selectedCompany) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'Error de validación',
-          text: 'Debe seleccionar una empresa',
           confirmButtonText: 'Aceptar',
           confirmButtonColor: '#c41e3a'
         });
@@ -1665,13 +1864,18 @@ export default function Oportunidades({ onVolver }) {
                     <HiOutlineAcademicCap style={{ marginRight: '8px', display: 'inline-block' }} />
                     PRÁCTICA
                   </>
+                ) : tipoOportunidad === 'monitoria' ? (
+                  <>
+                    <FiBookOpen style={{ marginRight: '8px', display: 'inline-block' }} />
+                    MONITORÍA / TUTORÍA / MENTORÍA
+                  </>
                 ) : (
                   'CREAR OPORTUNIDAD'
                 )}
               </h3>
             </div>
           </div>
-          {tipoOportunidad === 'practica' && (
+          {(tipoOportunidad === 'practica' || tipoOportunidad === 'monitoria') && (
             <div className="form-header-right">
               <button className="btn-guardar-header" onClick={handleSaveForm}>
                 <FiFileText className="btn-icon" />
@@ -1683,84 +1887,79 @@ export default function Oportunidades({ onVolver }) {
 
         <div className="oportunidades-section">
           {!tipoOportunidad ? (
-            <>
-              {isAdmin && (
-                <div className="company-selection-container">
-                  <label className="company-selection-label">Seleccione la empresa:</label>
-                  <div className="company-search-wrapper">
-                    <input
-                      type="text"
-                      className="company-search-input"
-                      placeholder="Escriba nombre de la empresa para buscar..."
-                      value={companySearch}
-                      onChange={(e) => {
-                        setCompanySearch(e.target.value);
-                        setShowCompanyDropdown(true);
-                      }}
-                      onFocus={() => {
-                        if (companySearch.trim()) setShowCompanyDropdown(true);
-                      }}
-                    />
-                    {showCompanyDropdown && companySearch.trim() !== '' && (
-                      <div className="company-dropdown">
-                        {companySearchLoading ? (
-                          <div className="company-dropdown-item company-dropdown-empty">Buscando...</div>
-                        ) : companySearchResults.length > 0 ? (
-                          companySearchResults.map(company => (
-                            <div
-                              key={company._id}
-                              className="company-dropdown-item"
-                              onClick={() => handleSelectCompany(company)}
-                            >
-                              {company.name || company.commercialName}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="company-dropdown-item company-dropdown-empty">Sin coincidencias</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {selectedCompany && (
-                    <div className="selected-company">
-                      Empresa seleccionada: <strong>{selectedCompany.name || selectedCompany.commercialName}</strong>
+            /* ── PASO 1: Selección de tipo ─────────────────────────────── */
+            <div className="tipo-oportunidad-container">
+              <h2 className="tipo-oportunidad-title">¿Qué tipo de oferta deseas crear?</h2>
+              {loadingUniversidad ? (
+                <div className="select-company-message"><p>Cargando empresa de la universidad...</p></div>
+              ) : (
+                <div className="tipo-oportunidad-options">
+                  <div className="tipo-oportunidad-card" onClick={() => handleSelectTipo('practica')}>
+                    <div className="tipo-oportunidad-icon practica">
+                      <HiOutlineAcademicCap />
                     </div>
-                  )}
+                    <span className="tipo-oportunidad-text">Práctica</span>
+                  </div>
+                  <div className="tipo-oportunidad-card" onClick={() => handleSelectTipo('monitoria')}>
+                    <div className="tipo-oportunidad-icon monitoria">
+                      <FiBookOpen />
+                    </div>
+                    <span className="tipo-oportunidad-text">Monitorías, tutorías y mentorías</span>
+                  </div>
                 </div>
               )}
-              
-              <div className="tipo-oportunidad-container">
-                {(!isAdmin || selectedCompany) ? (
-                  <>
-                    <h2 className="tipo-oportunidad-title">¿Qué tipo de oferta deseas crear?</h2>
-                    <div className="tipo-oportunidad-options">
-                      <div
-                        className="tipo-oportunidad-card"
-                        onClick={() => handleSelectTipo('practica')}
-                      >
-                      <div className="tipo-oportunidad-icon practica">
-                        <HiOutlineAcademicCap />
-                      </div>
-                        <span className="tipo-oportunidad-text">Práctica</span>
-                      </div>
-                      <div
-                        className="tipo-oportunidad-card"
-                        onClick={() => handleSelectTipo('monitoria')}
-                      >
-                        <div className="tipo-oportunidad-icon monitoria">
-                          <FiBookOpen />
+            </div>
+          ) : tipoOportunidad === 'practica' && isAdmin && !selectedCompany ? (
+            /* ── PASO 2 (solo Práctica + Admin): Selección de empresa ──── */
+            <div className="company-selection-step">
+            <div className="company-selection-container">
+              <div className="company-selection-back">
+                <button
+                  type="button"
+                  className="btn-volver-tipo"
+                  onClick={() => { setTipoOportunidad(null); setSelectedCompany(null); setCompanySearch(''); }}
+                >
+                  ← Cambiar tipo de oferta
+                </button>
+              </div>
+              <label className="company-selection-label">Seleccione la empresa para la práctica:</label>
+              <div className="company-search-wrapper">
+                <input
+                  type="text"
+                  className="company-search-input"
+                  placeholder="Escriba nombre o NIT de la empresa para buscar..."
+                  value={companySearch}
+                  onChange={(e) => { setCompanySearch(e.target.value); setShowCompanyDropdown(true); }}
+                  onFocus={() => { if (companySearch.trim()) setShowCompanyDropdown(true); }}
+                />
+                {showCompanyDropdown && companySearch.trim() !== '' && (
+                  <div className="company-dropdown">
+                    {companySearchLoading ? (
+                      <div className="company-dropdown-item company-dropdown-empty">Buscando...</div>
+                    ) : companySearchResults.length > 0 ? (
+                      companySearchResults.map(company => (
+                        <div
+                          key={company._id}
+                          className="company-dropdown-item"
+                          onClick={() => handleSelectCompany(company)}
+                        >
+                          {company.name || company.commercialName}
+                          {company.nit ? <span className="company-dropdown-nit"> · NIT {company.nit}</span> : null}
                         </div>
-                        <span className="tipo-oportunidad-text">Monitorías, tutorías y mentorías</span>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="select-company-message">
-                    <p>Por favor seleccione una empresa para continuar</p>
+                      ))
+                    ) : (
+                      <div className="company-dropdown-item company-dropdown-empty">Sin coincidencias</div>
+                    )}
                   </div>
                 )}
               </div>
-            </>
+              {selectedCompany && (
+                <div className="selected-company">
+                  Empresa seleccionada: <strong>{selectedCompany.name || selectedCompany.commercialName}</strong>
+                </div>
+              )}
+            </div>
+            </div>
           ) : tipoOportunidad === 'practica' ? (
             <div className="formulario-practica-container">
               <form className="practica-form">
@@ -2464,60 +2663,419 @@ export default function Oportunidades({ onVolver }) {
                 </div>
               </form>
             </div>
+
+          ) : tipoOportunidad === 'monitoria' ? (
+            /* ── FORMULARIO MTM ──────────────────────────────────────── */
+            <div className="formulario-practica-container">
+              <form className="practica-form">
+
+                {/* Intro banner */}
+                <div className="mtm-form-intro">
+                  <HiOutlineAcademicCap className="mtm-form-intro-icon" />
+                  <div className="mtm-form-intro-text">
+                    <strong>Monitoría / Tutoría / Mentoría</strong>
+                    <span>Completa los campos para registrar la oferta académica. Los campos con <span className="required">*</span> son obligatorios.</span>
+                  </div>
+                </div>
+
+                {/* ── SECCIÓN: Información básica ─────────────────────── */}
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiFileText /> Información básica</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiFileText className="label-icon" />
+                    Nombre del cargo <span className="required">*</span>
+                  </label>
+                  <input type="text" name="nombreCargo" value={formData.nombreCargo}
+                    onChange={handleFormChange} className="form-input"
+                    placeholder="Ej: Monitor de Cálculo Diferencial" />
+                </div>
+
+                {selectedCompany && (
+                  <div className="form-field-group form-field-half-width">
+                    <label className="form-label-with-icon">
+                      <FiUsers className="label-icon" /> Empresa
+                    </label>
+                    <div className="company-display">{selectedCompany.name || selectedCompany.commercialName}</div>
+                  </div>
+                )}
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiList className="label-icon" /> Categoría
+                  </label>
+                  <select value={mtmCategoria} onChange={e => setMtmCategoria(e.target.value)} className="form-select">
+                    <option value="">— Selecciona —</option>
+                    {mtmCategoriaItems.map(c => <option key={c._id} value={c._id}>{c.value}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiCalendar className="label-icon" /> Periodo académico
+                  </label>
+                  <select name="periodo" value={formData.periodo} onChange={handleFormChange} className="form-select">
+                    <option value="">— Selecciona —</option>
+                    {mtmPeriodos.map(p => <option key={p._id} value={p._id}>{p.codigo}</option>)}
+                  </select>
+                </div>
+
+                {/* ── SECCIÓN: Parámetros económicos ──────────────────── */}
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiDollarSign /> Parámetros económicos</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiClock className="label-icon" /> Dedicación horas / semana
+                  </label>
+                  <select value={mtmDedicacionHoras} onChange={e => setMtmDedicacionHoras(e.target.value)} className="form-select">
+                    <option value="">— Selecciona —</option>
+                    {mtmDedicacionItems.map(d => <option key={d._id} value={d._id}>{d.value}{d.description ? ` — ${d.description}` : ''}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiDollarSign className="label-icon" /> Valor por hora
+                  </label>
+                  <select value={mtmValorPorHora} onChange={e => setMtmValorPorHora(e.target.value)} className="form-select">
+                    <option value="">— Selecciona —</option>
+                    {mtmValorItems.map(v => <option key={v._id} value={v._id}>{v.value}{v.description ? ` — ${v.description}` : ''}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiFileText className="label-icon" /> Tipo de vinculación
+                  </label>
+                  <select name="tipoVinculacion" value={formData.tipoVinculacion} onChange={handleFormChange} className="form-select">
+                    <option value="">— Selecciona —</option>
+                    {mtmVinculacionItems.map(v => <option key={v._id} value={v._id}>{v.value}{v.description ? ` — ${v.description}` : ''}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiUsers className="label-icon" /> Vacantes
+                  </label>
+                  <input type="number" name="vacantes" min={1} value={formData.vacantes}
+                    onChange={handleFormChange} className="form-input" placeholder="N° de vacantes" />
+                </div>
+
+                {/* ── SECCIÓN: Fechas y condiciones ───────────────────── */}
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiCalendar /> Fechas y condiciones</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiCalendar className="label-icon" /> Fecha de vencimiento
+                  </label>
+                  <input type="date" name="fechaVencimiento" value={formData.fechaVencimiento}
+                    onChange={handleFormChange} className="form-input" />
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiBookOpen className="label-icon" /> Promedio mínimo requerido
+                  </label>
+                  <input type="number" name="promedioMinimoRequerido" min={0} max={5} step={0.1}
+                    value={formData.promedioMinimoRequerido} onChange={handleFormChange}
+                    className="form-input" placeholder="Ej: 3.5" />
+                </div>
+
+                {/* ── SECCIÓN: Responsable ────────────────────────────── */}
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiEdit /> Responsable y ofertante</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiEdit className="label-icon" /> Nombre del profesor / responsable
+                  </label>
+                  <input type="text" value={mtmNombreProfesor} onChange={e => setMtmNombreProfesor(e.target.value)}
+                    className="form-input" placeholder="Nombre completo" />
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiMapPin className="label-icon" /> Unidad académica o transversal
+                  </label>
+                  <input type="text" value={mtmUnidadAcademica} onChange={e => setMtmUnidadAcademica(e.target.value)}
+                    className="form-input" placeholder="Ej: Facultad de Economía" />
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiClock className="label-icon" /> Horario de la MTM
+                  </label>
+                  <input type="text" name="horario" value={formData.horario} onChange={handleFormChange}
+                    className="form-input" placeholder="Ej: Lunes y Miércoles 10:00–12:00" />
+                </div>
+
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon">
+                    <FiBook className="label-icon" /> Grupo
+                  </label>
+                  <input type="text" value={mtmGrupo} onChange={e => setMtmGrupo(e.target.value)}
+                    className="form-input" placeholder="Código o nombre del grupo" />
+                </div>
+
+                {/* ── SECCIÓN: Contenido académico ────────────────────── */}
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><HiOutlineAcademicCap /> Contenido académico</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+
+                {/* Asignaturas (máx 3) */}
+                <div className="form-field-group form-field-full-width">
+                  <label className="form-label-with-icon">
+                    <FiBook className="label-icon" />
+                    Asignaturas asociadas
+                    <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 4 }}>(máx. 3 — busca por código o nombre)</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder={mtmAsignaturas.length >= 3 ? 'Máximo 3 asignaturas seleccionadas' : 'Escribe al menos 3 caracteres...'}
+                      value={mtmAsigSearch}
+                      disabled={mtmAsignaturas.length >= 3}
+                      onChange={e => setMtmAsigSearch(e.target.value)}
+                    />
+                    {(showMtmAsigDrop || mtmAsigLoading) && (
+                      <div style={{
+                        position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                        background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,.1)', zIndex: 200, maxHeight: 200, overflowY: 'auto'
+                      }}>
+                        {mtmAsigLoading
+                          ? <div style={{ padding: '10px 14px', color: '#9ca3af', fontSize: 13 }}>Buscando...</div>
+                          : mtmAsigResults.length === 0
+                            ? <div style={{ padding: '10px 14px', color: '#9ca3af', fontSize: 13 }}>Sin resultados</div>
+                            : mtmAsigResults.map(a => (
+                              <div key={a._id}
+                                style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f9fafb', fontSize: 13 }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#fff5f5'}
+                                onMouseLeave={e => e.currentTarget.style.background = ''}
+                                onClick={() => {
+                                  if (mtmAsignaturas.find(x => x._id === a._id)) return;
+                                  setMtmAsignaturas(prev => [...prev, a]);
+                                  setMtmAsigSearch(''); setShowMtmAsigDrop(false);
+                                }}>
+                                <strong style={{ color: '#c41e3a' }}>{a.codAsignatura}</strong> — {a.nombreAsignatura}
+                              </div>
+                            ))
+                        }
+                      </div>
+                    )}
+                  </div>
+                  {mtmAsignaturas.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                      {mtmAsignaturas.map(a => (
+                        <span key={a._id} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          background: '#fff5f5', border: '1px solid #fca5a5',
+                          borderRadius: 20, padding: '5px 12px', fontSize: 12, color: '#991b1b', fontWeight: 500
+                        }}>
+                          <FiBook size={11} />
+                          {a.codAsignatura} — {a.nombreAsignatura}
+                          <span style={{ cursor: 'pointer', opacity: .7, lineHeight: 1 }}
+                            onClick={() => setMtmAsignaturas(prev => prev.filter(x => x._id !== a._id))}>×</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Programas (multi-select via modal) */}
+                <div className="form-field-group form-field-full-width">
+                  <label className="form-label-with-icon" style={{ marginBottom: 2 }}>
+                    <HiOutlineAcademicCap className="label-icon" /> Programas a los que puede pertenecer el candidato
+                  </label>
+                  <div className="programs-section">
+                    <div className="programs-header">
+                      <span className="programs-title">Programas candidatos</span>
+                      <button type="button" className="programs-add" onClick={() => setShowMtmProgramsModal(true)} title="Añadir programa">
+                        <FiPlus />
+                      </button>
+                    </div>
+                    {mtmProgramas.length === 0 ? (
+                      <div className="programs-empty">
+                        <FiX style={{ marginRight: '4px', display: 'inline-block' }} />
+                        No hay programas seleccionados.
+                      </div>
+                    ) : (
+                      <ul className="programs-list">
+                        {mtmProgramas.map((p, idx) => (
+                          <li key={p._id}>
+                            {p.labelLevel} — {p.name}
+                            <button type="button" className="program-remove"
+                              onClick={() => setMtmProgramas(prev => prev.filter((_, i) => i !== idx))} title="Eliminar">
+                              <FiX />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── SECCIÓN: Descripción ────────────────────────────── */}
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiList /> Descripción de la oferta</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+
+                <div className="form-field-group form-field-full-width">
+                  <label className="form-label-with-icon">
+                    <FiList className="label-icon" /> Funciones
+                  </label>
+                  <textarea name="funciones" value={formData.funciones} onChange={handleFormChange}
+                    className="form-textarea" rows={4} maxLength={250}
+                    placeholder="Describe las actividades y responsabilidades del cargo..." />
+                  <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'right' }}>{(formData.funciones || '').length}/250</div>
+                </div>
+
+                <div className="form-field-group form-field-full-width">
+                  <label className="form-label-with-icon">
+                    <FiAlertCircle className="label-icon" /> Requisitos
+                  </label>
+                  <textarea name="requisitos" value={formData.requisitos} onChange={handleFormChange}
+                    className="form-textarea" rows={4} maxLength={250}
+                    placeholder="Describe los requisitos que debe cumplir el candidato..." />
+                  <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'right' }}>{(formData.requisitos || '').length}/250</div>
+                </div>
+
+              </form>
+            </div>
+
           ) : null}
         </div>
 
         {/* Modal de Programas (Formación Académica) */}
-        {showProgramsModal && (
-          <div className="modal-overlay" onClick={() => setShowProgramsModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h4>Programas</h4>
-                <button className="modal-close" onClick={() => setShowProgramsModal(false)}>×</button>
-              </div>
-              <div className="modal-body">
-                <div className="modal-field">
-                  <label>Nivel <span className="required">*</span></label>
-                  <select value={newProgramLevel} onChange={e => setNewProgramLevel(e.target.value)}>
-                    <option value="">- Seleccione un Nivel -</option>
-                    <option value="Pregrado">Pregrado</option>
-                    <option value="Posgrado">Posgrado</option>
-                    <option value="Tecnológico">Tecnológico</option>
-                  </select>
+        {showProgramsModal && (() => {
+          // Normaliza quitando tildes para comparar, pero muestra la versión original
+          const normStr = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+          // Niveles únicos deduplicados (sin importar tilde/mayúscula)
+          const uniqueLevels = [];
+          const seen = new Set();
+          allPrograms.forEach(p => {
+            if (!p.labelLevel) return;
+            const n = normStr(p.labelLevel);
+            if (!seen.has(n)) { seen.add(n); uniqueLevels.push(p.labelLevel); }
+          });
+          uniqueLevels.sort((a, b) => a.localeCompare(b, 'es'));
+          // Programas del nivel seleccionado (match normalizado)
+          const programasDelNivel = newProgramLevel
+            ? allPrograms
+                .filter(p => normStr(p.labelLevel) === normStr(newProgramLevel))
+                .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+            : [];
+
+          return (
+            <div
+              onClick={() => setShowProgramsModal(false)}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 2000,
+                background: 'rgba(0,0,0,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 20
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  width: 520, maxWidth: 'calc(100vw - 40px)', maxHeight: '90vh',
+                  background: '#fff', borderRadius: 12,
+                  boxShadow: '0 20px 60px rgba(0,0,0,.25)',
+                  display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                }}
+              >
+                <div className="modal-header">
+                  <h4>Agregar programa académico</h4>
+                  <button className="modal-close" onClick={() => setShowProgramsModal(false)}>×</button>
                 </div>
-                <div className="modal-field">
-                  <label>Programa <span className="required">*</span></label>
-                  <select value={newProgramName} onChange={e => setNewProgramName(e.target.value)}>
-                    <option value="">- Seleccione un programa -</option>
-                    <option value="Administración de Empresas">Administración de Empresas</option>
-                    <option value="Ingeniería">Ingeniería</option>
-                    <option value="Economía">Economía</option>
-                  </select>
+                <div className="modal-body">
+                  {loadingPrograms ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af', fontSize: 13 }}>
+                      Cargando niveles y programas...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="modal-field">
+                        <label>Nivel <span className="required">*</span></label>
+                        <select value={newProgramLevel} onChange={e => setNewProgramLevel(e.target.value)}>
+                          <option value="">— Seleccione un nivel —</option>
+                          {uniqueLevels.map(lv => <option key={lv} value={lv}>{lv}</option>)}
+                        </select>
+                      </div>
+                      <div className="modal-field">
+                        <label>Programa <span className="required">*</span></label>
+                        <select
+                          value={newProgramName}
+                          onChange={e => setNewProgramName(e.target.value)}
+                          disabled={!newProgramLevel}
+                        >
+                          <option value="">
+                            {newProgramLevel ? '— Seleccione un programa —' : '— Primero seleccione un nivel —'}
+                          </option>
+                          {programasDelNivel.map(p => (
+                            <option key={p._id} value={p.name}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn-secondary" onClick={() => setShowProgramsModal(false)}>Cerrar</button>
-                <button className="btn-guardar" onClick={handleAddProgram}>Añadir</button>
+                <div className="modal-footer">
+                  <button className="btn-secondary" onClick={() => setShowProgramsModal(false)}>Cerrar</button>
+                  <button className="btn-guardar" onClick={handleAddProgram} disabled={loadingPrograms}>Añadir</button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Modal de Idiomas */}
         {showLanguagesModal && (
-          <div className="modal-overlay" onClick={() => setShowLanguagesModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            onClick={() => setShowLanguagesModal(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 2000,
+              background: 'rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 20
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: 480, maxWidth: 'calc(100vw - 40px)', maxHeight: '90vh',
+                background: '#fff', borderRadius: 12,
+                boxShadow: '0 20px 60px rgba(0,0,0,.25)',
+                display: 'flex', flexDirection: 'column', overflow: 'hidden'
+              }}
+            >
               <div className="modal-header">
-                <h4>Idiomas</h4>
+                <h4>Agregar idioma</h4>
                 <button className="modal-close" onClick={() => setShowLanguagesModal(false)}>×</button>
               </div>
               <div className="modal-body">
                 <div className="modal-field">
-                  <label>Seleccionar idioma <span className="required">*</span></label>
+                  <label>Idioma <span className="required">*</span></label>
                   <select value={newLanguage} onChange={e => setNewLanguage(e.target.value)}>
-                    <option value="">Seleccionar idioma</option>
+                    <option value="">— Seleccione un idioma —</option>
                     <option value="Alemán">Alemán</option>
                     <option value="Chino Mandarín">Chino Mandarín</option>
+                    <option value="Coreano">Coreano</option>
                     <option value="Español">Español</option>
                     <option value="Francés">Francés</option>
                     <option value="Griego">Griego</option>
@@ -2526,19 +3084,18 @@ export default function Oportunidades({ onVolver }) {
                     <option value="Japonés">Japonés</option>
                     <option value="Latín">Latín</option>
                     <option value="Portugués">Portugués</option>
-                    <option value="Coreano">Coreano</option>
                   </select>
                 </div>
                 <div className="modal-field">
-                  <label>Seleccionar nivel <span className="required">*</span></label>
+                  <label>Nivel <span className="required">*</span></label>
                   <select value={newLanguageLevel} onChange={e => setNewLanguageLevel(e.target.value)}>
-                    <option value="">Seleccionar nivel</option>
-                    <option value="A1">A1 - Principiante</option>
-                    <option value="A2">A2 - Básico</option>
-                    <option value="B1">B1 - Intermedio</option>
-                    <option value="B2">B2 - Intermedio alto</option>
-                    <option value="C1">C1 - Avanzado</option>
-                    <option value="C2">C2 - Maestría</option>
+                    <option value="">— Seleccione un nivel —</option>
+                    <option value="A1">A1 — Principiante</option>
+                    <option value="A2">A2 — Básico</option>
+                    <option value="B1">B1 — Intermedio</option>
+                    <option value="B2">B2 — Intermedio alto</option>
+                    <option value="C1">C1 — Avanzado</option>
+                    <option value="C2">C2 — Dominio pleno</option>
                     <option value="Nativo">Nativo</option>
                   </select>
                 </div>
@@ -2591,6 +3148,86 @@ export default function Oportunidades({ onVolver }) {
             </div>
           </div>
         )}
+
+        {/* Modal de Programas MTM */}
+        {showMtmProgramsModal && (() => {
+          const normStr = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+          const uniqueLevels = [];
+          const seen = new Set();
+          allPrograms.forEach(p => {
+            if (!p.labelLevel) return;
+            const n = normStr(p.labelLevel);
+            if (!seen.has(n)) { seen.add(n); uniqueLevels.push(p.labelLevel); }
+          });
+          uniqueLevels.sort((a, b) => a.localeCompare(b, 'es'));
+          const programasDelNivel = newMtmProgramLevel
+            ? allPrograms
+                .filter(p => normStr(p.labelLevel) === normStr(newMtmProgramLevel))
+                .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+            : [];
+          return (
+            <div
+              onClick={() => setShowMtmProgramsModal(false)}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 2000,
+                background: 'rgba(0,0,0,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 20
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  width: 520, maxWidth: 'calc(100vw - 40px)', maxHeight: '90vh',
+                  background: '#fff', borderRadius: 12,
+                  boxShadow: '0 20px 60px rgba(0,0,0,.25)',
+                  display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                }}
+              >
+                <div className="modal-header">
+                  <h4>Agregar programa candidato</h4>
+                  <button className="modal-close" onClick={() => setShowMtmProgramsModal(false)}>×</button>
+                </div>
+                <div className="modal-body">
+                  {loadingPrograms ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af', fontSize: 13 }}>
+                      Cargando niveles y programas...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="modal-field">
+                        <label>Nivel <span className="required">*</span></label>
+                        <select value={newMtmProgramLevel} onChange={e => setNewMtmProgramLevel(e.target.value)}>
+                          <option value="">— Seleccione un nivel —</option>
+                          {uniqueLevels.map(lv => <option key={lv} value={lv}>{lv}</option>)}
+                        </select>
+                      </div>
+                      <div className="modal-field">
+                        <label>Programa <span className="required">*</span></label>
+                        <select
+                          value={newMtmProgramName}
+                          onChange={e => setNewMtmProgramName(e.target.value)}
+                          disabled={!newMtmProgramLevel}
+                        >
+                          <option value="">
+                            {newMtmProgramLevel ? '— Seleccione un programa —' : '— Primero seleccione un nivel —'}
+                          </option>
+                          {programasDelNivel.map(p => (
+                            <option key={p._id} value={p.name}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button className="btn-secondary" onClick={() => setShowMtmProgramsModal(false)}>Cerrar</button>
+                  <button className="btn-guardar" onClick={handleAddMtmProgram} disabled={loadingPrograms}>Añadir</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -3401,6 +4038,158 @@ export default function Oportunidades({ onVolver }) {
         </div>
       );
     }
+
+    // ── DETALLE MTM (vista de solo lectura) ──────────────────────────────────
+    if (opp._isMTM) {
+      const fmtFecha = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      const estadoColors = { Borrador: '#6b7280', Activa: '#16a34a', Inactiva: '#dc2626' };
+      const estadoCol = estadoColors[opp.estado] || '#6b7280';
+      return (
+        <div className="oportunidades-content">
+          <div className="oportunidades-header form-header detail-header">
+            <div className="form-header-left">
+              <button className="btn-volver-icon" onClick={() => { setVista('lista'); setOportunidadSeleccionada(null); setEditFormData(null); setIsEditingDetail(false); }} title="Volver">
+                <FiArrowLeft className="btn-icon" />
+              </button>
+              <div className="section-header">
+                <h3><HiOutlineAcademicCap style={{ marginRight: 8, display: 'inline-block' }} />DETALLE MONITORÍA / TUTORÍA / MENTORÍA</h3>
+              </div>
+            </div>
+            <div className="detail-header-actions">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: estadoCol + '18', color: estadoCol, border: `1px solid ${estadoCol}44`, borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 600 }}>
+                {opp.estado || 'Borrador'}
+              </span>
+            </div>
+          </div>
+          <div className="oportunidades-section">
+            <div className="formulario-practica-container">
+              <div className="practica-form">
+                <div className="mtm-form-intro">
+                  <HiOutlineAcademicCap className="mtm-form-intro-icon" />
+                  <div className="mtm-form-intro-text">
+                    <strong>{opp.nombreCargo}</strong>
+                    <span>Oportunidad MTM · No. {opp._id?.slice(-6)}</span>
+                  </div>
+                </div>
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiFileText /> Información básica</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiFileText className="label-icon" /> Nombre del cargo</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.nombreCargo || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiUsers className="label-icon" /> Empresa</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.company?.name || opp.company?.legalName || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiList className="label-icon" /> Categoría</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.categoria?.value || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiCalendar className="label-icon" /> Periodo académico</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.periodo?.codigo || '—'}</div>
+                </div>
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiDollarSign /> Parámetros económicos</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiClock className="label-icon" /> Dedicación horas / semana</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.dedicacionHoras?.value || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiDollarSign className="label-icon" /> Valor por hora</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.valorPorHora?.value || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiFileText className="label-icon" /> Tipo de vinculación</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.tipoVinculacion?.value || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiUsers className="label-icon" /> Vacantes</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.vacantes ?? '—'}</div>
+                </div>
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiCalendar /> Fechas y condiciones</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiCalendar className="label-icon" /> Fecha de vencimiento</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{fmtFecha(opp.fechaVencimiento)}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiBookOpen className="label-icon" /> Promedio mínimo requerido</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.promedioMinimo != null ? opp.promedioMinimo : '—'}</div>
+                </div>
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiEdit /> Responsable y ofertante</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiEdit className="label-icon" /> Profesor / Responsable</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.nombreProfesor || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiMapPin className="label-icon" /> Unidad académica</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.unidadAcademica || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiClock className="label-icon" /> Horario</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.horario || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-half-width">
+                  <label className="form-label-with-icon"><FiBook className="label-icon" /> Grupo</label>
+                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.grupo || '—'}</div>
+                </div>
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><HiOutlineAcademicCap /> Contenido académico</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+                <div className="form-field-group form-field-full-width">
+                  <label className="form-label-with-icon"><FiBook className="label-icon" /> Asignaturas asociadas</label>
+                  {(!opp.asignaturas || opp.asignaturas.length === 0) ? (
+                    <div style={{ fontSize: 13, color: '#9ca3af', padding: '8px 0' }}>Sin asignaturas seleccionadas.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                      {opp.asignaturas.map(a => (
+                        <span key={a._id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 20, padding: '5px 12px', fontSize: 12, color: '#991b1b', fontWeight: 500 }}>
+                          <FiBook size={11} />{a.codAsignatura} — {a.nombreAsignatura}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="form-field-group form-field-full-width">
+                  <label className="form-label-with-icon"><HiOutlineAcademicCap className="label-icon" /> Programas candidatos</label>
+                  {(!opp.programas || opp.programas.length === 0) ? (
+                    <div style={{ fontSize: 13, color: '#9ca3af', padding: '8px 0' }}>Sin programas seleccionados.</div>
+                  ) : (
+                    <ul className="programs-list" style={{ marginTop: 4 }}>
+                      {opp.programas.map(p => (<li key={p._id}>{p.labelLevel} — {p.name}</li>))}
+                    </ul>
+                  )}
+                </div>
+                <div className="mtm-section-divider">
+                  <div className="mtm-section-divider-label"><FiList /> Descripción de la oferta</div>
+                  <div className="mtm-section-divider-line" />
+                </div>
+                <div className="form-field-group form-field-full-width">
+                  <label className="form-label-with-icon"><FiList className="label-icon" /> Funciones</label>
+                  <div className="form-textarea" style={{ background: '#f9fafb', minHeight: 80, whiteSpace: 'pre-wrap' }}>{opp.funciones || '—'}</div>
+                </div>
+                <div className="form-field-group form-field-full-width">
+                  <label className="form-label-with-icon"><FiAlertCircle className="label-icon" /> Requisitos</label>
+                  <div className="form-textarea" style={{ background: '#f9fafb', minHeight: 80, whiteSpace: 'pre-wrap' }}>{opp.requisitos || '—'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // ── FIN DETALLE MTM ──────────────────────────────────────────────────────
 
     // Función para activar modo edición
     const handleActivarEdicion = () => {
@@ -4425,9 +5214,33 @@ export default function Oportunidades({ onVolver }) {
         </div>
       </div>
 
+      {/* Pestañas Prácticas / Monitorías */}
+      <div className="oportunidades-tabs-bar">
+        <button
+          className={`oportunidades-tab-btn${listaTab === 'practicas' ? ' active' : ''}`}
+          onClick={() => setListaTab('practicas')}
+        >
+          <HiOutlineAcademicCap style={{ marginRight: 6 }} />
+          Prácticas
+          <span className="oportunidades-tab-count">
+            {oportunidades.filter(o => !o._isMTM).length}
+          </span>
+        </button>
+        <button
+          className={`oportunidades-tab-btn${listaTab === 'monitorias' ? ' active' : ''}`}
+          onClick={() => setListaTab('monitorias')}
+        >
+          <FiBookOpen style={{ marginRight: 6 }} />
+          Monitorías / Tutorías / Mentorías
+          <span className="oportunidades-tab-count">
+            {oportunidades.filter(o => o._isMTM).length}
+          </span>
+        </button>
+      </div>
+
       {/* Información de registros */}
       <div className="oportunidades-info">
-        <p>Se encontraron {totalRecords} registros.</p>
+        <p>Se encontraron {oportunidades.filter(o => listaTab === 'practicas' ? !o._isMTM : o._isMTM).length} registros.</p>
       </div>
 
       {/* Filtros de Búsqueda */}
@@ -4605,13 +5418,13 @@ export default function Oportunidades({ onVolver }) {
             <div className="loading-spinner"></div>
             <p>Cargando oportunidades...</p>
           </div>
-        ) : oportunidades.length === 0 ? (
+        ) : oportunidades.filter(o => listaTab === 'practicas' ? !o._isMTM : o._isMTM).length === 0 ? (
           <div className="empty-state">
-            <p>No hay oportunidades registradas</p>
+            <p>No hay oportunidades de {listaTab === 'practicas' ? 'prácticas' : 'monitorías'} registradas</p>
           </div>
         ) : (
           <div className="oportunidades-grid">
-            {oportunidades.map(oportunidad => {
+            {oportunidades.filter(o => listaTab === 'practicas' ? !o._isMTM : o._isMTM).map(oportunidad => {
               const estado = oportunidad.estado || oportunidad.status || 'Creada';
               const isActiva = estado === 'Activa' || estado === 'activa' || estado === 'published';
               const numPostulantes = oportunidad.postulaciones?.length || 0;
@@ -4626,8 +5439,13 @@ export default function Oportunidades({ onVolver }) {
                   onClick={async () => {
                     try {
                       setLoading(true);
-                      const { data } = await api.get(`/opportunities/${oportunidad._id}`);
-                      setOportunidadSeleccionada(data);
+                      if (oportunidad._isMTM) {
+                        const { data } = await api.get(`/oportunidades-mtm/${oportunidad._id}`);
+                        setOportunidadSeleccionada({ ...data, _isMTM: true });
+                      } else {
+                        const { data } = await api.get(`/opportunities/${oportunidad._id}`);
+                        setOportunidadSeleccionada(data);
+                      }
                       setVista('detalle');
                     } catch (error) {
                       console.error('Error cargando oportunidad:', error);
@@ -4768,8 +5586,10 @@ export default function Oportunidades({ onVolver }) {
                     </div>
                     <div className="oportunidad-icons">
                       <span className="oportunidad-type-icon">
-                        <HiOutlineAcademicCap />
-                        <span>Práctica</span>
+                        {oportunidad._isMTM || oportunidad.tipo === 'monitoria'
+                          ? <><FiBookOpen /><span>Monitoría</span></>
+                          : <><HiOutlineAcademicCap /><span>Práctica</span></>
+                        }
                       </span>
                       <span className="oportunidad-applicants-icon">
                         <FiUsers />
