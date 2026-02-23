@@ -206,8 +206,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    const wasSaml = state.user?.directorioActivo === true;
     localStorage.clear();
     dispatch({ type: 'LOGOUT' });
+
+    if (wasSaml) {
+      // Redirige al backend que a su vez cierra la sesión en Microsoft
+      window.location.href = '/api/auth/saml/logout';
+    }
   };
 
   /** Helper para verificar si el usuario tiene un permiso por su código. */
