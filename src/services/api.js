@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/
 // Crear instancia de axios
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 20000, // 20s para cubrir cold starts de Vercel serverless
   headers: {
     'Content-Type': 'application/json',
   },
@@ -33,10 +33,13 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Token expirado o inválido
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/#/login';
+      // No redirigir si estamos procesando el callback SAML (SamlSuccess maneja su propio flujo)
+      const isSamlCallback = window.location.hash.includes('/auth/saml-success');
+      if (!isSamlCallback) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/#/login';
+      }
     }
     return Promise.reject(error);
   }

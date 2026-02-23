@@ -38,8 +38,21 @@ export default function SamlSuccess() {
       try {
         localStorage.setItem('token', token);
 
-        const response = await api.get('/users/profile');
-        const user = response.data;
+        // Retry con backoff: el primer intento post-SAML puede topar con un cold start
+        // en Vercel serverless. Reintentamos hasta 4 veces antes de rendirse.
+        let user = null;
+        const delays = [0, 1500, 3000, 5000];
+        for (let i = 0; i < delays.length; i++) {
+          if (delays[i] > 0) await new Promise(r => setTimeout(r, delays[i]));
+          try {
+            const response = await api.get('/users/profile');
+            user = response.data;
+            break;
+          } catch (retryErr) {
+            if (i === delays.length - 1) throw retryErr; // último intento → propagar error
+            console.warn(`[SAML] Intento ${i + 1} fallido al obtener perfil, reintentando...`);
+          }
+        }
 
         loginWithToken(token, user);
 
