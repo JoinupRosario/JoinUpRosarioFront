@@ -9,12 +9,8 @@ export default function SamlSuccess() {
   const { loginWithToken, logout } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState('');
-  const [debugLog, setDebugLog] = useState([]);
 
-  const log = (msg) => {
-    console.log('[SAML-SUCCESS]', msg);
-    setDebugLog(prev => [...prev, `${new Date().toISOString().slice(11,23)} — ${msg}`]);
-  };
+  const log = (msg) => console.log('[SAML-SUCCESS]', msg);
 
   useEffect(() => {
     const processSamlToken = async () => {
@@ -132,20 +128,6 @@ export default function SamlSuccess() {
           </>
         )}
 
-        {/* Log de diagnóstico temporal — visible en pantalla */}
-        {debugLog.length > 0 && (
-          <div style={{
-            marginTop: 24, textAlign: 'left', background: '#0f172a',
-            borderRadius: 8, padding: '12px 16px', maxHeight: 200, overflowY: 'auto',
-          }}>
-            {debugLog.map((line, i) => (
-              <div key={i} style={{
-                fontFamily: 'monospace', fontSize: 11, color: line.includes('FALLÓ') || line.includes('ERROR') ? '#f87171' : '#86efac',
-                lineHeight: '1.7',
-              }}>{line}</div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
