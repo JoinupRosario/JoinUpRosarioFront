@@ -369,7 +369,7 @@ const Postulants = ({ onVolver }) => {
                           onClick={(e) => openCursosModal(e, p)}
                         >
                           <FiBook className="btn-icon" />
-                          Ver cursos
+                          Ver programas
                         </button>
                       </div>
                     )}
@@ -495,7 +495,7 @@ const Postulants = ({ onVolver }) => {
           <div className="cursos-modal" onClick={(e) => e.stopPropagation()}>
             <div className="cursos-modal-header">
               <h3>
-                Cursos — {cursosModal.postulant ? [cursosModal.postulant.name ?? cursosModal.postulant.user?.name, cursosModal.postulant.user?.lastname].filter(Boolean).join(' ') || cursosModal.postulant.identity_postulant || 'Postulante' : 'Postulante'}
+                Programas — {cursosModal.postulant ? [cursosModal.postulant.name ?? cursosModal.postulant.user?.name, cursosModal.postulant.user?.lastname].filter(Boolean).join(' ') || cursosModal.postulant.identity_postulant || 'Postulante' : 'Postulante'}
               </h3>
               <button type="button" className="cursos-modal-close" onClick={closeCursosModal} aria-label="Cerrar">
                 ×
@@ -503,11 +503,11 @@ const Postulants = ({ onVolver }) => {
             </div>
             <div className="cursos-modal-body">
               {cursosModal.loading ? (
-                <div className="cursos-modal-loading">Cargando cursos...</div>
+                <div className="cursos-modal-loading">Cargando programas...</div>
               ) : (
                 <>
                   <section className="cursos-modal-section">
-                    <h4>Formación en curso</h4>
+                    <h4>Programa en curso</h4>
                     {cursosModal.enrolled.length === 0 ? (
                       <p className="cursos-empty">Sin programas en curso.</p>
                     ) : (

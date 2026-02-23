@@ -24,7 +24,9 @@ import {
   FiCalendar,
   FiMoreVertical,
   FiPlus,
-  FiEye
+  FiEye,
+  FiUser,
+  FiGrid
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -76,6 +78,34 @@ const monthsBetween = (start, end) => {
   if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return 0;
   const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) + 1;
   return Math.max(0, months);
+};
+
+/** Créditos por semestre estándar para calcular SSC (semestres según créditos aprobados). */
+const CREDITOS_POR_SEMESTRE = 18;
+
+/**
+ * Calcula los semestres SSC según créditos aprobados a partir de programExtraInfo.
+ * Usa accordingCreditSemester si existe; si no, calcula: créditos aprobados / CREDITOS_POR_SEMESTRE (redondeado hacia arriba).
+ * @param {object} profileData - Respuesta de profile-data (enrolledPrograms, programExtraInfo)
+ * @returns {number|null} Semestres o null si no hay datos
+ */
+const getSscSemestersFromCredits = (profileData) => {
+  const extraList = profileData?.programExtraInfo || [];
+  const enrolled = profileData?.enrolledPrograms || [];
+  if (!extraList.length) return null;
+  // Preferir el extraInfo del programa Rosario en curso (programFacultyId presente)
+  const rosarioIds = new Set(enrolled.filter((ep) => ep.programFacultyId != null).map((ep) => ep._id?.toString?.()));
+  const byEnrolledId = (ex) => rosarioIds.has(ex.enrolledProgramId?.toString?.());
+  const extra = extraList.find(byEnrolledId) || extraList[0];
+  if (extra.accordingCreditSemester != null && extra.accordingCreditSemester !== '') {
+    const n = Number(extra.accordingCreditSemester);
+    return Number.isFinite(n) ? n : null;
+  }
+  const approvedStr = extra.approvedCredits != null ? String(extra.approvedCredits).trim() : '';
+  if (!approvedStr) return null;
+  const approved = Number(approvedStr);
+  if (!Number.isFinite(approved) || approved < 0) return null;
+  return Math.ceil(approved / CREDITOS_POR_SEMESTRE);
 };
 
 /** Rangos de años (umbral en años): 0-2, 2-4, 4-6, 6-10, 10+. */
@@ -1964,10 +1994,13 @@ const PostulantProfile = ({ onVolver }) => {
 
         {/* Separador */}
         <div className="profile-separator"></div>
-        <div className="profile-info">
-          <div className="profile-contact-info">
-        
-            <div className="contact-item">
+
+        {/* Sección: Contacto y redes sociales */}
+        <div className="profile-section profile-section-contact">
+          <h3 className="profile-section-title">Contacto y redes sociales</h3>
+          <div className="profile-contact-row">
+            <div className="profile-contact-info">
+              <div className="contact-item">
               <div className="contact-icon-wrapper">
                 <FiPhone className="contact-icon" />
               </div>
@@ -2024,12 +2057,13 @@ const PostulantProfile = ({ onVolver }) => {
                 <span className="contact-text">{email}</span>
               )}
             </div>
-            
-          </div>
-          <div className="profile-contact-info"> 
-            <div className="contact-item">
-              <div className="contact-icon-wrapper">
-                <FiLinkedin className="contact-icon" />
+            </div>
+            <div className="profile-contact-group profile-contact-networks">
+           
+              <div className="profile-contact-info">
+                <div className="contact-item">
+                  <div className="contact-icon-wrapper">
+                    <FiLinkedin className="contact-icon" />
               </div>
               {isEditing ? (
                 <>
@@ -2084,9 +2118,14 @@ const PostulantProfile = ({ onVolver }) => {
                 <span className="contact-text">{postulant.instagram_url || '-'}</span>
               )}
             </div>
+              </div>
+            </div>
           </div>
         </div>
 
+        {/* Sección: Identificación */}
+        <div className="profile-section profile-section-identification">
+          <h3 className="profile-section-title">Identificación</h3>
             <div className="profile-data-grid">
               <div className="profile-data-field">
                 <label className="profile-field-label">
@@ -2169,6 +2208,13 @@ const PostulantProfile = ({ onVolver }) => {
                   <div className="profile-field-value">{formatDate(postulant.date_nac_postulant)}</div>
                 )}
               </div>
+            </div>
+        </div>
+
+        {/* Sección: Ubicación y datos adicionales */}
+        <div className="profile-section profile-section-ubicacion">
+          <h3 className="profile-section-title">Ubicación y datos adicionales</h3>
+            <div className="profile-data-grid">
               <div className="profile-data-field">
                 <label className="profile-field-label">
                   <span className="field-label-separator">|</span>
@@ -2336,6 +2382,7 @@ const PostulantProfile = ({ onVolver }) => {
                 )}
               </div>
             </div>
+        </div>
           </div>
         )}
 
@@ -2345,34 +2392,46 @@ const PostulantProfile = ({ onVolver }) => {
               Atención! La Universidad del Rosario no se hace responsable de la veracidad de la información ingresada en relación a los estudios o experiencia externos a la institución relacionados por el postulante.
             </div>
 
-            {/* Resumen con iconos: email, código/SSC, documento (misma línea que en datos personales) */}
-            <div className="academic-summary-row">
-              <div className="profile-contact-info academic-summary-contact">
-                <div className="contact-item">
-                  <div className="contact-icon-wrapper">
-                    <FiMail className="contact-icon" />
+            {/* Resumen: correo institucional, código del estudiante, PIDM, SSC semestres según créditos */}
+            <div className="profile-section profile-section-contact">
+              <div className="academic-summary-row">
+                <div className="profile-contact-info academic-summary-contact">
+                  <div className="contact-item">
+                    <div className="contact-icon-wrapper">
+                      <FiMail className="contact-icon" />
+                    </div>
+                    <span className="contact-text" title="Correo institucional">
+                      {profileData?.postulantProfile?.academicUser ?? postulant?.user?.email ?? '—'}
+                    </span>
                   </div>
-                  <span className="contact-text">{email}</span>
-                </div>
-                <div className="contact-item">
-                  <div className="contact-icon-wrapper">
-                    <FiBook className="contact-icon" />
+                  <div className="contact-item">
+                    <div className="contact-icon-wrapper">
+                      <FiUser className="contact-icon" />
+                    </div>
+                    <span className="contact-text" title="Código del estudiante">
+                      {profileData?.postulantProfile?.studentCode ?? postulant?.identity_postulant ?? '—'}
+                    </span>
                   </div>
-                  <span className="contact-text">SSC {postulant?.studentCode ?? profileData?.postulantProfile?.studentCode ?? '0'}</span>
-                </div>
-                <div className="contact-item">
-                  <div className="contact-icon-wrapper">
-                    <FiFileText className="contact-icon" />
+                  <div className="contact-item">
+                    <div className="contact-icon-wrapper">
+                      <FiGrid className="contact-icon" />
+                    </div>
+                    <span className="contact-text" title="PIDM">
+                      {profileData?.postulantProfile?.academicId != null ? String(profileData.postulantProfile.academicId) : (postulant?.identity_postulant ?? '—')}
+                    </span>
                   </div>
-                  <span className="contact-text">{typeof postulant?.type_doc_postulant === 'object' && postulant?.type_doc_postulant != null ? (postulant.type_doc_postulant.name ?? postulant.type_doc_postulant.value ?? '—') : (postulant?.type_doc_postulant || '—')}</span>
-                </div>
-                <div className="contact-item">
-                  <div className="contact-icon-wrapper">
-                    <FiFileText className="contact-icon" />
+                  <div className="contact-item">
+                    <div className="contact-icon-wrapper">
+                      <FiBook className="contact-icon" />
+                    </div>
+                    <span className="contact-text" title="SSC semestres según créditos aprobados (calculado)">
+                      {(() => {
+                        const ssc = getSscSemestersFromCredits(profileData);
+                        if (ssc != null) return String(ssc);
+                        return '—';
+                      })()}
+                    </span>
                   </div>
-                  <span className="contact-text">
-                    {profileData?.postulantProfile?.studentCode ?? postulant?.identity_postulant ?? '—'}
-                  </span>
                 </div>
               </div>
             </div>
