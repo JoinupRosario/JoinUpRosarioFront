@@ -31,6 +31,9 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Configuración Asignaturas') {
       navigate('/dashboard/asignaturas');
     }
+    if (opcion.text === 'Condiciones Curriculares para Práctica') {
+      navigate('/dashboard/condiciones-curriculares');
+    }
   };
   const opcionesConfiguracion = [
     { 
@@ -126,7 +129,7 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
-            const isClickable = ['Gestión de Parámetros', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas'].includes(opcion.text);
+            const isClickable = ['Gestión de Parámetros', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica'].includes(opcion.text);
             return (
               <div 
                 key={index} 

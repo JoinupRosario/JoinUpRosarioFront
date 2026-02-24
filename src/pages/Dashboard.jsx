@@ -35,6 +35,7 @@ import Companies from './componentss/Companies';
 import Sucursales from './componentss/Sucursales';
 import Periodos from './componentss/periodos/Periodos';
 import ConfiguracionAsignaturas from './componentss/ConfiguracionAsignaturas';
+import CondicionesCurriculares from './componentss/CondicionesCurriculares';
 import Oportunidades from './componentss/Oportunidades';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
@@ -76,7 +77,8 @@ export default function Dashboard() {
     '/dashboard/ubicaciones': 'ubicaciones',
     '/dashboard/programas-facultades': 'programas-facultades',
     '/dashboard/periodos': 'periodos',
-    '/dashboard/asignaturas': 'asignaturas'
+    '/dashboard/asignaturas': 'asignaturas',
+    '/dashboard/condiciones-curriculares': 'condiciones-curriculares'
   };
 
   // Mapeo de vistas a rutas
@@ -96,7 +98,8 @@ export default function Dashboard() {
     'ubicaciones': '/dashboard/ubicaciones',
     'programas-facultades': '/dashboard/programas-facultades',
     'periodos': '/dashboard/periodos',
-    'asignaturas': '/dashboard/asignaturas'
+    'asignaturas': '/dashboard/asignaturas',
+    'condiciones-curriculares': '/dashboard/condiciones-curriculares'
   };
 
   // Obtener vista actual basada en la URL
@@ -495,6 +498,9 @@ export default function Dashboard() {
         )}
         {vistaActual === 'asignaturas' && (
           <ConfiguracionAsignaturas onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'condiciones-curriculares' && (
+          <CondicionesCurriculares onVolver={() => navigate('/dashboard/configuracion')} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}
