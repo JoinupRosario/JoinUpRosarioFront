@@ -35,6 +35,7 @@ import Companies from './componentss/Companies';
 import Sucursales from './componentss/Sucursales';
 import Periodos from './componentss/periodos/Periodos';
 import ConfiguracionAsignaturas from './componentss/ConfiguracionAsignaturas';
+import ParametrizacionDocumentos from './componentss/parametrizacionDocumentos/ParametrizacionDocumentos';
 import Oportunidades from './componentss/Oportunidades';
 import OportunidadesMTM from './componentss/OportunidadesMTM';
 import StatCard from '../components/ui/StatCard';
@@ -78,7 +79,8 @@ export default function Dashboard() {
     '/dashboard/ubicaciones': 'ubicaciones',
     '/dashboard/programas-facultades': 'programas-facultades',
     '/dashboard/periodos': 'periodos',
-    '/dashboard/asignaturas': 'asignaturas'
+    '/dashboard/asignaturas': 'asignaturas',
+    '/dashboard/configuracion-documentos': 'configuracion-documentos'
   };
 
   // Mapeo de vistas a rutas
@@ -99,7 +101,8 @@ export default function Dashboard() {
     'ubicaciones': '/dashboard/ubicaciones',
     'programas-facultades': '/dashboard/programas-facultades',
     'periodos': '/dashboard/periodos',
-    'asignaturas': '/dashboard/asignaturas'
+    'asignaturas': '/dashboard/asignaturas',
+    'configuracion-documentos': '/dashboard/configuracion-documentos'
   };
 
   // Obtener vista actual basada en la URL
@@ -129,6 +132,9 @@ export default function Dashboard() {
     // Detalle de facultad: /dashboard/programas-facultades/facultad/:id
     if (path.match(/^\/dashboard\/programas-facultades\/facultad\/[^/]+$/)) {
       return 'faculty-detail';
+    }
+    if (path === '/dashboard/configuracion-documentos') {
+      return 'configuracion-documentos';
     }
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
     return 'dashboard';
@@ -296,6 +302,9 @@ export default function Dashboard() {
           )}
           {vistaActual === 'asignaturas' && (
             <h1 className="header-page-title">Configuración de Asignaturas</h1>
+          )}
+          {vistaActual === 'configuracion-documentos' && (
+            <h1 className="header-page-title">Parametrización de documentos</h1>
           )}
           {vistaActual === 'programas-facultades' && (
             <h1 className="header-page-title">Programas y Facultades</h1>
@@ -501,6 +510,9 @@ export default function Dashboard() {
         )}
         {vistaActual === 'asignaturas' && (
           <ConfiguracionAsignaturas onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'configuracion-documentos' && (
+          <ParametrizacionDocumentos onVolver={() => navigate('/dashboard/configuracion')} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}

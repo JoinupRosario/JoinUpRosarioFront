@@ -83,6 +83,72 @@ const monthsBetween = (start, end) => {
 /** Créditos por semestre estándar para calcular SSC (semestres según créditos aprobados). */
 const CREDITOS_POR_SEMESTRE = 18;
 
+/** Keys y etiquetas de secciones de la hoja de vida (validación de campos obligatorios según parametrización). */
+const SECCIONES_HOJA_VIDA_LABELS = {
+  datos_basicos: 'Datos básicos (nombre, documento, correo, teléfono, dirección)',
+  cedula: 'Cédula de ciudadanía (archivo soporte)',
+  perfil: 'Perfil profesional (nombre perfil, texto perfil, competencias, idiomas)',
+  formacion_rosario_en_curso: 'Formación académica Rosario - En curso',
+  formacion_rosario_finalizada: 'Formación académica Rosario - Finalizada',
+  formacion_en_curso_otras: 'Formación académica en curso (otras instituciones)',
+  formacion_finalizada_otras: 'Formación académica finalizada (otras instituciones)',
+  otros_estudios: 'Otros estudios',
+  experiencia_laboral: 'Experiencia laboral',
+  otras_experiencias: 'Otras experiencias (investigación, voluntariado, proyección social)',
+  logros: 'Logros',
+  referencias: 'Referencias',
+};
+
+/**
+ * Indica si la sección de la hoja de vida está completada según profileData y postulant.
+ * @param {object} profileData - Respuesta de /profile-data
+ * @param {object} postulant - Postulante (con user, phone_number, address, identity_postulant, etc.)
+ * @param {string} sectionKey - Key de SECCIONES_HOJA_VIDA_LABELS
+ * @returns {boolean}
+ */
+function isSeccionHojaVidaCompletada(profileData, postulant, sectionKey) {
+  const p = profileData?.postulantProfile;
+  const pp = profileData;
+  const has = (arr) => Array.isArray(arr) && arr.length > 0;
+  const str = (v) => (v != null && String(v).trim() !== '');
+  switch (sectionKey) {
+    case 'datos_basicos':
+      return (
+        str(postulant?.user?.name) &&
+        str(postulant?.identity_postulant || postulant?.user?.email) &&
+        (str(postulant?.user?.email) || str(postulant?.alternateEmail)) &&
+        str(postulant?.phone_number) &&
+        str(postulant?.address)
+      );
+    case 'cedula':
+      return has(pp?.profileSupports);
+    case 'perfil':
+      return (
+        str(p?.profileText ?? pp?.selectedProfileVersion?.profileText) &&
+        (has(pp?.skills) || has(pp?.languages))
+      );
+    case 'formacion_rosario_en_curso':
+      return has(pp?.enrolledPrograms?.filter((ep) => ep.programFacultyId != null));
+    case 'formacion_rosario_finalizada':
+      return has(pp?.graduatePrograms);
+    case 'formacion_en_curso_otras':
+      return has(pp?.enrolledPrograms?.filter((ep) => ep.programFacultyId == null));
+    case 'formacion_finalizada_otras':
+    case 'otros_estudios':
+      return has(pp?.otherStudies);
+    case 'experiencia_laboral':
+      return has(pp?.workExperiences?.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP'));
+    case 'otras_experiencias':
+      return has(pp?.workExperiences?.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP'));
+    case 'logros':
+      return has(pp?.awards);
+    case 'referencias':
+      return has(pp?.references);
+    default:
+      return false;
+  }
+}
+
 /**
  * Calcula los semestres SSC según créditos aprobados a partir de programExtraInfo.
  * Usa accordingCreditSemester si existe; si no, calcula: créditos aprobados / CREDITOS_POR_SEMESTRE (redondeado hacia arriba).
@@ -197,6 +263,12 @@ const PostulantProfile = ({ onVolver }) => {
   const [profileOptionsOpenId, setProfileOptionsOpenId] = useState(null);
   const [hojaDeVidaModalOpen, setHojaDeVidaModalOpen] = useState(false);
   const [hojaDeVidaSelectedProfileId, setHojaDeVidaSelectedProfileId] = useState('');
+  /** Tras generar HV, se pide recargar perfil (evita referencia a loadProfileDataForProfile antes de su declaración). */
+  const [refreshProfileAfterHv, setRefreshProfileAfterHv] = useState(null);
+  /** Mientras se genera la HV (validación + PDF + descarga + actualización de lista). */
+  const [generatingHv, setGeneratingHv] = useState(false);
+  /** Id del adjunto que se está descargando (para mostrar "Descargando..." en la lista de HVs). */
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState(null);
   /** Campos editables del perfil (postulant_profile): switches y habilidades técnicas. */
   const [profileEditFields, setProfileEditFields] = useState({
     conditionDiscapacity: false,
@@ -308,6 +380,96 @@ const PostulantProfile = ({ onVolver }) => {
       `La funcionalidad "${funcionalidad}" está actualmente en desarrollo y estará disponible próximamente.`
     );
   }, []);
+
+  /** Generar hoja de vida: valida campos obligatorios según parametrización y aplica configuración. */
+  const handleGenerarHojaVida = useCallback(async () => {
+    if (!hojaDeVidaSelectedProfileId?.trim()) {
+      showError('Campo requerido', 'Elija un perfil para su hoja de vida.');
+      return;
+    }
+    if (!postulant?._id) {
+      showError('Error', 'No hay postulante cargado.');
+      return;
+    }
+    const selected = profiles.find(
+      (p) => String(p._id) === String(hojaDeVidaSelectedProfileId) || String(p.profileId) === String(hojaDeVidaSelectedProfileId)
+    );
+    if (!selected) {
+      showError('Error', 'Perfil seleccionado no encontrado.');
+      return;
+    }
+    const baseProfileId = selected.profileId || selected._id;
+    const versionId = selected._id;
+    try {
+      const [paramRes, profileRes] = await Promise.all([
+        api.get('/parametrizacion-documentos/hoja-vida'),
+        api.get(`/postulants/${postulant._id}/profile-data`, {
+          params: { profileId: baseProfileId, versionId },
+        }),
+      ]);
+      const parametrizacion = paramRes?.data || {};
+      const camposObligatorios = parametrizacion.camposObligatorios || {};
+      const profileDataForValidation = profileRes?.data || {};
+      const mandatoryKeys = Object.keys(camposObligatorios).filter((k) => camposObligatorios[k]);
+      const missing = mandatoryKeys.filter(
+        (key) => !isSeccionHojaVidaCompletada(profileDataForValidation, postulant, key)
+      );
+      if (missing.length > 0) {
+        const labels = missing.map((k) => SECCIONES_HOJA_VIDA_LABELS[k] || k);
+        const tableRows = labels.map((label, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(label)}</td></tr>`).join('');
+        Swal.fire({
+          icon: 'error',
+          title: 'Secciones obligatorias incompletas',
+          html: `
+            <p class="swal-obligatorios-intro">Para generar la hoja de vida debe completar la siguiente información:</p>
+            <table class="swal-obligatorios-table">
+              <thead><tr><th>#</th><th>Información a completar</th></tr></thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          `,
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#c41e3a',
+          width: '520px',
+        });
+        return;
+      }
+      setHojaDeVidaModalOpen(false);
+      setHojaDeVidaSelectedProfileId('');
+      setGeneratingHv(true);
+      Swal.fire({
+        title: 'Generando hoja de vida',
+        html: 'Validando datos, generando el PDF y guardando en su perfil. La descarga comenzará en breve.',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => { Swal.showLoading(); },
+      });
+      const pdfRes = await api.get(`/postulants/${postulant._id}/generate-hoja-vida-pdf`, {
+        params: { profileId: baseProfileId, versionId },
+        responseType: 'blob',
+      });
+      const blob = pdfRes.data;
+      const contentDisp = pdfRes.headers?.['content-disposition'];
+      let fileName = 'Hoja de vida.pdf';
+      if (contentDisp) {
+        const match = contentDisp.match(/filename="?([^";\n]+)"?/);
+        if (match?.[1]) fileName = decodeURIComponent(match[1].trim());
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      setRefreshProfileAfterHv({ postulantId: postulant._id, profileId: baseProfileId, versionId });
+    } catch (err) {
+      setGeneratingHv(false);
+      Swal.close();
+      console.error('Error al validar/generar HV', err);
+      showError('Error', err.response?.data?.message || 'No se pudo validar el perfil o generar el PDF.');
+    }
+  }, [postulant?._id, profiles, hojaDeVidaSelectedProfileId, showError]);
 
   /** Actualizar info básica desde Universitas: el servidor compara (BD vs Universitas) y devuelve changes; confirmación y aplicar en servidor */
   const handleActualizarInfoBasicaUniversitas = useCallback(async () => {
@@ -553,6 +715,27 @@ const PostulantProfile = ({ onVolver }) => {
       showError('Error', err.response?.data?.message || 'No se pudo cargar el perfil');
     }
   }, [showError]);
+
+  /** Tras generar HV, recargar datos del perfil para que aparezca la nueva hoja de vida en la lista; luego cerrar carga y mostrar éxito. */
+  useEffect(() => {
+    if (!refreshProfileAfterHv) return;
+    const payload = refreshProfileAfterHv;
+    setRefreshProfileAfterHv(null);
+    (async () => {
+      try {
+        await loadProfileDataForProfile(payload.postulantId, payload.profileId, payload.versionId);
+      } finally {
+        setGeneratingHv(false);
+        Swal.close();
+      }
+      Swal.fire({
+        icon: 'success',
+        title: 'PDF generado',
+        text: 'La hoja de vida se ha generado y guardado en su perfil. También se ha descargado en su equipo.',
+        confirmButtonColor: '#c41e3a',
+      });
+    })();
+  }, [refreshProfileAfterHv, loadProfileDataForProfile]);
 
   /** Id del perfil base actual (para API enrolled/graduate/skills/languages). Debe estar antes de los useCallback que lo usan. */
   const currentBaseProfileId = (() => {
@@ -1160,6 +1343,48 @@ const PostulantProfile = ({ onVolver }) => {
     }
   }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
 
+  const handleDeleteProfileCv = useCallback(async (profileCvId) => {
+    if (!postulant?._id || !currentBaseProfileId) return;
+    const result = await Swal.fire({
+      title: '¿Eliminar hoja de vida?',
+      text: 'El archivo se quitará de este perfil. Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#c41e3a',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await api.delete(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/cvs/${profileCvId}`);
+      createAlert('success', 'Eliminado', 'Hoja de vida eliminada.');
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo eliminar la hoja de vida.');
+    }
+  }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
+
+  const handleDeleteProfileSupport = useCallback(async (profileSupportId) => {
+    if (!postulant?._id || !currentBaseProfileId) return;
+    const result = await Swal.fire({
+      title: '¿Eliminar documento de soporte?',
+      text: 'El archivo se quitará de este perfil. Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#c41e3a',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await api.delete(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/supports/${profileSupportId}`);
+      createAlert('success', 'Eliminado', 'Documento de soporte eliminado.');
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo eliminar el documento.');
+    }
+  }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
+
   const loadPostulant = useCallback(async (id) => {
     if (!id) {
       setLoading(false);
@@ -1330,6 +1555,7 @@ const PostulantProfile = ({ onVolver }) => {
 
   const handleDownloadAttachment = useCallback(async (attachmentId, filename) => {
     if (!postulant?._id || !attachmentId) return;
+    setDownloadingAttachmentId(attachmentId);
     try {
       const res = await api.get(`/postulants/${postulant._id}/attachments/${attachmentId}/download`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
@@ -1342,6 +1568,8 @@ const PostulantProfile = ({ onVolver }) => {
       a.remove();
     } catch (err) {
       showError('Error', err.response?.data?.message || 'No se pudo descargar el archivo');
+    } finally {
+      setDownloadingAttachmentId(null);
     }
   }, [postulant?._id, showError]);
 
@@ -2933,6 +3161,7 @@ const PostulantProfile = ({ onVolver }) => {
                             <button type="button" className="perfil-doc-link" onClick={() => handleDownloadAttachment(att?._id, name)} title="Descargar">
                               {name}
                             </button>
+                            <button type="button" className="perfil-tag-item-delete perfil-doc-delete" onClick={() => handleDeleteProfileSupport(item._id)} title="Eliminar documento" aria-label="Eliminar"><FiTrash2 /></button>
                           </li>
                         );
                       })}
@@ -3101,12 +3330,27 @@ const PostulantProfile = ({ onVolver }) => {
                       {profileData.profileCvs.map((item) => {
                         const att = item.attachmentId;
                         const name = att?.name || 'Hoja de vida';
+                        const isDownloading = downloadingAttachmentId === att?._id;
                         return (
                           <li key={item._id} className="perfil-doc-item">
                             <span className="perfil-doc-icon"><FiFile /></span>
-                            <button type="button" className="perfil-doc-link" onClick={() => handleDownloadAttachment(att?._id, name)} title="Descargar">
-                              {name}
+                            <button
+                              type="button"
+                              className="perfil-doc-link"
+                              onClick={() => handleDownloadAttachment(att?._id, name)}
+                              title="Descargar"
+                              disabled={isDownloading}
+                            >
+                              {isDownloading ? (
+                                <>
+                                  <span className="perfil-doc-loading-spinner" aria-hidden />
+                                  Descargando…
+                                </>
+                              ) : (
+                                name
+                              )}
                             </button>
+                            <button type="button" className="perfil-tag-item-delete perfil-doc-delete" onClick={() => handleDeleteProfileCv(item._id)} title="Eliminar hoja de vida" aria-label="Eliminar"><FiTrash2 /></button>
                           </li>
                         );
                       })}
@@ -3825,17 +4069,14 @@ const PostulantProfile = ({ onVolver }) => {
               </div>
             </div>
             <div className="form-modal-footer">
-              <button type="button" className="form-modal-btn-cancel" onClick={() => { setHojaDeVidaModalOpen(false); setHojaDeVidaSelectedProfileId(''); }}>Cerrar</button>
+              <button type="button" className="form-modal-btn-cancel" onClick={() => { setHojaDeVidaModalOpen(false); setHojaDeVidaSelectedProfileId(''); }} disabled={generatingHv}>Cerrar</button>
               <button
                 type="button"
                 className="form-modal-btn-save"
-                onClick={() => {
-                  showFuncionalidadEnDesarrollo('Generar hoja de vida');
-                  setHojaDeVidaModalOpen(false);
-                  setHojaDeVidaSelectedProfileId('');
-                }}
+                onClick={handleGenerarHojaVida}
+                disabled={generatingHv}
               >
-                Generar
+                {generatingHv ? 'Generando…' : 'Generar'}
               </button>
             </div>
           </div>

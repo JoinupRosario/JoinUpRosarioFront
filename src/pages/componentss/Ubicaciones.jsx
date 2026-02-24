@@ -20,7 +20,7 @@ import {
   FiTrendingUp,
   FiActivity
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import '../styles/Ubicaciones.css';
 import api from '../../services/api';
@@ -94,6 +94,8 @@ const VIEW_TO_FIELD = {
 
 const Ubicaciones = ({ onVolver }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromParametrizacionDocumentos = location.state?.from === 'configuracion-documentos';
   // 'practica' | 'monitoria' — controla qué grupo de sub-tabs se muestra
   const [tabGroup, setTabGroup] = useState('practica');
   const [vistaActual, setVistaActual] = useState('documentTypes');
@@ -992,7 +994,10 @@ const Ubicaciones = ({ onVolver }) => {
   return (
     <div className="ubicaciones-container">
       <div className="ubicaciones-header">
-        <button className="btn-volver" onClick={() => navigate('/dashboard/configuracion')}>
+        <button
+          className="btn-volver"
+          onClick={() => navigate(fromParametrizacionDocumentos ? '/dashboard/configuracion-documentos' : '/dashboard/configuracion')}
+        >
           <FiArrowLeft className="btn-icon" />
           Volver
         </button>
