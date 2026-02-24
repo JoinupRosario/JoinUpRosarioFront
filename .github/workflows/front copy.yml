@@ -1,0 +1,69 @@
+name: Frontend - Nuevo Rosario
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - '.github/workflows/front.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.js'
+  workflow_dispatch: {}
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: 873540496317
+  FRONT_BUCKET: new-frontend-rosario
+  CLOUDFRONT_ID: E7PPRF5SLWBNT
+  VITE_BACKEND_URL: https://new.backend.rosario.mozartia.com
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & Upload Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧩 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔐 Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::873540496317:role/rosario-gha-role
+
+      - name: ⚙️ Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci --include=dev
+        env:
+          NODE_ENV: development
+          NPM_CONFIG_PRODUCTION: false
+
+      - name: 🛠️ Fix Babel plugin (si aplica)
+        run: npm install --save-dev @babel/plugin-proposal-private-property-in-object
+
+      - name: 🧱 Build React app
+        run: |
+          echo "VITE_BACKEND_URL=${{ env.VITE_BACKEND_URL }}" >> .env
+          CI=false npm run build
+
+      - name: 🚀 Sync dist/ to S3
+        run: |
+          aws s3 sync dist/ s3://${{ env.FRONT_BUCKET }} --delete
+
+      - name: 🔄 Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_ID }} \
+            --paths "/*"
