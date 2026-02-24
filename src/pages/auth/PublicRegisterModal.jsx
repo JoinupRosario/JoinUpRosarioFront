@@ -110,8 +110,6 @@ export default function PublicRegisterModal({ open, onClose }) {
   const ciiuTimer = useRef(null);
 
   // Archivos adjuntos
-  const [fileChamber, setFileChamber] = useState(null);
-  const [fileRut, setFileRut] = useState(null);
 
   // Autocomplete ciudades empresa
   const [companyCitySuggestions, setCompanyCitySuggestions] = useState([]);
@@ -347,7 +345,7 @@ export default function PublicRegisterModal({ open, onClose }) {
         extraContacts: extraContacts.filter(c => c.firstName && c.lastName && c.email),
         _hp: hp,
       };
-      const data = await postPublicRegister(payload, { chamberOfCommerce: fileChamber, rut: fileRut });
+      const data = await postPublicRegister(payload);
       if (data.success) { clearDraft(); setSuccess(true); }
       else setErrorMsg(data.message || 'Error al enviar el registro.');
     } catch (err) {
@@ -547,30 +545,6 @@ export default function PublicRegisterModal({ open, onClose }) {
                       ))}
                     </div>
                   </Field>
-                  <SectionTitle text="Documentos" />
-                  <Row>
-                    <Field label="Certificado de Cámara de Comercio (PDF/imagen, máx. 5MB)">
-                      <label style={styles.fileLabel}>
-                        <input type="file" accept=".pdf,image/*" style={{ display: 'none' }}
-                          onChange={e => setFileChamber(e.target.files[0] || null)} />
-                        <span style={{ ...styles.fileBtn, ...(fileChamber ? styles.fileBtnOk : {}) }}>
-                          {fileChamber ? `✓ ${fileChamber.name}` : '📎 Adjuntar archivo'}
-                        </span>
-                      </label>
-                      {fileChamber && <button type="button" style={styles.tagRemove} onClick={() => setFileChamber(null)}>Eliminar</button>}
-                    </Field>
-                    <Field label="RUT (PDF/imagen, máx. 5MB)">
-                      <label style={styles.fileLabel}>
-                        <input type="file" accept=".pdf,image/*" style={{ display: 'none' }}
-                          onChange={e => setFileRut(e.target.files[0] || null)} />
-                        <span style={{ ...styles.fileBtn, ...(fileRut ? styles.fileBtnOk : {}) }}>
-                          {fileRut ? `✓ ${fileRut.name}` : '📎 Adjuntar archivo'}
-                        </span>
-                      </label>
-                      {fileRut && <button type="button" style={styles.tagRemove} onClick={() => setFileRut(null)}>Eliminar</button>}
-                    </Field>
-                  </Row>
-
                   {/* Honeypot */}
                   <input type="text" name="_hp" value={hp} onChange={e => setHp(e.target.value)} style={{ opacity: 0, position: 'absolute', height: 0, width: 0, pointerEvents: 'none' }} tabIndex={-1} autoComplete="off" />
                 </div>
@@ -706,8 +680,6 @@ export default function PublicRegisterModal({ open, onClose }) {
                     <SummaryRow label="Tamaño" value={company.size} />
                     <SummaryRow label="ARL" value={company.arl} />
                     {company.ciiuCodes.length > 0 && <SummaryRow label="Códigos CIIU" value={company.ciiuCodes.join(', ')} />}
-                    {fileChamber && <SummaryRow label="Cámara de Comercio" value={fileChamber.name} />}
-                    {fileRut && <SummaryRow label="RUT" value={fileRut.name} />}
                     <SummaryRow label="País" value={company.country} />
                     <SummaryRow label="Ciudad" value={company.city} />
                   </div>
