@@ -2035,6 +2035,29 @@ input:checked + .slider:before {
   color: #9a1830;
   text-decoration: underline;
 }
+.perfil-doc-link:disabled {
+  cursor: wait;
+  opacity: 0.85;
+}
+.perfil-doc-loading-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: middle;
+  border: 2px solid rgba(196, 30, 58, 0.3);
+  border-top-color: #c41e3a;
+  border-radius: 50%;
+  animation: perfil-doc-spin 0.7s linear infinite;
+}
+@keyframes perfil-doc-spin {
+  to { transform: rotate(360deg); }
+}
+
+.perfil-doc-item .perfil-doc-delete {
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 .perfil-lang-list {
   list-style: none;
@@ -2442,4 +2465,38 @@ input:checked + .slider:before {
   color: #0d9488;
   font-weight: 500;
   width: 36%;
+}
+
+/* Modal SweetAlert: tabla de secciones obligatorias incompletas (generar HV) */
+.swal-obligatorios-intro {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+}
+.swal-obligatorios-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+  margin: 0;
+}
+.swal-obligatorios-table th,
+.swal-obligatorios-table td {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+}
+.swal-obligatorios-table thead th {
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #111827;
+}
+.swal-obligatorios-table tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+.swal-obligatorios-table tbody td:first-child {
+  width: 36px;
+  text-align: center;
+  color: #6b7280;
+  font-weight: 500;
 }

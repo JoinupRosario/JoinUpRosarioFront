@@ -34,6 +34,9 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Condiciones Curriculares para Práctica') {
       navigate('/dashboard/condiciones-curriculares');
     }
+    if (opcion.text === 'Parametrización de documentos') {
+      navigate('/dashboard/configuracion-documentos');
+    }
   };
   const opcionesConfiguracion = [
     { 
@@ -110,6 +113,11 @@ export default function Configuracion({ onVolver }) {
       text: 'Configuración Asignaturas',
       icon: FiBook,
       descripcion: 'Cargar y gestionar asignaturas ofertadas desde el servidor SFTP (ASIGNATURAS_OFERTADAS_UXXI)'
+    },
+    {
+      text: 'Parametrización de documentos',
+      icon: FiFileText,
+      descripcion: 'Configurar formatos y tipos de documentos (hoja de vida y otros que se requieran)'
     }
   ];
 
@@ -129,7 +137,7 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
-            const isClickable = ['Gestión de Parámetros', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica'].includes(opcion.text);
+            const isClickable = ['Gestión de Parámetros', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos'].includes(opcion.text);
             return (
               <div 
                 key={index} 
