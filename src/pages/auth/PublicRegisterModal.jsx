@@ -35,21 +35,8 @@ async function searchCiiu(q) {
   } catch { return []; }
 }
 
-async function postPublicRegister(payload, files) {
-  const fd = new FormData();
-  // Campos escalares
-  const { extraContacts, ciiuCodes, domains, legalRepresentative, ...rest } = payload;
-  Object.entries(rest).forEach(([k, v]) => { if (v !== undefined && v !== null) fd.append(k, String(v)); });
-  fd.append('extraContacts', JSON.stringify(extraContacts || []));
-  fd.append('ciiuCodes', JSON.stringify(ciiuCodes || []));
-  fd.append('domains', JSON.stringify(domains || []));
-  fd.append('legalRepresentative', JSON.stringify(legalRepresentative || {}));
-  // Archivos
-  if (files?.chamberOfCommerce) fd.append('chamberOfCommerce', files.chamberOfCommerce);
-  if (files?.rut) fd.append('rut', files.rut);
-  const { data } = await axios.post(`${API}/companies/public-register`, fd, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
+async function postPublicRegister(payload) {
+  const { data } = await axios.post(`${API}/companies/public-register`, payload);
   return data;
 }
 
