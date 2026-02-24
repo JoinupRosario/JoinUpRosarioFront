@@ -367,6 +367,9 @@ const PostulantProfile = ({ onVolver }) => {
   const [sectorOptions, setSectorOptions] = useState([]);
   const [experienceTypeOptions, setExperienceTypeOptions] = useState([]);
   const [awardTypeOptions, setAwardTypeOptions] = useState([]);
+  /** Opciones tipo de documento (listId L_IDENTIFICATIONTYPE) y género (listId L_GENDER) para sección Identificación */
+  const [identificationTypeOptions, setIdentificationTypeOptions] = useState([]);
+  const [genderOptions, setGenderOptions] = useState([]);
 
   // Funciones de utilidad
   const showError = useCallback((title, text) => {
@@ -694,6 +697,28 @@ const PostulantProfile = ({ onVolver }) => {
   useEffect(() => {
     if (languageModalOpen && languageOptions.length === 0) fetchLanguageAndLevelOptions();
   }, [languageModalOpen, languageOptions.length, fetchLanguageAndLevelOptions]);
+
+  /** Cargar tipo de documento (L_IDENTIFICATIONTYPE) y género (L_GENDER) para la sección Identificación */
+  const fetchIdentificationAndGenderOptions = useCallback(async () => {
+    try {
+      const [docRes, genderRes] = await Promise.all([
+        api.get('/locations/items/L_IDENTIFICATIONTYPE', { params: { limit: 100 } }),
+        api.get('/locations/items/L_GENDER', { params: { limit: 100 } }),
+      ]);
+      setIdentificationTypeOptions(docRes.data?.data ?? []);
+      setGenderOptions(genderRes.data?.data ?? []);
+    } catch (err) {
+      console.error('Error cargando tipo documento / género:', err);
+      setIdentificationTypeOptions([]);
+      setGenderOptions([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (postulant?._id && (identificationTypeOptions.length === 0 || genderOptions.length === 0)) {
+      fetchIdentificationAndGenderOptions();
+    }
+  }, [postulant?._id, fetchIdentificationAndGenderOptions]);
 
   /** Carga los datos completos de un perfil (hoja de vida). profileId opcional: si no se pasa, el backend devuelve el perfil más reciente. */
   const loadProfileDataForProfile = useCallback(async (postulantId, profileId = null, versionId = null) => {
@@ -1714,6 +1739,7 @@ const PostulantProfile = ({ onVolver }) => {
         type_doc_postulant: postulant.type_doc_postulant?._id ?? postulant.type_doc_postulant ?? '',
         identity_postulant: postulant.identity_postulant || '',
         student_code: studentCode,
+        gender_postulant: postulant.gender_postulant?._id ?? postulant.gender_postulant ?? '',
         date_nac_postulant: dateValue,
         nac_country: postulant.nac_country?._id || '',
         nac_department: postulant.nac_department?._id || '',
@@ -1749,6 +1775,8 @@ const PostulantProfile = ({ onVolver }) => {
 
       // Campos que son ObjectId en el backend
       const objectIdFields = [
+        'type_doc_postulant',
+        'gender_postulant',
         'nac_country',
         'nac_department',
         'nac_city',
@@ -2369,9 +2397,11 @@ const PostulantProfile = ({ onVolver }) => {
                       onChange={(e) => handleInputChange('type_doc_postulant', e.target.value)}
                     >
                       <option value="">Seleccionar</option>
-                      <option value="CC">CC</option>
-                      <option value="CE">CE</option>
-                      <option value="PA">PA</option>
+                      {identificationTypeOptions.map((item) => (
+                        <option key={item._id} value={item._id}>
+                          {item.value ?? item.description ?? item._id}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 ) : (
@@ -2410,11 +2440,28 @@ const PostulantProfile = ({ onVolver }) => {
                   Sexo
                   {isEditing && <FiEdit className="field-edit-icon" />}
                 </label>
-                <div className="profile-field-value">
-                {typeof postulant.gender_postulant === 'object' && postulant.gender_postulant !== null
-                  ? (postulant.gender_postulant.name ?? postulant.gender_postulant.value ?? '-')
-                  : (postulant.gender_postulant || '-')}
-              </div>
+                {isEditing ? (
+                  <div className="profile-field-input-wrapper">
+                    <select 
+                      className="profile-field-input profile-field-select" 
+                      value={editedData.gender_postulant || ''}
+                      onChange={(e) => handleInputChange('gender_postulant', e.target.value)}
+                    >
+                      <option value="">Seleccionar</option>
+                      {genderOptions.map((item) => (
+                        <option key={item._id} value={item._id}>
+                          {item.value ?? item.description ?? item._id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="profile-field-value">
+                    {typeof postulant.gender_postulant === 'object' && postulant.gender_postulant !== null
+                      ? (postulant.gender_postulant.name ?? postulant.gender_postulant.value ?? '-')
+                      : (postulant.gender_postulant || '-')}
+                  </div>
+                )}
               </div>
               <div className="profile-data-field">
                 <label className="profile-field-label">
