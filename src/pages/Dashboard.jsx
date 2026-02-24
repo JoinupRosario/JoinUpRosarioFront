@@ -36,7 +36,6 @@ import Sucursales from './componentss/Sucursales';
 import Periodos from './componentss/periodos/Periodos';
 import ConfiguracionAsignaturas from './componentss/ConfiguracionAsignaturas';
 import Oportunidades from './componentss/Oportunidades';
-import OportunidadesMTM from './componentss/OportunidadesMTM';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
 import RecentActivity from '../components/ui/RecentActivity';
@@ -69,7 +68,6 @@ export default function Dashboard() {
     '/dashboard/postulantes/states-log': 'documents-log',
     '/dashboard/estudiantes': 'estudiantes',
     '/dashboard/legalizaciones': 'legalizaciones',
-    '/dashboard/monitorias': 'monitorias',
     '/dashboard/roles': 'roles',
     '/dashboard/sucursales': 'sucursales',
     '/dashboard/reportes': 'reportes',
@@ -90,7 +88,6 @@ export default function Dashboard() {
     'postulants': '/dashboard/postulants',
     'estudiantes': '/dashboard/estudiantes',
     'legalizaciones': '/dashboard/legalizaciones',
-    'monitorias': '/dashboard/monitorias',
     'roles': '/dashboard/roles',
     'sucursales': '/dashboard/sucursales',
     'reportes': '/dashboard/reportes',
@@ -464,9 +461,6 @@ export default function Dashboard() {
         )}
         {vistaActual === 'oportunidades' && (
           <Oportunidades onVolver={handleVolver} />
-        )}
-        {vistaActual === 'monitorias' && (
-          <OportunidadesMTM onVolver={handleVolver} />
         )}
         {vistaActual === 'postulants' && (
           <Postulants onVolver={handleVolver} />

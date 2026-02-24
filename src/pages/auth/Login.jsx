@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Swal from 'sweetalert2';
+import PublicRegisterModal from './PublicRegisterModal';
 import './Login.css';
 // Importar imágenes
 import arquitectonicoImg from '../../assets/images/login/arquitectonico.jpg';
@@ -20,6 +21,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [language, setLanguage] = useState('es');
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
 
   const { login, logout } = useAuth();
   const navigate = useNavigate();
@@ -232,7 +234,7 @@ export default function Login() {
                 </div>
               </form>
               <div className="links">
-                <a href="#" className="link">{t.registerEntity}</a>
+                <button type="button" className="link" style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', fontSize: 13, fontWeight: 400, lineHeight: 'inherit', display: 'inline', margin: 0 }} onClick={() => setShowRegisterModal(true)}>{t.registerEntity}</button>
                 <a href="#" className="link">{t.recoverPassword}</a>
                 <a href="https://storage.googleapis.com/joinup-rosario-prod/public/Instructivo_Practicas_Pasantias_UR_Entidades_V4.pdf" target="_blank" rel="noopener noreferrer" className="link">{t.downloadCompany}</a>
               </div>
@@ -290,6 +292,7 @@ export default function Login() {
           </div>
         </div>
       </div>
+      <PublicRegisterModal open={showRegisterModal} onClose={() => setShowRegisterModal(false)} />
     </div>
   );
 }

@@ -154,6 +154,9 @@ export default function Oportunidades({ onVolver }) {
   const [mtmVinculacionItems, setMtmVinculacionItems] = useState([]);
   const [mtmCategoriaItems, setMtmCategoriaItems] = useState([]);
   const [mtmPeriodos, setMtmPeriodos] = useState([]);
+  // ── Edición en detalle MTM ─────────────────────────────────────────────────
+  const [isMtmEditing, setIsMtmEditing] = useState(false);
+  const [mtmEditData, setMtmEditData] = useState(null);
 
   // Opciones de salario emocional
   const opcionesSalarioEmocional = [
@@ -1718,7 +1721,10 @@ export default function Oportunidades({ onVolver }) {
         }
       });
 
-      const { data } = await api.post(`/opportunities/${oportunidadSeleccionada._id}/duplicate`);
+      const endpoint = oportunidadSeleccionada._isMTM
+        ? `/oportunidades-mtm/${oportunidadSeleccionada._id}/duplicate`
+        : `/opportunities/${oportunidadSeleccionada._id}/duplicate`;
+      const { data } = await api.post(endpoint);
 
       Swal.close();
       await Swal.fire({
@@ -2691,7 +2697,7 @@ export default function Oportunidades({ onVolver }) {
                   </label>
                   <input type="text" name="nombreCargo" value={formData.nombreCargo}
                     onChange={handleFormChange} className="form-input"
-                    placeholder="Ej: Monitor de Cálculo Diferencial" />
+                    placeholder="Ej: Monitor de Cálculo Diferencial" maxLength={250} />
                 </div>
 
                 {selectedCompany && (
@@ -4039,16 +4045,69 @@ export default function Oportunidades({ onVolver }) {
       );
     }
 
-    // ── DETALLE MTM (vista de solo lectura) ──────────────────────────────────
+    // ── DETALLE MTM (lectura / edición) ──────────────────────────────────────
     if (opp._isMTM) {
       const fmtFecha = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
       const estadoColors = { Borrador: '#6b7280', Activa: '#16a34a', Inactiva: '#dc2626' };
       const estadoCol = estadoColors[opp.estado] || '#6b7280';
+
+      const handleActivarMtmEdicion = () => {
+        if (!mtmDedicacionItems.length || !mtmCategoriaItems.length) loadMtmParams();
+        setMtmEditData({
+          nombreCargo:      opp.nombreCargo || '',
+          categoria:        opp.categoria?._id || opp.categoria || '',
+          periodo:          opp.periodo?._id   || opp.periodo   || '',
+          dedicacionHoras:  opp.dedicacionHoras?._id  || opp.dedicacionHoras  || '',
+          valorPorHora:     opp.valorPorHora?._id     || opp.valorPorHora     || '',
+          tipoVinculacion:  opp.tipoVinculacion?._id  || opp.tipoVinculacion  || '',
+          vacantes:         opp.vacantes != null ? String(opp.vacantes) : '',
+          fechaVencimiento: opp.fechaVencimiento ? new Date(opp.fechaVencimiento).toISOString().split('T')[0] : '',
+          promedioMinimo:   opp.promedioMinimo  != null ? String(opp.promedioMinimo) : '',
+          nombreProfesor:   opp.nombreProfesor  || '',
+          unidadAcademica:  opp.unidadAcademica || '',
+          horario:          opp.horario         || '',
+          grupo:            opp.grupo           || '',
+          funciones:        opp.funciones       || '',
+          requisitos:       opp.requisitos      || '',
+        });
+        setIsMtmEditing(true);
+      };
+
+      const handleCancelarMtmEdicion = () => {
+        setIsMtmEditing(false);
+        setMtmEditData(null);
+      };
+
+      const handleGuardarMtmCambios = async () => {
+        try {
+          const payload = {
+            ...mtmEditData,
+            vacantes:       mtmEditData.vacantes       !== '' ? Number(mtmEditData.vacantes)       : undefined,
+            promedioMinimo: mtmEditData.promedioMinimo !== '' ? Number(mtmEditData.promedioMinimo) : undefined,
+          };
+          await api.put(`/oportunidades-mtm/${opp._id}`, payload);
+          const { data: refreshed } = await api.get(`/oportunidades-mtm/${opp._id}`);
+          const updated = { ...refreshed, _isMTM: true };
+          setOportunidadSeleccionada(updated);
+          setOportunidades(prev => prev.map(o => o._id === opp._id ? updated : o));
+          setIsMtmEditing(false);
+          setMtmEditData(null);
+          Swal.fire({ icon: 'success', title: 'Guardado', text: 'La oportunidad fue actualizada.', timer: 1800, showConfirmButton: false });
+        } catch (e) {
+          Swal.fire('Error', e.response?.data?.message || 'No se pudo guardar los cambios', 'error');
+        }
+      };
+
+      const ed = mtmEditData || {};
+
       return (
         <div className="oportunidades-content">
           <div className="oportunidades-header form-header detail-header">
             <div className="form-header-left">
-              <button className="btn-volver-icon" onClick={() => { setVista('lista'); setOportunidadSeleccionada(null); setEditFormData(null); setIsEditingDetail(false); }} title="Volver">
+              <button className="btn-volver-icon" onClick={() => {
+                setVista('lista'); setOportunidadSeleccionada(null); setEditFormData(null);
+                setIsEditingDetail(false); setIsMtmEditing(false); setMtmEditData(null);
+              }} title="Volver">
                 <FiArrowLeft className="btn-icon" />
               </button>
               <div className="section-header">
@@ -4059,6 +4118,47 @@ export default function Oportunidades({ onVolver }) {
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: estadoCol + '18', color: estadoCol, border: `1px solid ${estadoCol}44`, borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 600 }}>
                 {opp.estado || 'Borrador'}
               </span>
+              {!isMtmEditing ? (
+                <>
+                  <button className="btn-editar-header" onClick={handleActivarMtmEdicion}>
+                    <FiEdit className="btn-icon" /> Editar
+                  </button>
+                  {opp.estado !== 'Activa' && (
+                    <button className="btn-guardar-header" onClick={async () => {
+                      try {
+                        await api.patch(`/oportunidades-mtm/${opp._id}/status`, { estado: 'Activa' });
+                        setOportunidadSeleccionada(prev => ({ ...prev, estado: 'Activa' }));
+                        setOportunidades(prev => prev.map(o => o._id === opp._id ? { ...o, estado: 'Activa' } : o));
+                      } catch (e) { Swal.fire('Error', e.response?.data?.message || 'No se pudo cambiar el estado', 'error'); }
+                    }}>
+                      Activar
+                    </button>
+                  )}
+                  {opp.estado === 'Activa' && (
+                    <button className="btn-rechazar-header" onClick={async () => {
+                      try {
+                        await api.patch(`/oportunidades-mtm/${opp._id}/status`, { estado: 'Inactiva' });
+                        setOportunidadSeleccionada(prev => ({ ...prev, estado: 'Inactiva' }));
+                        setOportunidades(prev => prev.map(o => o._id === opp._id ? { ...o, estado: 'Inactiva' } : o));
+                      } catch (e) { Swal.fire('Error', e.response?.data?.message || 'No se pudo cambiar el estado', 'error'); }
+                    }}>
+                      <FiXCircle className="btn-icon" /> Inactivar
+                    </button>
+                  )}
+                  <button className="btn-duplicar-header" onClick={handleDuplicarOportunidad}>
+                    <FiCopy className="btn-icon" /> Duplicar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn-guardar-header" onClick={handleGuardarMtmCambios}>
+                    <FiFileText className="btn-icon" /> Guardar
+                  </button>
+                  <button className="btn-volver-icon" onClick={handleCancelarMtmEdicion} title="Cancelar">
+                    <FiX className="btn-icon" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
           <div className="oportunidades-section">
@@ -4067,17 +4167,21 @@ export default function Oportunidades({ onVolver }) {
                 <div className="mtm-form-intro">
                   <HiOutlineAcademicCap className="mtm-form-intro-icon" />
                   <div className="mtm-form-intro-text">
-                    <strong>{opp.nombreCargo}</strong>
+                    <strong>{isMtmEditing ? (ed.nombreCargo || opp.nombreCargo) : opp.nombreCargo}</strong>
                     <span>Oportunidad MTM · No. {opp._id?.slice(-6)}</span>
                   </div>
                 </div>
+
+                {/* INFORMACIÓN BÁSICA */}
                 <div className="mtm-section-divider">
                   <div className="mtm-section-divider-label"><FiFileText /> Información básica</div>
                   <div className="mtm-section-divider-line" />
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiFileText className="label-icon" /> Nombre del cargo</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.nombreCargo || '—'}</div>
+                  {isMtmEditing
+                    ? <input type="text" value={ed.nombreCargo} onChange={e => setMtmEditData(p => ({ ...p, nombreCargo: e.target.value }))} className="form-input" maxLength={250} />
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.nombreCargo || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiUsers className="label-icon" /> Empresa</label>
@@ -4085,64 +4189,111 @@ export default function Oportunidades({ onVolver }) {
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiList className="label-icon" /> Categoría</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.categoria?.value || '—'}</div>
+                  {isMtmEditing
+                    ? <select value={ed.categoria} onChange={e => setMtmEditData(p => ({ ...p, categoria: e.target.value }))} className="form-select">
+                        <option value="">Seleccione...</option>
+                        {mtmCategoriaItems.map(c => <option key={c._id} value={c._id}>{c.value}</option>)}
+                      </select>
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.categoria?.value || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiCalendar className="label-icon" /> Periodo académico</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.periodo?.codigo || '—'}</div>
+                  {isMtmEditing
+                    ? <select value={ed.periodo} onChange={e => setMtmEditData(p => ({ ...p, periodo: e.target.value }))} className="form-select">
+                        <option value="">Seleccione...</option>
+                        {mtmPeriodos.map(p => <option key={p._id} value={p._id}>{p.codigo}</option>)}
+                      </select>
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.periodo?.codigo || '—'}</div>}
                 </div>
+
+                {/* PARÁMETROS ECONÓMICOS */}
                 <div className="mtm-section-divider">
                   <div className="mtm-section-divider-label"><FiDollarSign /> Parámetros económicos</div>
                   <div className="mtm-section-divider-line" />
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiClock className="label-icon" /> Dedicación horas / semana</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.dedicacionHoras?.value || '—'}</div>
+                  {isMtmEditing
+                    ? <select value={ed.dedicacionHoras} onChange={e => setMtmEditData(p => ({ ...p, dedicacionHoras: e.target.value }))} className="form-select">
+                        <option value="">Seleccione...</option>
+                        {mtmDedicacionItems.map(d => <option key={d._id} value={d._id}>{d.value}{d.description ? ` — ${d.description}` : ''}</option>)}
+                      </select>
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.dedicacionHoras?.value || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiDollarSign className="label-icon" /> Valor por hora</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.valorPorHora?.value || '—'}</div>
+                  {isMtmEditing
+                    ? <select value={ed.valorPorHora} onChange={e => setMtmEditData(p => ({ ...p, valorPorHora: e.target.value }))} className="form-select">
+                        <option value="">Seleccione...</option>
+                        {mtmValorItems.map(v => <option key={v._id} value={v._id}>{v.value}{v.description ? ` — ${v.description}` : ''}</option>)}
+                      </select>
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.valorPorHora?.value || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiFileText className="label-icon" /> Tipo de vinculación</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.tipoVinculacion?.value || '—'}</div>
+                  {isMtmEditing
+                    ? <select value={ed.tipoVinculacion} onChange={e => setMtmEditData(p => ({ ...p, tipoVinculacion: e.target.value }))} className="form-select">
+                        <option value="">Seleccione...</option>
+                        {mtmVinculacionItems.map(v => <option key={v._id} value={v._id}>{v.value}{v.description ? ` — ${v.description}` : ''}</option>)}
+                      </select>
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.tipoVinculacion?.value || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiUsers className="label-icon" /> Vacantes</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.vacantes ?? '—'}</div>
+                  {isMtmEditing
+                    ? <input type="number" value={ed.vacantes} onChange={e => setMtmEditData(p => ({ ...p, vacantes: e.target.value }))} className="form-input" min="0" />
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.vacantes ?? '—'}</div>}
                 </div>
+
+                {/* FECHAS Y CONDICIONES */}
                 <div className="mtm-section-divider">
                   <div className="mtm-section-divider-label"><FiCalendar /> Fechas y condiciones</div>
                   <div className="mtm-section-divider-line" />
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiCalendar className="label-icon" /> Fecha de vencimiento</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{fmtFecha(opp.fechaVencimiento)}</div>
+                  {isMtmEditing
+                    ? <input type="date" value={ed.fechaVencimiento} onChange={e => setMtmEditData(p => ({ ...p, fechaVencimiento: e.target.value }))} className="form-input" />
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{fmtFecha(opp.fechaVencimiento)}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiBookOpen className="label-icon" /> Promedio mínimo requerido</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.promedioMinimo != null ? opp.promedioMinimo : '—'}</div>
+                  {isMtmEditing
+                    ? <input type="number" value={ed.promedioMinimo} onChange={e => setMtmEditData(p => ({ ...p, promedioMinimo: e.target.value }))} className="form-input" min="0" max="5" step="0.1" />
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.promedioMinimo != null ? opp.promedioMinimo : '—'}</div>}
                 </div>
+
+                {/* RESPONSABLE Y OFERTANTE */}
                 <div className="mtm-section-divider">
                   <div className="mtm-section-divider-label"><FiEdit /> Responsable y ofertante</div>
                   <div className="mtm-section-divider-line" />
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiEdit className="label-icon" /> Profesor / Responsable</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.nombreProfesor || '—'}</div>
+                  {isMtmEditing
+                    ? <input type="text" value={ed.nombreProfesor} onChange={e => setMtmEditData(p => ({ ...p, nombreProfesor: e.target.value }))} className="form-input" />
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.nombreProfesor || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiMapPin className="label-icon" /> Unidad académica</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.unidadAcademica || '—'}</div>
+                  {isMtmEditing
+                    ? <input type="text" value={ed.unidadAcademica} onChange={e => setMtmEditData(p => ({ ...p, unidadAcademica: e.target.value }))} className="form-input" />
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.unidadAcademica || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiClock className="label-icon" /> Horario</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.horario || '—'}</div>
+                  {isMtmEditing
+                    ? <input type="text" value={ed.horario} onChange={e => setMtmEditData(p => ({ ...p, horario: e.target.value }))} className="form-input" />
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.horario || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiBook className="label-icon" /> Grupo</label>
-                  <div className="form-input" style={{ background: '#f9fafb' }}>{opp.grupo || '—'}</div>
+                  {isMtmEditing
+                    ? <input type="text" value={ed.grupo} onChange={e => setMtmEditData(p => ({ ...p, grupo: e.target.value }))} className="form-input" />
+                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.grupo || '—'}</div>}
                 </div>
+
+                {/* CONTENIDO ACADÉMICO */}
                 <div className="mtm-section-divider">
                   <div className="mtm-section-divider-label"><HiOutlineAcademicCap /> Contenido académico</div>
                   <div className="mtm-section-divider-line" />
@@ -4171,17 +4322,23 @@ export default function Oportunidades({ onVolver }) {
                     </ul>
                   )}
                 </div>
+
+                {/* DESCRIPCIÓN DE LA OFERTA */}
                 <div className="mtm-section-divider">
                   <div className="mtm-section-divider-label"><FiList /> Descripción de la oferta</div>
                   <div className="mtm-section-divider-line" />
                 </div>
                 <div className="form-field-group form-field-full-width">
                   <label className="form-label-with-icon"><FiList className="label-icon" /> Funciones</label>
-                  <div className="form-textarea" style={{ background: '#f9fafb', minHeight: 80, whiteSpace: 'pre-wrap' }}>{opp.funciones || '—'}</div>
+                  {isMtmEditing
+                    ? <textarea value={ed.funciones} onChange={e => setMtmEditData(p => ({ ...p, funciones: e.target.value }))} className="form-textarea" maxLength={250} rows={4} />
+                    : <div className="form-textarea" style={{ background: '#f9fafb', minHeight: 80, whiteSpace: 'pre-wrap' }}>{opp.funciones || '—'}</div>}
                 </div>
                 <div className="form-field-group form-field-full-width">
                   <label className="form-label-with-icon"><FiAlertCircle className="label-icon" /> Requisitos</label>
-                  <div className="form-textarea" style={{ background: '#f9fafb', minHeight: 80, whiteSpace: 'pre-wrap' }}>{opp.requisitos || '—'}</div>
+                  {isMtmEditing
+                    ? <textarea value={ed.requisitos} onChange={e => setMtmEditData(p => ({ ...p, requisitos: e.target.value }))} className="form-textarea" maxLength={250} rows={4} />
+                    : <div className="form-textarea" style={{ background: '#f9fafb', minHeight: 80, whiteSpace: 'pre-wrap' }}>{opp.requisitos || '—'}</div>}
                 </div>
               </div>
             </div>
