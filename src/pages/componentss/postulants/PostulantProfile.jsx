@@ -123,10 +123,9 @@ function isSeccionHojaVidaCompletada(profileData, postulant, sectionKey) {
     case 'cedula':
       return has(pp?.profileSupports);
     case 'perfil':
-      return (
-        str(p?.profileText ?? pp?.selectedProfileVersion?.profileText) &&
-        (has(pp?.skills) || has(pp?.languages))
-      );
+      // Completado si hay texto de perfil, o al menos una competencia, o al menos un idioma (no exige todo a la vez)
+      const profileText = p?.profileText ?? pp?.selectedProfileVersion?.profileText;
+      return str(profileText) || has(pp?.skills) || has(pp?.languages);
     case 'formacion_rosario_en_curso':
       return has(pp?.enrolledPrograms?.filter((ep) => ep.programFacultyId != null));
     case 'formacion_rosario_finalizada':
