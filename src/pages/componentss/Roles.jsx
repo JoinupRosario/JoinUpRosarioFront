@@ -316,52 +316,48 @@ const Roles = ({ onVolver }) => {
     <div className="roles-content">
       <div className="roles-section">
         <div className="roles-page-header">
-          <div>
+          <div className="roles-page-header-top">
             <h2 className="roles-page-title">Gestión de Roles</h2>
-            <p className="roles-page-subtitle">Administra los roles y sus permisos del sistema.</p>
-          </div>
-          <div className="configuracion-actions">
-            <button className="btn-volver" onClick={onVolver}>
-              <FiArrowLeft className="btn-icon" />
-              Volver
-            </button>
-            <button
-              className="btn-guardar"
-              onClick={() => {
-                setFormData({ nombre: '', estado: true });
-                setSelectedRol(null);
-                setVistaActual('crear');
-              }}
-            >
-              <FiPlus className="btn-icon" />
-              Crear Rol
-            </button>
-          </div>
-        </div>
-
-        {/* Filtros y Búsqueda */}
-        <div className="roles-filters">
-          <div className="search-box">
-            <FiSearch className="search-icon" />
-            <input
-              type="text"
-              placeholder="Buscar roles..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-          <div className="filter-group">
-            <FiFilter className="filter-icon" />
-            <select
-              value={filterEstado}
-              onChange={(e) => setFilterEstado(e.target.value)}
-              className="filter-select"
-            >
-              <option value="todos">Todos los estados</option>
-              <option value="activos">Activos</option>
-              <option value="inactivos">Inactivos</option>
-            </select>
+            <div className="configuracion-actions">
+              <button className="btn-volver" onClick={onVolver}>
+                <FiArrowLeft className="btn-icon" />
+                Volver
+              </button>
+              <button
+                className="btn-guardar"
+                onClick={() => {
+                  setFormData({ nombre: '', estado: true });
+                  setSelectedRol(null);
+                  setVistaActual('crear');
+                }}
+              >
+                <FiPlus className="btn-icon" />
+                Crear Rol
+              </button>
+            </div>
+          <div className="roles-filters">
+            <div className="search-box">
+              <FiSearch className="search-icon" />
+              <input
+                type="text"
+                placeholder="Buscar roles..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
+            <div className="filter-group">
+              <FiFilter className="filter-icon" />
+              <select
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
+                className="filter-select"
+              >
+                <option value="todos">Todos los estados</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
+            </div>
           </div>
         </div>
 
