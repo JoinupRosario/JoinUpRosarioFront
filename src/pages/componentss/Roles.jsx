@@ -335,6 +335,7 @@ const Roles = ({ onVolver }) => {
                 Crear Rol
               </button>
             </div>
+          </div>
           <div className="roles-filters">
             <div className="search-box">
               <FiSearch className="search-icon" />
