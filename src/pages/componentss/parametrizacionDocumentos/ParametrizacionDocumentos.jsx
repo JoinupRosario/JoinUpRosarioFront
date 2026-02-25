@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft,
   FiFileText,
-  FiMapPin,
   FiSave,
   FiUpload,
   FiX,
@@ -132,10 +131,6 @@ export default function ParametrizacionDocumentos({ onVolver }) {
     );
   };
 
-  const irAGestionParametros = () => {
-    navigate('/dashboard/ubicaciones', { state: { from: 'configuracion-documentos' } });
-  };
-
   /** Cargar parametrización hoja de vida al montar. */
   useEffect(() => {
     if (activeTab !== 'hoja-vida') return;
@@ -229,8 +224,7 @@ export default function ParametrizacionDocumentos({ onVolver }) {
       <div className="param-docs-intro">
           <p>
             Desde aquí puede configurar los <strong>documentos y el formato de la hoja de vida</strong> según lo definido para el sistema:
-            definir qué secciones son de diligenciamiento obligatorio para el estudiante, el orden y la visibilidad de las secciones en el PDF generado,
-            y acceder a la gestión de las listas parametrizadas (países, idiomas, tipo de logro, etc.) que se usan en la hoja de vida.
+            definir qué secciones son de diligenciamiento obligatorio para el estudiante, y el orden y la visibilidad de las secciones en el PDF generado.
           </p>
         </div>
 
@@ -356,21 +350,6 @@ export default function ParametrizacionDocumentos({ onVolver }) {
                 </div>
               </section>
 
-              {/* 3. Listas parametrizadas (HU: funcionalidad para crear listas) */}
-              <section className="param-docs-block">
-                <h4 className="param-docs-block-title">Listas parametrizadas</h4>
-                <p className="param-docs-block-desc">
-                  Los campos que retornan listas (países, idiomas, tipo de logro, ciudades, etc.) deben contar con la funcionalidad para crear y editar esas listas. Gestione los parámetros del sistema en:
-                </p>
-                <button
-                  type="button"
-                  className="param-docs-link-btn"
-                  onClick={irAGestionParametros}
-                >
-                  <FiMapPin className="param-docs-link-btn-icon" />
-                  Gestión de Parámetros
-                </button>
-              </section>
 
               <div className="param-docs-footer-actions">
                 <button
