@@ -315,7 +315,11 @@ const Roles = ({ onVolver }) => {
   const renderBuscarRol = () => (
     <div className="roles-content">
       <div className="roles-section">
-        <div className="roles-header">
+        <div className="roles-page-header">
+          <div>
+            <h2 className="roles-page-title">Gestión de Roles</h2>
+            <p className="roles-page-subtitle">Administra los roles y sus permisos del sistema.</p>
+          </div>
           <div className="configuracion-actions">
             <button className="btn-volver" onClick={onVolver}>
               <FiArrowLeft className="btn-icon" />
@@ -332,9 +336,6 @@ const Roles = ({ onVolver }) => {
               <FiPlus className="btn-icon" />
               Crear Rol
             </button>
-          </div>
-          <div className="section-header">
-            <h3>BUSCAR ROL</h3>
           </div>
         </div>
 
@@ -451,63 +452,53 @@ const Roles = ({ onVolver }) => {
   const renderCrearRol = () => (
     <div className="roles-content">
       <div className="roles-section">
-        <div className="roles-header">
-          <div className="configuracion-actions">
-            <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
-              <FiArrowLeft className="btn-icon" />
-              Volver
-            </button>
-            <button className="btn-guardar" onClick={handleCrearRol}>
-              <FiCheck className="btn-icon" />
-              {selectedRol ? 'Actualizar Rol' : 'Crear Rol'}
-            </button>
-          </div>
-          <div className="section-header">
-            <h3>{selectedRol ? 'EDITAR ROL' : 'CREAR ROL'}</h3>
-          </div>
+        <div className="configuracion-actions" style={{ marginBottom: 24 }}>
+          <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
+            <FiArrowLeft className="btn-icon" />
+            Volver
+          </button>
+          <button className="btn-guardar" onClick={handleCrearRol}>
+            <FiCheck className="btn-icon" />
+            {selectedRol ? 'Actualizar Rol' : 'Crear Rol'}
+          </button>
         </div>
 
         <div className="role-form-container">
+          <h2 className="role-form-title">
+            {selectedRol ? 'Editar rol' : 'Crear nuevo rol'}
+          </h2>
+          <p className="role-form-desc">
+            {selectedRol
+              ? 'Modifica los datos del rol seleccionado.'
+              : 'Completa los datos para crear un nuevo rol en el sistema.'}
+          </p>
           <div className="form-section">
             <div className="form-group">
-              <label className="form-label">NOMBRE</label>
+              <label className="form-label">Nombre del rol</label>
               <input
                 type="text"
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 className="form-input"
                 required
-                placeholder="Ingrese el nombre del rol"
+                placeholder="Ej: Coordinador de prácticas"
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">ESTADO</label>
-              <div className="status-options">
-                <label className="status-option">
-                  <input
-                    type="radio"
-                    name="estado"
-                    value="activo"
-                    checked={formData.estado === true}
-                    onChange={() => setFormData({ ...formData, estado: true })}
-                    className="status-radio"
-                  />
-                  <span className="status-indicator active"></span>
-                  Activo
-                </label>
-                <label className="status-option">
-                  <input
-                    type="radio"
-                    name="estado"
-                    value="inactivo"
-                    checked={formData.estado === false}
-                    onChange={() => setFormData({ ...formData, estado: false })}
-                    className="status-radio"
-                  />
-                  <span className="status-indicator inactive"></span>
-                  Inactivo
-                </label>
+              <label className="form-label">Estado</label>
+              <div className="toggle-row">
+                <span className={`toggle-label ${!formData.estado ? 'toggle-label--off' : ''}`}>
+                  {formData.estado ? 'Activo' : 'Inactivo'}
+                </span>
+                <button
+                  type="button"
+                  className={`toggle-switch ${formData.estado ? 'toggle-switch--on' : ''}`}
+                  onClick={() => setFormData({ ...formData, estado: !formData.estado })}
+                  aria-label="Cambiar estado"
+                >
+                  <span className="toggle-thumb" />
+                </button>
               </div>
             </div>
           </div>
@@ -520,20 +511,15 @@ const Roles = ({ onVolver }) => {
   const renderAsociarPermisos = () => (
     <div className="roles-content">
       <div className="roles-section">
-        <div className="roles-header">
-          <div className="configuracion-actions">
-            <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
-              <FiArrowLeft className="btn-icon" />
-              Volver
-            </button>
-            <button className="btn-guardar" onClick={guardarPermisos}>
-              <FiCheck className="btn-icon" />
-              Guardar Permisos
-            </button>
-          </div>
-          <div className="section-header">
-            <h3>ASOCIAR PERMISOS</h3>
-          </div>
+        <div className="configuracion-actions" style={{ marginBottom: 24 }}>
+          <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
+            <FiArrowLeft className="btn-icon" />
+            Volver
+          </button>
+          <button className="btn-guardar" onClick={guardarPermisos}>
+            <FiCheck className="btn-icon" />
+            Guardar Permisos
+          </button>
         </div>
 
         <div className="permisos-container">
