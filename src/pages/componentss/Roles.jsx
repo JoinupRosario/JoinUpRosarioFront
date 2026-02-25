@@ -317,8 +317,7 @@ const Roles = ({ onVolver }) => {
       <div className="roles-section">
         <div className="roles-page-header">
           <div className="roles-page-header-top">
-            <h2 className="roles-page-title">Gestión de Roles</h2>
-            <div className="configuracion-actions">
+            <div className="roles-page-header-actions">
               <button className="btn-volver" onClick={onVolver}>
                 <FiArrowLeft className="btn-icon" />
                 Volver
@@ -335,6 +334,7 @@ const Roles = ({ onVolver }) => {
                 Crear Rol
               </button>
             </div>
+            <h2 className="roles-page-title">Gestión de Roles</h2>
           </div>
           <div className="roles-filters">
             <div className="search-box">
@@ -504,111 +504,109 @@ const Roles = ({ onVolver }) => {
     </div>
   );
 
-  // Renderizar vista de Asociar Permisos (Actualizada según el diseño)
-  const renderAsociarPermisos = () => (
-    <div className="roles-content">
-      <div className="roles-section">
-        <div className="configuracion-actions" style={{ marginBottom: 24 }}>
-          <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
-            <FiArrowLeft className="btn-icon" />
-            Volver
-          </button>
-          <button className="btn-guardar" onClick={guardarPermisos}>
-            <FiCheck className="btn-icon" />
-            Guardar Permisos
-          </button>
-        </div>
+  const [moduloActivo, setModuloActivo] = useState(null);
 
-        <div className="permisos-container">
-          <div className="permisos-header-info">
-            <h2 className="rol-title">{selectedRol?.nombre}</h2>
-            <div className="permisos-stats">
-              <span>
-                {Object.values(permisosSeleccionados).filter(Boolean).length} permisos seleccionados
-              </span>
+  // Renderizar vista de Asociar Permisos (Actualizada según el diseño)
+  const renderAsociarPermisos = () => {
+    const modulos = Object.keys(permisosPorModulo);
+    const tabActivo = moduloActivo || modulos[0];
+    const permisosDelTab = permisosPorModulo[tabActivo] || [];
+    const totalSeleccionados = Object.values(permisosSeleccionados).filter(Boolean).length;
+
+    return (
+      <div className="roles-content">
+        <div className="roles-section">
+          {/* Header */}
+          <div className="roles-page-header-top" style={{ marginBottom: 16 }}>
+            <div className="roles-page-header-actions">
+              <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
+                <FiArrowLeft className="btn-icon" /> Volver
+              </button>
+              <button className="btn-guardar" onClick={guardarPermisos}>
+                <FiCheck className="btn-icon" /> Guardar Permisos
+              </button>
             </div>
+            <h2 className="roles-page-title">{selectedRol?.nombre}</h2>
           </div>
-          {/* Botón de selección global */}
-          <div className="permisos-global-actions">
-            {Object.values(permisosSeleccionados).filter(Boolean).length === permisos.length ? (
-              <button
-                className="btn-deseleccionar-modulo"
-                onClick={deseleccionarTodosPermisos}
-              >
-                <FiX className="btn-icon" />
-                Deseleccionar Todos
+
+          {/* Stats + acción global */}
+          <div className="permisos-topbar">
+            <span className="permisos-stats-label">
+              {totalSeleccionados} permisos seleccionados
+            </span>
+            {totalSeleccionados === permisos.length ? (
+              <button className="btn-deseleccionar-modulo" onClick={deseleccionarTodosPermisos}>
+                <FiX className="btn-icon" /> Deseleccionar todos
               </button>
             ) : (
-              <button
-                className="btn-seleccionar-modulo"
-                onClick={seleccionarTodosPermisos}
-              >
-                <FiCheck className="btn-icon" />
-                Seleccionar Todos
+              <button className="btn-seleccionar-modulo" onClick={seleccionarTodosPermisos}>
+                <FiCheck className="btn-icon" /> Seleccionar todos
               </button>
             )}
           </div>
-          {/* Diseño similar a la imagen */}
-          <div className="permisos-layout">
-            {Object.entries(permisosPorModulo).map(([modulo, permisosModulo]) => (
-              <div key={modulo} className="modulo-section">
-                <div className="modulo-header">
-                  <h3 className="modulo-title">{modulo}</h3>
-                </div>
-                <div className="permisos-table">
-                  <div className="permisos-table-header">
-                    <div className="permiso-col permiso-col-nombre">
-                      <label className="header-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={todosSeleccionadosModulo(modulo)}
-                          onChange={() => {
-                            if (todosSeleccionadosModulo(modulo)) {
-                              deseleccionarTodosModulo(modulo);
-                            } else {
-                              seleccionarTodosModulo(modulo);
-                            }
-                          }}
-                          className="header-checkbox"
-                        />
-                        PERMISO
-                      </label>
-                    </div>
-                    <div className="permiso-col permiso-col-estado">ESTADO</div>
-                  </div>
-                  <div className="permisos-table-body">
-                    {permisosModulo.map(permiso => (
-                      <div key={permiso._id} className="permiso-table-row">
-                        <div className="permiso-col permiso-col-nombre">
-                          <label className="permiso-checkbox-label">
-                            <input
-                              type="checkbox"
-                              checked={!!permisosSeleccionados[permiso._id]}
-                              onChange={() => setPermisosSeleccionados(prev => ({
-                                ...prev,
-                                [permiso._id]: !prev[permiso._id]
-                              }))}
-                              className="permiso-checkbox"
-                            />
-                            <span className="permiso-name">{permiso.nombre}</span>
-                          </label>
-                        </div>
-                        <div className="permiso-col permiso-col-estado">
-                          <span className={`permiso-status ${permisosSeleccionados[permiso._id] ? 'active' : 'inactive'}`}>
-                            {permisosSeleccionados[permiso._id] ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+
+          {/* Pestañas de módulos */}
+          <div className="permisos-tabs-wrapper">
+            <div className="permisos-tabs">
+              {modulos.map(mod => {
+                const seleccionadosEnMod = (permisosPorModulo[mod] || []).filter(p => permisosSeleccionados[p._id]).length;
+                const totalMod = (permisosPorModulo[mod] || []).length;
+                return (
+                  <button
+                    key={mod}
+                    className={`permisos-tab ${tabActivo === mod ? 'permisos-tab--active' : ''}`}
+                    onClick={() => setModuloActivo(mod)}
+                  >
+                    {mod}
+                    <span className={`permisos-tab-badge ${seleccionadosEnMod === totalMod ? 'badge--full' : seleccionadosEnMod > 0 ? 'badge--partial' : ''}`}>
+                      {seleccionadosEnMod}/{totalMod}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Contenido del tab activo */}
+            <div className="permisos-tab-content">
+              <div className="permisos-tab-content-header">
+                <label className="header-checkbox-label">
+                  <input
+                    type="checkbox"
+                    className="header-checkbox"
+                    checked={todosSeleccionadosModulo(tabActivo)}
+                    onChange={() => todosSeleccionadosModulo(tabActivo)
+                      ? deseleccionarTodosModulo(tabActivo)
+                      : seleccionarTodosModulo(tabActivo)
+                    }
+                  />
+                  Seleccionar todos en este módulo
+                </label>
               </div>
-            ))}
+              <div className="permisos-tab-list">
+                {permisosDelTab.map(permiso => (
+                  <label key={permiso._id} className="permiso-tab-row">
+                    <input
+                      type="checkbox"
+                      className="permiso-checkbox"
+                      checked={!!permisosSeleccionados[permiso._id]}
+                      onChange={() => setPermisosSeleccionados(prev => ({
+                        ...prev,
+                        [permiso._id]: !prev[permiso._id]
+                      }))}
+                    />
+                    <span className="permiso-name">{permiso.nombre}</span>
+                    <span className={`permiso-status ${permisosSeleccionados[permiso._id] ? 'active' : 'inactive'}`}>
+                      {permisosSeleccionados[permiso._id] ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
