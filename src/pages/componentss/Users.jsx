@@ -595,6 +595,7 @@ const Users = ({ onVolver }) => {
                   <th>IDENTIFICACIÓN</th>
                   <th>USUARIO</th>
                   <th>ROLES</th>
+                  <th>SEDE</th>
                   <th>CELULAR</th>
                   <th>ESTADO</th>
                 </tr>
@@ -635,6 +636,11 @@ const Users = ({ onVolver }) => {
                           <span className="no-roles">Sin Rol</span>
                         )}
                       </div>
+                    </td>
+                    <td>
+                      {user.sucursales?.length > 0
+                        ? user.sucursales.map((s) => s.nombre).filter(Boolean).join(', ')
+                        : (user.sucursal?.nombre || '-')}
                     </td>
                     <td>{user.phone || '-'}</td>
                     <td onClick={(e) => e.stopPropagation()}>

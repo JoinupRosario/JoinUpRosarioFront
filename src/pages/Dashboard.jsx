@@ -42,9 +42,8 @@ import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
 import RecentActivity from '../components/ui/RecentActivity';
 import Postulants  from './componentss/postulants/postulants';
-// TODO: Crear estos componentes cuando estén listos
-// import PostulantStatusLog from './componentss/postulants/logs/PostulantStatusLog';
-// import PostulantDocumentLog from './componentss/postulants/logs/PostulantDocumentLog';
+import PostulantStatusLog from './componentss/postulants/logs/PostulantStatusLog';
+import PostulantDocumentLog from './componentss/postulants/logs/PostulantDocumentLog';
 import PostulantProfile from './componentss/postulants/PostulantProfile';
 import Student from './componentss/students/student';
 import api from '../services/api';
@@ -56,9 +55,25 @@ import './Dashboard.css';
 export default function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sedeUsuario, setSedeUsuario] = useState([]);
   const { user, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Sucursales del usuario (login las envía; si no, se cargan desde API para sesiones restauradas)
+  useEffect(() => {
+    if (!user) {
+      setSedeUsuario([]);
+      return;
+    }
+    if (user.sucursales?.length > 0) {
+      setSedeUsuario(user.sucursales);
+      return;
+    }
+    api.get('/user-sucursales').then((res) => {
+      setSedeUsuario(res.data?.sucursales || []);
+    }).catch(() => setSedeUsuario([]));
+  }, [user]);
 
   // Mapeo de rutas a vistas
   const routeToVista = {
@@ -328,6 +343,11 @@ export default function Dashboard() {
             <div className="user-details">
               <span className="user-name">{user?.name}</span>
               <span className="user-role">{user?.role}</span>
+              {(user?.sucursales?.length > 0 || sedeUsuario?.length > 0) && (
+                <span className="user-sede" title="Sede(s)">
+                  Sede: {(user?.sucursales || sedeUsuario || []).map((s) => s.nombre).filter(Boolean).join(', ') || '—'}
+                </span>
+              )}
             </div>
           </div>
           <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">
@@ -477,13 +497,12 @@ export default function Dashboard() {
         {vistaActual === 'postulants' && (
           <Postulants onVolver={handleVolver} />
         )}
-        {/* TODO: Descomentar cuando los componentes estén creados */}
-        {/* {vistaActual === 'postulants-log' && (
-          <PostulantStatusLog onVolver={handleVolver} />
+        {vistaActual === 'postulants-log' && (
+          <PostulantStatusLog onVolver={() => navigate('/dashboard/postulants')} />
         )}
         {vistaActual === 'postulants-document-log' && (
-          <PostulantDocumentLog onVolver={handleVolver} />
-        )} */}
+          <PostulantDocumentLog onVolver={() => navigate('/dashboard/postulants')} />
+        )}
         {vistaActual === 'postulant-profile' && (
           <PostulantProfile onVolver={handleVolver} />
         )}

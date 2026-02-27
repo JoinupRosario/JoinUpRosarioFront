@@ -277,6 +277,8 @@ const PostulantProfile = ({ onVolver }) => {
     totalTimeExperience: '',
     skillsTechnicalSoftware: '',
   });
+  /** Modal "Cursos aprobados" para formación Rosario en curso: { enrolledId, programName } o null. */
+  const [cursosAprobadosModal, setCursosAprobadosModal] = useState(null);
   /** Id del ítem de "en curso - Registrada" cuyo menú Opciones está abierto. */
   const [academicEnCursoRegistradaOptionsId, setAcademicEnCursoRegistradaOptionsId] = useState(null);
   /** Modal creación/edición programas en curso. Si no es null, estamos editando este _id. */
@@ -544,10 +546,13 @@ const PostulantProfile = ({ onVolver }) => {
   /** Actualizar info académica desde Universitas: consulta, compara, modal con diferencias, aplicar y refrescar. */
   const handleActualizarInfoAcademicaUniversitas = useCallback(async () => {
     if (!postulant?._id) return;
+    const profileId = profileData?.postulantProfile?._id;
     try {
-      const res = await api.get(`/postulants/${postulant._id}/consulta-inf-academica-universitas`);
+      const res = await api.get(`/postulants/${postulant._id}/consulta-inf-academica-universitas`, {
+        params: profileId ? { profileId } : {},
+      });
       const { changes = [] } = res.data || {};
-
+      
       if (changes.length === 0) {
         await Swal.fire({
           icon: 'info',
@@ -581,7 +586,9 @@ const PostulantProfile = ({ onVolver }) => {
       if (!result.isConfirmed) return;
 
       Swal.fire({ title: 'Actualizando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
-      await api.put(`/postulants/${postulant._id}/aplicar-info-academica-universitas`);
+      await api.put(`/postulants/${postulant._id}/aplicar-info-academica-universitas`, {}, {
+        params: profileId ? { profileId } : {},
+      });
       const [refreshedPostulant, refreshedProfile] = await Promise.all([
         api.get(`/postulants/${postulant._id}`),
         api.get(`/postulants/${postulant._id}/profile-data`, {
@@ -2001,7 +2008,7 @@ const PostulantProfile = ({ onVolver }) => {
             </button>
             <button
               className="btn-action btn-outline"
-              onClick={() => showFuncionalidadEnDesarrollo('Actualizar Info Académica (Universitas)')}
+              onClick={() => handleActualizarInfoAcademicaUniversitas('Actualizar Info Académica (Universitas)')}
               title="Actualizar Info Académica (Universitas)"
             >
               <FiFile className="btn-icon" />
@@ -2710,26 +2717,90 @@ const PostulantProfile = ({ onVolver }) => {
               </div>
             </div>
 
-            {/* Rosario - En curso: programFacultyId presente (se registra automáticamente, sin botón Agregar) */}
+            {/* Rosario - En curso: tabla con columnas; "Cursos aprobados" en Opciones abre modal */}
             <section className="academic-section">
               <div className="section-title-row">
                 <h3 className="academic-section-title">Formación académica Rosario - En curso</h3>
               </div>
               {(() => {
                 const rosarioEnCurso = (profileData?.enrolledPrograms || []).filter((ep) => ep.programFacultyId != null);
+                const extraList = profileData?.programExtraInfo || [];
+                const getExtraForEnrolled = (enrolledId) =>
+                  extraList.find((e) => (e.enrolledProgramId?._id || e.enrolledProgramId)?.toString() === enrolledId?.toString());
+                const getSscFromExtra = (extra) => {
+                  if (!extra) return null;
+                  if (extra.accordingCreditSemester != null && extra.accordingCreditSemester !== '') {
+                    const n = Number(extra.accordingCreditSemester);
+                    return Number.isFinite(n) ? n : null;
+                  }
+                  const approved = Number(String(extra.approvedCredits || '').trim());
+                  return Number.isFinite(approved) && approved >= 0 ? Math.ceil(approved / CREDITOS_POR_SEMESTRE) : null;
+                };
+                const parseCursosAprobados = (str) => {
+                  if (!str || typeof str !== 'string') return [];
+                  return str
+                    .split(/[\n,;]/)
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                };
                 return rosarioEnCurso.length > 0 ? (
-                  <ul className="academic-list academic-list-cards">
-                    {rosarioEnCurso.map((ep) => (
-                      <li key={ep._id} className="academic-list-item">
-                        <span className="academic-item-icon academic-item-check"><FiCheck /></span>
-                        <span>{ep.programId?.name || ep.programId?.code || 'Programa'}</span>
-                        {(ep.programFacultyId?.facultyId?.name || ep.programFacultyId?.name) && <span> — {ep.programFacultyId?.facultyId?.name || ep.programFacultyId?.name}</span>}
-                        {(ep.cityId?.name || ep.countryId?.name) && (
-                          <span> ({[ep.cityId?.name, ep.countryId?.name].filter(Boolean).join(', ')})</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="exp-table-wrap academic-table-wrap">
+                    <table className="exp-table academic-table">
+                      <thead>
+                        <tr>
+                          <th>Programa</th>
+                          <th>Facultad</th>
+                          <th>Sede</th>
+                          <th>Nivel</th>
+                          <th>Cursos actuales</th>
+                          <th>Créditos aprobados</th>
+                          <th>Práctica</th>
+                          <th>Matriculado</th>
+                          <th>Suspensiones</th>
+                          <th>Promedio acumulado</th>
+                          <th>SSC</th>
+                          {/* <th>Opciones</th> */}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rosarioEnCurso.map((ep) => {
+                          const extra = getExtraForEnrolled(ep._id);
+                          return (
+                            <tr key={ep._id}>
+                              <td>
+                                <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                                {ep.programId?.name || ep.programId?.code || '—'}
+                              </td>
+                              <td>{ep.programFacultyId?.facultyId?.name || ep.programFacultyId?.name || '—'}</td>
+                              <td>{[ep.cityId?.name, ep.stateId?.name, ep.countryId?.name].filter(Boolean).join(', ') || '—'}</td>
+                              <td>{ep.programId?.level || '—'}</td>
+                              <td>{extra?.currentCourses ?? '—'}</td>
+                              <td>{extra?.approvedCredits ?? '—'}</td>
+                              <td>{extra?.canPractice === true ? 'Sí' : extra?.canPractice === false ? 'No' : '—'}</td>
+                              <td>{extra?.enrolled === true ? 'Sí' : extra?.enrolled === false ? 'No' : '—'}</td>
+                              <td>{extra?.disciplinarySuspension === true ? 'Sí' : extra?.disciplinarySuspension === false ? 'No' : '—'}</td>
+                              <td>{extra?.cumulativeAverage != null ? extra.cumulativeAverage : '—'}</td>
+                              <td>{getSscFromExtra(extra) ?? '—'}</td>
+                              {/* <td>
+                                <button
+                                  type="button"
+                                  className="perfil-opciones-btn perfil-opciones-btn--small"
+                                  onClick={() => setCursosAprobadosModal({
+                                    enrolledId: ep._id,
+                                    programName: ep.programId?.name || ep.programId?.code || 'Programa',
+                                    approvedCourses: extra?.approvedCourses ?? '',
+                                  })}
+                                  title="Ver cursos aprobados"
+                                >
+                                  Cursos aprobados
+                                </button>
+                              </td> */}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <div className="academic-empty">
                     <FiXCircle className="academic-empty-icon" />
@@ -3742,6 +3813,50 @@ const PostulantProfile = ({ onVolver }) => {
           </div>
         )}
       </div>
+
+      {/* Modal Cursos aprobados (formación Rosario en curso) */}
+      {cursosAprobadosModal && (
+        <div className="form-modal-overlay" onClick={() => setCursosAprobadosModal(null)}>
+          <div className="form-modal-content form-modal-content--wide" onClick={e => e.stopPropagation()}>
+            <div className="form-modal-header">
+              <h3 className="form-modal-title">Cursos aprobados — {cursosAprobadosModal.programName}</h3>
+              <button type="button" className="form-modal-close" onClick={() => setCursosAprobadosModal(null)} aria-label="Cerrar"><FiX /></button>
+            </div>
+            <div className="form-modal-body">
+              {(() => {
+                const str = cursosAprobadosModal.approvedCourses || '';
+                const items = str.split(/[\n,;]/).map((s) => s.trim()).filter(Boolean);
+                if (items.length === 0) {
+                  return <p className="text-muted mb-0">No hay cursos aprobados registrados para este programa.</p>;
+                }
+                return (
+                  <div className="exp-table-wrap academic-table-wrap">
+                    <table className="exp-table academic-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Curso aprobado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((curso, idx) => (
+                          <tr key={idx}>
+                            <td>{idx + 1}</td>
+                            <td>{curso}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="form-modal-footer">
+              <button type="button" className="form-modal-btn-cancel" onClick={() => setCursosAprobadosModal(null)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal programas en curso (form group como Crear período) */}
       {programasEnCursoModalOpen && (
