@@ -42,8 +42,8 @@ import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
 import RecentActivity from '../components/ui/RecentActivity';
 import Postulants  from './componentss/postulants/postulants';
-import PostulantStatusLog from './componentss/postulants/logs/PostulantStatusLog';
-import PostulantDocumentLog from './componentss/postulants/logs/PostulantDocumentLog';
+// import PostulantStatusLog from './componentss/postulants/logs/PostulantStatusLog';
+// import PostulantDocumentLog from './componentss/postulants/logs/PostulantDocumentLog';
 import PostulantProfile from './componentss/postulants/PostulantProfile';
 import Student from './componentss/students/student';
 import api from '../services/api';
@@ -497,12 +497,12 @@ export default function Dashboard() {
         {vistaActual === 'postulants' && (
           <Postulants onVolver={handleVolver} />
         )}
-        {vistaActual === 'postulants-log' && (
+        {/* vistaActual === 'postulants-log' && (
           <PostulantStatusLog onVolver={() => navigate('/dashboard/postulants')} />
-        )}
-        {vistaActual === 'postulants-document-log' && (
+        ) */}
+        {/* vistaActual === 'postulants-document-log' && (
           <PostulantDocumentLog onVolver={() => navigate('/dashboard/postulants')} />
-        )}
+        ) */}
         {vistaActual === 'postulant-profile' && (
           <PostulantProfile onVolver={handleVolver} />
         )}
