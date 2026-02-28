@@ -25,6 +25,12 @@ const Users = ({ onVolver }) => {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15, pages: 1 });
+  const PAGE_SIZE = 15;
+  const searchTimeoutRef = useRef(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [rolesSeleccionados, setRolesSeleccionados] = useState({});
   const [programasSeleccionados, setProgramasSeleccionados] = useState({});
@@ -111,9 +117,24 @@ const Users = ({ onVolver }) => {
     }
   }, [selectedUser]);
 
+  // Debounce del buscador → actualiza searchQuery y resetea a página 1
+  useEffect(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(searchTerm.trim());
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(searchTimeoutRef.current);
+  }, [searchTerm]);
+
+  // Re-fetch cuando cambian página, query o filtro de estado
+  useEffect(() => {
+    if (vistaActual !== 'buscar') return;
+    cargarUsersAdministrativos(currentPage, searchQuery, filtroEstado);
+  }, [vistaActual, currentPage, searchQuery, filtroEstado]);
+
   // Cargar datos iniciales
   useEffect(() => {
-    cargarUsersAdministrativos();
     cargarRoles();
     cargarSucursales();
     cargarTiposIdentificacion();
@@ -128,12 +149,16 @@ const Users = ({ onVolver }) => {
     }
   };
 
-  const cargarUsersAdministrativos = async () => {
+  const cargarUsersAdministrativos = async (page = 1, search = '', estado = 'todos') => {
     try {
       setLoading(true);
-      const response = await api.get('/users-administrativos');
+      const params = { page, limit: PAGE_SIZE };
+      if (search)          params.search = search;
+      if (estado !== 'todos') params.estado = estado;
+      const response = await api.get('/users-administrativos', { params });
       if (response.data.success) {
         setUsersAdministrativos(response.data.data);
+        setPagination(response.data.pagination || { total: 0, page, limit: PAGE_SIZE, pages: 1 });
       }
     } catch (error) {
       console.error('Error al cargar usuarios administrativos:', error);
@@ -166,17 +191,6 @@ const Users = ({ onVolver }) => {
       showError('Error', 'No se pudieron cargar las sucursales');
     }
   };
-
-  // Filtrar usuarios
-  const usersFiltrados = usersAdministrativos.filter(user => {
-    const coincideNombre =
-      user.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.identificacion.includes(searchTerm) ||
-      user.user?.email.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return coincideNombre;
-  });
 
   // Iniciar edición de usuario
   const startEdit = (user) => {
@@ -251,7 +265,7 @@ const Users = ({ onVolver }) => {
       }
 
       if (response?.data?.success) {
-        cargarUsersAdministrativos();
+        cargarUsersAdministrativos(currentPage, searchQuery, filtroEstado);
         setVistaActual('buscar');
         setEditingUser(null);
         setFormData({
@@ -297,7 +311,7 @@ const Users = ({ onVolver }) => {
       if (response.data.success) {
         const mensaje = nuevoEstado ? 'Usuario activado correctamente' : 'Usuario desactivado correctamente';
         await showSuccess('Éxito', mensaje);
-        cargarUsersAdministrativos();
+        cargarUsersAdministrativos(currentPage, searchQuery, filtroEstado);
       }
     } catch (error) {
       console.error('Error al cambiar estado:', error);
@@ -398,7 +412,7 @@ const Users = ({ onVolver }) => {
       await showSuccess('Éxito', 'Sede actualizada correctamente');
       setVistaActual('buscar');
       setSelectedUser(null);
-      cargarUsersAdministrativos();
+      cargarUsersAdministrativos(currentPage, searchQuery, filtroEstado);
 
     } catch (error) {
       console.error('Error al guardar sede:', error);
@@ -424,7 +438,7 @@ const Users = ({ onVolver }) => {
       setVistaActual('buscar');
       setSelectedUser(null);
       setAsociarTodosActivos(false);
-      cargarUsersAdministrativos();
+      cargarUsersAdministrativos(currentPage, searchQuery, filtroEstado);
     } catch (error) {
       console.error('Error al guardar programas:', error);
       showError('Error', 'Error al guardar los programas');
@@ -465,7 +479,7 @@ const Users = ({ onVolver }) => {
       await showSuccess('Éxito', 'Roles actualizados correctamente');
       setVistaActual('buscar');
       setSelectedUser(null);
-      cargarUsersAdministrativos();
+      cargarUsersAdministrativos(currentPage, searchQuery, filtroEstado);
 
     } catch (error) {
       console.error('Error al guardar roles:', error);
@@ -485,7 +499,7 @@ const Users = ({ onVolver }) => {
             </button>
             <button
               className="btn-volver"
-              onClick={() => cargarUsersAdministrativos()}
+              onClick={() => cargarUsersAdministrativos(currentPage, searchQuery, filtroEstado)}
               title="Actualizar lista"
               disabled={loading}
             >
@@ -533,6 +547,15 @@ const Users = ({ onVolver }) => {
               className="search-input"
             />
           </div>
+          <select
+            className="users-filter-select"
+            value={filtroEstado}
+            onChange={(e) => { setFiltroEstado(e.target.value); setCurrentPage(1); }}
+          >
+            <option value="todos">Todos los estados</option>
+            <option value="true">Activos</option>
+            <option value="false">Inactivos</option>
+          </select>
         </div>
 
         {/* Barra de opciones de asociación - Solo visible cuando hay un usuario seleccionado */}
@@ -579,11 +602,11 @@ const Users = ({ onVolver }) => {
               <div className="loading-spinner"></div>
               <p>Cargando usuarios...</p>
             </div>
-          ) : usersFiltrados.length === 0 ? (
+          ) : usersAdministrativos.length === 0 ? (
             <div className="empty-state">
               <FiUser className="empty-icon" />
               <h3>No se encontraron usuarios</h3>
-              <p>{usersAdministrativos.length === 0 ? 'No hay usuarios creados todavía.' : 'Intenta con otros términos de búsqueda.'}</p>
+              <p>{searchQuery || filtroEstado !== 'todos' ? 'Intenta con otros términos de búsqueda.' : 'No hay usuarios creados todavía.'}</p>
             </div>
           ) : (
             <table className="users-table">
@@ -601,8 +624,8 @@ const Users = ({ onVolver }) => {
                 </tr>
               </thead>
               <tbody>
-                {usersFiltrados.map(user => (
-                  <tr 
+                {usersAdministrativos.map((user, idx) => (
+                  <tr
                     key={user._id}
                     onClick={() => startEdit(user)}
                     style={{ cursor: 'pointer' }}
@@ -627,9 +650,7 @@ const Users = ({ onVolver }) => {
                         {user.roles && user.roles.length > 0 ? (
                           user.roles.map((rolObj, index) => (
                             rolObj.estado && (
-                              <span key={index} className="rol-tag">
-                                • {rolObj.rol?.nombre}
-                              </span>
+                              <span key={index} className="rol-tag">• {rolObj.rol?.nombre}</span>
                             )
                           ))
                         ) : (
@@ -664,6 +685,56 @@ const Users = ({ onVolver }) => {
             </table>
           )}
         </div>
+
+        {/* Paginación */}
+        {!loading && pagination.total > 0 && (
+          <div className="users-pagination">
+            <span className="users-pagination-info">
+              Mostrando {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} de <strong>{pagination.total}</strong> usuarios
+            </span>
+            <div className="users-pagination-controls">
+              <button
+                className="users-page-btn"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage <= 1 || loading}
+                title="Primera página"
+              >«</button>
+              <button
+                className="users-page-btn"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage <= 1 || loading}
+              >‹ Anterior</button>
+
+              {/* Números de página */}
+              {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                const half = 2;
+                let start = Math.max(1, currentPage - half);
+                const end = Math.min(pagination.pages, start + 4);
+                start = Math.max(1, end - 4);
+                return start + i;
+              }).filter(n => n >= 1 && n <= pagination.pages).map(n => (
+                <button
+                  key={n}
+                  className={`users-page-btn ${n === currentPage ? 'users-page-btn--active' : ''}`}
+                  onClick={() => setCurrentPage(n)}
+                  disabled={loading}
+                >{n}</button>
+              ))}
+
+              <button
+                className="users-page-btn"
+                onClick={() => setCurrentPage(p => Math.min(pagination.pages, p + 1))}
+                disabled={currentPage >= pagination.pages || loading}
+              >Siguiente ›</button>
+              <button
+                className="users-page-btn"
+                onClick={() => setCurrentPage(pagination.pages)}
+                disabled={currentPage >= pagination.pages || loading}
+                title="Última página"
+              >»</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

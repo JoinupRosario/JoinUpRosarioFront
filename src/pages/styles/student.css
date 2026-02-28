@@ -254,6 +254,179 @@
   max-width: 400px;
 }
 
+/* ─── Modal UXXI ──────────────────────────────────────────────── */
+.uxxi-btn-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  background: #c41e3a;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.uxxi-btn-header:hover { background: #a01730; }
+
+.uxxi-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* El overlay del preview va POR ENCIMA del modal UXXI */
+.uxxi-modal-overlay--preview {
+  z-index: 1100;
+}
+
+.uxxi-modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 680px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.uxxi-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.uxxi-modal-header-left { display: flex; align-items: center; gap: 14px; }
+.uxxi-modal-icon { font-size: 28px; color: #c41e3a; flex-shrink: 0; }
+.uxxi-modal-title { font-size: 17px; font-weight: 700; color: #111; margin: 0 0 3px; }
+.uxxi-modal-subtitle { font-size: 12.5px; color: #9ca3af; margin: 0; }
+.uxxi-modal-close {
+  background: none; border: none; cursor: pointer;
+  color: #9ca3af; font-size: 20px; padding: 4px;
+  border-radius: 6px; transition: color 0.15s;
+  flex-shrink: 0;
+}
+.uxxi-modal-close:hover { color: #374151; }
+
+.uxxi-modal-loading {
+  display: flex; align-items: center; justify-content: center;
+  gap: 14px; padding: 40px 24px;
+  font-size: 14px; color: #6b7280;
+}
+
+.uxxi-modal-body {
+  padding: 22px 24px;
+  overflow-y: auto;
+}
+
+.uxxi-filters-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.uxxi-field { display: flex; flex-direction: column; gap: 6px; }
+.uxxi-field--full { grid-column: 1 / -1; }
+
+.uxxi-label {
+  font-size: 12px; font-weight: 600;
+  color: #6b7280; letter-spacing: 0.3px;
+}
+
+.uxxi-select {
+  padding: 9px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #374151;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.uxxi-select:focus { border-color: #c41e3a; box-shadow: 0 0 0 3px rgba(196,30,58,0.08); }
+
+/* Buscador de programa */
+.uxxi-prog-wrapper { position: relative; }
+.uxxi-prog-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 36px 9px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #374151;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.uxxi-prog-input:focus { border-color: #c41e3a; box-shadow: 0 0 0 3px rgba(196,30,58,0.08); }
+.uxxi-prog-chevron {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%); color: #9ca3af; pointer-events: none;
+}
+.uxxi-prog-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  max-height: 200px; overflow-y: auto; z-index: 10;
+}
+.uxxi-prog-option {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 9px 12px; cursor: pointer;
+  font-size: 13px; transition: background 0.12s;
+}
+.uxxi-prog-option:hover, .uxxi-prog-option--selected { background: #fff5f6; }
+.uxxi-prog-option--empty-val { color: #9ca3af; font-style: italic; }
+.uxxi-prog-code {
+  font-size: 12px; font-weight: 700; color: #c41e3a;
+  background: #fff5f6; padding: 1px 6px; border-radius: 4px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.uxxi-prog-name { color: #374151; }
+.uxxi-prog-empty { padding: 12px; text-align: center; color: #9ca3af; font-size: 13px; }
+.uxxi-field-hint { font-size: 11px; color: #f59e0b; margin-top: 2px; }
+
+.uxxi-modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 24px; border-top: 1px solid #f0f0f0;
+}
+.uxxi-btn-cancel {
+  padding: 9px 20px; border: 1px solid #e5e7eb; border-radius: 8px;
+  background: #fff; color: #6b7280; font-size: 13.5px;
+  font-weight: 500; cursor: pointer; transition: all 0.15s;
+}
+.uxxi-btn-cancel:hover { background: #f9fafb; border-color: #d1d5db; color: #374151; }
+.uxxi-btn-primary {
+  display: flex; align-items: center;
+  padding: 9px 20px; border: none; border-radius: 8px;
+  background: #c41e3a; color: #fff;
+  font-size: 13.5px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s;
+}
+.uxxi-btn-primary:hover  { background: #a01730; }
+.uxxi-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.uxxi-btn-secondary {
+  display: flex; align-items: center;
+  padding: 9px 20px; border: 1.5px solid #2563eb; border-radius: 8px;
+  background: #eff6ff; color: #1d4ed8;
+  font-size: 13.5px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.uxxi-btn-secondary:hover    { background: #dbeafe; border-color: #1d4ed8; }
+.uxxi-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
 /* Responsive */
 @media (max-width: 1200px) {
   .student-table {
@@ -287,4 +460,384 @@
   .student-table {
     min-width: 1200px;
   }
+}
+
+/* ── Status badges en tabla principal ──────────────────────────────────────── */
+.status-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.status-badge--autorizado    { background: #ecfdf5; color: #059669; }
+.status-badge--no-autorizado { background: #fff1f2; color: #c41e3a; }
+.status-badge--en-revision   { background: #fffbeb; color: #92400e; }
+.status-badge--excluido      { background: #f3f4f6; color: #6b7280; }
+
+/* ── Modal Preview / Confirmación ──────────────────────────────────────────── */
+.uxxi-modal--preview {
+  max-width: 900px;
+  width: 95vw;
+}
+
+.uxxi-preview-loading {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 32px 24px;
+}
+
+.uxxi-preview-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #f3f4f6;
+  border-top-color: #c41e3a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.uxxi-preview-loading-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 4px;
+}
+
+.uxxi-preview-loading-sub {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.uxxi-preview-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 24px;
+  color: #c41e3a;
+  font-size: 13px;
+}
+
+.uxxi-preview-summary {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #f9fafb;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.uxxi-preview-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 10px;
+  min-width: 80px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+}
+
+.uxxi-preview-stat--auth   { border-color: #6ee7b7; background: #ecfdf5; }
+.uxxi-preview-stat--noauth { border-color: #fca5a5; background: #fff1f2; }
+.uxxi-preview-stat--rev    { border-color: #fde68a; background: #fffbeb; }
+.uxxi-preview-stat--total  { border-color: #bfdbfe; background: #eff6ff; }
+
+.uxxi-preview-stat-num {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.uxxi-preview-stat-lbl {
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.uxxi-preview-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.uxxi-preview-table-wrap {
+  overflow-x: auto;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 0 4px;
+}
+
+.uxxi-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.uxxi-preview-table th {
+  background: #f9fafb;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  border-bottom: 2px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.uxxi-preview-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.uxxi-preview-table tr:hover td { background: #fafafa; }
+
+.uxxi-prev-mono { font-family: monospace; font-size: 11px; }
+
+.uxxi-prev-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.uxxi-prev-badge--si { background: #ecfdf5; color: #059669; }
+.uxxi-prev-badge--no { background: #fff1f2; color: #c41e3a; }
+
+.uxxi-prev-estado {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.uxxi-prev-estado--autorizado   { background: #ecfdf5; color: #059669; }
+.uxxi-prev-estado--no_autorizado{ background: #fff1f2; color: #c41e3a; }
+.uxxi-prev-estado--en_revision  { background: #fffbeb; color: #92400e; }
+
+.uxxi-prev-regla-pill {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  margin: 2px 2px 2px 0;
+  font-weight: 600;
+}
+.uxxi-prev-regla-pill.cumple    { background: #dcfce7; color: #166534; }
+.uxxi-prev-regla-pill.no-cumple { background: #fee2e2; color: #991b1b; }
+
+.uxxi-prev-osb-error {
+  font-size: 10px;
+  color: #c41e3a;
+  font-style: italic;
+}
+
+.uxxi-prev-sin-reglas {
+  font-size: 10px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ── Reglas curriculares en modal UXXI ─────────────────────────────────────── */
+.uxxi-reglas-section {
+  margin-top: 20px;
+  border-top: 1.5px solid #f0f0f0;
+  padding-top: 16px;
+}
+
+.uxxi-reglas-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.uxxi-reglas-icon {
+  color: #c41e3a;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.uxxi-reglas-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.uxxi-reglas-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: #c41e3a;
+  border-radius: 20px;
+  padding: 2px 10px;
+}
+
+.uxxi-reglas-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.uxxi-reglas-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  background: #fafafa;
+  border: 1.5px dashed #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.uxxi-reglas-empty-icon {
+  font-size: 18px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.uxxi-reglas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.uxxi-regla-card {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-left: 4px solid #c41e3a;
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: box-shadow .15s;
+}
+
+.uxxi-regla-card:hover {
+  box-shadow: 0 2px 10px rgba(196,30,58,.1);
+}
+
+.uxxi-regla-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.uxxi-regla-nombre {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uxxi-regla-logica {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.uxxi-regla-logica--and {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.uxxi-regla-logica--or {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.uxxi-regla-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.uxxi-regla-sep {
+  color: #d1d5db;
+}
+
+.uxxi-regla-todos {
+  color: #059669;
+  font-weight: 600;
+}
+
+.uxxi-regla-programas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.uxxi-regla-todos-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.uxxi-regla-prog-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.uxxi-regla-prog-badge--active {
+  color: #c41e3a;
+  background: #fff0f2;
+  border-color: #fca5a5;
+}
+
+.uxxi-regla-conds-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.uxxi-regla-cond-pill {
+  font-size: 11px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 3px 9px;
+  color: #374151;
+  font-family: monospace;
 }

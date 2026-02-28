@@ -306,29 +306,50 @@ export default function Dashboard() {
               className="header-logo"
             />
           </button>
-          {vistaActual === 'configuracion-personal' && (
-            <h1 className="header-page-title">Administrar notificaciones</h1>
-          )}
-{vistaActual === 'configuracion' && (
-          <h1 className="header-page-title">Configuración</h1>
-        )}
-          {vistaActual === 'periodos' && (
-            <h1 className="header-page-title">Gestión de períodos</h1>
-          )}
-          {vistaActual === 'asignaturas' && (
-            <h1 className="header-page-title">Configuración de Asignaturas</h1>
-          )}
-          {vistaActual === 'configuracion-documentos' && (
-            <h1 className="header-page-title">Parametrización de documentos</h1>
-          )}
-          {vistaActual === 'programas-facultades' && (
-            <h1 className="header-page-title">Programas y Facultades</h1>
-          )}
-          {vistaActual === 'faculty-detail' && (
-            <h1 className="header-page-title">Detalle de la facultad</h1>
-          )}
-          {vistaActual === 'reportes' && (
-            <h1 className="header-page-title">Reportes</h1>
+          {{
+            'usuarios':                 'Usuarios',
+            'entidades':                'Entidades',
+            'oportunidades':            'Oportunidades',
+            'postulants':               'Postulantes',
+            'estudiantes':              'Estudiantes Habilitados para Prácticas',
+            'legalizaciones':           'Legalizaciones de Prácticas',
+            'monitorias':               'Legalizaciones de Monitorías',
+            'roles':                    'Gestión de Roles',
+            'sucursales':               'Sucursales',
+            'reportes':                 'Reportes',
+            'configuracion':            'Configuración',
+            'configuracion-personal':   'Configuración Personal',
+            'periodos':                 'Gestión de Períodos',
+            'asignaturas':              'Configuración de Asignaturas',
+            'configuracion-documentos': 'Parametrización de Documentos',
+            'programas-facultades':     'Programas y Facultades',
+            'faculty-detail':           'Detalle de Facultad',
+            'condiciones-curriculares': 'Condiciones Curriculares',
+            'ubicaciones':              'Ubicaciones',
+          }[vistaActual] && (
+            <h1 className="header-page-title">
+              {{
+                'usuarios':                 'Usuarios',
+                'entidades':                'Entidades',
+                'oportunidades':            'Oportunidades',
+                'postulants':               'Postulantes',
+                'estudiantes':              'Estudiantes Habilitados para Prácticas',
+                'legalizaciones':           'Legalizaciones de Prácticas',
+                'monitorias':               'Legalizaciones de Monitorías',
+                'roles':                    'Gestión de Roles',
+                'sucursales':               'Sucursales',
+                'reportes':                 'Reportes',
+                'configuracion':            'Configuración',
+                'configuracion-personal':   'Configuración Personal',
+                'periodos':                 'Gestión de Períodos',
+                'asignaturas':              'Configuración de Asignaturas',
+                'configuracion-documentos': 'Parametrización de Documentos',
+                'programas-facultades':     'Programas y Facultades',
+                'faculty-detail':           'Detalle de Facultad',
+                'condiciones-curriculares': 'Condiciones Curriculares',
+                'ubicaciones':              'Ubicaciones',
+              }[vistaActual]}
+            </h1>
           )}
         </div>
         <div className="header-right">

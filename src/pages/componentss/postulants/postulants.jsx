@@ -11,7 +11,12 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiMoreVertical,
-  FiBook
+  FiBook,
+  FiUploadCloud,
+  FiCheckCircle,
+  FiUserMinus,
+  FiUserPlus,
+  FiX,
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -43,6 +48,14 @@ const Postulants = ({ onVolver }) => {
   const [totalPages, setTotalPages] = useState(0);
   const [actionsOpenForId, setActionsOpenForId] = useState(null);
   const [cursosModal, setCursosModal] = useState({ open: false, postulant: null, loading: false, enrolled: [], graduate: [] });
+
+  // Estados para sincronización UXXI
+  const [sincronizando, setSincronizando] = useState(false);
+  const [cargandoPreview, setCargandoPreview] = useState(false);
+  const [sincrModal, setSincrModal] = useState({ open: false, data: null });
+  // 'preview' | 'resultado'
+  const [sincrStep, setSincrStep] = useState('preview');
+  const [previewData, setPreviewData] = useState(null);
 
   // Funciones de utilidad
   const showAlert = useCallback((icon, title, text, confirmButtonText) => {
@@ -130,6 +143,38 @@ const Postulants = ({ onVolver }) => {
       setLoading(false);
     }
   }, [page, limit, searchQuery]);
+
+  const handleAbrirPreviewUxxi = useCallback(async () => {
+    setCargandoPreview(true);
+    setSincrStep('loading');
+    setSincrModal({ open: true, data: null });
+    try {
+      const res = await api.post('/postulants/preview-sincronizar-uxxi', {}, { timeout: 300000 });
+      setPreviewData(res.data);
+      setSincrStep('preview');
+    } catch (err) {
+      setSincrModal({ open: false, data: null });
+      showError('Error al obtener preview', err?.response?.data?.message || err.message);
+    } finally {
+      setCargandoPreview(false);
+    }
+  }, [showError]);
+
+  const handleConfirmarSincronizar = useCallback(async () => {
+    setSincronizando(true);
+    try {
+      const res = await api.post('/postulants/sincronizar-uxxi', {}, { timeout: 300000 });
+      setPreviewData(null);
+      setSincrStep('resultado');
+      setSincrModal({ open: true, data: res.data });
+      await loadPostulants();
+    } catch (err) {
+      showError('Error en sincronización', err?.response?.data?.message || err.message);
+      setSincrModal({ open: false, data: null });
+    } finally {
+      setSincronizando(false);
+    }
+  }, [loadPostulants, showError]);
 
   // Debounce: al escribir en la barra, actualizar searchQuery tras 400ms y volver a página 1
   useEffect(() => {
@@ -414,7 +459,16 @@ const Postulants = ({ onVolver }) => {
               title="Recargar listado de postulantes"
             >
               <FiRefreshCw className="btn-icon" />
-              Cargar postulantes
+              Actualizar
+            </button>
+            <button
+              className="btn-action btn-primary"
+              onClick={handleAbrirPreviewUxxi}
+              disabled={cargandoPreview || sincronizando}
+              title="Sincronizar postulantes desde el archivo UXXI (SFTP)"
+            >
+              <FiUploadCloud className="btn-icon" />
+              {cargandoPreview ? 'Leyendo archivo...' : 'Cargar postulantes UXXI'}
             </button>
             <button
               className="btn-action btn-outline"
@@ -542,6 +596,162 @@ const Postulants = ({ onVolver }) => {
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal UXXI: loading / preview / resultado */}
+      {sincrModal.open && (
+        <div className="sincr-modal-overlay" onClick={() => !sincronizando && !cargandoPreview && setSincrModal({ open: false, data: null })}>
+          <div className="sincr-modal-box" onClick={e => e.stopPropagation()}>
+
+            {/* PASO 0 — CARGANDO */}
+            {sincrStep === 'loading' && (
+              <>
+                <div className="sincr-modal-header sincr-modal-header--red">
+                  <h3>Cargar postulantes UXXI</h3>
+                </div>
+                <div className="sincr-modal-body sincr-loading-body">
+                  <div className="sincr-spinner" />
+                  <p className="sincr-loading-msg">Leyendo archivo UXXI y comparando con la base de datos…</p>
+                  <p className="sincr-loading-sub">Esto puede tardar unos segundos.</p>
+                </div>
+              </>
+            )}
+
+            {/* PASO 1 — PREVIEW */}
+            {sincrStep === 'preview' && previewData && (
+              <>
+                <div className="sincr-modal-header sincr-modal-header--red">
+                  <h3>Resumen — Cargar postulantes UXXI</h3>
+                  <button className="sincr-modal-close" onClick={() => setSincrModal({ open: false, data: null })}>
+                    <FiX />
+                  </button>
+                </div>
+                <div className="sincr-modal-body">
+                  <p className="sincr-modal-subtitle">Revisa los cambios que se van a aplicar antes de proceder.</p>
+                  <div className="sincr-stats">
+                    <div className="sincr-stat sincr-stat--blue">
+                      <FiCheckCircle className="sincr-stat-icon" />
+                      <span className="sincr-stat-num">{previewData.totalArchivo}</span>
+                      <span className="sincr-stat-lbl">En archivo</span>
+                    </div>
+                    <div className="sincr-stat sincr-stat--gray">
+                      <FiUser className="sincr-stat-icon" />
+                      <span className="sincr-stat-num">{previewData.totalBD}</span>
+                      <span className="sincr-stat-lbl">En BD</span>
+                    </div>
+                    <div className="sincr-stat sincr-stat--green">
+                      <FiUserPlus className="sincr-stat-icon" />
+                      <span className="sincr-stat-num">{previewData.cantidadPorCrear}</span>
+                      <span className="sincr-stat-lbl">Se crearán</span>
+                    </div>
+                    <div className="sincr-stat sincr-stat--orange">
+                      <FiUserMinus className="sincr-stat-icon" />
+                      <span className="sincr-stat-num">{previewData.cantidadPorInactivar}</span>
+                      <span className="sincr-stat-lbl">Se inactivarán</span>
+                    </div>
+                  </div>
+
+                  {previewData.porCrear?.length > 0 && (
+                    <div className="sincr-detail-section">
+                      <h4 className="sincr-detail-title sincr-detail-title--green">
+                        <FiUserPlus /> Nuevos a crear ({previewData.porCrear.length})
+                      </h4>
+                      <ul className="sincr-detail-list">
+                        {previewData.porCrear.slice(0, 20).map((e, i) => (
+                          <li key={i}><b>{e.identificacion}</b> — {e.nombre}{e.programa ? ` | ${e.programa}` : ''}</li>
+                        ))}
+                        {previewData.porCrear.length > 20 && (
+                          <li className="sincr-detail-more">… y {previewData.porCrear.length - 20} más</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {previewData.porInactivar?.length > 0 && (
+                    <div className="sincr-detail-section">
+                      <h4 className="sincr-detail-title sincr-detail-title--orange">
+                        <FiUserMinus /> A inactivar ({previewData.porInactivar.length})
+                      </h4>
+                      <ul className="sincr-detail-list">
+                        {previewData.porInactivar.slice(0, 20).map((e, i) => (
+                          <li key={i}><b>{e.identificacion}</b> — {e.nombre}</li>
+                        ))}
+                        {previewData.porInactivar.length > 20 && (
+                          <li className="sincr-detail-more">… y {previewData.porInactivar.length - 20} más</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {previewData.cantidadPorCrear === 0 && previewData.cantidadPorInactivar === 0 && (
+                    <p className="sincr-nochanges">No hay cambios pendientes. La base de datos ya está sincronizada con el archivo.</p>
+                  )}
+                </div>
+                <div className="sincr-modal-footer">
+                  <button className="btn-action btn-outline" onClick={() => setSincrModal({ open: false, data: null })}>
+                    Cancelar
+                  </button>
+                  {(previewData.cantidadPorCrear > 0 || previewData.cantidadPorInactivar > 0) && (
+                    <button
+                      className="btn-action btn-primary"
+                      onClick={handleConfirmarSincronizar}
+                      disabled={sincronizando}
+                    >
+                      {sincronizando ? 'Aplicando cambios...' : 'Proceder'}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* PASO 2 — RESULTADO */}
+            {sincrStep === 'resultado' && sincrModal.data && (
+              <>
+                <div className="sincr-modal-header sincr-modal-header--red">
+                  <h3>Sincronización completada</h3>
+                  <button className="sincr-modal-close" onClick={() => setSincrModal({ open: false, data: null })}>
+                    <FiX />
+                  </button>
+                </div>
+                <div className="sincr-modal-body">
+                  <p className="sincr-modal-msg">{sincrModal.data.message}</p>
+                  <div className="sincr-stats">
+                    <div className="sincr-stat sincr-stat--green">
+                      <FiUserPlus className="sincr-stat-icon" />
+                      <span className="sincr-stat-num">{sincrModal.data.creados}</span>
+                      <span className="sincr-stat-lbl">Creados</span>
+                    </div>
+                    <div className="sincr-stat sincr-stat--orange">
+                      <FiUserMinus className="sincr-stat-icon" />
+                      <span className="sincr-stat-num">{sincrModal.data.inactivados}</span>
+                      <span className="sincr-stat-lbl">Inactivados</span>
+                    </div>
+                    <div className="sincr-stat sincr-stat--blue">
+                      <FiCheckCircle className="sincr-stat-icon" />
+                      <span className="sincr-stat-num">{sincrModal.data.totalArchivo}</span>
+                      <span className="sincr-stat-lbl">En archivo</span>
+                    </div>
+                  </div>
+                  {sincrModal.data.errores?.length > 0 && (
+                    <div className="sincr-errors">
+                      <h4>Errores ({sincrModal.data.errores.length})</h4>
+                      <ul>
+                        {sincrModal.data.errores.map((e, i) => (
+                          <li key={i}><b>{e.identificacion}</b>: {e.error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+                <div className="sincr-modal-footer">
+                  <button className="btn-action btn-primary" onClick={() => setSincrModal({ open: false, data: null })}>
+                    Cerrar
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

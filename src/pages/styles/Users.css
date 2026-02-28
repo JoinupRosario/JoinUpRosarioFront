@@ -129,17 +129,80 @@
 /* Filtros y Búsqueda */
 .users-filters {
   display: flex;
-  gap: 15px;
+  gap: 12px;
+  align-items: center;
   margin-bottom: 15px;
-  padding: 15px;
+  padding: 14px 16px;
   background-color: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
+  flex-wrap: wrap;
 }
 
 .search-box {
   position: relative;
   flex: 1;
+  min-width: 220px;
+}
+
+.users-filter-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 13.5px;
+  color: #374151;
+  background: #fff;
+  cursor: pointer;
+  min-width: 160px;
+  height: 38px;
+}
+.users-filter-select:focus { outline: none; border-color: #c41e3a; }
+
+/* ── Paginación ──────────────────────────────────────────────────────────── */
+.users-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 4px 4px;
+  margin-top: 4px;
+}
+.users-pagination-info {
+  font-size: 13px;
+  color: #6b7280;
+}
+.users-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.users-page-btn {
+  padding: 6px 11px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 32px;
+  text-align: center;
+}
+.users-page-btn:hover:not(:disabled) {
+  background: #fef2f4;
+  border-color: #c41e3a;
+  color: #c41e3a;
+}
+.users-page-btn--active {
+  background: #c41e3a !important;
+  border-color: #c41e3a !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+.users-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Barra de opciones de asociación */
