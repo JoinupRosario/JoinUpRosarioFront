@@ -17,7 +17,7 @@ env:
   AWS_ACCOUNT_ID: 873540496317
   FRONT_BUCKET: new-frontend-rosario
   CLOUDFRONT_ID: E7PPRF5SLWBNT
-  VITE_BACKEND_URL: https://new.backend.rosario.mozartia.com
+  VITE_BACKEND_URL: https://new.backend.rosario.mozartia.com/api
 
 permissions:
   id-token: write
