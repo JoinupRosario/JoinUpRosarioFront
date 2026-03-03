@@ -17,12 +17,16 @@ const createAlert = (icon, title, text, confirmButtonText = 'Aceptar') => {
   });
 };
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
 const PostulantStatusLog = ({ onVolver }) => {
   const navigate = useNavigate();
   const [statusLogs, setStatusLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [errorLogs, setErrorLogs] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const showError = useCallback((title, text) => createAlert('error', title, text), []);
 
@@ -49,6 +53,10 @@ const PostulantStatusLog = ({ onVolver }) => {
     loadStatusLogs();
   }, [loadStatusLogs]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const logsFiltrados = useCallback(() => {
     if (!searchTerm.trim()) return statusLogs;
     const term = searchTerm.toLowerCase();
@@ -65,8 +73,21 @@ const PostulantStatusLog = ({ onVolver }) => {
     });
   }, [statusLogs, searchTerm]);
 
+  const filtered = logsFiltrados();
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const page = Math.min(Math.max(1, currentPage), totalPages);
+  const start = (page - 1) * pageSize;
+  const paginatedLogs = filtered.slice(start, start + pageSize);
+
+  const goToPage = (p) => setCurrentPage(Math.max(1, Math.min(p, totalPages)));
+  const onPageSizeChange = (e) => {
+    const newSize = Number(e.target.value) || 10;
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
+
   const renderStatusLogsTable = () => {
-    const filtered = logsFiltrados();
     if (loadingLogs) {
       return (
         <div className="loading-container">
@@ -85,7 +106,7 @@ const PostulantStatusLog = ({ onVolver }) => {
         </div>
       );
     }
-    if (filtered.length === 0) {
+    if (totalFiltered === 0) {
       return (
         <div className="empty-state">
           <FiActivity className="empty-icon" />
@@ -95,6 +116,7 @@ const PostulantStatusLog = ({ onVolver }) => {
       );
     }
     return (
+      <>
       <table className="postulants-table">
         <thead>
           <tr>
@@ -107,7 +129,7 @@ const PostulantStatusLog = ({ onVolver }) => {
           </tr>
         </thead>
         <tbody>
-          {filtered.map((log, index) => (
+          {paginatedLogs.map((log, index) => (
             <tr key={index}>
               <td>{log.full_name || '-'}</td>
               <td><span className={`status ${log.previous_status || 'activo'}`}>{log.previous_status || '-'}</span></td>
@@ -119,6 +141,29 @@ const PostulantStatusLog = ({ onVolver }) => {
           ))}
         </tbody>
       </table>
+      <div className="log-pagination">
+        <div className="log-pagination-info">
+          Mostrando {start + 1}-{Math.min(start + pageSize, totalFiltered)} de {totalFiltered} registros
+        </div>
+        <div className="log-pagination-controls">
+          <label className="log-pagination-size">
+            Filas por página:
+            <select value={pageSize} onChange={onPageSizeChange} className="log-pagination-select">
+              {PAGE_SIZE_OPTIONS.map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </label>
+          <div className="log-pagination-buttons">
+            <button type="button" className="log-pagination-btn" onClick={() => goToPage(1)} disabled={page <= 1} title="Primera página">«</button>
+            <button type="button" className="log-pagination-btn" onClick={() => goToPage(page - 1)} disabled={page <= 1}>Anterior</button>
+            <span className="log-pagination-page">Página {page} de {totalPages}</span>
+            <button type="button" className="log-pagination-btn" onClick={() => goToPage(page + 1)} disabled={page >= totalPages}>Siguiente</button>
+            <button type="button" className="log-pagination-btn" onClick={() => goToPage(totalPages)} disabled={page >= totalPages} title="Última página">»</button>
+          </div>
+        </div>
+      </div>
+      </>
     );
   };
 

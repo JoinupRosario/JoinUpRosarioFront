@@ -1,17 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FiArrowLeft } from 'react-icons/fi';
 import api from '../../../../services/api';
 import '../../../styles/PostulantDocumentLog.css';
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function PostulantDocumentLog({ onVolver }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     loadDocuments();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const loadDocuments = async () => {
     setLoading(true);
@@ -27,15 +35,31 @@ export default function PostulantDocumentLog({ onVolver }) {
     }
   };
 
-  const filteredDocuments = searchTerm.trim()
-    ? documents.filter(
-        (doc) =>
-          (doc.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (doc.identification || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (doc.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (doc.document_type || '').toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : documents;
+  const filteredDocuments = useMemo(() =>
+    searchTerm.trim()
+      ? documents.filter(
+          (doc) =>
+            (doc.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (doc.identification || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (doc.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (doc.document_type || '').toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : documents,
+    [documents, searchTerm]
+  );
+
+  const totalFiltered = filteredDocuments.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const page = Math.min(Math.max(1, currentPage), totalPages);
+  const start = (page - 1) * pageSize;
+  const paginatedDocuments = filteredDocuments.slice(start, start + pageSize);
+
+  const goToPage = (p) => setCurrentPage(Math.max(1, Math.min(p, totalPages)));
+  const onPageSizeChange = (e) => {
+    const newSize = Number(e.target.value) || 10;
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
 
   const formatDate = (d) => {
     if (!d) return '—';
@@ -85,13 +109,14 @@ export default function PostulantDocumentLog({ onVolver }) {
               <p>Cargando log de documentos...</p>
             </div>
           )}
-          {!error && !loading && filteredDocuments.length === 0 && (
+          {!error && !loading && totalFiltered === 0 && (
             <div className="empty-state">
               <h3>Sin registros</h3>
               <p>No hay documentos en el log para mostrar.</p>
             </div>
           )}
-          {!error && !loading && filteredDocuments.length > 0 && (
+          {!error && !loading && totalFiltered > 0 && (
+            <>
             <table className="postulants-table">
               <thead>
                 <tr>
@@ -105,7 +130,7 @@ export default function PostulantDocumentLog({ onVolver }) {
                 </tr>
               </thead>
               <tbody>
-                {filteredDocuments.map((doc, idx) => (
+                {paginatedDocuments.map((doc, idx) => (
                   <tr key={idx}>
                     <td>{doc.full_name || '—'}</td>
                     <td>{doc.identification || '—'}</td>
@@ -118,6 +143,29 @@ export default function PostulantDocumentLog({ onVolver }) {
                 ))}
               </tbody>
             </table>
+            <div className="log-pagination">
+              <div className="log-pagination-info">
+                Mostrando {start + 1}-{Math.min(start + pageSize, totalFiltered)} de {totalFiltered} registros
+              </div>
+              <div className="log-pagination-controls">
+                <label className="log-pagination-size">
+                  Filas por página:
+                  <select value={pageSize} onChange={onPageSizeChange} className="log-pagination-select">
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="log-pagination-buttons">
+                  <button type="button" className="log-pagination-btn" onClick={() => goToPage(1)} disabled={page <= 1} title="Primera página">«</button>
+                  <button type="button" className="log-pagination-btn" onClick={() => goToPage(page - 1)} disabled={page <= 1}>Anterior</button>
+                  <span className="log-pagination-page">Página {page} de {totalPages}</span>
+                  <button type="button" className="log-pagination-btn" onClick={() => goToPage(page + 1)} disabled={page >= totalPages}>Siguiente</button>
+                  <button type="button" className="log-pagination-btn" onClick={() => goToPage(totalPages)} disabled={page >= totalPages} title="Última página">»</button>
+                </div>
+              </div>
+            </div>
+            </>
           )}
         </div>
       </div>
