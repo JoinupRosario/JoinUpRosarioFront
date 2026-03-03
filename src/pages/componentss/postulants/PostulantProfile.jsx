@@ -283,6 +283,8 @@ const PostulantProfile = ({ onVolver }) => {
   const [cartaCitySearchLoading, setCartaCitySearchLoading] = useState(false);
   const cartaCityDropdownRef = useRef(null);
   const cartaCitySearchTimeoutRef = useRef(null);
+  /** Si el estudiante puede generar carta de presentación (autorizado en periodo actual). null = cargando. */
+  const [canGenerateCarta, setCanGenerateCarta] = useState(null);
   /** Campos editables del perfil (postulant_profile): switches y habilidades técnicas. */
   const [profileEditFields, setProfileEditFields] = useState({
     conditionDiscapacity: false,
@@ -587,6 +589,18 @@ const PostulantProfile = ({ onVolver }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  /** Consultar si el estudiante puede generar carta de presentación (solo autorizados por periodo). */
+  useEffect(() => {
+    if (!postulant?._id) {
+      setCanGenerateCarta(null);
+      return;
+    }
+    setCanGenerateCarta(null);
+    api.get(`/postulants/${postulant._id}/can-generate-carta-presentacion`)
+      .then(({ data }) => setCanGenerateCarta({ allowed: !!data?.allowed, message: data?.message || null }))
+      .catch(() => setCanGenerateCarta({ allowed: false, message: 'No se pudo verificar la habilitación.' }));
+  }, [postulant?._id]);
 
   /** Actualizar info básica desde Universitas: el servidor compara (BD vs Universitas) y devuelve changes; confirmación y aplicar en servidor */
   const handleActualizarInfoBasicaUniversitas = useCallback(async () => {
@@ -2230,11 +2244,12 @@ const PostulantProfile = ({ onVolver }) => {
             </button>
             <button
               className="btn-action btn-outline"
-              onClick={() => { setCartaDestinatarioEmpresa(''); setCartaDestinatarioCiudad(''); setCartaCitySearchTerm(''); setCartaCityDropdownOpen(false); setCartaCitiesList([]); setCartaPresentacionModalOpen(true); }}
-              title="Generar Carta de Presentación"
+              onClick={() => { if (canGenerateCarta?.allowed) { setCartaDestinatarioEmpresa(''); setCartaDestinatarioCiudad(''); setCartaCitySearchTerm(''); setCartaCityDropdownOpen(false); setCartaCitiesList([]); setCartaPresentacionModalOpen(true); } }}
+              title={canGenerateCarta?.allowed ? 'Generar Carta de Presentación' : (canGenerateCarta?.message || 'Solo habilitado para estudiantes autorizados en el periodo actual.')}
+              disabled={canGenerateCarta !== null && !canGenerateCarta?.allowed}
             >
               <FiDownload className="btn-icon" />
-              Generar Carta de Presentación
+              {canGenerateCarta === null ? 'Cargando…' : 'Generar Carta de Presentación'}
             </button>
             <button
               className="btn-action btn-outline"

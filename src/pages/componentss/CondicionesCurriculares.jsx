@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FiArrowLeft, FiPlus, FiEdit, FiTrash2, FiSearch,
-  FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight,
+  FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight, FiChevronDown,
   FiX, FiSave, FiFilter, FiAlertCircle, FiBook, FiCheckCircle,
 } from 'react-icons/fi';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import '../styles/CondicionesCurriculares.css';
+
+const normalize = (str) =>
+  (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const EMPTY_CONDICION  = { variable: '', operador: '>=', valor: '' };
@@ -21,15 +24,6 @@ const EMPTY_FORM = {
   condiciones:          [{ ...EMPTY_CONDICION }],
   asignaturasRequeridas:[],
 };
-const LS_KEY = 'CC_FORM_DRAFT';
-
-const saveDraft = (form, editingId) => {
-  try { localStorage.setItem(LS_KEY, JSON.stringify({ form, editingId })); } catch {}
-};
-const loadDraft = () => {
-  try { const d = localStorage.getItem(LS_KEY); return d ? JSON.parse(d) : null; } catch { return null; }
-};
-const clearDraft = () => { try { localStorage.removeItem(LS_KEY); } catch {} };
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function CondicionesCurriculares({ onVolver }) {
@@ -58,10 +52,12 @@ export default function CondicionesCurriculares({ onVolver }) {
   const [operadores, setOperadores] = useState([]);
 
   // ── Buscador de programas en el modal ──────────────────────────────────────
-  const [progSearch, setProgSearch]         = useState('');
+  const [progSearch, setProgSearch]           = useState('');
   const [progSuggestions, setProgSuggestions] = useState([]);
-  const [progLoading, setProgLoading]       = useState(false);
-  const progTimer                           = useRef(null);
+  const [progLoading, setProgLoading]         = useState(false);
+  const [progDropOpen, setProgDropOpen]       = useState(false);
+  const progTimer                             = useRef(null);
+  const progWrapRef                           = useRef(null);
 
   // ── Buscador de asignaturas en el modal ────────────────────────────────────
   const [asigSuggestions, setAsigSuggestions] = useState([]);
@@ -83,29 +79,84 @@ export default function CondicionesCurriculares({ onVolver }) {
     }).catch(e => console.error('Error cargando parámetros:', e));
   }, []);
 
-  // ── Auto-guardar borrador en localStorage cuando cambia el form ───────────
+
+  // Cerrar dropdown de programas al hacer click fuera
   useEffect(() => {
-    if (showModal) saveDraft(form, editingId);
-  }, [form, editingId, showModal]);
+    const handler = (e) => {
+      if (progWrapRef.current && !progWrapRef.current.contains(e.target)) {
+        setProgDropOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Cache de program-faculties por facultad
+  const pfCacheRef = useRef({});
+  // facultad activa en el modal (ref para evitar stale closure en callbacks)
+  const currentFacultadRef = useRef('');
+
+  // ── Carga todos los PF de una facultad (con caché) y filtra por texto ──────
+  const fetchAndFilterProgramas = useCallback(async (facultadId, q, programasYaSeleccionados) => {
+    if (!facultadId) { setProgSuggestions([]); setProgLoading(false); return; }
+    setProgLoading(true);
+    try {
+      if (!pfCacheRef.current[facultadId]) {
+        let page = 1;
+        let allResults = [];
+        while (true) {
+          const resp = await api.get('/program-faculties', {
+            params: { facultyId: facultadId, limit: 200, page },
+          });
+          // Normalizar estructura de respuesta (puede ser array directo o { data: [...] })
+          const respData = resp.data;
+          let raw = [];
+          if (Array.isArray(respData)) {
+            raw = respData;
+          } else if (Array.isArray(respData?.data)) {
+            raw = respData.data;
+          } else if (Array.isArray(respData?.results)) {
+            raw = respData.results;
+          }
+          console.log(`[PF] página ${page}: ${raw.length} registros`);
+          allResults = allResults.concat(raw);
+          const pagination = respData?.pagination;
+          if (!pagination || page >= pagination.pages || raw.length === 0) break;
+          page++;
+        }
+        console.log(`[PF] total raw: ${allResults.length}, activo SI: ${allResults.filter(p => p.activo === 'SI').length}`);
+        pfCacheRef.current[facultadId] = allResults
+          .filter(pf => pf.activo === 'SI')
+          .map(pf => ({
+            _id:  pf._id,
+            code: pf.code || pf.codigoPrograma || '',
+            name: pf.programId?.name || pf.program?.name || pf.nombrePrograma || '—',
+            labelLevel: pf.programId?.labelLevel || pf.program?.labelLevel || '',
+          }));
+        console.log(`[PF] cacheados para facultad ${facultadId}: ${pfCacheRef.current[facultadId].length}`);
+      }
+      if (currentFacultadRef.current !== facultadId) return;
+      const all = pfCacheRef.current[facultadId] || [];
+      const qNorm = normalize(q || '');
+      const results = all
+        .filter(pf => !(programasYaSeleccionados || []).includes(pf._id))
+        .filter(pf => !qNorm || normalize(pf.code).includes(qNorm) || normalize(pf.name).includes(qNorm));
+      setProgSuggestions(results.slice(0, 40));
+    } catch (e) {
+      console.error('[fetchAndFilterProgramas]', e);
+      setProgSuggestions([]);
+    } finally {
+      setProgLoading(false);
+    }
+  }, []);
 
   // ── Buscar programas mientras el usuario escribe ───────────────────────────
   const searchProgramas = (q) => {
     setProgSearch(q);
     clearTimeout(progTimer.current);
-    if (!q.trim()) { setProgSuggestions([]); return; }
-    setProgLoading(true);
-    progTimer.current = setTimeout(async () => {
-      try {
-        const params = { search: q, limit: 20 };
-        if (form.facultad) params.facultad = form.facultad;
-        const { data } = await api.get('/programs', { params });
-        const results = (data.data || data || []).filter(
-          p => !form.programas.includes(p._id)
-        );
-        setProgSuggestions(results);
-      } catch { setProgSuggestions([]); }
-      finally { setProgLoading(false); }
-    }, 280);
+    progTimer.current = setTimeout(() => {
+      fetchAndFilterProgramas(currentFacultadRef.current, q, form.programas);
+    }, 200);
   };
 
   const addPrograma = (prog) => {
@@ -115,7 +166,10 @@ export default function CondicionesCurriculares({ onVolver }) {
       _programasItems: [...f._programasItems, { _id: prog._id, name: prog.name, code: prog.code }],
     }));
     setProgSearch('');
-    setProgSuggestions([]);
+    // recalcula sugerencias excluyendo el recién agregado
+    const newSeleccionados = [...(form.programas), prog._id];
+    const all = pfCacheRef.current[currentFacultadRef.current] || [];
+    setProgSuggestions(all.filter(pf => !newSeleccionados.includes(pf._id)).slice(0, 40));
   };
 
   const removePrograma = (id) => {
@@ -177,28 +231,11 @@ export default function CondicionesCurriculares({ onVolver }) {
     searchTimer.current = setTimeout(() => loadReglas(1, val), 350);
   };
 
-  // ── Abrir modal nuevo — comprueba borrador ─────────────────────────────────
-  const handleNuevo = async () => {
-    const draft = loadDraft();
-    if (draft && !draft.editingId) {
-      const { isConfirmed } = await Swal.fire({
-        title: 'Tienes un borrador guardado',
-        text: '¿Deseas continuar donde lo dejaste?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Continuar borrador',
-        cancelButtonText: 'Empezar de nuevo',
-        confirmButtonColor: '#c41e3a',
-      });
-      if (isConfirmed) {
-        setForm(draft.form);
-        setEditingId(null);
-        setAsigInputs((draft.form.asignaturasRequeridas || []).map(a => a._label || ''));
-        setShowModal(true);
-        return;
-      }
-    }
-    clearDraft();
+  // ── Abrir modal nuevo ──────────────────────────────────────────────────────
+  const handleNuevo = () => {
+    currentFacultadRef.current = '';
+    pfCacheRef.current = {}; // limpiar caché para siempre traer datos frescos
+    setProgDropOpen(false);
     setForm(EMPTY_FORM);
     setEditingId(null);
     setProgSearch(''); setProgSuggestions([]);
@@ -216,9 +253,9 @@ export default function CondicionesCurriculares({ onVolver }) {
         facultad:  data.facultad?._id || data.facultad || '',
         programas: (data.programas || []).map(p => p._id || p),
         _programasItems: (data.programas || []).map(p => ({
-          _id: p._id || p,
-          name: p.name || '',
+          _id:  p._id || p,
           code: p.code || '',
+          name: p.programId?.name || p.name || '',
         })),
         logica:    data.logica || 'AND',
         condiciones: (data.condiciones || []).map(c => ({
@@ -230,33 +267,26 @@ export default function CondicionesCurriculares({ onVolver }) {
           _label: a.asignatura ? `${a.asignatura.codAsignatura} — ${a.asignatura.nombreAsignatura}` : '',
         })),
       };
+      const facultadId = newForm.facultad;
+      currentFacultadRef.current = facultadId;
+      pfCacheRef.current = {}; // limpiar caché al editar para datos frescos
+      setProgDropOpen(false);
       setForm(newForm);
       setEditingId(id);
       setAsigInputs(newForm.asignaturasRequeridas.map(a => a._label || ''));
       setProgSearch(''); setProgSuggestions([]);
       setAsigSuggestions([]);
       setShowModal(true);
+      if (facultadId) fetchAndFilterProgramas(facultadId, '', newForm.programas);
     } catch {
       Swal.fire('Error', 'No se pudo cargar la regla', 'error');
     }
   };
 
-  // ── Cerrar modal (con confirmación si hay datos sin guardar) ───────────────
-  const handleCloseModal = async () => {
-    const hasDraft = loadDraft();
-    if (hasDraft) {
-      const { isConfirmed } = await Swal.fire({
-        title: '¿Cerrar sin guardar?',
-        text: 'El borrador se mantendrá guardado y podrás continuar después.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Cerrar (guardar borrador)',
-        cancelButtonText: 'Seguir editando',
-        confirmButtonColor: '#6b7280',
-      });
-      if (!isConfirmed) return;
-    }
+  // ── Cerrar modal ───────────────────────────────────────────────────────────
+  const handleCloseModal = () => {
     setShowModal(false);
+    setProgSearch(''); setProgSuggestions([]);
   };
 
   // ── Guardar ────────────────────────────────────────────────────────────────
@@ -289,7 +319,6 @@ export default function CondicionesCurriculares({ onVolver }) {
         await api.post('/condiciones-curriculares', payload);
         Swal.fire({ icon: 'success', title: 'Creado', timer: 1500, showConfirmButton: false });
       }
-      clearDraft();
       setShowModal(false);
       loadReglas(pagination.page);
     } catch (e) {
@@ -386,7 +415,7 @@ export default function CondicionesCurriculares({ onVolver }) {
       <div className="cc-header">
         <div className="cc-header-left">
           <button className="btn-volver-icon" onClick={onVolver} title="Volver"><FiArrowLeft className="btn-icon" /></button>
-          <div className="section-header">
+          <div className="cc-section-title-wrap">
             <h3><HiOutlineAcademicCap style={{ marginRight: 8, display: 'inline-block' }} />CONDICIONES CURRICULARES PARA PRÁCTICA</h3>
           </div>
         </div>
@@ -439,10 +468,20 @@ export default function CondicionesCurriculares({ onVolver }) {
                   <td>
                     {!(r.programas || []).length
                       ? <span className="cc-badge cc-badge-all">Todos</span>
-                      : (r.programas || []).slice(0, 2).map(p => (
-                          <span key={p._id} className="cc-badge">{p.code || p.name}</span>
-                        ))}
-                    {(r.programas || []).length > 2 && <span className="cc-badge cc-badge-more">+{r.programas.length - 2}</span>}
+                      : (r.programas || []).slice(0, 2).map((p, idx) => {
+                          const id   = p?._id || p;
+                          // ProgramFaculty: code propio + nombre viene de programId
+                          const code = p?.code || '';
+                          const name = p?.programId?.name || p?.name || '';
+                          return (
+                            <span key={id || idx} className="cc-badge" title={name}>
+                              {code || name || '—'}
+                            </span>
+                          );
+                        })}
+                    {(r.programas || []).length > 2 && (
+                      <span className="cc-badge cc-badge-more">+{r.programas.length - 2}</span>
+                    )}
                   </td>
                   <td><span className="cc-conds-count">{(r.condiciones || []).length} condición{(r.condiciones || []).length !== 1 ? 'es' : ''}</span></td>
                   <td><span className={`cc-logica-badge cc-logica-${r.logica}`}>{r.logica}</span></td>
@@ -472,12 +511,7 @@ export default function CondicionesCurriculares({ onVolver }) {
                 <HiOutlineAcademicCap style={{ marginRight: 8 }} />
                 {editingId ? 'Editar Regla' : 'Nueva Regla Curricular'}
               </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {loadDraft() && (
-                  <span className="cc-draft-badge">💾 Borrador guardado</span>
-                )}
-                <button className="cc-modal-close" onClick={handleCloseModal}><FiX /></button>
-              </div>
+              <button className="cc-modal-close" onClick={handleCloseModal}><FiX /></button>
             </div>
 
             <div className="cc-modal-body">
@@ -503,7 +537,15 @@ export default function CondicionesCurriculares({ onVolver }) {
                 <div className="cc-form-group">
                   <label>Facultad *</label>
                   <select className="cc-select" value={form.facultad}
-                    onChange={e => setForm(f => ({ ...f, facultad: e.target.value, programas: [], _programasItems: [] }))}>
+                    onChange={e => {
+                      const newFacultad = e.target.value;
+                      currentFacultadRef.current = newFacultad;
+                      setProgSearch('');
+                      setProgSuggestions([]);
+                      setProgDropOpen(!!newFacultad);
+                      setForm(f => ({ ...f, facultad: newFacultad, programas: [], _programasItems: [] }));
+                      if (newFacultad) fetchAndFilterProgramas(newFacultad, '', []);
+                    }}>
                     <option value="">Seleccione...</option>
                     {facultades.map(fac => <option key={fac._id} value={fac._id}>{fac.name}</option>)}
                   </select>
@@ -530,23 +572,42 @@ export default function CondicionesCurriculares({ onVolver }) {
                   </div>
                 )}
 
-                {/* Input de búsqueda */}
-                <div className="cc-asig-search-wrap">
-                  <FiSearch className="cc-asig-search-icon" />
+                {/* Dropdown estilo UXXI */}
+                <div className="cc-prog-wrapper" ref={progWrapRef}>
                   <input
-                    className="cc-input cc-input-with-icon"
-                    placeholder={form.facultad ? 'Buscar programa por nombre o código...' : 'Selecciona una facultad primero'}
+                    className="cc-prog-input"
+                    placeholder={form.facultad ? 'Buscar por código o nombre...' : 'Selecciona una facultad primero'}
                     value={progSearch}
                     disabled={!form.facultad}
-                    onChange={e => searchProgramas(e.target.value)}
+                    onChange={e => {
+                      setProgDropOpen(true);
+                      searchProgramas(e.target.value);
+                    }}
+                    onFocus={() => {
+                      if (currentFacultadRef.current) {
+                        setProgDropOpen(true);
+                        fetchAndFilterProgramas(currentFacultadRef.current, progSearch, form.programas);
+                      }
+                    }}
                   />
-                  {progLoading && <span className="cc-asig-loading">…</span>}
-                  {progSuggestions.length > 0 && (
-                    <div className="cc-asig-dropdown">
+                  <FiChevronDown className="cc-prog-chevron" />
+                  {progLoading && <span className="cc-prog-loading">…</span>}
+                  {progDropOpen && (
+                    <div className="cc-prog-dropdown">
+                      {progSuggestions.length === 0 && !progLoading && (
+                        <div className="cc-prog-empty">
+                          {form.facultad ? 'Sin programas activos en esta facultad' : 'Selecciona una facultad primero'}
+                        </div>
+                      )}
                       {progSuggestions.map(p => (
-                        <div key={p._id} className="cc-asig-option" onClick={() => addPrograma(p)}>
-                          {p.code && <strong>{p.code}</strong>}{p.code ? ' — ' : ''}{p.name}
-                          {p.labelLevel && <span className="cc-asig-sub">{p.labelLevel}</span>}
+                        <div
+                          key={p._id}
+                          className="cc-prog-option"
+                          onMouseDown={e => { e.preventDefault(); addPrograma(p); }}
+                        >
+                          <span className="cc-prog-code">{p.code}</span>
+                          <span className="cc-prog-name">{p.name}</span>
+                          {p.labelLevel && <span className="cc-prog-level">{p.labelLevel}</span>}
                         </div>
                       ))}
                     </div>
