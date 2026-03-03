@@ -518,12 +518,12 @@ export default function Dashboard() {
         {vistaActual === 'postulants' && (
           <Postulants onVolver={handleVolver} />
         )}
-        {/* vistaActual === 'postulants-log' && (
+        {vistaActual === 'postulants-log' && (
           <PostulantStatusLog onVolver={() => navigate('/dashboard/postulants')} />
-        ) */}
-        {/* vistaActual === 'postulants-document-log' && (
+        )}
+        {vistaActual === 'postulants-document-log' && (
           <PostulantDocumentLog onVolver={() => navigate('/dashboard/postulants')} />
-        ) */}
+        )}
         {vistaActual === 'postulant-profile' && (
           <PostulantProfile onVolver={handleVolver} />
         )}
