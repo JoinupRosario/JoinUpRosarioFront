@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   FiArrowLeft,
@@ -26,7 +26,8 @@ import {
   FiPlus,
   FiEye,
   FiUser,
-  FiGrid
+  FiGrid,
+  FiSearch
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -266,8 +267,22 @@ const PostulantProfile = ({ onVolver }) => {
   const [refreshProfileAfterHv, setRefreshProfileAfterHv] = useState(null);
   /** Mientras se genera la HV (validación + PDF + descarga + actualización de lista). */
   const [generatingHv, setGeneratingHv] = useState(false);
+  /** Ref para evitar múltiples ejecuciones de generación (evita 2 o 3 HVs por un solo clic). */
+  const generatingHvRef = useRef(false);
   /** Id del adjunto que se está descargando (para mostrar "Descargando..." en la lista de HVs). */
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState(null);
+  /** Modal Carta de presentación: solo Empresa y Ciudad. */
+  const [cartaPresentacionModalOpen, setCartaPresentacionModalOpen] = useState(false);
+  const [cartaDestinatarioEmpresa, setCartaDestinatarioEmpresa] = useState('');
+  const [cartaDestinatarioCiudad, setCartaDestinatarioCiudad] = useState('');
+  const [generatingCarta, setGeneratingCarta] = useState(false);
+  /** Select de ciudad con buscador (modal carta): búsqueda y lista. */
+  const [cartaCitySearchTerm, setCartaCitySearchTerm] = useState('');
+  const [cartaCityDropdownOpen, setCartaCityDropdownOpen] = useState(false);
+  const [cartaCitiesList, setCartaCitiesList] = useState([]);
+  const [cartaCitySearchLoading, setCartaCitySearchLoading] = useState(false);
+  const cartaCityDropdownRef = useRef(null);
+  const cartaCitySearchTimeoutRef = useRef(null);
   /** Campos editables del perfil (postulant_profile): switches y habilidades técnicas. */
   const [profileEditFields, setProfileEditFields] = useState({
     conditionDiscapacity: false,
@@ -385,8 +400,23 @@ const PostulantProfile = ({ onVolver }) => {
     );
   }, []);
 
-  /** Generar hoja de vida: valida campos obligatorios según parametrización y aplica configuración. */
+  /** Lista para el modal de hoja de vida: Perfil base + versiones, con value único para el select. */
+  const listForHojaVidaSelect = useMemo(() => {
+    const baseId = profileData?.postulantProfile?._id ?? profiles?.[0]?.profileId;
+    if (!baseId) return [];
+    const baseLabel = (profileData?.postulantProfile?.studentCode || profileData?.postulantProfile?.profileName || 'Perfil base').toString().trim() || 'Perfil base';
+    const baseOption = { type: 'base', value: `base-${baseId}`, label: baseLabel.slice(0, 60) + (baseLabel.length > 60 ? '…' : ''), baseProfileId: baseId, versionId: null };
+    const versionOptions = (profiles || []).map((p) => {
+      const name = (p.profileName || p.profileText || '').toString().trim();
+      const label = name ? name.slice(0, 60) + (name.length > 60 ? '…' : '') : (p.createdAt || p.dateCreation ? new Date(p.createdAt || p.dateCreation).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : `Versión`);
+      return { type: 'version', value: p._id, label, baseProfileId: p.profileId, versionId: p._id };
+    });
+    return [baseOption, ...versionOptions];
+  }, [profiles, profileData?.postulantProfile?._id, profileData?.postulantProfile?.studentCode, profileData?.postulantProfile?.profileName]);
+
+  /** Generar hoja de vida: valida campos obligatorios según parametrización y aplica configuración del perfil elegido. */
   const handleGenerarHojaVida = useCallback(async () => {
+    if (generatingHvRef.current) return;
     if (!hojaDeVidaSelectedProfileId?.trim()) {
       showError('Campo requerido', 'Elija un perfil para su hoja de vida.');
       return;
@@ -395,21 +425,35 @@ const PostulantProfile = ({ onVolver }) => {
       showError('Error', 'No hay postulante cargado.');
       return;
     }
-    const selected = profiles.find(
-      (p) => String(p._id) === String(hojaDeVidaSelectedProfileId) || String(p.profileId) === String(hojaDeVidaSelectedProfileId)
-    );
-    if (!selected) {
-      showError('Error', 'Perfil seleccionado no encontrado.');
-      return;
+    generatingHvRef.current = true;
+    setGeneratingHv(true);
+    let baseProfileId = null;
+    let versionId = null;
+    if (hojaDeVidaSelectedProfileId.startsWith('base-')) {
+      baseProfileId = hojaDeVidaSelectedProfileId.slice(5);
+      versionId = null;
+    } else {
+      const selected = profiles.find((p) => String(p._id) === String(hojaDeVidaSelectedProfileId));
+      if (!selected) {
+        const fromList = listForHojaVidaSelect.find((o) => o.value === hojaDeVidaSelectedProfileId);
+        if (fromList) {
+          baseProfileId = fromList.baseProfileId;
+          versionId = fromList.versionId;
+        }
+        if (!baseProfileId) {
+          showError('Error', 'Perfil seleccionado no encontrado.');
+          return;
+        }
+      } else {
+        baseProfileId = selected.profileId || selected._id;
+        versionId = selected._id;
+      }
     }
-    const baseProfileId = selected.profileId || selected._id;
-    const versionId = selected._id;
+    const profileDataParams = versionId ? { profileId: baseProfileId, versionId } : { profileId: baseProfileId };
     try {
       const [paramRes, profileRes] = await Promise.all([
         api.get('/parametrizacion-documentos/hoja-vida'),
-        api.get(`/postulants/${postulant._id}/profile-data`, {
-          params: { profileId: baseProfileId, versionId },
-        }),
+        api.get(`/postulants/${postulant._id}/profile-data`, { params: profileDataParams }),
       ]);
       const parametrizacion = paramRes?.data || {};
       const camposObligatorios = parametrizacion.camposObligatorios || {};
@@ -448,7 +492,7 @@ const PostulantProfile = ({ onVolver }) => {
         didOpen: () => { Swal.showLoading(); },
       });
       const pdfRes = await api.get(`/postulants/${postulant._id}/generate-hoja-vida-pdf`, {
-        params: { profileId: baseProfileId, versionId },
+        params: profileDataParams,
         responseType: 'blob',
       });
       const blob = pdfRes.data;
@@ -468,12 +512,81 @@ const PostulantProfile = ({ onVolver }) => {
       window.URL.revokeObjectURL(url);
       setRefreshProfileAfterHv({ postulantId: postulant._id, profileId: baseProfileId, versionId });
     } catch (err) {
+      generatingHvRef.current = false;
       setGeneratingHv(false);
       Swal.close();
       console.error('Error al validar/generar HV', err);
       showError('Error', err.response?.data?.message || 'No se pudo validar el perfil o generar el PDF.');
     }
-  }, [postulant?._id, profiles, hojaDeVidaSelectedProfileId, showError]);
+  }, [postulant?._id, profiles, hojaDeVidaSelectedProfileId, listForHojaVidaSelect, showError]);
+
+  /** Generar carta de presentación: empresa y ciudad del destinatario; llama al backend para generar PDF. */
+  const handleGenerarCartaPresentacion = useCallback(async () => {
+    const empresa = (cartaDestinatarioEmpresa ?? '').trim();
+    const ciudad = (cartaDestinatarioCiudad ?? '').trim();
+    if (!empresa || !ciudad) {
+      showError('Datos requeridos', 'Debe indicar Empresa y Ciudad a las que va dirigida la carta.');
+      return;
+    }
+    if (!postulant?._id) return;
+    setGeneratingCarta(true);
+    try {
+      const pdfRes = await api.get(`/postulants/${postulant._id}/generate-carta-presentacion-pdf`, {
+        params: { empresa, ciudad },
+        responseType: 'blob',
+      });
+      const blob = pdfRes.data;
+      const contentDisp = pdfRes.headers?.['content-disposition'];
+      let fileName = 'Carta de presentación.pdf';
+      if (contentDisp) {
+        const match = contentDisp.match(/filename="?([^";\n]+)"?/);
+        if (match?.[1]) fileName = decodeURIComponent(match[1].trim());
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      setCartaPresentacionModalOpen(false);
+      setCartaDestinatarioEmpresa('');
+      setCartaDestinatarioCiudad('');
+    } catch (err) {
+      console.error('Error al generar carta de presentación', err);
+      const msg = err.response?.data?.message || err.response?.status === 404 || err.response?.status === 501
+        ? 'La generación de la carta de presentación estará disponible próximamente.'
+        : 'No se pudo generar el PDF.';
+      showError('Error', msg);
+    } finally {
+      setGeneratingCarta(false);
+    }
+  }, [postulant?._id, cartaDestinatarioEmpresa, cartaDestinatarioCiudad, showError]);
+
+  /** Buscar ciudades para el modal Carta (debounced). */
+  useEffect(() => {
+    if (!cartaCityDropdownOpen) return;
+    if (cartaCitySearchTimeoutRef.current) clearTimeout(cartaCitySearchTimeoutRef.current);
+    const t = setTimeout(() => {
+      setCartaCitySearchLoading(true);
+      api.get('/locations/cities', { params: { search: cartaCitySearchTerm || undefined, limit: 50 } })
+        .then(({ data }) => setCartaCitiesList(data?.data ?? []))
+        .catch(() => setCartaCitiesList([]))
+        .finally(() => setCartaCitySearchLoading(false));
+    }, 300);
+    cartaCitySearchTimeoutRef.current = t;
+    return () => { clearTimeout(t); };
+  }, [cartaCityDropdownOpen, cartaCitySearchTerm]);
+
+  /** Cerrar dropdown de ciudad al hacer clic fuera. */
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (cartaCityDropdownRef.current && !cartaCityDropdownRef.current.contains(e.target)) setCartaCityDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   /** Actualizar info básica desde Universitas: el servidor compara (BD vs Universitas) y devuelve changes; confirmación y aplicar en servidor */
   const handleActualizarInfoBasicaUniversitas = useCallback(async () => {
@@ -536,6 +649,8 @@ const PostulantProfile = ({ onVolver }) => {
         text: 'Los datos básicos se han guardado en la base de datos.',
         confirmButtonColor: '#c41e3a',
       });
+      setIsEditing(false);
+      setEditedData({});
     } catch (err) {
       Swal.close();
       const msg = err.response?.data?.message || err.message || 'Error al consultar o actualizar Universitas';
@@ -604,12 +719,46 @@ const PostulantProfile = ({ onVolver }) => {
         text: 'Los programas (en curso y finalizados) se han sincronizado con Universitas.',
         confirmButtonColor: '#c41e3a',
       });
+      setIsEditing(false);
+      setEditedData({});
     } catch (err) {
       Swal.close();
       const msg = err.response?.data?.message || err.message || 'Error al consultar o actualizar información académica';
       showError('Error', msg);
     }
   }, [postulant?._id, profileData?.postulantProfile?._id, showError]);
+
+  /** Alternar estado habilitado/inhabilitado del postulante (usuario asociado). Confirmación y log en backend. */
+  const handleToggleEstado = useCallback(async () => {
+    if (!postulant?._id) return;
+    const estaHabilitado = postulant?.user?.estado !== false;
+    const accion = estaHabilitado ? 'inhabilitar' : 'habilitar';
+    const result = await Swal.fire({
+      icon: 'question',
+      title: `¿${estaHabilitado ? 'Inhabilitar' : 'Habilitar'} postulante?`,
+      text: `¿Está seguro que desea ${accion} este postulante?`,
+      showCancelButton: true,
+      confirmButtonText: 'Sí',
+      cancelButtonText: 'No',
+      confirmButtonColor: '#c41e3a',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      const res = await api.put(`/postulants/${postulant._id}/toggle-estado`);
+      Swal.close();
+      setPostulant(res.data);
+      await Swal.fire({
+        icon: 'success',
+        title: estaHabilitado ? 'Postulante inhabilitado' : 'Postulante habilitado',
+        confirmButtonColor: '#c41e3a',
+      });
+    } catch (err) {
+      Swal.close();
+      const msg = err.response?.data?.message || err.message || 'Error al cambiar el estado';
+      showError('Error', msg);
+    }
+  }, [postulant?._id, postulant?.user?.estado, showError]);
 
   /** Cargar instituciones (listId L_UNIVERSITIES) para los selects de programas académicos */
   const fetchInstitutionOptions = useCallback(async () => {
@@ -739,7 +888,8 @@ const PostulantProfile = ({ onVolver }) => {
       const res = await api.get(`/postulants/${postulantId}/profile-data`, { params: Object.keys(params).length ? params : undefined });
       if (res.data) {
         setProfileData(res.data);
-        if (res.data.selectedProfileVersion?._id) setSelectedProfileIdForView(res.data.selectedProfileVersion._id);
+        const nextSelected = res.data.selectedProfileVersion?._id ?? res.data.postulantProfile?._id ?? null;
+        if (nextSelected) setSelectedProfileIdForView(nextSelected);
       }
     } catch (err) {
       console.error('Error loading profile data', err);
@@ -756,6 +906,7 @@ const PostulantProfile = ({ onVolver }) => {
       try {
         await loadProfileDataForProfile(payload.postulantId, payload.profileId, payload.versionId);
       } finally {
+        generatingHvRef.current = false;
         setGeneratingHv(false);
         Swal.close();
       }
@@ -770,11 +921,20 @@ const PostulantProfile = ({ onVolver }) => {
 
   /** Id del perfil base actual (para API enrolled/graduate/skills/languages). Debe estar antes de los useCallback que lo usan. */
   const currentBaseProfileId = (() => {
+    const baseFromProfileData = profileData?.postulantProfile?._id?.toString?.() || profileData?.postulantProfile?._id;
     if (profiles?.length && selectedProfileIdForView) {
       const p = profiles.find((pr) => String(pr._id) === String(selectedProfileIdForView) || (pr.profileId && String(pr.profileId) === String(selectedProfileIdForView)));
       if (p) return p.profileId?.toString?.() || p._id?.toString?.() || p.profileId || p._id;
     }
-    return profileData?.postulantProfile?._id?.toString?.() || profileData?.postulantProfile?._id || selectedProfileIdForView;
+    return baseFromProfileData || selectedProfileIdForView;
+  })();
+
+  /** Si hay una versión seleccionada (no el perfil base), su _id para enviar en versionId al crear/eliminar skills, idiomas, áreas. */
+  const currentVersionIdForApi = (() => {
+    const baseId = profileData?.postulantProfile?._id?.toString?.() || profileData?.postulantProfile?._id;
+    if (!selectedProfileIdForView || !baseId) return null;
+    if (String(selectedProfileIdForView) === String(baseId)) return null;
+    return selectedProfileIdForView;
   })();
 
   const handleAddSkill = useCallback(async () => {
@@ -790,18 +950,19 @@ const PostulantProfile = ({ onVolver }) => {
       await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/skills`, {
         skillId,
         experienceYears: Number.isFinite(years) ? years : 0,
+        ...(currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {}),
       });
       createAlert('success', 'Añadido', 'Competencia añadida.');
       setSkillModalOpen(false);
       setSkillFormData({ skillId: '', experienceYears: '' });
-      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
     } catch (err) {
       console.error(err);
       showError('Error', err.response?.data?.message || 'No se pudo añadir la competencia');
     } finally {
       setSavingAcademic(false);
     }
-  }, [postulant?._id, currentBaseProfileId, skillFormData, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, skillFormData, showError, loadProfileDataForProfile]);
 
   const handleAddLanguage = useCallback(async () => {
     if (!postulant?._id || !currentBaseProfileId) return;
@@ -817,18 +978,19 @@ const PostulantProfile = ({ onVolver }) => {
         level: languageFormData.level || undefined,
         certificationExam: languageFormData.certificationExam === true,
         certificationExamName: languageFormData.certificationExam ? (languageFormData.certificationExamName || '').trim() : undefined,
+        ...(currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {}),
       });
       createAlert('success', 'Añadido', 'Idioma añadido.');
       setLanguageModalOpen(false);
       setLanguageFormData({ language: '', level: '', certificationExam: false, certificationExamName: '' });
-      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
     } catch (err) {
       console.error(err);
       showError('Error', err.response?.data?.message || 'No se pudo añadir el idioma');
     } finally {
       setSavingAcademic(false);
     }
-  }, [postulant?._id, currentBaseProfileId, languageFormData, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, languageFormData, showError, loadProfileDataForProfile]);
 
   /** Posición del menú Opciones académico: arriba/abajo según espacio y posición fixed para que sobresalga del div. */
   useEffect(() => {
@@ -1064,18 +1226,21 @@ const PostulantProfile = ({ onVolver }) => {
     }
     try {
       setSavingAcademic(true);
-      await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/interest-areas`, { area: areaId });
+      await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/interest-areas`, {
+        area: areaId,
+        ...(currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {}),
+      });
       createAlert('success', 'Añadido', 'Área de interés añadida.');
       setInterestAreaModalOpen(false);
       setInterestAreaFormData({ area: '' });
-      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
     } catch (err) {
       console.error(err);
       showError('Error', err.response?.data?.message || 'No se pudo añadir el área de interés');
     } finally {
       setSavingAcademic(false);
     }
-  }, [postulant?._id, currentBaseProfileId, interestAreaFormData.area, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, interestAreaFormData.area, showError, loadProfileDataForProfile]);
 
   const handleDeleteInterestArea = useCallback(async (interestAreaId) => {
     if (!postulant?._id || !currentBaseProfileId) return;
@@ -1090,15 +1255,16 @@ const PostulantProfile = ({ onVolver }) => {
     if (!result.isConfirmed) return;
     setTimeout(async () => {
       try {
-        await api.delete(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/interest-areas/${interestAreaId}`);
+        const params = currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {};
+        await api.delete(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/interest-areas/${interestAreaId}`, { params });
         createAlert('success', 'Eliminado', 'Área de interés eliminada.');
-        loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+        loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
       } catch (err) {
         console.error(err);
         showError('Error', err.response?.data?.message || 'No se pudo eliminar');
       }
     }, 0);
-  }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, showError, loadProfileDataForProfile]);
 
   const handleDeleteSkill = useCallback(async (profileSkillId) => {
     if (!postulant?._id || !currentBaseProfileId) return;
@@ -1113,15 +1279,16 @@ const PostulantProfile = ({ onVolver }) => {
     if (!result.isConfirmed) return;
     setTimeout(async () => {
       try {
-        await api.delete(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/skills/${profileSkillId}`);
+        const params = currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {};
+        await api.delete(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/skills/${profileSkillId}`, { params });
         createAlert('success', 'Eliminado', 'Competencia eliminada.');
-        loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+        loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
       } catch (err) {
         console.error(err);
         showError('Error', err.response?.data?.message || 'No se pudo eliminar');
       }
     }, 0);
-  }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, showError, loadProfileDataForProfile]);
 
   const handleDeleteLanguage = useCallback(async (profileLanguageId) => {
     if (!postulant?._id || !currentBaseProfileId) return;
@@ -1136,15 +1303,16 @@ const PostulantProfile = ({ onVolver }) => {
     if (!result.isConfirmed) return;
     setTimeout(async () => {
       try {
-        await api.delete(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/languages/${profileLanguageId}`);
+        const params = currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {};
+        await api.delete(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/languages/${profileLanguageId}`, { params });
         createAlert('success', 'Eliminado', 'Idioma eliminado.');
-        loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+        loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
       } catch (err) {
         console.error(err);
         showError('Error', err.response?.data?.message || 'No se pudo eliminar');
       }
     }, 0);
-  }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, showError, loadProfileDataForProfile]);
 
   /** Cargar opciones para modales de experiencia (sector, tipo experiencia, tipo logro) */
   const fetchSectorOptions = useCallback(async () => {
@@ -1488,20 +1656,40 @@ const PostulantProfile = ({ onVolver }) => {
     }
   }, [postulant?._id, loadProfiles]);
 
-  // Cuando hay postulante y aún no tenemos datos de perfil, cargar: con primer perfil si hay versiones, o sin profileId (perfil reciente) si no hay versiones
+  /** Lista para la UI: incluye "Perfil base" primero cuando hay versiones, luego las versiones. */
+  const listForDisplay = useMemo(() => {
+    if (!profiles?.length) return profiles || [];
+    const baseId = profiles[0].profileId || profiles[0]._id;
+    return [
+      { type: 'base', _id: baseId, profileId: baseId, profileName: 'Perfil base', versionId: null },
+      ...profiles,
+    ];
+  }, [profiles]);
+
+  /** Solo hacemos la carga inicial del primer perfil una vez por postulante; así no se pisa la selección al cambiar de perfil. */
+  const initialProfileLoadDoneRef = useRef(false);
+  useEffect(() => {
+    if (!postulant?._id) return;
+    initialProfileLoadDoneRef.current = false;
+  }, [postulant?._id]);
+
+  // Cuando hay postulante y aún no tenemos datos de perfil, cargar una sola vez: primer ítem de la lista (base o primera versión) o perfil reciente
   useEffect(() => {
     if (!postulant?._id || loadingProfiles) return;
-    if (profileData?.postulantProfile != null) return;
+    if (initialProfileLoadDoneRef.current) return;
     if (profiles?.length > 0) {
-      const first = profiles[0];
-      const baseId = first.profileId || first._id;
-      const versionId = first.versionId ?? first._id;
-      setSelectedProfileIdForView(first._id);
+      const baseId = profiles[0].profileId || profiles[0]._id;
+      const firstVersion = profiles[0];
+      const versionId = firstVersion.versionId ?? firstVersion._id;
+      const firstId = firstVersion._id;
+      initialProfileLoadDoneRef.current = true;
+      setSelectedProfileIdForView(firstId);
       loadProfileDataForProfile(postulant._id, baseId, versionId);
     } else {
+      initialProfileLoadDoneRef.current = true;
       loadProfileDataForProfile(postulant._id);
     }
-  }, [postulant?._id, loadingProfiles, profiles, profileData?.postulantProfile, loadProfileDataForProfile]);
+  }, [postulant?._id, loadingProfiles, profiles, loadProfileDataForProfile]);
 
   const handleCreateProfile = useCallback(async () => {
     if (!postulant?._id || profilesMeta.count >= profilesMeta.maxAllowed) return;
@@ -1545,19 +1733,22 @@ const PostulantProfile = ({ onVolver }) => {
   }, [postulant, selectedProfile, profileFormData, loadProfiles, showError]);
 
   const handleEditProfile = useCallback((profile) => {
+    const source = profile.type === 'base' && profileData?.postulantProfile?._id?.toString() === profile._id?.toString()
+      ? profileData.postulantProfile
+      : profile;
     setSelectedProfile(profile);
     setProfileFormData({
-      studentCode: profile.studentCode ?? profile.profileName ?? '',
-      profileText: profile.profileText || '',
-      salaryRangeMin: profile.salaryRangeMin ?? '',
-      salaryRangeMax: profile.salaryRangeMax ?? '',
-      skillsTechnicalSoftware: profile.skillsTechnicalSoftware || '',
-      companyName: profile.companyName || '',
-      yearsExperience: profile.yearsExperience ?? '',
-      acceptTerms: profile.acceptTerms ?? false,
+      studentCode: source.studentCode ?? source.profileName ?? '',
+      profileText: source.profileText || '',
+      salaryRangeMin: source.salaryRangeMin ?? '',
+      salaryRangeMax: source.salaryRangeMax ?? '',
+      skillsTechnicalSoftware: source.skillsTechnicalSoftware || '',
+      companyName: source.companyName || '',
+      yearsExperience: source.yearsExperience ?? '',
+      acceptTerms: source.acceptTerms ?? false,
     });
     setProfileFormOpen(true);
-  }, []);
+  }, [profileData?.postulantProfile]);
 
   const handleDeleteProfile = useCallback(async (profile) => {
     if (!postulant?._id) return;
@@ -2039,7 +2230,7 @@ const PostulantProfile = ({ onVolver }) => {
             </button>
             <button
               className="btn-action btn-outline"
-              onClick={() => showFuncionalidadEnDesarrollo('Generar Carta de Presentación')}
+              onClick={() => { setCartaDestinatarioEmpresa(''); setCartaDestinatarioCiudad(''); setCartaCitySearchTerm(''); setCartaCityDropdownOpen(false); setCartaCitiesList([]); setCartaPresentacionModalOpen(true); }}
               title="Generar Carta de Presentación"
             >
               <FiDownload className="btn-icon" />
@@ -2053,14 +2244,16 @@ const PostulantProfile = ({ onVolver }) => {
               <FiList className="btn-icon" />
               Historial de Aplicaciones
             </button>
-            <button
-              className="btn-guardar"
-              onClick={() => showFuncionalidadEnDesarrollo('Eliminar postulante')}
-              title="Eliminar"
-            >
-              <FiTrash2 className="btn-icon" />
-              Eliminar
-            </button>
+            {postulant?.user != null && (
+              <button
+                className={postulant?.user?.estado === false ? 'btn-action btn-outline' : 'btn-guardar'}
+                onClick={handleToggleEstado}
+                title={postulant?.user?.estado === false ? 'Habilitar postulante' : 'Inhabilitar postulante'}
+              >
+                <FiTrash2 className="btn-icon" />
+                {postulant?.user?.estado === false ? 'Habilitar' : 'Inhabilitar'}
+              </button>
+            )}
           </>
         )}
         <button
@@ -2752,7 +2945,6 @@ const PostulantProfile = ({ onVolver }) => {
                           <th>Facultad</th>
                           <th>Sede</th>
                           <th>Nivel</th>
-                          <th>Cursos actuales</th>
                           <th>Créditos aprobados</th>
                           <th>Práctica</th>
                           <th>Matriculado</th>
@@ -2772,9 +2964,8 @@ const PostulantProfile = ({ onVolver }) => {
                                 {ep.programId?.name || ep.programId?.code || '—'}
                               </td>
                               <td>{ep.programFacultyId?.facultyId?.name || ep.programFacultyId?.name || '—'}</td>
-                              <td>{[ep.cityId?.name, ep.stateId?.name, ep.countryId?.name].filter(Boolean).join(', ') || '—'}</td>
+                              <td>{ep.programFacultyId?.facultyId?.sucursalId?.nombre ?? ep.programFacultyId?.facultyId?.sucursalId?.codigo ?? '—'}</td>
                               <td>{ep.programId?.level || '—'}</td>
-                              <td>{extra?.currentCourses ?? '—'}</td>
                               <td>{extra?.approvedCredits ?? '—'}</td>
                               <td>{extra?.canPractice === true ? 'Sí' : extra?.canPractice === false ? 'No' : '—'}</td>
                               <td>{extra?.enrolled === true ? 'Sí' : extra?.enrolled === false ? 'No' : '—'}</td>
@@ -3114,22 +3305,28 @@ const PostulantProfile = ({ onVolver }) => {
                   <p className="perfil-block-note">*Puede crear hasta 5 versiones diferentes de su perfil</p>
                   {loadingProfiles ? (
                     <div className="perfil-profile-list-loading">Cargando perfiles...</div>
-                  ) : profiles.length > 0 ? (
+                  ) : listForDisplay.length > 0 ? (
                     <ul className="perfil-profile-list">
-                      {profiles.map((profile, index) => {
+                      {listForDisplay.map((profile, index) => {
                         const isVersion = profile.type === 'version';
-                        const profileNameStr = (profile.profileName && String(profile.profileName).trim()) || (profile.studentCode && String(profile.studentCode).trim());
-                        const fallbackText = (profile.profileText && String(profile.profileText).trim()) || profileNameStr;
+                        const isBase = profile.type === 'base';
+                        const baseNameFromData = isBase && profileData?.postulantProfile?._id?.toString() === profile._id?.toString()
+                          ? (profileData.postulantProfile.studentCode || profileData.postulantProfile.profileName || '').trim()
+                          : '';
+                        const profileNameStr = isBase
+                          ? (baseNameFromData || 'Perfil base')
+                          : ((profile.profileName && String(profile.profileName).trim()) || (profile.studentCode && String(profile.studentCode).trim()));
+                        const fallbackText = (profile.profileText && String(profile.profileText).trim()) || (isBase ? profileNameStr : profileNameStr);
                         const label = (profileNameStr || fallbackText)
                           ? (profileNameStr || fallbackText).slice(0, 50) + ((profileNameStr || fallbackText).length > 50 ? '…' : '')
                           : (profile.createdAt || profile.dateCreation ? new Date(profile.createdAt || profile.dateCreation).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : null)
-                          || (isVersion ? `Versión ${index}` : `Hoja de vida ${index + 1}`);
+                          || (isVersion ? `Versión ${index}` : isBase ? 'Perfil base' : `Hoja de vida ${index + 1}`);
                         const isOptionsOpen = profileOptionsOpenId === profile._id;
                         const profileIdStr = profile._id != null ? String(profile._id) : '';
                         const currentVersionId = profileData?.selectedProfileVersion?._id != null ? String(profileData.selectedProfileVersion._id) : null;
                         const isSelectedForView = profileIdStr !== '' && (currentVersionId === profileIdStr || (selectedProfileIdForView != null && String(selectedProfileIdForView) === profileIdStr));
-                        const baseProfileId = profile.profileId || profile._id;
-                        const versionId = profile.versionId || null;
+                        const baseProfileId = profile.profileId ?? profile._id;
+                        const versionId = profile.type === 'base' ? null : (profile.versionId ?? profile._id);
                         const profileKey = profile._id ?? `${profile.profileId ?? 'p'}-${profile.versionId ?? index}`;
                         const handleSelectProfile = () => {
                           if (isSelectedForView) return; // ya está seleccionado
@@ -3155,7 +3352,6 @@ const PostulantProfile = ({ onVolver }) => {
                               {isSelectedForView && <span className="perfil-profile-item-active-badge"></span>}
                             </span>
                             <div className="perfil-profile-item-actions" onClick={(e) => e.stopPropagation()}>
-                             
                               {isEditing && (
                                 <>
                                   <button
@@ -3166,14 +3362,16 @@ const PostulantProfile = ({ onVolver }) => {
                                   >
                                     <FiEdit />
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="perfil-profile-item-action-icon perfil-profile-item-action-delete"
-                                    onClick={() => handleDeleteProfile(profile)}
-                                    title="Eliminar"
-                                  >
-                                    <FiTrash2 />
-                                  </button>
+                                  {profile.type !== 'base' && (
+                                    <button
+                                      type="button"
+                                      className="perfil-profile-item-action-icon perfil-profile-item-action-delete"
+                                      onClick={() => handleDeleteProfile(profile)}
+                                      title="Eliminar"
+                                    >
+                                      <FiTrash2 />
+                                    </button>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -3182,7 +3380,7 @@ const PostulantProfile = ({ onVolver }) => {
                       })}
                     </ul>
                   ) : (
-                    <div className="perfil-profile-list-empty">No hay perfiles creados.</div>
+                    <div className="perfil-profile-list-empty">No hay perfiles creados. Cree una versión de perfil para empezar.</div>
                   )}
                 </div>
 
@@ -3437,7 +3635,17 @@ const PostulantProfile = ({ onVolver }) => {
                     <h4 className="perfil-block-title">Hojas de vida</h4>
                     {isEditing && (
                       <span className="section-actions">
-                        <button type="button" className="section-action-btn section-action-add-only" onClick={() => setHojaDeVidaModalOpen(true)} title="Agregar"><FiPlus /></button>
+                        <button
+                          type="button"
+                          className="section-action-btn section-action-add-only"
+                          onClick={() => {
+                            const baseId = profileData?.postulantProfile?._id ?? profiles?.[0]?.profileId;
+                            const isBaseSelected = baseId && (String(selectedProfileIdForView) === String(baseId) || !selectedProfileIdForView);
+                            setHojaDeVidaSelectedProfileId(isBaseSelected && baseId ? `base-${baseId}` : (selectedProfileIdForView || (baseId ? `base-${baseId}` : '')));
+                            setHojaDeVidaModalOpen(true);
+                          }}
+                          title="Generar hoja de vida"
+                        ><FiPlus /></button>
                       </span>
                     )}
                   </div>
@@ -4214,20 +4422,13 @@ const PostulantProfile = ({ onVolver }) => {
                   className="form-control"
                 >
                   <option value="">Seleccione un perfil</option>
-                  {profiles.map((profile, index) => {
-                    const profileNameStr = (profile.profileName && String(profile.profileName).trim()) || (profile.studentCode && String(profile.studentCode).trim());
-                    const fallbackText = (profile.profileText && String(profile.profileText).trim()) || profileNameStr;
-                    const label = (profileNameStr || fallbackText)
-                      ? (profileNameStr || fallbackText).slice(0, 60) + ((profileNameStr || fallbackText).length > 60 ? '…' : '')
-                      : (profile.createdAt || profile.dateCreation ? new Date(profile.createdAt || profile.dateCreation).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : null)
-                      || `Perfil ${index + 1}`;
-                    return (
-                      <option key={profile._id} value={profile._id}>{label}</option>
-                    );
-                  })}
+                  {listForHojaVidaSelect.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
                 <label htmlFor="hoja-perfil-select">Elija un perfil para su hoja de vida <span className="text-danger">*</span></label>
               </div>
+              <p className="form-modal-hint text-muted small mt-1 mb-0">La hoja de vida se generará según la parametrización configurada y la información del perfil elegido.</p>
             </div>
             <div className="form-modal-footer">
               <button type="button" className="form-modal-btn-cancel" onClick={() => { setHojaDeVidaModalOpen(false); setHojaDeVidaSelectedProfileId(''); }} disabled={generatingHv}>Cerrar</button>
@@ -4238,6 +4439,74 @@ const PostulantProfile = ({ onVolver }) => {
                 disabled={generatingHv}
               >
                 {generatingHv ? 'Generando…' : 'Generar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Carta de presentación: solo Empresa y Ciudad */}
+      {cartaPresentacionModalOpen && (
+        <div className="form-modal-overlay" onClick={() => { if (!generatingCarta) { setCartaPresentacionModalOpen(false); setCartaDestinatarioEmpresa(''); setCartaDestinatarioCiudad(''); setCartaCitySearchTerm(''); setCartaCityDropdownOpen(false); } }}>
+          <div className="form-modal-content carta-presentacion-modal" onClick={e => e.stopPropagation()}>
+            <div className="form-modal-header">
+              <h3 className="form-modal-title">¿A quién va dirigida la carta?</h3>
+              <button type="button" className="form-modal-close" onClick={() => { if (!generatingCarta) { setCartaPresentacionModalOpen(false); setCartaDestinatarioEmpresa(''); setCartaDestinatarioCiudad(''); setCartaCitySearchTerm(''); setCartaCityDropdownOpen(false); } }} aria-label="Cerrar"><FiX /></button>
+            </div>
+            <div className="form-modal-body">
+              <div className="form-floating mb-3">
+                <input
+                  type="text"
+                  id="carta-empresa"
+                  value={cartaDestinatarioEmpresa}
+                  onChange={e => setCartaDestinatarioEmpresa(e.target.value)}
+                  className="form-control"
+                  placeholder=" "
+                />
+                <label htmlFor="carta-empresa">Empresa <span className="text-danger">*</span></label>
+              </div>
+              <div className="mb-3">
+                <label htmlFor="carta-ciudad-input" className="form-label">Ciudad <span className="text-danger">*</span></label>
+                <div className="carta-city-combobox" ref={cartaCityDropdownRef}>
+                  <div className="carta-city-combobox-input-wrap">
+                    <FiSearch className="carta-city-search-icon" />
+                    <input
+                      type="text"
+                      id="carta-ciudad-input"
+                      className="form-control carta-city-input"
+                      value={cartaCityDropdownOpen ? cartaCitySearchTerm : (cartaDestinatarioCiudad || '')}
+                      onFocus={() => { setCartaCityDropdownOpen(true); setCartaCitySearchTerm(cartaDestinatarioCiudad || ''); }}
+                      onChange={(e) => { setCartaCitySearchTerm(e.target.value); setCartaCityDropdownOpen(true); }}
+                      placeholder="Buscar ciudad..."
+                    />
+                  </div>
+                  {cartaCityDropdownOpen && (
+                    <ul className="carta-city-dropdown">
+                      {cartaCitySearchLoading ? (
+                        <li className="carta-city-dropdown-item carta-city-loading">Cargando...</li>
+                      ) : cartaCitiesList.length === 0 ? (
+                        <li className="carta-city-dropdown-item carta-city-empty">Sin resultados. Escriba para buscar.</li>
+                      ) : (
+                        cartaCitiesList.map((city) => (
+                          <li
+                            key={city._id}
+                            className="carta-city-dropdown-item"
+                            onClick={() => { setCartaDestinatarioCiudad(city.name ?? ''); setCartaCityDropdownOpen(false); setCartaCitySearchTerm(''); }}
+                          >
+                            {city.name}
+                            {city.state?.name && <span className="carta-city-state"> ({city.state.name})</span>}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="form-modal-footer">
+              <button type="button" className="form-modal-btn-cancel" onClick={() => { if (!generatingCarta) { setCartaPresentacionModalOpen(false); setCartaDestinatarioEmpresa(''); setCartaDestinatarioCiudad(''); setCartaCitySearchTerm(''); setCartaCityDropdownOpen(false); } }} disabled={generatingCarta}>Cerrar</button>
+              <button type="button" className="form-modal-btn-save" onClick={handleGenerarCartaPresentacion} disabled={generatingCarta}>
+                {generatingCarta ? 'Generando…' : 'Generar'}
               </button>
             </div>
           </div>

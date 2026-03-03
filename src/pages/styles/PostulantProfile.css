@@ -1692,6 +1692,85 @@ input:checked + .slider:before {
   border-color: #8b1824;
 }
 
+/* Modal Carta: permitir que el dropdown de ciudad sobresalga (no recortado por overflow) */
+.carta-presentacion-modal.form-modal-content {
+  overflow: visible;
+}
+
+.carta-presentacion-modal .form-modal-body {
+  overflow: visible;
+  max-height: none;
+}
+
+/* Modal Carta de presentación: select de ciudad con buscador */
+.carta-city-combobox {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.carta-city-combobox-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.carta-city-search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 14px;
+  color: #6c757d;
+  pointer-events: none;
+}
+
+.carta-city-input {
+  padding-left: 34px;
+  width: 100%;
+}
+
+.carta-city-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1100;
+}
+
+.carta-city-dropdown-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.carta-city-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.carta-city-dropdown-item:hover {
+  background: #f8f8f8;
+}
+
+.carta-city-state {
+  color: #666;
+  font-size: 12px;
+}
+
+.carta-city-loading,
+.carta-city-empty {
+  color: #888;
+  cursor: default;
+}
+
 /* Form group: etiqueta en mayúsculas, campo debajo (estilo Crear período) */
 .form-group {
   margin-bottom: 1rem;
