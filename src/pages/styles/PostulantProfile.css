@@ -373,6 +373,19 @@
   flex: 1;
 }
 
+.link-politica-datos {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #c41e3a;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.link-politica-datos:hover {
+  color: #8b1538;
+}
+
 /* Switch de estado */
 .switch {
   position: relative;
@@ -469,13 +482,28 @@ input:checked + .slider:before {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #3b82f6;
+  color: #c41e3a;
   cursor: pointer;
   text-decoration: none;
 }
 
 .completeness-info:hover {
-  color: #2563eb;
+  color: #8b1538;
+  text-decoration: underline;
+}
+
+.link-completar-perfil {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+}
+.link-completar-perfil:hover {
+  color: #8b1538;
   text-decoration: underline;
 }
 

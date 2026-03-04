@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FiArrowLeft } from 'react-icons/fi';
 import api from '../../../../services/api';
 import '../../../styles/PostulantDocumentLog.css';
@@ -10,49 +10,48 @@ export default function PostulantDocumentLog({ onVolver }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    loadDocuments();
-  }, []);
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/postulant-logs/documents');
-      setDocuments(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get('/postulant-logs/documents', {
+        params: { page: currentPage, limit: pageSize, search: debouncedSearch || undefined }
+      });
+      const payload = res.data;
+      setDocuments(Array.isArray(payload.data) ? payload.data : []);
+      setTotal(payload.total ?? 0);
+      setTotalPages(Math.max(1, payload.totalPages ?? 1));
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Error al cargar el log de documentos');
       setDocuments([]);
+      setTotal(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, pageSize, debouncedSearch]);
 
-  const filteredDocuments = useMemo(() =>
-    searchTerm.trim()
-      ? documents.filter(
-          (doc) =>
-            (doc.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (doc.identification || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (doc.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (doc.document_type || '').toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      : documents,
-    [documents, searchTerm]
-  );
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
 
-  const totalFiltered = filteredDocuments.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
   const page = Math.min(Math.max(1, currentPage), totalPages);
-  const start = (page - 1) * pageSize;
-  const paginatedDocuments = filteredDocuments.slice(start, start + pageSize);
+  const start = total === 0 ? 0 : (page - 1) * pageSize;
 
   const goToPage = (p) => setCurrentPage(Math.max(1, Math.min(p, totalPages)));
   const onPageSizeChange = (e) => {
@@ -86,7 +85,7 @@ export default function PostulantDocumentLog({ onVolver }) {
           <div className="search-box">
             <input
               type="text"
-              placeholder="Buscar por nombre, identificación, email o tipo de documento..."
+              placeholder="Buscar por identificación, nombre y apellidos o email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
@@ -109,13 +108,13 @@ export default function PostulantDocumentLog({ onVolver }) {
               <p>Cargando log de documentos...</p>
             </div>
           )}
-          {!error && !loading && totalFiltered === 0 && (
+          {!error && !loading && total === 0 && (
             <div className="empty-state">
               <h3>Sin registros</h3>
-              <p>No hay documentos en el log para mostrar.</p>
+              <p>{debouncedSearch ? 'No hay resultados para la búsqueda. Pruebe por identificación, nombre y apellidos o email.' : 'No hay documentos en el log para mostrar.'}</p>
             </div>
           )}
-          {!error && !loading && totalFiltered > 0 && (
+          {!error && !loading && total > 0 && (
             <>
             <table className="postulants-table">
               <thead>
@@ -130,7 +129,7 @@ export default function PostulantDocumentLog({ onVolver }) {
                 </tr>
               </thead>
               <tbody>
-                {paginatedDocuments.map((doc, idx) => (
+                {documents.map((doc, idx) => (
                   <tr key={idx}>
                     <td>{doc.full_name || '—'}</td>
                     <td>{doc.identification || '—'}</td>
@@ -145,7 +144,7 @@ export default function PostulantDocumentLog({ onVolver }) {
             </table>
             <div className="log-pagination">
               <div className="log-pagination-info">
-                Mostrando {start + 1}-{Math.min(start + pageSize, totalFiltered)} de {totalFiltered} registros
+                Mostrando {total === 0 ? 0 : start + 1}-{Math.min(start + documents.length, total)} de {total} registros
               </div>
               <div className="log-pagination-controls">
                 <label className="log-pagination-size">

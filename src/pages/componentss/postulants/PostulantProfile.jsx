@@ -16,7 +16,6 @@ import {
   FiGlobe,
   FiInstagram,
   FiHelpCircle,
-  FiUpload,
   FiX,
   FiCheck,
   FiXCircle,
@@ -70,6 +69,25 @@ const formatYearsExperience = (value) => {
   if (rounded >= 12 && rounded <= 960) return String(Math.round(rounded / 12));
   return '—';
 };
+
+/** Texto de la Política de Tratamiento de Datos Personales (modal). */
+const POLITICA_TRATAMIENTO_DATOS = `Política de Tratamiento de Datos Personales
+
+Autorizo a EL COLEGIO MAYOR NUESTRA SEÑORA DEL ROSARIO para el tratamiento de mis datos personales y, en tal virtud, podrá recolectar, almacenar, usar o circular para las siguientes finalidades: revisión y remisión de mi hoja de vida a entidades públicas y/o privadas con las que la Universidad tenga convenio para el desarrollo de prácticas y pasantías nacionales e internacionales y para la circulación de mi información de desempeño entre la Universidad y la entidad con quien preexista el convenio y/o la relación académica, desarrollo de monitorias, tutorías y mentorías.
+
+Las comunicaciones derivadas de las anteriores finalidades se podrán realizar a través de medios análogos, físicos y electrónicos y cualquier otro conocido o por conocer, por parte de la Universidad del Rosario y por parte de la entidad con quien la Universidad tenga convenio para ejecutar las actividades descritas en las finalidades.
+
+La información personal suministrada se utilizará solo para los fines autorizados por usted, y se encuentra bajo nuestra custodia, contando con todas las medidas de seguridad físicas, técnicas y administrativas para evitar su perdida, adulteración, uso fraudulento o no adecuado. La misma podrá estar almacenada en nuestros servidores o en los servidores con quienes se tenga convenio para el almacenamiento de información, por tanto,
+
+AUTORIZACIÓN PARA EL TRATAMIENTO DE DATOS PERSONALES SENSIBLES
+Autorizo el tratamiento de mis datos personales sensibles, como datos relativos a la salud, para las siguientes finalidades: hacer seguimiento y verificar condiciones en el sitio de práctica.
+
+Usted autoriza la transmisión de sus datos personales, incluyendo los datos personales sensibles a un tercer país, que cuenta con los estándares de seguridad en la protección de datos personales fijados por la Superintendencia de Industria y Comercio.
+
+DERECHO A HABEAS DATA
+Usted tiene derecho a conocer, actualizar, incluir y rectificar sus datos personales, también podrá solicitar la supresión o revocar la autorización otorgada para su tratamiento. En caso de un reclamo o consulta relativa a sus datos personales, puede realizarla ingresando la petición en la opción "solicitudes" de la página web de la Universidad, remitiendo la solicitud al correo electrónico habeasdata@urosario.edu.co, o dejando su petición en el buzón físico ubicado en el Edificio Santafé Carrera 6 N° 12 C - 13 Bogotá D.C. en el horario de atención de lunes a viernes 7:00 a. m. a 7:00 p. m. y los sábados de 8:00 a. m. a 1:00 p. m.
+
+Si desea mayor información sobre el tratamiento de sus datos personales, consulte nuestra Política de Tratamiento de Datos personales en www.urosario.edu.co`;
 
 /** Calcula los meses entre start y end (inclusive: mes de inicio y mes de fin cuentan). */
 const monthsBetween = (start, end) => {
@@ -243,15 +261,9 @@ const PostulantProfile = ({ onVolver }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('datos-personales');
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewImage, setPreviewImage] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [selectingFile, setSelectingFile] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [profileData, setProfileData] = useState(null);
-  const fileInputRef = useRef(null);
-  const fileSelectTimeoutRef = useRef(null);
   // Perfiles (hojas de vida) - hasta 5 por postulante
   const [profiles, setProfiles] = useState([]);
   const [profilesMeta, setProfilesMeta] = useState({ count: 0, maxAllowed: 5 });
@@ -336,7 +348,7 @@ const PostulantProfile = ({ onVolver }) => {
   /** Modal Idiomas */
   const [languageModalOpen, setLanguageModalOpen] = useState(false);
   const [languageFormData, setLanguageFormData] = useState({
-    language: '', level: '', certificationExam: false, certificationExamName: '',
+    language: '', level: '',
   });
   const [languageOptions, setLanguageOptions] = useState([]);
   const [levelOptions, setLevelOptions] = useState([]);
@@ -522,7 +534,7 @@ const PostulantProfile = ({ onVolver }) => {
     }
   }, [postulant?._id, profiles, hojaDeVidaSelectedProfileId, listForHojaVidaSelect, showError]);
 
-  /** Generar carta de presentación: empresa y ciudad del destinatario; llama al backend para generar PDF. */
+  /** Generar carta de presentación: genera y descarga el PDF. */
   const handleGenerarCartaPresentacion = useCallback(async () => {
     const empresa = (cartaDestinatarioEmpresa ?? '').trim();
     const ciudad = (cartaDestinatarioCiudad ?? '').trim();
@@ -990,13 +1002,11 @@ const PostulantProfile = ({ onVolver }) => {
       await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/languages`, {
         language: languageId,
         level: languageFormData.level || undefined,
-        certificationExam: languageFormData.certificationExam === true,
-        certificationExamName: languageFormData.certificationExam ? (languageFormData.certificationExamName || '').trim() : undefined,
         ...(currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {}),
       });
       createAlert('success', 'Añadido', 'Idioma añadido.');
       setLanguageModalOpen(false);
-      setLanguageFormData({ language: '', level: '', certificationExam: false, certificationExamName: '' });
+      setLanguageFormData({ language: '', level: '' });
       loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
     } catch (err) {
       console.error(err);
@@ -1809,128 +1819,6 @@ const PostulantProfile = ({ onVolver }) => {
     }
   }, [postulant?._id, showError]);
 
-  // Cargar imagen de perfil si existe (solo si es una ruta válida, no ObjectId)
-  useEffect(() => {
-    const pic = postulant?.profile_picture;
-    if (!pic || typeof pic !== 'string') {
-      setPreviewImage(null);
-      return;
-    }
-    const isPath = pic.includes('upload') || pic.startsWith('src/');
-    const isUrl = pic.startsWith('http');
-    if (!isPath && !isUrl) {
-      setPreviewImage(null);
-      return;
-    }
-    let imageUrl;
-    if (isUrl) {
-      imageUrl = pic;
-    } else {
-      const baseURL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/api\/?$/, '').replace(/\/$/, '');
-      const cleanPath = pic.replace(/^src[/\\]/, '').replace(/\\/g, '/');
-      imageUrl = `${baseURL}/${cleanPath}`;
-    }
-    setPreviewImage(imageUrl);
-  }, [postulant]);
-
-  // Manejar selección de archivo
-  const handleFileSelect = useCallback((e) => {
-    const file = e.target.files[0];
-    
-    // Limpiar el timeout de cancelación ya que se seleccionó un archivo o se canceló
-    if (fileSelectTimeoutRef.current) {
-      clearTimeout(fileSelectTimeoutRef.current);
-      fileSelectTimeoutRef.current = null;
-    }
-    
-    if (file) {
-      // Si no estaba activo, activarlo (ya debería estar activo desde el click)
-      if (!selectingFile) {
-        setSelectingFile(true);
-      }
-      
-      // Validar tipo de archivo
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!validTypes.includes(file.type)) {
-        setSelectingFile(false);
-        showError('Error', 'Tipo de archivo no válido. Solo se permiten imágenes (JPEG, PNG, GIF, WEBP)');
-        return;
-      }
-
-      // Validar tamaño (máximo 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setSelectingFile(false);
-        showError('Error', 'El archivo es demasiado grande. Máximo 10MB.');
-        return;
-      }
-
-      setSelectedFile(file);
-      
-      // Crear preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result);
-        setSelectingFile(false);
-      };
-      reader.onerror = () => {
-        setSelectingFile(false);
-        showError('Error', 'Error al leer el archivo');
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // Si no se seleccionó archivo (usuario canceló), desactivar loading
-      setSelectingFile(false);
-    }
-  }, [showError, selectingFile]);
-
-  // Subir foto de perfil
-  const handleUploadPicture = useCallback(async () => {
-    if (!selectedFile || !postulant) return;
-
-    try {
-      setUploading(true);
-      const formData = new FormData();
-      formData.append('profile_picture', selectedFile);
-
-      const response = await api.post(
-        `/postulants/${postulant._id}/profile-picture`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
-
-      const imagePath = response.data.profile_picture;
-      const baseURL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/api\/?$/, '').replace(/\/$/, '');
-      const cleanPath = (imagePath || '').replace(/^src[/\\]/, '').replace(/\\/g, '/');
-      const imageUrl = (imagePath && imagePath.startsWith('http'))
-        ? imagePath
-        : `${baseURL}/${cleanPath}`;
-
-      setPostulant(prev => ({
-        ...prev,
-        profile_picture: imagePath || prev.profile_picture
-      }));
-      setPreviewImage(imageUrl);
-      setSelectedFile(null);
-      
-      Swal.fire({
-        icon: 'success',
-        title: 'Foto actualizada',
-        text: 'La foto de perfil se ha actualizado correctamente',
-        confirmButtonColor: '#c41e3a'
-      });
-    } catch (error) {
-      console.error('Error uploading picture', error);
-      const errorMessage = error.response?.data?.message || 'No se pudo subir la foto de perfil';
-      showError('Error', errorMessage);
-    } finally {
-      setUploading(false);
-    }
-  }, [selectedFile, postulant, showError, showFuncionalidadEnDesarrollo]);
-
   // Inicializar datos editados cuando se activa el modo edición
   useEffect(() => {
     if (isEditing && postulant) {
@@ -2076,72 +1964,77 @@ const PostulantProfile = ({ onVolver }) => {
     }));
   }, []);
 
-  // Eliminar foto de perfil
-  const handleDeletePicture = useCallback(async () => {
-    if (!postulant) return;
+  // Porcentaje de completitud en 3 secciones: Datos personales, Perfil (tab), Información académica
+  const completenessBySection = useMemo(() => {
+    const empty = { scoreDatos: 0, scorePerfil: 0, scoreAcademica: 0, overall: 0, missingDatos: [], missingPerfil: [], missingAcademica: [] };
+    if (!postulant) return empty;
 
-    const result = await Swal.fire({
-      title: '¿Eliminar foto de perfil?',
-      text: 'Esta acción no se puede deshacer',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#c41e3a',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        // Actualizar el postulante eliminando la foto
-        await api.put(`/postulants/update/${postulant._id}`, {
-          profile_picture: null
-        });
-
-        setPostulant(prev => ({
-          ...prev,
-          profile_picture: null
-        }));
-
-        setPreviewImage(null);
-        setSelectedFile(null);
-        
-        Swal.fire({
-          icon: 'success',
-          title: 'Foto eliminada',
-          text: 'La foto de perfil ha sido eliminada correctamente',
-          confirmButtonColor: '#c41e3a'
-        });
-      } catch (error) {
-        console.error('Error deleting picture', error);
-        showError('Error', 'No se pudo eliminar la foto de perfil');
-      }
-    }
-  }, [postulant, showError]);
-
-  // Porcentaje de completitud: usar el del backend si viene, sino calcular local
-  const calculateCompleteness = useCallback(() => {
-    if (!postulant) return 0;
-    if (postulant.filling_percentage != null && !Number.isNaN(Number(postulant.filling_percentage))) {
-      return Math.min(100, Math.max(0, Number(postulant.filling_percentage)));
-    }
-    const fields = [
-      postulant.identity_postulant,
-      postulant.type_doc_postulant,
-      postulant.gender_postulant,
-      postulant.date_nac_postulant,
-      postulant.nac_country,
-      postulant.nac_department,
-      postulant.nac_city,
-      postulant.residence_country,
-      postulant.residence_department,
-      postulant.residence_city,
-      postulant.phone_number,
-      postulant.mobile_number
+    const fieldsDatos = [
+      { key: 'typeOfIdentification', label: 'Tipo de documento' },
+      { key: 'gender', label: 'Género' },
+      { key: 'dateBirth', label: 'Fecha de nacimiento' },
+      { key: 'phone', label: 'Teléfono' },
+      { key: 'address', label: 'Dirección' },
+      { key: 'alternateEmail', label: 'Correo alternativo' },
+      { key: 'countryBirthId', label: 'País de nacimiento' },
+      { key: 'stateBirthId', label: 'Departamento de nacimiento' },
+      { key: 'cityBirthId', label: 'Ciudad de nacimiento' },
+      { key: 'countryResidenceId', label: 'País de residencia' },
+      { key: 'stateResidenceId', label: 'Departamento de residencia' },
+      { key: 'cityResidenceId', label: 'Ciudad de residencia' },
     ];
-    const completed = fields.filter(Boolean).length;
-    return Math.round((completed / fields.length) * 100);
-  }, [postulant]);
+    const isFilled = (v) => {
+      if (v == null || v === '') return false;
+      if (typeof v !== 'object') return true;
+      if (v._id != null) return true;
+      if (v.constructor && v.constructor.name === 'ObjectId') return true;
+      return false;
+    };
+    const missingDatos = fieldsDatos.filter((f) => !isFilled(postulant[f.key]));
+    const scoreDatos = fieldsDatos.length ? Math.round((fieldsDatos.length - missingDatos.length) / fieldsDatos.length * 100) : 0;
+
+    const pp = profileData?.postulantProfile;
+    const itemsPerfil = [
+      { ok: pp?.studentCode != null && String(pp.studentCode).trim() !== '', label: 'Código de estudiante (studentCode)' },
+      { ok: pp?.profileText != null && String(pp.profileText).trim() !== '', label: 'Texto de perfil' },
+      { ok: (profileData?.interestAreas?.length ?? 0) > 0, label: 'Al menos un área de interés' },
+      { ok: (profileData?.skills?.length ?? 0) > 0, label: 'Al menos una habilidad' },
+      { ok: (profileData?.languages?.length ?? 0) > 0, label: 'Al menos un idioma' },
+    ];
+    const missingPerfil = profileData ? itemsPerfil.filter((i) => !i.ok).map((i) => i.label) : [];
+    const scorePerfil = profileData && itemsPerfil.length ? Math.round(itemsPerfil.filter((i) => i.ok).length / itemsPerfil.length * 100) : 0;
+
+    const enrolled = (profileData?.enrolledPrograms || []).filter((e) => e.programFacultyId != null);
+    const firstEnrolled = enrolled[0];
+    const extraList = profileData?.programExtraInfo || [];
+    const firstExtra = firstEnrolled ? extraList.find((e) => e.enrolledProgramId?.toString?.() === firstEnrolled._id?.toString?.()) : null;
+    const itemsAcademica = [
+      { ok: enrolled.length > 0, label: 'Al menos un programa en curso' },
+      { ok: firstExtra?.approvedCredits != null && firstExtra?.approvedCredits !== '', label: 'Créditos aprobados' },
+      { ok: firstExtra?.totalCredits != null && firstExtra?.totalCredits !== '', label: 'Créditos totales' },
+      { ok: firstExtra?.cumulativeAverage != null && firstExtra?.cumulativeAverage !== '', label: 'Promedio acumulado' },
+    ];
+    const missingAcademica = profileData ? itemsAcademica.filter((i) => !i.ok).map((i) => i.label) : [];
+    const scoreAcademica = profileData && itemsAcademica.length ? Math.round(itemsAcademica.filter((i) => i.ok).length / itemsAcademica.length * 100) : 0;
+
+    const overall = profileData
+      ? Math.min(100, Math.round((scoreDatos + scorePerfil + scoreAcademica) / 3))
+      : scoreDatos;
+
+    return {
+      scoreDatos,
+      scorePerfil,
+      scoreAcademica,
+      overall,
+      missingDatos: missingDatos.map((f) => f.label),
+      missingPerfil,
+      missingAcademica,
+    };
+  }, [postulant, profileData]);
+
+  const calculateCompleteness = useCallback(() => {
+    return completenessBySection.overall;
+  }, [completenessBySection.overall]);
 
   // Formatear fecha
   const formatDate = (date) => {
@@ -2178,6 +2071,69 @@ const PostulantProfile = ({ onVolver }) => {
   const completeness = calculateCompleteness();
   const fullName = postulant.user?.name || 'Sin nombre';
   const email = postulant.user?.email || '-';
+
+  const handleConsentSwitch = async (field, newValue) => {
+    if (!postulant?._id) return;
+    try {
+      const payload = field === 'full_profile' ? { full_profile: newValue } : { acept_terms: newValue };
+      const response = await api.put(`/postulants/update/${postulant._id}`, payload);
+      setPostulant(response.data);
+    } catch (err) {
+      console.error('Error al guardar consentimiento', err);
+      const msg = err.response?.data?.message || 'No se pudo guardar';
+      Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#c41e3a' });
+    }
+  };
+
+  const openPoliticaDatosModal = () => {
+    Swal.fire({
+      title: 'Política de Tratamiento de Datos Personales',
+      html: `<div class="politica-datos-modal-text" style="text-align:left; white-space:pre-wrap; max-height:60vh; overflow-y:auto; padding: 0 4px;">${escapeHtml(POLITICA_TRATAMIENTO_DATOS)}</div>`,
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#c41e3a',
+      width: '640px',
+      background: '#fff',
+      color: '#333',
+    });
+  };
+
+  const openQueHaceFaltaModal = () => {
+    const { missingDatos, missingPerfil, missingAcademica } = completenessBySection;
+    const hasMissing = missingDatos.length > 0 || missingPerfil.length > 0 || missingAcademica.length > 0;
+    if (!hasMissing) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Perfil completo',
+        text: 'No falta información por completar en datos personales, perfil e información académica.',
+        confirmButtonColor: '#c41e3a',
+      });
+      return;
+    }
+    const section = (title, items) => {
+      if (!items.length) return '';
+      const rows = items.map((label, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(label)}</td></tr>`).join('');
+      return `<p class="mb-2"><strong>${escapeHtml(title)}</strong></p>
+        <table class="swal-obligatorios-table" style="width:100%; border-collapse:collapse; margin-bottom:1rem;">
+          <thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Información a completar</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    };
+    let html = [
+      section('Datos personales', missingDatos),
+      section('Perfil (datos generales del perfil)', missingPerfil),
+      section('Información académica', missingAcademica),
+    ].filter(Boolean).join('');
+    if (!profileData && html) {
+      html += '<p style="margin-top:0.75rem; font-size:0.9em; color:#666;">Si abre las pestañas <strong>Perfil</strong> e <strong>Información académica</strong>, se evaluará también qué falta en esas secciones.</p>';
+    }
+    Swal.fire({
+      title: '¿Qué hace falta para completar su perfil?',
+      html: html || '<p>No hay datos cargados. Abra las pestañas Perfil e Información académica para ver el detalle.</p>',
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#c41e3a',
+      width: '520px',
+    });
+  };
 
   return (
     <div className="postulant-profile-content">
@@ -2317,91 +2273,6 @@ const PostulantProfile = ({ onVolver }) => {
           <div className="profile-tab-content datos-personales-tab">
         <div className="postulant-profile-summary">
           <div className="profile-summary-left">
-            <div className="profile-picture-container">
-              <div className="profile-picture">
-                {previewImage ? (
-                  <img 
-                    src={previewImage} 
-                    alt="Foto de perfil" 
-                    className="profile-picture-img"
-                    onError={(e) => {
-                      console.error('Error loading image:', previewImage);
-                      console.error('Error event:', e);
-                      setPreviewImage(null);
-                    }}
-                    onLoad={() => {
-                      console.log('Image loaded successfully:', previewImage);
-                    }}
-                  />
-                ) : (
-                  <FiMail className="profile-picture-icon" />
-                )}
-                {previewImage && (
-                  <button 
-                    className="profile-picture-delete" 
-                    title="Eliminar foto"
-                    onClick={handleDeletePicture}
-                  >
-                    <FiX className="delete-icon" />
-                  </button>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                onChange={handleFileSelect}
-                onClick={(e) => {
-                  // Resetear el valor para que el onChange se dispare incluso si se selecciona el mismo archivo
-                  e.target.value = '';
-                }}
-                onCancel={() => {
-                  // Si el usuario cancela, desactivar el loading
-                  setSelectingFile(false);
-                }}
-                style={{ display: 'none' }}
-              />
-              <button 
-                className="profile-picture-select"
-                onClick={() => {
-                  setSelectingFile(true);
-                  // Limpiar timeout anterior si existe
-                  if (fileSelectTimeoutRef.current) {
-                    clearTimeout(fileSelectTimeoutRef.current);
-                  }
-                  // Si el usuario cancela el diálogo, desactivar el loading después de 2 segundos
-                  fileSelectTimeoutRef.current = setTimeout(() => {
-                    setSelectingFile(false);
-                  }, 2000);
-                  fileInputRef.current?.click();
-                }}
-                disabled={uploading || selectingFile}
-              >
-                {selectingFile ? (
-                  <>
-                    <div className="loading-spinner-small" />
-                    <span>{selectedFile ? 'Procesando...' : 'Abriendo...'}</span>
-                  </>
-                ) : (
-                  <>
-                    <FiUpload className="upload-icon" />
-                    {selectedFile ? 'Cambiar' : 'Seleccionar'}
-                  </>
-                )}
-              </button>
-              {selectedFile && (
-                <>
-                  <div className="profile-picture-filename">{selectedFile.name}</div>
-                  <button 
-                    className="profile-picture-upload-btn"
-                    onClick={handleUploadPicture}
-                    disabled={uploading}
-                  >
-                    {uploading ? 'Subiendo...' : 'Subir foto'}
-                  </button>
-                </>
-              )}
-            </div>
             <div className="profile-info">
               <h2 className="profile-name">{fullName.toUpperCase()}</h2>
               <div className="profile-email">
@@ -2421,14 +2292,26 @@ const PostulantProfile = ({ onVolver }) => {
               <div className="consent-item">
                 <span>Permito el envío de hoja de vida <br/> a empresas</span>
                 <label className="switch">
-                  <input type="checkbox" checked={postulant.full_profile || false} readOnly />
+                  <input
+                    type="checkbox"
+                    checked={postulant.full_profile || false}
+                    onChange={(e) => handleConsentSwitch('full_profile', e.target.checked)}
+                  />
                   <span className="slider"></span>
                 </label>
               </div>
               <div className="consent-item">
-                <span>Autorizo el tratamiento de mis <br/> datos personales</span>
+                <span>
+                  <button type="button" className="link-politica-datos" onClick={openPoliticaDatosModal}>
+                    Autorizo el tratamiento de mis datos personales
+                  </button>
+                </span>
                 <label className="switch">
-                  <input type="checkbox" checked={postulant.acept_terms || false} readOnly />
+                  <input
+                    type="checkbox"
+                    checked={postulant.acept_terms || false}
+                    onChange={(e) => handleConsentSwitch('acept_terms', e.target.checked)}
+                  />
                   <span className="slider"></span>
                 </label>
               </div>
@@ -2455,8 +2338,9 @@ const PostulantProfile = ({ onVolver }) => {
                 <span className="completeness-percent">{completeness}%</span>
               </div>
               <div className="completeness-info">
-              
-                <span>¿Qué hace falta para <br/> completar su perfil?</span>
+                <button type="button" className="link-completar-perfil" onClick={openQueHaceFaltaModal}>
+                  ¿Qué hace falta para <br/> completar su perfil?
+                </button>
               </div>
             </div>
           </div>
@@ -2958,12 +2842,8 @@ const PostulantProfile = ({ onVolver }) => {
                         <tr>
                           <th>Programa</th>
                           <th>Facultad</th>
-                          <th>Sede</th>
                           <th>Nivel</th>
                           <th>Créditos aprobados</th>
-                          <th>Práctica</th>
-                          <th>Matriculado</th>
-                          <th>Suspensiones</th>
                           <th>Promedio acumulado</th>
                           <th>SSC</th>
                           {/* <th>Opciones</th> */}
@@ -2979,13 +2859,9 @@ const PostulantProfile = ({ onVolver }) => {
                                 {ep.programId?.name || ep.programId?.code || '—'}
                               </td>
                               <td>{ep.programFacultyId?.facultyId?.name || ep.programFacultyId?.name || '—'}</td>
-                              <td>{ep.programFacultyId?.facultyId?.sucursalId?.nombre ?? ep.programFacultyId?.facultyId?.sucursalId?.codigo ?? '—'}</td>
                               <td>{ep.programId?.level || '—'}</td>
                               <td>{extra?.approvedCredits ?? '—'}</td>
-                              <td>{extra?.canPractice === true ? 'Sí' : extra?.canPractice === false ? 'No' : '—'}</td>
-                              <td>{extra?.enrolled === true ? 'Sí' : extra?.enrolled === false ? 'No' : '—'}</td>
-                              <td>{extra?.disciplinarySuspension === true ? 'Sí' : extra?.disciplinarySuspension === false ? 'No' : '—'}</td>
-                              <td>{extra?.cumulativeAverage != null ? extra.cumulativeAverage : '—'}</td>
+                              <td>{extra?.cumulativeAverage != null ? (Number.isNaN(Number(extra.cumulativeAverage)) ? '—' : Number(extra.cumulativeAverage).toFixed(2)) : '—'}</td>
                               <td>{getSscFromExtra(extra) ?? '—'}</td>
                               {/* <td>
                                 <button
@@ -3560,7 +3436,7 @@ const PostulantProfile = ({ onVolver }) => {
                     <h4 className="perfil-block-title">Idiomas</h4>
                     {isEditing && (
                       <span className="section-actions">
-                        <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setLanguageFormData({ language: '', level: '', certificationExam: false, certificationExamName: '' }); setLanguageModalOpen(true); }} title="Agregar"><FiPlus /></button>
+                        <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setLanguageFormData({ language: '', level: '' }); setLanguageModalOpen(true); }} title="Agregar"><FiPlus /></button>
                       </span>
                     )}
                   </div>
@@ -3570,9 +3446,6 @@ const PostulantProfile = ({ onVolver }) => {
                         <li key={l._id} className="perfil-lang-item">
                           <span>{l.language?.name ?? l.language?.value ?? '—'}</span>
                           <span className="perfil-lang-level">{l.level?.name ?? l.level?.value ?? '—'}</span>
-                          <span className={`perfil-cert-badge ${l.certificationExam ? 'certified' : ''}`}>
-                            {l.certificationExam ? (l.certificationExamName || 'Certificado') : 'No Certificado'}
-                          </span>
                           {isEditing && (
                             <button type="button" className="perfil-tag-item-delete" onClick={() => handleDeleteLanguage(l._id)} title="Eliminar" aria-label="Eliminar"><FiX /></button>
                           )}
@@ -4300,13 +4173,13 @@ const PostulantProfile = ({ onVolver }) => {
         </div>
       )}
 
-      {/* Modal Idiomas (floating labels + toggle certificación) */}
+      {/* Modal Idiomas (idioma + nivel) */}
       {languageModalOpen && (
-        <div className="form-modal-overlay" onClick={() => { setLanguageModalOpen(false); setLanguageFormData({ language: '', level: '', certificationExam: false, certificationExamName: '' }); }}>
+        <div className="form-modal-overlay" onClick={() => { setLanguageModalOpen(false); setLanguageFormData({ language: '', level: '' }); }}>
           <div className="form-modal-content" onClick={e => e.stopPropagation()}>
             <div className="form-modal-header">
               <h3 className="form-modal-title">Idiomas</h3>
-              <button type="button" className="form-modal-close" onClick={() => { setLanguageModalOpen(false); setLanguageFormData({ language: '', level: '', certificationExam: false, certificationExamName: '' }); }} aria-label="Cerrar"><FiX /></button>
+              <button type="button" className="form-modal-close" onClick={() => { setLanguageModalOpen(false); setLanguageFormData({ language: '', level: '' }); }} aria-label="Cerrar"><FiX /></button>
             </div>
             <div className="form-modal-body">
               <div className="form-modal-two-cols">
@@ -4339,37 +4212,9 @@ const PostulantProfile = ({ onVolver }) => {
                   <label htmlFor="lang-nivel">Seleccionar nivel <span className="text-danger">*</span></label>
                 </div>
               </div>
-              <div className="form-modal-two-cols">
-                <div className="form-floating mb-3">
-                  <div className="form-modal-toggle-row">
-                    <span className="form-modal-label-inline">¿Tiene examen de certificación?</span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={languageFormData.certificationExam}
-                      className={`form-modal-toggle ${languageFormData.certificationExam ? 'on' : ''}`}
-                      onClick={() => setLanguageFormData(prev => ({ ...prev, certificationExam: !prev.certificationExam }))}
-                    >
-                      <span className="form-modal-toggle-thumb" />
-                    </button>
-                  </div>
-                </div>
-                <div className="form-floating mb-3">
-                  <input
-                    type="text"
-                    id="lang-examen"
-                    value={languageFormData.certificationExamName}
-                    onChange={e => setLanguageFormData(prev => ({ ...prev, certificationExamName: e.target.value }))}
-                    className="form-control"
-                    placeholder=" "
-                    disabled={!languageFormData.certificationExam}
-                  />
-                  <label htmlFor="lang-examen">Introduzca el examen</label>
-                </div>
-              </div>
             </div>
             <div className="form-modal-footer">
-              <button type="button" className="form-modal-btn-cancel" onClick={() => { setLanguageModalOpen(false); setLanguageFormData({ language: '', level: '', certificationExam: false, certificationExamName: '' }); }}>Cerrar</button>
+              <button type="button" className="form-modal-btn-cancel" onClick={() => { setLanguageModalOpen(false); setLanguageFormData({ language: '', level: '' }); }}>Cerrar</button>
               <button type="button" className="form-modal-btn-save" onClick={handleAddLanguage} disabled={savingAcademic}>{savingAcademic ? 'Añadiendo...' : 'Añadir'}</button>
             </div>
           </div>

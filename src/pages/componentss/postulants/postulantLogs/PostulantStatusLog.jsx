@@ -23,62 +23,55 @@ const PostulantStatusLog = ({ onVolver }) => {
   const navigate = useNavigate();
   const [statusLogs, setStatusLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [errorLogs, setErrorLogs] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const showError = useCallback((title, text) => createAlert('error', title, text), []);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   const loadStatusLogs = useCallback(async () => {
     try {
       setLoadingLogs(true);
       setErrorLogs(null);
-      const response = await api.get('/postulant-logs/status');
-      const data = response.data;
-      setStatusLogs(Array.isArray(data) ? data : []);
+      const res = await api.get("/postulant-logs/status", {
+        params: { page: currentPage, limit: pageSize, search: debouncedSearch || undefined }
+      });
+      const payload = res.data;
+      setStatusLogs(Array.isArray(payload.data) ? payload.data : []);
+      setTotal(payload.total ?? 0);
+      setTotalPages(Math.max(1, payload.totalPages ?? 1));
     } catch (error) {
-      console.error('Error loading status logs', error);
-      const msg = error.response?.status === 403
-        ? 'No tiene permiso para ver el historial de estados.'
-        : (error.response?.data?.message || error.message || 'No se pudieron cargar los logs de estados.');
+      console.error("Error loading status logs", error);
+      const msg =
+        error.response?.status === 403
+          ? "No tiene permiso para ver el historial de estados."
+          : (error.response?.data?.message || error.message || "No se pudieron cargar los logs de estados.");
       setErrorLogs(msg);
       setStatusLogs([]);
+      setTotal(0);
+      setTotalPages(1);
     } finally {
       setLoadingLogs(false);
     }
-  }, []);
+  }, [currentPage, pageSize, debouncedSearch]);
 
   useEffect(() => {
     loadStatusLogs();
   }, [loadStatusLogs]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-
-  const logsFiltrados = useCallback(() => {
-    if (!searchTerm.trim()) return statusLogs;
-    const term = searchTerm.toLowerCase();
-    return statusLogs.filter(log => {
-      const fullName = (log.full_name || '').toLowerCase();
-      const previousStatus = (log.previous_status || '').toLowerCase();
-      const newStatus = (log.new_status || '').toLowerCase();
-      const reason = (log.reason || '').toLowerCase();
-      const modifiedBy = (log.modified_by || '').toLowerCase();
-      const dateStr = log.date
-        ? new Date(log.date).toLocaleString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).toLowerCase()
-        : '';
-      return fullName.includes(term) || previousStatus.includes(term) || newStatus.includes(term) || reason.includes(term) || modifiedBy.includes(term) || dateStr.includes(term);
-    });
-  }, [statusLogs, searchTerm]);
-
-  const filtered = logsFiltrados();
-  const totalFiltered = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
   const page = Math.min(Math.max(1, currentPage), totalPages);
-  const start = (page - 1) * pageSize;
-  const paginatedLogs = filtered.slice(start, start + pageSize);
+  const start = total === 0 ? 0 : (page - 1) * pageSize;
 
   const goToPage = (p) => setCurrentPage(Math.max(1, Math.min(p, totalPages)));
   const onPageSizeChange = (e) => {
@@ -106,12 +99,12 @@ const PostulantStatusLog = ({ onVolver }) => {
         </div>
       );
     }
-    if (totalFiltered === 0) {
+    if (total === 0) {
       return (
         <div className="empty-state">
           <FiActivity className="empty-icon" />
           <h3>No se encontraron logs de estados</h3>
-          <p>{statusLogs.length === 0 ? 'No hay registros de cambios de estado todavía.' : 'Intenta con otros términos de búsqueda.'}</p>
+          <p>{debouncedSearch ? "No hay resultados para la búsqueda. Pruebe con otros términos (nombre, apellidos o modificado por)." : "No hay registros de cambios de estado todavía."}</p>
         </div>
       );
     }
@@ -129,7 +122,7 @@ const PostulantStatusLog = ({ onVolver }) => {
           </tr>
         </thead>
         <tbody>
-          {paginatedLogs.map((log, index) => (
+          {statusLogs.map((log, index) => (
             <tr key={index}>
               <td>{log.full_name || '-'}</td>
               <td><span className={`status ${log.previous_status || 'activo'}`}>{log.previous_status || '-'}</span></td>
@@ -143,7 +136,7 @@ const PostulantStatusLog = ({ onVolver }) => {
       </table>
       <div className="log-pagination">
         <div className="log-pagination-info">
-          Mostrando {start + 1}-{Math.min(start + pageSize, totalFiltered)} de {totalFiltered} registros
+          Mostrando {total === 0 ? 0 : start + 1}-{Math.min(start + statusLogs.length, total)} de {total} registros
         </div>
         <div className="log-pagination-controls">
           <label className="log-pagination-size">
@@ -183,7 +176,7 @@ const PostulantStatusLog = ({ onVolver }) => {
         <div className="postulants-filters">
           <div className="search-box">
             <FiSearch className="search-icon" />
-            <input type="text" placeholder="Buscar por nombres, estados, razón, fecha o modificado por..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
+            <input type="text" placeholder="Buscar por nombre y apellidos o modificado por..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
           </div>
         </div>
         <div className="postulants-table-container">{renderStatusLogsTable()}</div>
