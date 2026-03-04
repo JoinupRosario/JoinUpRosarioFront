@@ -1964,7 +1964,7 @@ const PostulantProfile = ({ onVolver }) => {
     }));
   }, []);
 
-  // Porcentaje de completitud en 3 secciones: Datos personales, Perfil (tab), Información académica
+  // Completitud: una sola lista con todas las variables (datos personales + perfil + académica). Porcentaje = completados / total.
   const completenessBySection = useMemo(() => {
     const empty = { scoreDatos: 0, scorePerfil: 0, scoreAcademica: 0, overall: 0, missingDatos: [], missingPerfil: [], missingAcademica: [] };
     if (!postulant) return empty;
@@ -1990,16 +1990,20 @@ const PostulantProfile = ({ onVolver }) => {
       if (v.constructor && v.constructor.name === 'ObjectId') return true;
       return false;
     };
-    const missingDatos = fieldsDatos.filter((f) => !isFilled(postulant[f.key]));
-    const scoreDatos = fieldsDatos.length ? Math.round((fieldsDatos.length - missingDatos.length) / fieldsDatos.length * 100) : 0;
+    const itemsDatos = fieldsDatos.map((f) => ({
+      ok: isFilled(postulant[f.key]),
+      label: f.label,
+    }));
+    const missingDatos = itemsDatos.filter((i) => !i.ok).map((i) => i.label);
+    const scoreDatos = fieldsDatos.length ? Math.round(itemsDatos.filter((i) => i.ok).length / fieldsDatos.length * 100) : 0;
 
     const pp = profileData?.postulantProfile;
     const itemsPerfil = [
       { ok: pp?.studentCode != null && String(pp.studentCode).trim() !== '', label: 'Código de estudiante (studentCode)' },
-      { ok: pp?.profileText != null && String(pp.profileText).trim() !== '', label: 'Texto de perfil' },
       { ok: (profileData?.interestAreas?.length ?? 0) > 0, label: 'Al menos un área de interés' },
       { ok: (profileData?.skills?.length ?? 0) > 0, label: 'Al menos una habilidad' },
       { ok: (profileData?.languages?.length ?? 0) > 0, label: 'Al menos un idioma' },
+      { ok: (profileData?.references?.length ?? 0) > 0, label: 'Al menos una referencia' },
     ];
     const missingPerfil = profileData ? itemsPerfil.filter((i) => !i.ok).map((i) => i.label) : [];
     const scorePerfil = profileData && itemsPerfil.length ? Math.round(itemsPerfil.filter((i) => i.ok).length / itemsPerfil.length * 100) : 0;
@@ -2017,21 +2021,24 @@ const PostulantProfile = ({ onVolver }) => {
     const missingAcademica = profileData ? itemsAcademica.filter((i) => !i.ok).map((i) => i.label) : [];
     const scoreAcademica = profileData && itemsAcademica.length ? Math.round(itemsAcademica.filter((i) => i.ok).length / itemsAcademica.length * 100) : 0;
 
-    const overall = profileData
-      ? Math.min(100, Math.round((scoreDatos + scorePerfil + scoreAcademica) / 3))
-      : scoreDatos;
+    // Un solo porcentaje: total de ítems completados / total de ítems (todas las variables)
+    const allItems = [...itemsDatos, ...(profileData ? itemsPerfil : []), ...(profileData ? itemsAcademica : [])];
+    const completed = allItems.filter((i) => i.ok).length;
+    const total = allItems.length;
+    const overall = total ? Math.min(100, Math.round((completed / total) * 100)) : scoreDatos;
 
     return {
       scoreDatos,
       scorePerfil,
       scoreAcademica,
       overall,
-      missingDatos: missingDatos.map((f) => f.label),
+      missingDatos,
       missingPerfil,
       missingAcademica,
     };
   }, [postulant, profileData]);
 
+  // Completitud mostrada en el círculo: todas las variables (datos + perfil + referencias + académica). Si no hay profileData, solo datos personales.
   const calculateCompleteness = useCallback(() => {
     return completenessBySection.overall;
   }, [completenessBySection.overall]);
