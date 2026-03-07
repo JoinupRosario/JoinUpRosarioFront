@@ -1,0 +1,114 @@
+/* Centrar todo el contenido */
+.config-estudiante .notificaciones-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+}
+
+.config-estudiante .notificaciones-header {
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 900px;
+}
+
+.config-estudiante .configuracion-actions {
+  margin-bottom: 16px;
+}
+
+.config-estudiante .section-header-underline {
+  height: 2px;
+  background: #c41e3a;
+  margin-top: 0;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 900px;
+}
+
+.config-estudiante-list {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.config-estudiante-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e8e8e8;
+  gap: 20px;
+}
+
+.config-estudiante-item:hover {
+  background-color: #f8f8f8;
+}
+
+.config-estudiante-pregunta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.config-estudiante-icon {
+  flex-shrink: 0;
+  font-size: 22px;
+  color: #eab308;
+}
+
+.config-estudiante-label {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.config-estudiante-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.config-estudiante .btn-sino {
+  padding: 8px 24px;
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  background: #e5e7eb;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.config-estudiante .btn-sino:hover {
+  background: #d1d5db;
+  border-color: #6b7280;
+  color: #374151;
+}
+
+.config-estudiante .btn-sino.active {
+  background: #c41e3a;
+  border-color: #c41e3a;
+  color: white;
+}
+
+.config-estudiante .btn-sino.active:hover {
+  background: #a01730;
+  border-color: #a01730;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .config-estudiante-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .config-estudiante-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

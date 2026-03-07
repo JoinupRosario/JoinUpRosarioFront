@@ -25,6 +25,16 @@ const normalize = (str) =>
 
 const ESTADOS_PRACTICA = ['AUTORIZADO', 'NO AUTORIZADO', 'EN REVISION'];
 
+// Pestañas por estado (valores del backend: enum en modelo)
+const ESTADOS_TABS = [
+  { id: '', label: 'Todos' },
+  { id: 'EN_REVISION', label: 'En revisión' },
+  { id: 'NO_AUTORIZADO', label: 'No autorizado' },
+  { id: 'AUTORIZADO', label: 'Autorizado' },
+];
+
+const PAGE_SIZE = 15;
+
 const createAlert = (icon, title, text, confirmButtonText = 'Aceptar') =>
   Swal.fire({ icon, title, text, confirmButtonText, confirmButtonColor: '#c41e3a', background: '#fff', color: '#333' });
 
@@ -32,6 +42,10 @@ const Student = ({ onVolver }) => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [tabEstado, setTabEstado] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, pages: 1, limit: PAGE_SIZE });
+  const [searchDebounced, setSearchDebounced] = useState('');
 
   // Modal UXXI
   const [showUxxiModal, setShowUxxiModal] = useState(false);
@@ -77,12 +91,19 @@ const Student = ({ onVolver }) => {
     createAlert('info', 'Funcionalidad en Desarrollo', `"${fn}" estará disponible próximamente.`), []);
   const showError = useCallback((title, text) => createAlert('error', title, text), []);
 
-  // Cargar estudiantes habilitados desde BD
-  const loadStudents = useCallback(async () => {
+  // Cargar estudiantes habilitados desde BD (paginado y filtrado por estado/búsqueda)
+  const loadStudents = useCallback(async (pageNum = 1, estadoFilter = '', search = '') => {
     try {
       setLoading(true);
-      const { data } = await api.get('/estudiantes-habilitados', { params: { limit: 15 } });
+      const params = {
+        page: pageNum,
+        limit: PAGE_SIZE,
+        ...(estadoFilter && { estadoCurricular: estadoFilter }),
+        ...(search && search.trim() && { search: search.trim() }),
+      };
+      const { data } = await api.get('/estudiantes-habilitados', { params });
       setStudents(data.data || []);
+      setPagination(data.pagination || { total: 0, pages: 1, limit: PAGE_SIZE });
     } catch (err) {
       showError('Error', 'No se pudieron cargar los estudiantes');
     } finally {
@@ -90,7 +111,19 @@ const Student = ({ onVolver }) => {
     }
   }, [showError]);
 
-  useEffect(() => { loadStudents(); }, [loadStudents]);
+  // Debounce del término de búsqueda (resetear página al cambiar)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchDebounced(searchTerm);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Cargar lista al cambiar página, pestaña o búsqueda
+  useEffect(() => {
+    loadStudents(page, tabEstado, searchDebounced);
+  }, [page, tabEstado, searchDebounced, loadStudents]);
 
   // Cargar datos para los filtros del modal
   const loadModalParams = useCallback(async () => {
@@ -312,18 +345,6 @@ const Student = ({ onVolver }) => {
 
   const programaSeleccionado = programas.find(pf => pf._id === filtros.programa);
 
-
-  const filteredStudents = students.filter(s => {
-    const q = searchTerm.toLowerCase();
-    return !q ||
-      s.identificacion?.toLowerCase().includes(q) ||
-      s.correo?.toLowerCase().includes(q) ||
-      s.nombres?.toLowerCase().includes(q) ||
-      s.apellidos?.toLowerCase().includes(q) ||
-      s.codigoPrograma?.toLowerCase().includes(q) ||
-      s.nombrePrograma?.toLowerCase().includes(q) ||
-      s.codigoPeriodo?.toLowerCase().includes(q);
-  });
 
   const formatDate = (date) => {
     if (!date) return '-';
@@ -744,6 +765,23 @@ const Student = ({ onVolver }) => {
         </div>
       </div>
 
+      {/* Pestañas por estado */}
+      <nav className="student-tabs" aria-label="Filtrar por estado">
+        {ESTADOS_TABS.map((tab) => (
+          <button
+            key={tab.id || 'todos'}
+            type="button"
+            className={`student-tab ${tabEstado === tab.id ? 'student-tab--active' : ''}`}
+            onClick={() => {
+              setTabEstado(tab.id);
+              setPage(1);
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
       {/* Tabla de estudiantes */}
       <div className="student-table-container">
         {loading ? (
@@ -751,14 +789,16 @@ const Student = ({ onVolver }) => {
             <div className="loading-spinner"></div>
             <p>Cargando estudiantes...</p>
           </div>
-        ) : filteredStudents.length === 0 ? (
+        ) : students.length === 0 ? (
           <div className="empty-state">
             <FiAlertCircle className="empty-icon" />
-            <p>{searchTerm ? 'No se encontraron estudiantes con los criterios de búsqueda' : 'No hay estudiantes registrados'}</p>
+            <p>{searchTerm || tabEstado ? 'No se encontraron estudiantes con los criterios seleccionados' : 'No hay estudiantes registrados'}</p>
           </div>
         ) : (
-          <table className="student-table">
-            <thead>
+          <>
+            <div className="student-table-wrap">
+              <table className="student-table">
+                <thead>
               <tr>
                 <th>CÓDIGO</th>
                 <th>CORREO ELECTRÓNICO</th>
@@ -773,7 +813,7 @@ const Student = ({ onVolver }) => {
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.map((s) => {
+              {students.map((s) => {
                 const estadoClass = (s.estadoCurricular || '').toLowerCase().replace('_', '-');
                 const estadoFinalClass = (s.estadoFinal || '').toLowerCase().replace('_', '-');
                 return (
@@ -803,8 +843,40 @@ const Student = ({ onVolver }) => {
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* Paginación siempre en barra propia debajo de la tabla */}
+        {!loading && students.length > 0 && (
+          <div className="student-pagination">
+            <span className="student-pagination-info">
+              Mostrando {(page - 1) * pagination.limit + 1}-{Math.min(page * pagination.limit, pagination.total)} de {pagination.total}
+            </span>
+            <div className="student-pagination-btns">
+              <button
+                type="button"
+                className="student-pagination-btn"
+                disabled={page <= 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+              >
+                Anterior
+              </button>
+              <span className="student-pagination-pages">
+                Página {page} de {pagination.pages}
+              </span>
+              <button
+                type="button"
+                className="student-pagination-btn"
+                disabled={page >= pagination.pages}
+                onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

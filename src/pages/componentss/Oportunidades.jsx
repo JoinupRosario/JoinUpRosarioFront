@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiArrowLeft, FiPlus, FiRefreshCw, FiSearch, FiFilter, FiBookOpen, FiDollarSign, FiFileText, FiUsers, FiCalendar, FiMapPin, FiClock, FiBook, FiX, FiEdit, FiXCircle, FiCopy, FiList, FiArrowUp, FiArrowDown, FiAlertCircle } from 'react-icons/fi';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -87,6 +88,9 @@ export default function Oportunidades({ onVolver }) {
   // Programas dinámicos desde el modelo Program (compartido por ambos modales)
   const [allPrograms, setAllPrograms] = useState([]);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
+  // Programas con condición curricular activa para el periodo de la oportunidad (solo práctica)
+  const [programIdsHabilitadosPeriodo, setProgramIdsHabilitadosPeriodo] = useState([]);
+  const [noStudentsMessageFormacion, setNoStudentsMessageFormacion] = useState('(no hay estudiantes para este periodo)');
   const [showLanguagesModal, setShowLanguagesModal] = useState(false);
   const [newLanguage, setNewLanguage] = useState('');
   const [newLanguageLevel, setNewLanguageLevel] = useState('');
@@ -155,6 +159,9 @@ export default function Oportunidades({ onVolver }) {
   const [mtmCategoriaItems, setMtmCategoriaItems] = useState([]);
   const [mtmPeriodos, setMtmPeriodos] = useState([]);
   const [practicaPeriodos, setPracticaPeriodos] = useState([]);
+  const [opportunityMinExpiryDays, setOpportunityMinExpiryDays] = useState(5); // mínimo días para fecha vencimiento (regla de negocio)
+  const [practiceStartDaysAfterExpiry, setPracticeStartDaysAfterExpiry] = useState(0); // fecha inicio práctica: mínimo X días después de vencimiento
+  const [practiceEndDaysAfterStart, setPracticeEndDaysAfterStart] = useState(1); // fecha fin práctica: mínimo X días después de inicio
   // ── Edición en detalle MTM ─────────────────────────────────────────────────
   const [isMtmEditing, setIsMtmEditing] = useState(false);
   const [mtmEditData, setMtmEditData] = useState(null);
@@ -296,6 +303,34 @@ export default function Oportunidades({ onVolver }) {
       .then(res => setPracticaPeriodos(res.data?.data || res.data || []))
       .catch(e => console.error('[Oportunidades] Error cargando períodos de práctica:', e));
   }, []);
+
+  // Reglas de negocio: días para vencimiento, inicio práctica (después de vencimiento), fin práctica (después de inicio)
+  useEffect(() => {
+    Promise.all([
+      api.get('/parameters/code/OPPORTUNITY_MIN_EXPIRY_DAYS').then(r => r.data?.value).catch(() => null),
+      api.get('/parameters/code/PRACTICE_START_DAYS_AFTER_EXPIRY').then(r => r.data?.value).catch(() => null),
+      api.get('/parameters/code/PRACTICE_END_DAYS_AFTER_START').then(r => r.data?.value).catch(() => null),
+      api.get('/parameters/code/PRACTICE_NO_STUDENTS_MESSAGE').then(r => r.data?.value).catch(() => null),
+    ]).then(([v1, v2, v3, v4]) => {
+      if (typeof v1 === 'number' && v1 >= 1) setOpportunityMinExpiryDays(v1);
+      if (typeof v2 === 'number' && v2 >= 0) setPracticeStartDaysAfterExpiry(v2);
+      if (typeof v3 === 'number' && v3 >= 0) setPracticeEndDaysAfterStart(v3);
+      if (typeof v4 === 'string' && v4.trim()) setNoStudentsMessageFormacion(v4.trim());
+    });
+  }, []);
+
+  const minDateVencimiento = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + opportunityMinExpiryDays);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const addDaysToDate = (isoDateStr, daysToAdd) => {
+    if (!isoDateStr) return '';
+    const d = new Date(isoDateStr);
+    d.setDate(d.getDate() + (daysToAdd || 0));
+    return d.toISOString().slice(0, 10);
+  };
 
   // Función para cargar datos dinámicos desde Item
   const loadItemsData = async () => {
@@ -445,19 +480,33 @@ export default function Oportunidades({ onVolver }) {
     }
   }, [showModalInfo, pendingTipoOportunidad]);
 
-  // ── Cargar programas del modelo Program cuando abre el modal ──────────────
+  // ── Cargar programas del modelo Program cuando abre cualquier modal de programas ──────────────
   useEffect(() => {
-    if (!showProgramsModal && !showMtmProgramsModal) return;
+    if (!showProgramsModal && !showMtmProgramsModal && !editShowProgramsModal) return;
     if (allPrograms.length > 0) return; // ya cargados
     setLoadingPrograms(true);
     api.get('/programs?status=ACTIVE&limit=500')
       .then(res => setAllPrograms(res.data.data || []))
       .catch(e => console.error('[Programs modal] load error:', e))
       .finally(() => setLoadingPrograms(false));
-  }, [showProgramsModal, showMtmProgramsModal]);
+  }, [showProgramsModal, showMtmProgramsModal, editShowProgramsModal]);
+
+  // Cargar programas habilitados para el periodo cuando se abre el modal de formación (creación o edición) y hay periodo seleccionado
+  useEffect(() => {
+    const periodo = showProgramsModal ? formData?.periodo : (editShowProgramsModal ? editFormData?.periodo : null);
+    if (!periodo) {
+      setProgramIdsHabilitadosPeriodo([]);
+      return;
+    }
+    api.get('/condiciones-curriculares/programas-habilitados', { params: { periodo } })
+      .then(res => setProgramIdsHabilitadosPeriodo((res.data?.programIds || []).map(id => String(id))))
+      .catch(() => setProgramIdsHabilitadosPeriodo([]));
+  }, [showProgramsModal, editShowProgramsModal, formData?.periodo, editFormData?.periodo]);
 
   // Limpiar selección al cambiar nivel (práctica)
   useEffect(() => { setNewProgramName(''); }, [newProgramLevel]);
+  // Limpiar selección al cambiar nivel (edición)
+  useEffect(() => { setEditNewProgramName(''); }, [editNewProgramLevel]);
   // Limpiar selección al cambiar nivel (MTM)
   useEffect(() => { setNewMtmProgramName(''); }, [newMtmProgramLevel]);
 
@@ -1455,13 +1504,15 @@ export default function Oportunidades({ onVolver }) {
     if (!oportunidadSeleccionada) return;
     
     try {
+      setShowModalAprobacion(false); // Cerrar primero el modal para que el Swal quede por delante
       Swal.fire({
         title: 'Aprobando programa...',
         text: 'Por favor espere',
         allowOutsideClick: false,
         didOpen: () => {
           Swal.showLoading();
-        }
+        },
+        customClass: { container: 'swal-over-modal' }
       });
 
       await api.post(`/opportunities/${oportunidadSeleccionada._id}/approve-program`, {
@@ -1475,7 +1526,8 @@ export default function Oportunidades({ onVolver }) {
         title: '¡Éxito!',
         text: `El programa ${programa.program} ha sido aprobado`,
         confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#c41e3a'
+        confirmButtonColor: '#c41e3a',
+        customClass: { container: 'swal-over-modal' }
       });
 
       // Recargar la oportunidad
@@ -1504,7 +1556,6 @@ export default function Oportunidades({ onVolver }) {
         setOportunidadSeleccionada(data);
       }
       
-      setShowModalAprobacion(false);
       await loadOportunidades();
     } catch (error) {
       Swal.close();
@@ -1514,7 +1565,8 @@ export default function Oportunidades({ onVolver }) {
         title: 'Error',
         text: errorMessage,
         confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#c41e3a'
+        confirmButtonColor: '#c41e3a',
+        customClass: { container: 'swal-over-modal' }
       });
     }
   };
@@ -1524,13 +1576,15 @@ export default function Oportunidades({ onVolver }) {
     if (!oportunidadSeleccionada) return;
     
     try {
+      setShowModalAprobacion(false); // Cerrar primero el modal para que el Swal quede por delante
       Swal.fire({
         title: 'Rechazando programa...',
         text: 'Por favor espere',
         allowOutsideClick: false,
         didOpen: () => {
           Swal.showLoading();
-        }
+        },
+        customClass: { container: 'swal-over-modal' }
       });
 
       await api.post(`/opportunities/${oportunidadSeleccionada._id}/reject-program`, {
@@ -1544,13 +1598,13 @@ export default function Oportunidades({ onVolver }) {
         title: 'Programa rechazado',
         text: `El programa ${programa.program} ha sido rechazado`,
         confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#c41e3a'
+        confirmButtonColor: '#c41e3a',
+        customClass: { container: 'swal-over-modal' }
       });
 
       // Recargar la oportunidad
       const { data } = await api.get(`/opportunities/${oportunidadSeleccionada._id}`);
       setOportunidadSeleccionada(data);
-      setShowModalAprobacion(false);
       await loadOportunidades();
     } catch (error) {
       Swal.close();
@@ -1560,7 +1614,8 @@ export default function Oportunidades({ onVolver }) {
         title: 'Error',
         text: errorMessage,
         confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#c41e3a'
+        confirmButtonColor: '#c41e3a',
+        customClass: { container: 'swal-over-modal' }
       });
     }
   };
@@ -2139,6 +2194,7 @@ export default function Oportunidades({ onVolver }) {
                     value={formData.fechaVencimiento}
                     onChange={handleFormChange}
                     className="form-input"
+                    min={minDateVencimiento}
                   />
                 </div>
 
@@ -2255,6 +2311,7 @@ export default function Oportunidades({ onVolver }) {
                     value={formData.fechaInicioPractica}
                     onChange={handleFormChange}
                     className="form-input"
+                    min={addDaysToDate(formData.fechaVencimiento, practiceStartDaysAfterExpiry) || undefined}
                   />
                 </div>
 
@@ -2267,6 +2324,7 @@ export default function Oportunidades({ onVolver }) {
                     value={formData.fechaFinPractica}
                     onChange={handleFormChange}
                     className="form-input"
+                    min={addDaysToDate(formData.fechaInicioPractica, practiceEndDaysAfterStart) || undefined}
                   />
                 </div>
 
@@ -2792,7 +2850,7 @@ export default function Oportunidades({ onVolver }) {
                     <FiCalendar className="label-icon" /> Fecha de vencimiento
                   </label>
                   <input type="date" name="fechaVencimiento" value={formData.fechaVencimiento}
-                    onChange={handleFormChange} className="form-input" />
+                    onChange={handleFormChange} className="form-input" min={minDateVencimiento} />
                 </div>
 
                 <div className="form-field-group form-field-half-width">
@@ -2978,21 +3036,30 @@ export default function Oportunidades({ onVolver }) {
         {showProgramsModal && (() => {
           // Normaliza quitando tildes para comparar, pero muestra la versión original
           const normStr = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
-          // Niveles únicos deduplicados (sin importar tilde/mayúscula)
+          // Solo Pregrado y Maestría (31 pregrados + Maestría de Paz)
+          const NIVELES_PERMITIDOS = new Set(['PREGRADO', 'MAESTRIA']);
           const uniqueLevels = [];
           const seen = new Set();
           allPrograms.forEach(p => {
             if (!p.labelLevel) return;
             const n = normStr(p.labelLevel);
-            if (!seen.has(n)) { seen.add(n); uniqueLevels.push(p.labelLevel); }
+            if (!NIVELES_PERMITIDOS.has(n) || seen.has(n)) return;
+            seen.add(n);
+            uniqueLevels.push(p.labelLevel);
           });
           uniqueLevels.sort((a, b) => a.localeCompare(b, 'es'));
-          // Programas del nivel seleccionado (match normalizado)
+          // Programas del nivel: Pregrado = todos; Maestría = solo los que contengan "paz" (Maestría de Paz)
           const programasDelNivel = newProgramLevel
             ? allPrograms
-                .filter(p => normStr(p.labelLevel) === normStr(newProgramLevel))
+                .filter(p => {
+                  if (normStr(p.labelLevel) !== normStr(newProgramLevel)) return false;
+                  if (normStr(newProgramLevel) === 'MAESTRIA') return (p.name || '').toLowerCase().includes('paz');
+                  return true;
+                })
                 .sort((a, b) => a.name.localeCompare(b.name, 'es'))
             : [];
+          const setHabilitados = new Set(programIdsHabilitadosPeriodo);
+          const periodoSeleccionado = !!formData.periodo;
 
           return (
             <div
@@ -3041,10 +3108,21 @@ export default function Oportunidades({ onVolver }) {
                           <option value="">
                             {newProgramLevel ? '— Seleccione un programa —' : '— Primero seleccione un nivel —'}
                           </option>
-                          {programasDelNivel.map(p => (
-                            <option key={p._id} value={p.name}>{p.name}</option>
-                          ))}
+                          {programasDelNivel.map(p => {
+                            const idStr = (p._id && typeof p._id === 'object' && p._id.toString ? p._id.toString() : String(p._id));
+                            const habilitado = !periodoSeleccionado || setHabilitados.has(idStr);
+                            return habilitado ? (
+                              <option key={p._id} value={p.name}>{p.name}</option>
+                            ) : (
+                              <option key={p._id} disabled value="">{p.name} {noStudentsMessageFormacion}</option>
+                            );
+                          })}
                         </select>
+                        {periodoSeleccionado && newProgramLevel && programasDelNivel.some(p => !setHabilitados.has(String(p._id))) && (
+                          <p style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>
+                            Los programas sin condición curricular activa para este periodo muestran el aviso y no pueden seleccionarse.
+                          </p>
+                        )}
                       </div>
                     </>
                   )}
@@ -3433,6 +3511,7 @@ export default function Oportunidades({ onVolver }) {
                   value={editFormData.fechaVencimiento}
                   onChange={handleEditFormChange}
                   className="form-input"
+                  min={minDateVencimiento}
                 />
               </div>
 
@@ -3534,6 +3613,7 @@ export default function Oportunidades({ onVolver }) {
                   value={editFormData.fechaInicioPractica}
                   onChange={handleEditFormChange}
                   className="form-input"
+                  min={addDaysToDate(editFormData.fechaVencimiento, practiceStartDaysAfterExpiry) || undefined}
                 />
               </div>
 
@@ -3546,6 +3626,7 @@ export default function Oportunidades({ onVolver }) {
                   value={editFormData.fechaFinPractica}
                   onChange={handleEditFormChange}
                   className="form-input"
+                  min={addDaysToDate(editFormData.fechaInicioPractica, practiceEndDaysAfterStart) || undefined}
                 />
               </div>
 
@@ -3836,40 +3917,70 @@ export default function Oportunidades({ onVolver }) {
             </form>
           </div>
 
-          {/* Modales para edición */}
-          {editShowProgramsModal && (
-            <div className="modal-overlay" onClick={() => setEditShowProgramsModal(false)}>
-              <div className="modal" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                  <h4>Programas</h4>
-                  <button className="modal-close" onClick={() => setEditShowProgramsModal(false)}>×</button>
-                </div>
-                <div className="modal-body">
-                  <div className="modal-field">
-                    <label>Nivel <span className="required">*</span></label>
-                    <select value={editNewProgramLevel} onChange={e => setEditNewProgramLevel(e.target.value)}>
-                      <option value="">- Seleccione un Nivel -</option>
-                      <option value="Pregrado">Pregrado</option>
-                      <option value="Posgrado">Posgrado</option>
-                    </select>
+          {/* Modales para edición - Agregar programa académico (misma lógica que creación: Pregrado/Maestría Paz, condición curricular) */}
+          {editShowProgramsModal && (() => {
+            const normStr = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+            const NIVELES_PERMITIDOS = new Set(['PREGRADO', 'MAESTRIA']);
+            const uniqueLevels = [];
+            const seen = new Set();
+            allPrograms.forEach(p => {
+              if (!p.labelLevel) return;
+              const n = normStr(p.labelLevel);
+              if (!NIVELES_PERMITIDOS.has(n) || seen.has(n)) return;
+              seen.add(n); uniqueLevels.push(p.labelLevel);
+            });
+            uniqueLevels.sort((a, b) => a.localeCompare(b, 'es'));
+            const programasDelNivel = editNewProgramLevel ? allPrograms.filter(p => {
+              if (normStr(p.labelLevel) !== normStr(editNewProgramLevel)) return false;
+              if (normStr(editNewProgramLevel) === 'MAESTRIA') return (p.name || '').toLowerCase().includes('paz');
+              return true;
+            }).sort((a, b) => a.name.localeCompare(b.name, 'es')) : [];
+            const setHabilitados = new Set(programIdsHabilitadosPeriodo);
+            const periodoSeleccionado = !!(editFormData && editFormData.periodo);
+            return (
+              <div className="modal-overlay" onClick={() => setEditShowProgramsModal(false)}>
+                <div className="modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h4>Agregar programa académico</h4>
+                    <button className="modal-close" onClick={() => setEditShowProgramsModal(false)}>×</button>
                   </div>
-                  <div className="modal-field">
-                    <label>Programa <span className="required">*</span></label>
-                    <select value={editNewProgramName} onChange={e => setEditNewProgramName(e.target.value)}>
-                      <option value="">- Seleccione un programa -</option>
-                      <option value="Administración de Empresas">Administración de Empresas</option>
-                      <option value="Ingeniería">Ingeniería</option>
-                      <option value="Economía">Economía</option>
-                    </select>
+                  <div className="modal-body">
+                    {loadingPrograms ? (
+                      <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af', fontSize: 13 }}>Cargando niveles y programas...</div>
+                    ) : (
+                      <>
+                        <div className="modal-field">
+                          <label>Nivel <span className="required">*</span></label>
+                          <select value={editNewProgramLevel} onChange={e => setEditNewProgramLevel(e.target.value)}>
+                            <option value="">— Seleccione un nivel —</option>
+                            {uniqueLevels.map(lv => <option key={lv} value={lv}>{lv}</option>)}
+                          </select>
+                        </div>
+                        <div className="modal-field">
+                          <label>Programa <span className="required">*</span></label>
+                          <select value={editNewProgramName} onChange={e => setEditNewProgramName(e.target.value)} disabled={!editNewProgramLevel}>
+                            <option value="">{editNewProgramLevel ? '— Seleccione un programa —' : '— Primero seleccione un nivel —'}</option>
+                            {programasDelNivel.map(p => {
+                              const idStr = (p._id && typeof p._id === 'object' && p._id.toString ? p._id.toString() : String(p._id));
+                              const habilitado = !periodoSeleccionado || setHabilitados.has(idStr);
+                              return habilitado ? <option key={p._id} value={p.name}>{p.name}</option> : <option key={p._id} disabled value="">{p.name} {noStudentsMessageFormacion}</option>;
+                            })}
+                          </select>
+                          {periodoSeleccionado && editNewProgramLevel && programasDelNivel.some(p => !setHabilitados.has(String(p._id))) && (
+                            <p style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>Los programas sin condición curricular activa para este periodo muestran el aviso y no pueden seleccionarse.</p>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-                <div className="modal-footer">
-                  <button className="btn-secondary" onClick={() => setEditShowProgramsModal(false)}>Cerrar</button>
-                  <button className="btn-guardar" onClick={handleEditAddProgram}>Añadir</button>
+                  <div className="modal-footer">
+                    <button className="btn-secondary" onClick={() => setEditShowProgramsModal(false)}>Cerrar</button>
+                    <button className="btn-guardar" onClick={handleEditAddProgram} disabled={loadingPrograms}>Añadir</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {editShowLanguagesModal && (
             <div className="modal-overlay" onClick={() => setEditShowLanguagesModal(false)}>
@@ -4261,7 +4372,7 @@ export default function Oportunidades({ onVolver }) {
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiCalendar className="label-icon" /> Fecha de vencimiento</label>
                   {isMtmEditing
-                    ? <input type="date" value={ed.fechaVencimiento} onChange={e => setMtmEditData(p => ({ ...p, fechaVencimiento: e.target.value }))} className="form-input" />
+                    ? <input type="date" value={ed.fechaVencimiento} onChange={e => setMtmEditData(p => ({ ...p, fechaVencimiento: e.target.value }))} className="form-input" min={minDateVencimiento} />
                     : <div className="form-input" style={{ background: '#f9fafb' }}>{fmtFecha(opp.fechaVencimiento)}</div>}
                 </div>
                 <div className="form-field-group form-field-half-width">
@@ -4661,6 +4772,7 @@ export default function Oportunidades({ onVolver }) {
                   className="form-input"
                   disabled={!isEditingDetail}
                   readOnly={!isEditingDetail}
+                  min={minDateVencimiento}
                 />
               </div>
 
@@ -4783,6 +4895,7 @@ export default function Oportunidades({ onVolver }) {
                   className="form-input"
                   disabled={!isEditingDetail}
                   readOnly={!isEditingDetail}
+                  min={addDaysToDate(editFormData.fechaVencimiento, practiceStartDaysAfterExpiry) || undefined}
                 />
               </div>
 
@@ -4797,6 +4910,7 @@ export default function Oportunidades({ onVolver }) {
                   className="form-input"
                   disabled={!isEditingDetail}
                   readOnly={!isEditingDetail}
+                  min={addDaysToDate(editFormData.fechaInicioPractica, practiceEndDaysAfterStart) || undefined}
                 />
               </div>
 
@@ -5107,40 +5221,70 @@ export default function Oportunidades({ onVolver }) {
             </form>
           </div>
 
-          {/* Modales para detalle */}
-          {editShowProgramsModal && (
-            <div className="modal-overlay" onClick={() => setEditShowProgramsModal(false)}>
-              <div className="modal" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                  <h4>Programas</h4>
-                  <button className="modal-close" onClick={() => setEditShowProgramsModal(false)}>×</button>
-                </div>
-                <div className="modal-body">
-                  <div className="modal-field">
-                    <label>Nivel <span className="required">*</span></label>
-                    <select value={editNewProgramLevel} onChange={e => setEditNewProgramLevel(e.target.value)}>
-                      <option value="">- Seleccione un Nivel -</option>
-                      <option value="Pregrado">Pregrado</option>
-                      <option value="Posgrado">Posgrado</option>
-                    </select>
+          {/* Modales para detalle - Agregar programa académico (misma lógica que creación) */}
+          {editShowProgramsModal && (() => {
+            const normStr = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+            const NIVELES_PERMITIDOS = new Set(['PREGRADO', 'MAESTRIA']);
+            const uniqueLevels = [];
+            const seen = new Set();
+            allPrograms.forEach(p => {
+              if (!p.labelLevel) return;
+              const n = normStr(p.labelLevel);
+              if (!NIVELES_PERMITIDOS.has(n) || seen.has(n)) return;
+              seen.add(n); uniqueLevels.push(p.labelLevel);
+            });
+            uniqueLevels.sort((a, b) => a.localeCompare(b, 'es'));
+            const programasDelNivel = editNewProgramLevel ? allPrograms.filter(p => {
+              if (normStr(p.labelLevel) !== normStr(editNewProgramLevel)) return false;
+              if (normStr(editNewProgramLevel) === 'MAESTRIA') return (p.name || '').toLowerCase().includes('paz');
+              return true;
+            }).sort((a, b) => a.name.localeCompare(b.name, 'es')) : [];
+            const setHabilitados = new Set(programIdsHabilitadosPeriodo);
+            const periodoSeleccionado = !!(editFormData && editFormData.periodo);
+            return (
+              <div className="modal-overlay" onClick={() => setEditShowProgramsModal(false)}>
+                <div className="modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h4>Agregar programa académico</h4>
+                    <button className="modal-close" onClick={() => setEditShowProgramsModal(false)}>×</button>
                   </div>
-                  <div className="modal-field">
-                    <label>Programa <span className="required">*</span></label>
-                    <select value={editNewProgramName} onChange={e => setEditNewProgramName(e.target.value)}>
-                      <option value="">- Seleccione un programa -</option>
-                      <option value="Administración de Empresas">Administración de Empresas</option>
-                      <option value="Ingeniería">Ingeniería</option>
-                      <option value="Economía">Economía</option>
-                    </select>
+                  <div className="modal-body">
+                    {loadingPrograms ? (
+                      <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af', fontSize: 13 }}>Cargando niveles y programas...</div>
+                    ) : (
+                      <>
+                        <div className="modal-field">
+                          <label>Nivel <span className="required">*</span></label>
+                          <select value={editNewProgramLevel} onChange={e => setEditNewProgramLevel(e.target.value)}>
+                            <option value="">— Seleccione un nivel —</option>
+                            {uniqueLevels.map(lv => <option key={lv} value={lv}>{lv}</option>)}
+                          </select>
+                        </div>
+                        <div className="modal-field">
+                          <label>Programa <span className="required">*</span></label>
+                          <select value={editNewProgramName} onChange={e => setEditNewProgramName(e.target.value)} disabled={!editNewProgramLevel}>
+                            <option value="">{editNewProgramLevel ? '— Seleccione un programa —' : '— Primero seleccione un nivel —'}</option>
+                            {programasDelNivel.map(p => {
+                              const idStr = (p._id && typeof p._id === 'object' && p._id.toString ? p._id.toString() : String(p._id));
+                              const habilitado = !periodoSeleccionado || setHabilitados.has(idStr);
+                              return habilitado ? <option key={p._id} value={p.name}>{p.name}</option> : <option key={p._id} disabled value="">{p.name} {noStudentsMessageFormacion}</option>;
+                            })}
+                          </select>
+                          {periodoSeleccionado && editNewProgramLevel && programasDelNivel.some(p => !setHabilitados.has(String(p._id))) && (
+                            <p style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>Los programas sin condición curricular activa para este periodo muestran el aviso y no pueden seleccionarse.</p>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-                <div className="modal-footer">
-                  <button className="btn-secondary" onClick={() => setEditShowProgramsModal(false)}>Cerrar</button>
-                  <button className="btn-guardar" onClick={handleEditAddProgram}>Añadir</button>
+                  <div className="modal-footer">
+                    <button className="btn-secondary" onClick={() => setEditShowProgramsModal(false)}>Cerrar</button>
+                    <button className="btn-guardar" onClick={handleEditAddProgram} disabled={loadingPrograms}>Añadir</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {editShowLanguagesModal && (
             <div className="modal-overlay" onClick={() => setEditShowLanguagesModal(false)}>
@@ -5190,30 +5334,32 @@ export default function Oportunidades({ onVolver }) {
           )}
         </div>
 
-        {/* Modal de Aprobación por Programa */}
-        {showModalAprobacion && (
-          <div className="modal-overlay" onClick={() => setShowModalAprobacion(false)}>
-            <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
+        {/* Modal de Aprobación por Programa — renderizado en document.body para centrado correcto */}
+        {showModalAprobacion && createPortal(
+          <div className="oportunidades-modal-aprobacion-overlay" onClick={() => setShowModalAprobacion(false)}>
+            <div className="oportunidades-modal-aprobacion" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-aprobacion-programa__header">
                 <h4>Aprobar Oportunidad por Programa</h4>
-                <button className="modal-close" onClick={() => setShowModalAprobacion(false)}>×</button>
+                <button type="button" className="modal-close" onClick={() => setShowModalAprobacion(false)} aria-label="Cerrar">×</button>
               </div>
-              <div className="modal-body">
-                <p>Seleccione el programa que desea aprobar:</p>
+              <div className="modal-aprobacion-programa__body">
+                <p className="modal-aprobacion-programa__instruccion">Seleccione el programa que desea aprobar:</p>
                 <div className="programas-aprobacion-list">
                   {programasPendientes.map((aprobacion, idx) => (
                     <div key={idx} className="programa-aprobacion-item">
                       <div className="programa-aprobacion-info">
-                        <strong>{aprobacion.programa.level} - {aprobacion.programa.program}</strong>
+                        <strong>{aprobacion.programa.level} – {aprobacion.programa.program}</strong>
                       </div>
                       <div className="programa-aprobacion-actions">
                         <button
+                          type="button"
                           className="btn-aprobar-programa"
                           onClick={() => handleAprobarPrograma(aprobacion.programa, '')}
                         >
                           Aprobar
                         </button>
                         <button
+                          type="button"
                           className="btn-rechazar-programa"
                           onClick={() => {
                             Swal.fire({
@@ -5240,13 +5386,14 @@ export default function Oportunidades({ onVolver }) {
                   ))}
                 </div>
               </div>
-              <div className="modal-footer">
-                <button className="btn-secondary" onClick={() => setShowModalAprobacion(false)}>
+              <div className="modal-aprobacion-programa__footer">
+                <button type="button" className="btn-secondary" onClick={() => setShowModalAprobacion(false)}>
                   Cerrar
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Modal de Rechazo */}

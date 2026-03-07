@@ -109,7 +109,10 @@ export default function Login() {
     const result = await login(formData.email, formData.password);
 
     if (result.success) {
-      if (result.modulo === 'administrativo') {
+      const mod = result.modulo != null ? String(result.modulo).trim().toLowerCase() : '';
+      const esAdmin = mod === 'administrativo';
+      const esEstudiante = mod === 'estudiante' || mod === '';
+      if (esAdmin || esEstudiante) {
         navigate('/dashboard');
       } else {
         // entidades y cualquier otro módulo: plataforma en construcción

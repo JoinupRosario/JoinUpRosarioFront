@@ -6,6 +6,11 @@ import {
   FiLogOut, 
   FiMenu,
   FiX,
+  FiHome,
+  FiUser,
+  FiSearch,
+  FiBookmark,
+  FiList,
   FiTrendingUp,
   FiClock,
   FiCheckCircle,
@@ -23,6 +28,8 @@ import {
   HiOutlineCog
 } from 'react-icons/hi';
 import ConfiguracionPersonal from './componentss/ConfiguracionPersonal';
+import ConfiguracionEstudiante from './componentss/ConfiguracionEstudiante';
+import HomeEstudiante from './componentss/HomeEstudiante';
 import Roles from './componentss/Roles';
 import Configuracion from './componentss/Configuracion';
 import ProgramasYFacultades from './componentss/programasFacultades/ProgramasYFacultades';
@@ -37,6 +44,7 @@ import Periodos from './componentss/periodos/Periodos';
 import ConfiguracionAsignaturas from './componentss/ConfiguracionAsignaturas';
 import CondicionesCurriculares from './componentss/CondicionesCurriculares';
 import ParametrizacionDocumentos from './componentss/parametrizacionDocumentos/ParametrizacionDocumentos';
+import ReglasNegocio from './componentss/ReglasNegocio';
 import Oportunidades from './componentss/Oportunidades';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
@@ -46,6 +54,7 @@ import PostulantStatusLog from './componentss/postulants/postulantLogs/Postulant
 import PostulantDocumentLog from './componentss/postulants/postulantLogs/PostulantDocumentLog';
 import PostulantProfile from './componentss/postulants/PostulantProfile';
 import Student from './componentss/students/student';
+import OfertasAfines from './componentss/OfertasAfines';
 import api from '../services/api';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
@@ -102,6 +111,9 @@ export default function Dashboard() {
   const routeToVista = {
     '/dashboard': 'dashboard',
     '/dashboard/mi-perfil': 'mi-perfil',
+    '/dashboard/busqueda-avanzada': 'busqueda-avanzada',
+    '/dashboard/ofertas-afines': 'ofertas-afines',
+    '/dashboard/mis-aplicaciones': 'mis-aplicaciones',
     '/dashboard/usuarios': 'usuarios',
     '/dashboard/entidades': 'entidades',
     '/dashboard/oportunidades': 'oportunidades',
@@ -119,13 +131,17 @@ export default function Dashboard() {
     '/dashboard/periodos': 'periodos',
     '/dashboard/asignaturas': 'asignaturas',
     '/dashboard/condiciones-curriculares': 'condiciones-curriculares',
-    '/dashboard/configuracion-documentos': 'configuracion-documentos'
+    '/dashboard/configuracion-documentos': 'configuracion-documentos',
+    '/dashboard/reglas-negocio': 'reglas-negocio'
   };
 
   // Mapeo de vistas a rutas
   const vistaToRoute = {
     'dashboard': '/dashboard',
     'mi-perfil': '/dashboard/mi-perfil',
+    'busqueda-avanzada': '/dashboard/busqueda-avanzada',
+    'ofertas-afines': '/dashboard/ofertas-afines',
+    'mis-aplicaciones': '/dashboard/mis-aplicaciones',
     'usuarios': '/dashboard/usuarios',
     'entidades': '/dashboard/entidades',
     'oportunidades': '/dashboard/oportunidades',
@@ -142,7 +158,8 @@ export default function Dashboard() {
     'periodos': '/dashboard/periodos',
     'asignaturas': '/dashboard/asignaturas',
     'condiciones-curriculares': '/dashboard/condiciones-curriculares',
-    'configuracion-documentos': '/dashboard/configuracion-documentos'
+    'configuracion-documentos': '/dashboard/configuracion-documentos',
+    'reglas-negocio': '/dashboard/reglas-negocio'
   };
 
   // Obtener vista actual basada en la URL
@@ -176,6 +193,9 @@ export default function Dashboard() {
     if (path === '/dashboard/configuracion-documentos') {
       return 'configuracion-documentos';
     }
+    if (path === '/dashboard/reglas-negocio') {
+      return 'reglas-negocio';
+    }
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
     return 'dashboard';
   };
@@ -191,6 +211,13 @@ export default function Dashboard() {
       navigate(`/dashboard/postulantes/${postulantIdMe}`, { replace: true });
     }
   }, [vistaActual, postulantIdMe, postulantMeLoaded, navigate]);
+
+  // Estudiantes no pueden ver la vista administrativa de listado de postulantes
+  useEffect(() => {
+    if (isEstudiante && vistaActual === 'postulants') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isEstudiante, vistaActual, navigate]);
 
   // Esperar a que termine la verificación de autenticación antes de renderizar
   if (authLoading) {
@@ -304,8 +331,14 @@ export default function Dashboard() {
   ];
 
   const menuItemsEstudiante = [
-    { text: 'Inicio', Icon: HiOutlineChartPie, vista: 'dashboard' },
-    { text: 'Mi perfil de postulante', Icon: HiOutlineAcademicCap, vista: 'mi-perfil' },
+    { text: 'Inicio', Icon: FiHome, vista: 'dashboard' },
+    { text: 'Mi perfil', Icon: FiUser, vista: 'mi-perfil' },
+    { text: 'Búsqueda avanzada', Icon: FiSearch, vista: 'busqueda-avanzada' },
+    { text: 'Ofertas afines', Icon: FiBookmark, vista: 'ofertas-afines' },
+    { text: 'Mis aplicaciones', Icon: FiList, vista: 'mis-aplicaciones' },
+    { text: 'Legalizaciones de Prácticas', Icon: HiOutlineAcademicCap, vista: 'legalizaciones' },
+    { text: 'Legalizaciones de Monitorías', Icon: HiOutlineDocumentText, vista: 'monitorias' },
+    { text: 'Configuración', Icon: HiOutlineCog, vista: 'configuracion-personal' },
   ];
 
   const menuItems = isEstudiante ? menuItemsEstudiante : menuItemsAdmin;
@@ -328,6 +361,12 @@ export default function Dashboard() {
     const ruta = vistaToRoute[vista] || '/dashboard';
     navigate(ruta);
     setMenuOpen(false);
+  };
+
+  const isMenuItemActive = (item) => {
+    if (vistaActual === item.vista) return true;
+    if (isEstudiante && item.vista === 'mi-perfil' && vistaActual === 'postulant-profile') return true;
+    return false;
   };
 
   const handleVolver = () => {
@@ -355,7 +394,10 @@ export default function Dashboard() {
             'entidades':                'Entidades',
             'oportunidades':            'Oportunidades',
             'postulants':               'Postulantes',
-            'mi-perfil':                'Mi perfil de postulante',
+            'mi-perfil':                'Mi perfil',
+            'busqueda-avanzada':        'Búsqueda avanzada',
+            'ofertas-afines':           'Ofertas afines',
+            'mis-aplicaciones':         'Mis aplicaciones',
             'estudiantes':              'Estudiantes Habilitados para Prácticas',
             'legalizaciones':           'Legalizaciones de Prácticas',
             'monitorias':               'Legalizaciones de Monitorías',
@@ -367,6 +409,7 @@ export default function Dashboard() {
             'periodos':                 'Gestión de Períodos',
             'asignaturas':              'Configuración de Asignaturas',
             'configuracion-documentos': 'Parametrización de Documentos',
+            'reglas-negocio':           'Reglas de negocio',
             'programas-facultades':     'Programas y Facultades',
             'faculty-detail':           'Detalle de Facultad',
             'condiciones-curriculares': 'Condiciones Curriculares',
@@ -390,6 +433,7 @@ export default function Dashboard() {
                 'periodos':                 'Gestión de Períodos',
                 'asignaturas':              'Configuración de Asignaturas',
                 'configuracion-documentos': 'Parametrización de Documentos',
+                'reglas-negocio':           'Reglas de negocio',
                 'programas-facultades':     'Programas y Facultades',
                 'faculty-detail':           'Detalle de Facultad',
                 'condiciones-curriculares': 'Condiciones Curriculares',
@@ -409,7 +453,7 @@ export default function Dashboard() {
             </div>
             <div className="user-details">
               <span className="user-name">{user?.name}</span>
-              <span className="user-role">{user?.role}</span>
+              <span className="user-role">{isEstudiante ? 'Postulante' : (user?.role || '')}</span>
               {(user?.sucursales?.length > 0 || sedeUsuario?.length > 0) && (
                 <span className="user-sede" title="Sede(s)">
                   Sede: {(user?.sucursales || sedeUsuario || []).map((s) => s.nombre).filter(Boolean).join(', ') || '—'}
@@ -431,11 +475,12 @@ export default function Dashboard() {
         <nav className="menu-nav">
           {menuItems.map((item, index) => {
             const IconComponent = item.Icon;
+            const active = isMenuItemActive(item);
             return (
               <a 
                 key={index} 
                 href="#" 
-                className="menu-item" 
+                className={`menu-item ${active ? 'active' : ''}`}
                 onClick={(e) => {
                   e.preventDefault();
                   handleMenuClick(item.vista);
@@ -456,17 +501,16 @@ export default function Dashboard() {
       <main className="dashboard-main">
         {vistaActual === 'dashboard' && (
           <div className="dashboard-content">
+            {isEstudiante ? (
+              <HomeEstudiante />
+            ) : (
+              <>
             {/* Welcome Section */}
             <div className="dashboard-welcome">
               <h2>Bienvenido/a, {user?.name}</h2>
-              <p>
-                {isEstudiante
-                  ? 'Desde aquí puede acceder a su perfil de postulante y gestionar su información para prácticas.'
-                  : 'Aquí tienes un resumen de la actividad del sistema de gestión de prácticas'}
-              </p>
+              <p>Aquí tienes un resumen de la actividad del sistema de gestión de prácticas</p>
             </div>
 
-            {!isEstudiante && (
             <div className="dashboard-stats">
               <StatCard
                 title="Total Estudiantes"
@@ -505,9 +549,7 @@ export default function Dashboard() {
                 loading={loading}
               />
             </div>
-            )}
 
-            {!isEstudiante && (
             <div className="dashboard-charts">
               <SimpleChart
                 title="Postulaciones por Mes"
@@ -531,9 +573,7 @@ export default function Dashboard() {
                 loading={loading}
               />
             </div>
-            )}
 
-            {!isEstudiante && (
             <div className="dashboard-activity">
               <RecentActivity
                 title="Actividad Reciente"
@@ -542,6 +582,7 @@ export default function Dashboard() {
                 maxItems={6}
               />
             </div>
+              </>
             )}
           </div>
         )}
@@ -559,8 +600,45 @@ export default function Dashboard() {
             )}
           </div>
         )}
+        {vistaActual === 'busqueda-avanzada' && (
+          <div className="dashboard-content">
+            <div className="dashboard-welcome">
+              <h2>Búsqueda avanzada</h2>
+              <p>Busque ofertas de práctica por criterios avanzados. Esta sección estará disponible próximamente.</p>
+            </div>
+          </div>
+        )}
+        {vistaActual === 'ofertas-afines' && (
+          <OfertasAfines />
+        )}
+        {vistaActual === 'mis-aplicaciones' && (
+          <div className="dashboard-content">
+            <div className="dashboard-welcome">
+              <h2>Mis aplicaciones</h2>
+              <p>Consulte el estado de sus postulaciones a ofertas de práctica. Esta sección estará disponible próximamente.</p>
+            </div>
+          </div>
+        )}
+        {vistaActual === 'legalizaciones' && (
+          <div className="dashboard-content">
+            <div className="dashboard-welcome">
+              <h2>Legalizaciones de Prácticas</h2>
+              <p>Gestión de legalizaciones de prácticas. Esta sección estará disponible próximamente.</p>
+            </div>
+          </div>
+        )}
+        {vistaActual === 'monitorias' && (
+          <div className="dashboard-content">
+            <div className="dashboard-welcome">
+              <h2>Legalizaciones de Monitorías</h2>
+              <p>Gestión de legalizaciones de monitorías. Esta sección estará disponible próximamente.</p>
+            </div>
+          </div>
+        )}
         {vistaActual === 'configuracion-personal' && (
-          <ConfiguracionPersonal onVolver={handleVolver} />
+          isEstudiante
+            ? <ConfiguracionEstudiante onVolver={handleVolver} />
+            : <ConfiguracionPersonal onVolver={handleVolver} />
         )}
         {vistaActual === 'configuracion' && (
           <Configuracion onVolver={handleVolver} />
@@ -582,7 +660,7 @@ export default function Dashboard() {
         {vistaActual === 'oportunidades' && (
           <Oportunidades onVolver={handleVolver} />
         )}
-        {vistaActual === 'postulants' && (
+        {vistaActual === 'postulants' && !isEstudiante && (
           <Postulants onVolver={handleVolver} />
         )}
         {vistaActual === 'postulants-log' && (
@@ -620,6 +698,9 @@ export default function Dashboard() {
         )}
         {vistaActual === 'configuracion-documentos' && (
           <ParametrizacionDocumentos onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'reglas-negocio' && (
+          <ReglasNegocio onVolver={() => navigate('/dashboard/configuracion')} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}
