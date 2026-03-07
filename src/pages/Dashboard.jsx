@@ -75,9 +75,33 @@ export default function Dashboard() {
     }).catch(() => setSedeUsuario([]));
   }, [user]);
 
+  // Usuario con módulo estudiante o módulo vacío (migrados mal): solo directorio activo y vista estudiante
+  const moduloRaw = user?.modulo != null ? String(user.modulo).trim().toLowerCase() : '';
+  const isEstudiante = moduloRaw === 'estudiante' || moduloRaw === '';
+
+  // ID del postulante del usuario estudiante (para enlace "Mi perfil")
+  const [postulantIdMe, setPostulantIdMe] = useState(null);
+  const [postulantMeLoaded, setPostulantMeLoaded] = useState(false);
+  useEffect(() => {
+    if (!isEstudiante || !user) {
+      setPostulantMeLoaded(true);
+      return;
+    }
+    api.get('/postulants/me')
+      .then((res) => {
+        if (res.data?._id) setPostulantIdMe(res.data._id);
+        setPostulantMeLoaded(true);
+      })
+      .catch(() => {
+        setPostulantIdMe(null);
+        setPostulantMeLoaded(true);
+      });
+  }, [isEstudiante, user]);
+
   // Mapeo de rutas a vistas
   const routeToVista = {
     '/dashboard': 'dashboard',
+    '/dashboard/mi-perfil': 'mi-perfil',
     '/dashboard/usuarios': 'usuarios',
     '/dashboard/entidades': 'entidades',
     '/dashboard/oportunidades': 'oportunidades',
@@ -101,6 +125,7 @@ export default function Dashboard() {
   // Mapeo de vistas a rutas
   const vistaToRoute = {
     'dashboard': '/dashboard',
+    'mi-perfil': '/dashboard/mi-perfil',
     'usuarios': '/dashboard/usuarios',
     'entidades': '/dashboard/entidades',
     'oportunidades': '/dashboard/oportunidades',
@@ -159,6 +184,13 @@ export default function Dashboard() {
   const [vistaActual, setVistaActual] = useState(() => {
     return getVistaFromRoute(location.pathname);
   });
+
+  // Redirigir a perfil del postulante cuando el estudiante entra a mi-perfil y ya tenemos el id
+  useEffect(() => {
+    if (vistaActual === 'mi-perfil' && postulantIdMe && postulantMeLoaded) {
+      navigate(`/dashboard/postulantes/${postulantIdMe}`, { replace: true });
+    }
+  }, [vistaActual, postulantIdMe, postulantMeLoaded, navigate]);
 
   // Esperar a que termine la verificación de autenticación antes de renderizar
   if (authLoading) {
@@ -256,7 +288,7 @@ export default function Dashboard() {
     loadDashboardData();
   }, []);
 
-  const menuItems = [
+  const menuItemsAdmin = [
     { text: 'Usuarios', Icon: FiUsers, vista: 'usuarios' },
     { text: 'Entidades', Icon: HiOutlineOfficeBuilding, vista: 'entidades' },
     { text: 'Oportunidades', Icon: HiOutlineChartPie, vista: 'oportunidades' },
@@ -271,6 +303,13 @@ export default function Dashboard() {
     { text: 'Configuración Personal', Icon: HiOutlineCog, vista: 'configuracion-personal' },
   ];
 
+  const menuItemsEstudiante = [
+    { text: 'Inicio', Icon: HiOutlineChartPie, vista: 'dashboard' },
+    { text: 'Mi perfil de postulante', Icon: HiOutlineAcademicCap, vista: 'mi-perfil' },
+  ];
+
+  const menuItems = isEstudiante ? menuItemsEstudiante : menuItemsAdmin;
+
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
   };
@@ -281,6 +320,11 @@ export default function Dashboard() {
   };
 
   const handleMenuClick = (vista) => {
+    if (isEstudiante && vista === 'mi-perfil' && postulantIdMe) {
+      navigate(`/dashboard/postulantes/${postulantIdMe}`);
+      setMenuOpen(false);
+      return;
+    }
     const ruta = vistaToRoute[vista] || '/dashboard';
     navigate(ruta);
     setMenuOpen(false);
@@ -311,6 +355,7 @@ export default function Dashboard() {
             'entidades':                'Entidades',
             'oportunidades':            'Oportunidades',
             'postulants':               'Postulantes',
+            'mi-perfil':                'Mi perfil de postulante',
             'estudiantes':              'Estudiantes Habilitados para Prácticas',
             'legalizaciones':           'Legalizaciones de Prácticas',
             'monitorias':               'Legalizaciones de Monitorías',
@@ -333,6 +378,7 @@ export default function Dashboard() {
                 'entidades':                'Entidades',
                 'oportunidades':            'Oportunidades',
                 'postulants':               'Postulantes',
+                'mi-perfil':                'Mi perfil de postulante',
                 'estudiantes':              'Estudiantes Habilitados para Prácticas',
                 'legalizaciones':           'Legalizaciones de Prácticas',
                 'monitorias':               'Legalizaciones de Monitorías',
@@ -413,10 +459,14 @@ export default function Dashboard() {
             {/* Welcome Section */}
             <div className="dashboard-welcome">
               <h2>Bienvenido/a, {user?.name}</h2>
-              <p>Aquí tienes un resumen de la actividad del sistema de gestión de prácticas</p>
+              <p>
+                {isEstudiante
+                  ? 'Desde aquí puede acceder a su perfil de postulante y gestionar su información para prácticas.'
+                  : 'Aquí tienes un resumen de la actividad del sistema de gestión de prácticas'}
+              </p>
             </div>
 
-            {/* Stats Cards */}
+            {!isEstudiante && (
             <div className="dashboard-stats">
               <StatCard
                 title="Total Estudiantes"
@@ -455,8 +505,9 @@ export default function Dashboard() {
                 loading={loading}
               />
             </div>
+            )}
 
-            {/* Charts Section */}
+            {!isEstudiante && (
             <div className="dashboard-charts">
               <SimpleChart
                 title="Postulaciones por Mes"
@@ -480,8 +531,9 @@ export default function Dashboard() {
                 loading={loading}
               />
             </div>
+            )}
 
-            {/* Recent Activity */}
+            {!isEstudiante && (
             <div className="dashboard-activity">
               <RecentActivity
                 title="Actividad Reciente"
@@ -490,6 +542,21 @@ export default function Dashboard() {
                 maxItems={6}
               />
             </div>
+            )}
+          </div>
+        )}
+        {vistaActual === 'mi-perfil' && (
+          <div className="dashboard-content" style={{ padding: '2rem' }}>
+            {!postulantMeLoaded ? (
+              <p>Cargando su perfil...</p>
+            ) : postulantIdMe ? (
+              <p>Redirigiendo a su perfil...</p>
+            ) : (
+              <div className="dashboard-welcome">
+                <h2>Sin perfil de postulante</h2>
+                <p>No tiene un perfil de postulante asociado a su cuenta. Contacte al administrador para completar su registro.</p>
+              </div>
+            )}
           </div>
         )}
         {vistaActual === 'configuracion-personal' && (

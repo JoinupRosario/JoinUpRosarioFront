@@ -69,9 +69,23 @@ export default function SamlSuccess() {
         await loginWithToken(token, user);
         log(`loginWithToken OK — modulo: ${user.modulo}`);
 
-        if (user.modulo === 'administrativo') {
+        const mod = user.modulo != null ? String(user.modulo).trim().toLowerCase() : '';
+        const esEstudianteOModuloVacio = mod === 'estudiante' || mod === '';
+
+        if (user.modulo === 'administrativo' || esEstudianteOModuloVacio) {
           log('Redirigiendo a /dashboard');
           navigate('/dashboard', { replace: true });
+        } else if (user.modulo === 'entidades') {
+          log('Módulo entidades — en construcción');
+          await Swal.fire({
+            icon: 'info',
+            title: 'Módulo en construcción',
+            html: 'Tu módulo estará disponible próximamente.<br/>Gracias por tu paciencia.',
+            confirmButtonColor: '#c41e3a',
+            confirmButtonText: 'Entendido',
+          });
+          logout();
+          navigate('/login', { replace: true });
         } else {
           log(`Módulo "${user.modulo}" no disponible — mostrando aviso`);
           await Swal.fire({

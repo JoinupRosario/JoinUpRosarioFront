@@ -154,6 +154,7 @@ export default function Oportunidades({ onVolver }) {
   const [mtmVinculacionItems, setMtmVinculacionItems] = useState([]);
   const [mtmCategoriaItems, setMtmCategoriaItems] = useState([]);
   const [mtmPeriodos, setMtmPeriodos] = useState([]);
+  const [practicaPeriodos, setPracticaPeriodos] = useState([]);
   // ── Edición en detalle MTM ─────────────────────────────────────────────────
   const [isMtmEditing, setIsMtmEditing] = useState(false);
   const [mtmEditData, setMtmEditData] = useState(null);
@@ -288,6 +289,13 @@ export default function Oportunidades({ onVolver }) {
     // Cargar datos dinámicos desde Item
     loadItemsData();
   }, [isAdmin]);
+
+  // Períodos activos de práctica para formularios de creación/edición de prácticas
+  useEffect(() => {
+    api.get('/periodos', { params: { tipo: 'practica', estado: 'Activo', limit: 100 } })
+      .then(res => setPracticaPeriodos(res.data?.data || res.data || []))
+      .catch(e => console.error('[Oportunidades] Error cargando períodos de práctica:', e));
+  }, []);
 
   // Función para cargar datos dinámicos desde Item
   const loadItemsData = async () => {
@@ -2098,7 +2106,7 @@ export default function Oportunidades({ onVolver }) {
                     className="form-select"
                   >
                     <option value="">Seleccionar una opción</option>
-                    <option value="20261">20261</option>
+                    {practicaPeriodos.map(p => <option key={p._id} value={p._id}>{p.codigo}</option>)}
                   </select>
                 </div>
 
@@ -3392,7 +3400,7 @@ export default function Oportunidades({ onVolver }) {
                   className="form-select"
                 >
                   <option value="">Seleccionar una opción</option>
-                  <option value="20261">20261</option>
+                  {practicaPeriodos.map(p => <option key={p._id} value={p._id}>{p.codigo}</option>)}
                 </select>
               </div>
 
@@ -4616,7 +4624,7 @@ export default function Oportunidades({ onVolver }) {
                   disabled={!isEditingDetail}
                 >
                   <option value="">Seleccionar una opción</option>
-                  <option value="20261">20261</option>
+                  {practicaPeriodos.map(p => <option key={p._id} value={p._id}>{p.codigo}</option>)}
                 </select>
               </div>
 

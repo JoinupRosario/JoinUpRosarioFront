@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  FiArrowLeft, FiPlus, FiEdit, FiTrash2, FiSearch,
+  FiArrowLeft, FiPlus, FiEdit, FiTrash2, FiSearch, FiCopy,
   FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight, FiChevronDown,
   FiX, FiSave, FiFilter, FiAlertCircle, FiBook, FiCheckCircle,
 } from 'react-icons/fi';
@@ -69,8 +69,8 @@ export default function CondicionesCurriculares({ onVolver }) {
   useEffect(() => {
     Promise.all([
       api.get('/condiciones-curriculares/variables'),
-      api.get('/periodos', { params: { estado: 'Activo', limit: 100 } }),
-      api.get('/faculties'),
+      api.get('/periodos', { params: { tipo: 'practica', estado: 'Activo', limit: 100 } }),
+      api.get('/faculties', { params: { status: 'ACTIVE', limit: 500 } }),
     ]).then(([vRes, pRes, fRes]) => {
       setVariables(vRes.data.variables || []);
       setOperadores(vRes.data.operadores || []);
@@ -243,33 +243,36 @@ export default function CondicionesCurriculares({ onVolver }) {
     setShowModal(true);
   };
 
+  // ── Mapear respuesta API a formulario (compartido por editar y duplicar) ───
+  const dataToForm = (data, appendCopia = false) => ({
+    nombre:    (data.nombre || '') + (appendCopia ? ' (copia)' : ''),
+    periodo:   data.periodo?._id || data.periodo || '',
+    facultad:  data.facultad?._id || data.facultad || '',
+    programas: (data.programas || []).map(p => p._id || p),
+    _programasItems: (data.programas || []).map(p => ({
+      _id:  p._id || p,
+      code: p.code || '',
+      name: p.programId?.name || p.name || '',
+    })),
+    logica:    data.logica || 'AND',
+    condiciones: (data.condiciones || []).map(c => ({
+      variable: c.variable, operador: c.operador, valor: c.valor,
+    })),
+    asignaturasRequeridas: (data.asignaturasRequeridas || []).map(a => ({
+      asignatura: a.asignatura?._id || a.asignatura || '',
+      tipo: a.tipo,
+      _label: a.asignatura ? `${a.asignatura.codAsignatura} — ${a.asignatura.nombreAsignatura}` : '',
+    })),
+  });
+
   // ── Abrir modal editar ─────────────────────────────────────────────────────
   const handleEditar = async (id) => {
     try {
       const { data } = await api.get(`/condiciones-curriculares/${id}`);
-      const newForm = {
-        nombre:    data.nombre || '',
-        periodo:   data.periodo?._id || data.periodo || '',
-        facultad:  data.facultad?._id || data.facultad || '',
-        programas: (data.programas || []).map(p => p._id || p),
-        _programasItems: (data.programas || []).map(p => ({
-          _id:  p._id || p,
-          code: p.code || '',
-          name: p.programId?.name || p.name || '',
-        })),
-        logica:    data.logica || 'AND',
-        condiciones: (data.condiciones || []).map(c => ({
-          variable: c.variable, operador: c.operador, valor: c.valor,
-        })),
-        asignaturasRequeridas: (data.asignaturasRequeridas || []).map(a => ({
-          asignatura: a.asignatura?._id || a.asignatura || '',
-          tipo: a.tipo,
-          _label: a.asignatura ? `${a.asignatura.codAsignatura} — ${a.asignatura.nombreAsignatura}` : '',
-        })),
-      };
+      const newForm = dataToForm(data, false);
       const facultadId = newForm.facultad;
       currentFacultadRef.current = facultadId;
-      pfCacheRef.current = {}; // limpiar caché al editar para datos frescos
+      pfCacheRef.current = {};
       setProgDropOpen(false);
       setForm(newForm);
       setEditingId(id);
@@ -280,6 +283,27 @@ export default function CondicionesCurriculares({ onVolver }) {
       if (facultadId) fetchAndFilterProgramas(facultadId, '', newForm.programas);
     } catch {
       Swal.fire('Error', 'No se pudo cargar la regla', 'error');
+    }
+  };
+
+  // ── Duplicar regla (abre modal en modo creación con datos copiados) ───────
+  const handleDuplicar = async (id) => {
+    try {
+      const { data } = await api.get(`/condiciones-curriculares/${id}`);
+      const newForm = dataToForm(data, true);
+      const facultadId = newForm.facultad;
+      currentFacultadRef.current = facultadId;
+      pfCacheRef.current = {};
+      setProgDropOpen(false);
+      setForm(newForm);
+      setEditingId(null); // creación nueva
+      setAsigInputs(newForm.asignaturasRequeridas.map(a => a._label || ''));
+      setProgSearch(''); setProgSuggestions([]);
+      setAsigSuggestions([]);
+      setShowModal(true);
+      if (facultadId) fetchAndFilterProgramas(facultadId, '', newForm.programas);
+    } catch {
+      Swal.fire('Error', 'No se pudo cargar la regla para duplicar', 'error');
     }
   };
 
@@ -488,6 +512,7 @@ export default function CondicionesCurriculares({ onVolver }) {
                   <td><span className={`cc-estado ${r.estado === 'ACTIVE' ? 'cc-estado-activo' : 'cc-estado-inactivo'}`}>{r.estado === 'ACTIVE' ? 'Activa' : 'Inactiva'}</span></td>
                   <td className="cc-td-actions">
                     <button className="cc-btn-action cc-btn-edit" title="Editar" onClick={() => handleEditar(r._id)}><FiEdit /></button>
+                    <button className="cc-btn-action cc-btn-duplicate" title="Duplicar" onClick={() => handleDuplicar(r._id)}><FiCopy /></button>
                     <button className={`cc-btn-action ${r.estado === 'ACTIVE' ? 'cc-btn-toggle-off' : 'cc-btn-toggle-on'}`} title={r.estado === 'ACTIVE' ? 'Inactivar' : 'Activar'} onClick={() => handleToggle(r._id, r.estado)}>
                       {r.estado === 'ACTIVE' ? <FiToggleRight /> : <FiToggleLeft />}
                     </button>
