@@ -55,6 +55,7 @@ import PostulantDocumentLog from './componentss/postulants/postulantLogs/Postula
 import PostulantProfile from './componentss/postulants/PostulantProfile';
 import Student from './componentss/students/student';
 import OfertasAfines from './componentss/OfertasAfines';
+import MisAplicaciones from './componentss/MisAplicaciones';
 import api from '../services/api';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
@@ -612,12 +613,7 @@ export default function Dashboard() {
           <OfertasAfines />
         )}
         {vistaActual === 'mis-aplicaciones' && (
-          <div className="dashboard-content">
-            <div className="dashboard-welcome">
-              <h2>Mis aplicaciones</h2>
-              <p>Consulte el estado de sus postulaciones a ofertas de práctica. Esta sección estará disponible próximamente.</p>
-            </div>
-          </div>
+          <MisAplicaciones />
         )}
         {vistaActual === 'legalizaciones' && (
           <div className="dashboard-content">

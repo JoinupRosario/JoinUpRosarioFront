@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
-import { FiUsers, FiX } from 'react-icons/fi';
+import { FiUsers, FiSend, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
 import api from '../../services/api';
+import DetalleOportunidadModal from './DetalleOportunidadModal';
 import '../styles/Oportunidades.css';
 
 function getStatusLabel(estado) {
@@ -31,6 +32,13 @@ export default function OfertasAfines() {
   const [total, setTotal] = useState(0);
   const [detalle, setDetalle] = useState(null);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [showModalAplicar, setShowModalAplicar] = useState(false);
+  const [profiles, setProfiles] = useState([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [selectedVersionId, setSelectedVersionId] = useState('');
+  const [submittingAplicar, setSubmittingAplicar] = useState(false);
+  const [postulantId, setPostulantId] = useState(null);
+  const [showConfirmacionAplicar, setShowConfirmacionAplicar] = useState(false);
 
   const loadOfertas = async (page = 1) => {
     try {
@@ -69,9 +77,69 @@ export default function OfertasAfines() {
     }
   };
 
+  const openModalAplicar = async () => {
+    if (!detalle || detalle.estado !== 'Activa') return;
+    setShowModalAplicar(true);
+    setSelectedVersionId('');
+    setProfiles([]);
+    setPostulantId(null);
+    setLoadingProfiles(true);
+    try {
+      const { data: me } = await api.get('/postulants/me');
+      const id = me?._id || me?.id;
+      if (!id) {
+        setProfiles([]);
+        return;
+      }
+      setPostulantId(id);
+      const { data: profilesRes } = await api.get(`/postulants/${id}/profiles`);
+      const list = profilesRes?.profiles || [];
+      setProfiles(list);
+    } catch (e) {
+      console.error('Error cargando perfiles', e);
+      setProfiles([]);
+    } finally {
+      setLoadingProfiles(false);
+    }
+  };
+
+  const submitAplicar = async () => {
+    if (!detalle) return;
+    const selected = profiles.find((p) => String(p._id) === String(selectedVersionId));
+    const profileIdToSend = selected?.profileId || selected?._id;
+    if (!profileIdToSend) return;
+    setSubmittingAplicar(true);
+    try {
+      await api.post(`/opportunities/${detalle._id}/aplicar`, { profileId: profileIdToSend });
+      setShowModalAplicar(false);
+      setShowConfirmacionAplicar(true);
+    } catch (e) {
+      const msg = e.response?.data?.message || e.message || 'Error al enviar la postulación';
+      alert(msg);
+    } finally {
+      setSubmittingAplicar(false);
+    }
+  };
+
+  const cerrarConfirmacionAplicar = () => {
+    setShowConfirmacionAplicar(false);
+    setDetalle(null);
+    loadOfertas(currentPage);
+  };
+
   return (
     <div className="dashboard-content">
-      <div className="dashboard-welcome" style={{ marginBottom: '1rem' }}>
+      <div className="dashboard-welcome ofertas-afines-welcome">
+        <button
+          type="button"
+          className="ofertas-afines-refresh-btn ofertas-afines-refresh-btn--welcome"
+          onClick={() => loadOfertas(currentPage)}
+          disabled={loading}
+          title="Actualizar lista de ofertas"
+        >
+          <FiRefreshCw size={18} className={loading ? 'ofertas-afines-refresh-btn__icon--spin' : ''} />
+          <span>Refrescar</span>
+        </button>
         <h2>Prácticas y Pasantías</h2>
         <p>Ofertas que coinciden con tu periodo y programa autorizados.</p>
       </div>
@@ -82,11 +150,20 @@ export default function OfertasAfines() {
           <p>Cargando ofertas...</p>
         </div>
       ) : opportunities.length === 0 ? (
-        <div className="empty-state">
+        <div className="empty-state ofertas-afines-empty">
           <p>No hay ofertas de prácticas que coincidan con tu perfil en este momento.</p>
           <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#6b7280' }}>
             Debes estar autorizado en estudiantes habilitados para el mismo periodo y programa que las ofertas.
           </p>
+          <button
+            type="button"
+            className="ofertas-afines-refresh-btn ofertas-afines-refresh-btn--empty"
+            onClick={() => loadOfertas(1)}
+            disabled={loading}
+          >
+            <FiRefreshCw size={18} />
+            <span>Refrescar</span>
+          </button>
         </div>
       ) : (
         <>
@@ -189,35 +266,91 @@ export default function OfertasAfines() {
         </>
       )}
 
-      {/* Modal detalle */}
-      {(detalle !== null || loadingDetalle) && (
-        <div className="modal-overlay" onClick={() => !loadingDetalle && setDetalle(null)}>
-          <div className="modal-content oportunidad-detalle-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
-            {loadingDetalle ? (
-              <div className="loading-container">
-                <div className="loading-spinner" />
-                <p>Cargando detalle...</p>
-              </div>
-            ) : detalle ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0 }}>{detalle.nombreCargo}</h3>
-                  <button type="button" onClick={() => setDetalle(null)} className="btn-icon" aria-label="Cerrar">
-                    <FiX size={24} />
-                  </button>
+      <DetalleOportunidadModal
+        detalle={detalle}
+        loading={loadingDetalle}
+        onClose={() => setDetalle(null)}
+        onAplicar={openModalAplicar}
+      />
+
+      {/* Modal selección hoja de vida para aplicar */}
+      {showModalAplicar && (
+        <div className="modal-overlay" onClick={() => !submittingAplicar && setShowModalAplicar(false)}>
+          <div className="modal-content ofertas-afines-aplicar-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ofertas-afines-aplicar-modal__header">
+              <h3 className="ofertas-afines-aplicar-modal__title">Aplicar con hoja de vida</h3>
+              <button type="button" className="ofertas-afines-aplicar-modal__close" onClick={() => !submittingAplicar && setShowModalAplicar(false)} aria-label="Cerrar">
+                <FiX size={22} />
+              </button>
+            </div>
+            <div className="ofertas-afines-aplicar-modal__body">
+              <p className="ofertas-afines-aplicar-modal__intro">
+                Seleccione el perfil (hoja de vida) con el que desea postularse:
+              </p>
+              {loadingProfiles ? (
+                <div className="ofertas-afines-aplicar-modal__loading">
+                  <div className="loading-spinner" />
+                  <p>Cargando perfiles...</p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <p><strong>Empresa:</strong> {detalle.company?.name || detalle.company?.commercialName || '—'}</p>
-                  {detalle.periodo && <p><strong>Periodo:</strong> {detalle.periodo}</p>}
-                  {detalle.ciudad && <p><strong>Ciudad:</strong> {detalle.ciudad}</p>}
-                  {detalle.formacionAcademica?.length > 0 && (
-                    <p><strong>Programas:</strong> {detalle.formacionAcademica.map((f) => f.program).join(', ')}</p>
-                  )}
-                  {detalle.requisitos && <p><strong>Requisitos:</strong><br /><span style={{ whiteSpace: 'pre-wrap' }}>{detalle.requisitos}</span></p>}
-                  {detalle.funciones && <p><strong>Funciones:</strong><br /><span style={{ whiteSpace: 'pre-wrap' }}>{detalle.funciones}</span></p>}
-                </div>
-              </>
-            ) : null}
+              ) : profiles.length === 0 ? (
+                <p className="ofertas-afines-aplicar-modal__empty">No tiene hojas de vida creadas. Cree una en Mi perfil y vuelva a intentar.</p>
+              ) : (
+                <>
+                  <ul className="ofertas-afines-aplicar-modal__list">
+                    {profiles.map((p) => {
+                      const versionId = String(p._id ?? '');
+                      const name = p.profileName || p.profileText?.slice(0, 50) || `Perfil ${versionId.slice(-6)}`;
+                      const isSelected = selectedVersionId === versionId;
+                      return (
+                        <li key={versionId} className="ofertas-afines-aplicar-modal__item">
+                          <label className={`ofertas-afines-aplicar-modal__label ${isSelected ? 'ofertas-afines-aplicar-modal__label--selected' : ''}`}>
+                            <input
+                              type="radio"
+                              name="profileAplicar"
+                              checked={isSelected}
+                              onChange={() => setSelectedVersionId(versionId)}
+                              className="ofertas-afines-aplicar-modal__radio"
+                            />
+                            <span className="ofertas-afines-aplicar-modal__name">{name}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="ofertas-afines-aplicar-modal__footer">
+                    <button type="button" className="ofertas-afines-aplicar-modal__btn ofertas-afines-aplicar-modal__btn--secondary" onClick={() => setShowModalAplicar(false)} disabled={submittingAplicar}>
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="ofertas-afines-aplicar-modal__btn ofertas-afines-aplicar-modal__btn--primary"
+                      onClick={submitAplicar}
+                      disabled={!selectedVersionId || submittingAplicar}
+                    >
+                      {submittingAplicar ? 'Enviando...' : 'Enviar postulación'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmación postulación enviada */}
+      {showConfirmacionAplicar && (
+        <div className="modal-overlay" onClick={cerrarConfirmacionAplicar}>
+          <div className="modal-content ofertas-afines-confirmacion-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ofertas-afines-confirmacion-modal__icon">
+              <FiCheckCircle size={48} />
+            </div>
+            <h3 className="ofertas-afines-confirmacion-modal__title">Postulación enviada</h3>
+            <p className="ofertas-afines-confirmacion-modal__text">
+              Tu postulación fue enviada correctamente. Puedes ver el estado en <strong>Mis aplicaciones</strong>.
+            </p>
+            <button type="button" className="ofertas-afines-confirmacion-modal__btn" onClick={cerrarConfirmacionAplicar}>
+              Cerrar
+            </button>
           </div>
         </div>
       )}
