@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
-import { FiUsers, FiSend, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
+import { FiUsers, FiX, FiSend, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
 import api from '../../services/api';
 import DetalleOportunidadModal from './DetalleOportunidadModal';
 import '../styles/Oportunidades.css';
