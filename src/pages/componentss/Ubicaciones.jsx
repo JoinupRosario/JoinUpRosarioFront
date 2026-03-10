@@ -48,7 +48,7 @@ const VIEW_TO_LIST_ID = {
   'organizationSizes': 'L_COMPANY_SIZE',
   'linkageTypes': 'L_CONTRACT_TYPE_ACADEMIC_PRACTICE',
   'performanceAreas': 'L_INTEREST_AREA',
-  'interestAreas': 'L_INTEREST_AREA',
+  'emotionalSalary': 'L_EMOTIONAL_SALARY',
   'competencies': 'L_SOFTWARE_SKILLS', // Verificar si es correcto
   'languages': 'L_LANGUAGE',
   'experienceTypes': 'L_EXPERIENCE_TYPE',
@@ -79,7 +79,7 @@ const VIEW_TO_FIELD = {
   'organizationSizes': 'tipoTamanioOrganizacion',
   'linkageTypes': 'tipoVinculacion',
   'performanceAreas': 'areaDesempeno',
-  'interestAreas': 'areaInteres',
+  'emotionalSalary': 'salarioEmocional',
   'competencies': 'competencia',
   'languages': 'idioma',
   'experienceTypes': 'tipoExperiencia',
@@ -125,9 +125,9 @@ const Ubicaciones = ({ onVolver }) => {
   // Nuevos datos - Oportunidades
   const [linkageTypes, setLinkageTypes] = useState([]);
   const [performanceAreas, setPerformanceAreas] = useState([]);
+  const [emotionalSalaries, setEmotionalSalaries] = useState([]);
   
   // Nuevos datos - Estudiantes-Postulantes
-  const [interestAreas, setInterestAreas] = useState([]);
   const [competencies, setCompetencies] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [experienceTypes, setExperienceTypes] = useState([]);
@@ -253,10 +253,11 @@ const Ubicaciones = ({ onVolver }) => {
     } else if (vistaActual === 'performanceAreas') {
       loadPerformanceAreas(page, search);
     }
+    else if (vistaActual === 'emotionalSalary') {
+      loadEmotionalSalaries(page, search);
+    }
     // Estudiantes-Postulantes
-    else if (vistaActual === 'interestAreas') {
-      loadInterestAreas(page, search);
-    } else if (vistaActual === 'competencies') {
+    else if (vistaActual === 'competencies') {
       loadCompetencies(page, search);
     } else if (vistaActual === 'languages') {
       loadLanguages(page, search);
@@ -334,11 +335,11 @@ const Ubicaciones = ({ onVolver }) => {
         loadLinkageTypes(page, searchTerm);
       } else if (vistaActual === 'performanceAreas') {
         loadPerformanceAreas(page, searchTerm);
+      } else if (vistaActual === 'emotionalSalary') {
+        loadEmotionalSalaries(page, searchTerm);
       }
       // Estudiantes-Postulantes
-      else if (vistaActual === 'interestAreas') {
-        loadInterestAreas(page, searchTerm);
-      } else if (vistaActual === 'competencies') {
+      else if (vistaActual === 'competencies') {
         loadCompetencies(page, searchTerm);
       } else if (vistaActual === 'languages') {
         loadLanguages(page, searchTerm);
@@ -415,7 +416,7 @@ const Ubicaciones = ({ onVolver }) => {
           'organizationSizes': setOrganizationSizes,
           'linkageTypes': setLinkageTypes,
           'performanceAreas': setPerformanceAreas,
-          'interestAreas': setInterestAreas,
+          'emotionalSalary': setEmotionalSalaries,
           'competencies': setCompetencies,
           'languages': setLanguages,
           'experienceTypes': setExperienceTypes,
@@ -498,11 +499,11 @@ const Ubicaciones = ({ onVolver }) => {
     await loadItems('performanceAreas', page, search);
   };
 
-  // ==================== FUNCIONES DE CARGA - ESTUDIANTES-POSTULANTES ====================
-  const loadInterestAreas = async (page = 1, search = '') => {
-    await loadItems('interestAreas', page, search);
+  const loadEmotionalSalaries = async (page = 1, search = '') => {
+    await loadItems('emotionalSalary', page, search);
   };
 
+  // ==================== FUNCIONES DE CARGA - ESTUDIANTES-POSTULANTES ====================
   const loadCompetencies = async (page = 1, search = '') => {
     await loadItems('competencies', page, search);
   };
@@ -951,11 +952,11 @@ const Ubicaciones = ({ onVolver }) => {
       data = linkageTypes;
     } else if (vistaActual === 'performanceAreas') {
       data = performanceAreas;
+    } else if (vistaActual === 'emotionalSalary') {
+      data = emotionalSalaries;
     }
     // Estudiantes-Postulantes
-    else if (vistaActual === 'interestAreas') {
-      data = interestAreas;
-    } else if (vistaActual === 'competencies') {
+    else if (vistaActual === 'competencies') {
       data = competencies;
     } else if (vistaActual === 'languages') {
       data = languages;
@@ -1219,6 +1220,17 @@ const Ubicaciones = ({ onVolver }) => {
         >
           <FiTarget /> Área Desempeño
         </button>
+        <button
+          className={`tab ${vistaActual === 'emotionalSalary' ? 'active' : ''}`}
+          onClick={() => {
+            setVistaActual('emotionalSalary');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiAward /> Salario Emocional
+        </button>
         
         {/* Separador visual */}
         <div className="tab-separator"></div>
@@ -1262,17 +1274,6 @@ const Ubicaciones = ({ onVolver }) => {
         <div className="tab-separator"></div>
         
         {/* ESTUDIANTES-POSTULANTES */}
-        <button
-          className={`tab ${vistaActual === 'interestAreas' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('interestAreas');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiTarget /> Áreas Interés
-        </button>
         <button
           className={`tab ${vistaActual === 'competencies' ? 'active' : ''}`}
           onClick={() => {
@@ -1405,8 +1406,8 @@ const Ubicaciones = ({ onVolver }) => {
           // Oportunidades
           else if (vistaActual === 'linkageTypes') loadLinkageTypes(pagination.page, searchTerm);
           else if (vistaActual === 'performanceAreas') loadPerformanceAreas(pagination.page, searchTerm);
+          else if (vistaActual === 'emotionalSalary') loadEmotionalSalaries(pagination.page, searchTerm);
           // Estudiantes-Postulantes
-          else if (vistaActual === 'interestAreas') loadInterestAreas(pagination.page, searchTerm);
           else if (vistaActual === 'competencies') loadCompetencies(pagination.page, searchTerm);
           else if (vistaActual === 'languages') loadLanguages(pagination.page, searchTerm);
           else if (vistaActual === 'experienceTypes') loadExperienceTypes(pagination.page, searchTerm);
@@ -1529,13 +1530,13 @@ const Ubicaciones = ({ onVolver }) => {
                     <th>Descripción</th>
                   </>
                 )}
-                {/* Estudiantes-Postulantes */}
-                {vistaActual === 'interestAreas' && (
+                {vistaActual === 'emotionalSalary' && (
                   <>
                     <th>Valor</th>
                     <th>Descripción</th>
                   </>
                 )}
+                {/* Estudiantes-Postulantes */}
                 {vistaActual === 'competencies' && (
                   <>
                     <th>Valor</th>
@@ -1733,13 +1734,13 @@ const Ubicaciones = ({ onVolver }) => {
                         <td>{item.description || '-'}</td>
                       </>
                     )}
-                    {/* Estudiantes-Postulantes */}
-                    {vistaActual === 'interestAreas' && (
+                    {vistaActual === 'emotionalSalary' && (
                       <>
                         <td>{item.value || '-'}</td>
                         <td>{item.description || '-'}</td>
                       </>
                     )}
+                    {/* Estudiantes-Postulantes */}
                     {vistaActual === 'competencies' && (
                       <>
                         <td>{item.value || '-'}</td>
@@ -1869,7 +1870,7 @@ const Ubicaciones = ({ onVolver }) => {
           else if (vistaActual === 'organizationSizes')      loadOrganizationSizes(p, searchTerm);
           else if (vistaActual === 'linkageTypes')           loadLinkageTypes(p, searchTerm);
           else if (vistaActual === 'performanceAreas')       loadPerformanceAreas(p, searchTerm);
-          else if (vistaActual === 'interestAreas')          loadInterestAreas(p, searchTerm);
+          else if (vistaActual === 'emotionalSalary')        loadEmotionalSalaries(p, searchTerm);
           else if (vistaActual === 'competencies')           loadCompetencies(p, searchTerm);
           else if (vistaActual === 'languages')              loadLanguages(p, searchTerm);
           else if (vistaActual === 'experienceTypes')        loadExperienceTypes(p, searchTerm);

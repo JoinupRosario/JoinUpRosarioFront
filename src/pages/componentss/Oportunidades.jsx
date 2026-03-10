@@ -5,7 +5,6 @@ import { HiOutlineAcademicCap } from 'react-icons/hi';
 import { useAuth } from '../../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
-import { Country, City } from 'country-state-city';
 import '../styles/Oportunidades.css';
 
 export default function Oportunidades({ onVolver }) {
@@ -21,6 +20,12 @@ export default function Oportunidades({ onVolver }) {
   const [showModalAprobacion, setShowModalAprobacion] = useState(false);
   const [showModalRechazo, setShowModalRechazo] = useState(false);
   const [showModalHistorial, setShowModalHistorial] = useState(false);
+  const [showModalAplicaciones, setShowModalAplicaciones] = useState(false);
+  const [aplicacionesList, setAplicacionesList] = useState([]);
+  const [loadingAplicaciones, setLoadingAplicaciones] = useState(false);
+  const [aplicacionDetail, setAplicacionDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [selectedPostulacionId, setSelectedPostulacionId] = useState(null);
   const [historialEstados, setHistorialEstados] = useState([]);
   const [motivoRechazo, setMotivoRechazo] = useState('');
   const [motivoRechazoOtro, setMotivoRechazoOtro] = useState('');
@@ -42,6 +47,7 @@ export default function Oportunidades({ onVolver }) {
   const [linkageTypes, setLinkageTypes] = useState([]);
   const [dedicationTypes, setDedicationTypes] = useState([]);
   const [performanceAreas, setPerformanceAreas] = useState([]);
+  const [emotionalSalaryItems, setEmotionalSalaryItems] = useState([]);
   const [selectedLinkageDescription, setSelectedLinkageDescription] = useState('');
   
   // Estados para filtros, paginación y ordenamiento
@@ -130,7 +136,7 @@ export default function Oportunidades({ onVolver }) {
     requisitos: ''
   });
   
-  // ── Estados para países y ciudades
+  // ── Estados para países y ciudades (desde backend: Country, City)
   const [countries, setCountries] = useState([]);
   const [cities, setCities] = useState([]);
 
@@ -166,23 +172,14 @@ export default function Oportunidades({ onVolver }) {
   const [isMtmEditing, setIsMtmEditing] = useState(false);
   const [mtmEditData, setMtmEditData] = useState(null);
 
-  // Opciones de salario emocional
-  const opcionesSalarioEmocional = [
-    { value: 'acompanamiento_directivo', label: 'Acompañamiento de un directivo de la organización' },
-    { value: 'actividades_voluntariado', label: 'Actividades de Voluntariado notables' },
-    { value: 'capacitacion_complementaria', label: 'Capacitación complementaria para el proceso formativo' },
-    { value: 'comida_casino', label: 'Comida o casino para almuerzo' },
-    { value: 'desarrollo_carrera', label: 'Desarrollo de carrera profesional' },
-    { value: 'dia_cumpleanos_libre', label: 'Dia de cumpleaños libre' },
-    { value: 'espacios_distraccion', label: 'Espacios de distracción - zona de entretenimiento' },
-    { value: 'gimnasio_yoga_masajes', label: 'Gimnasio, yoga, masajes, sitios de descanso' },
-    { value: 'horario_flexible', label: 'Horario Flexible' },
-    { value: 'jornadas_reducidas', label: 'Jornadas reducidas' },
-    { value: 'pago_arl', label: 'Pago de ARL' },
-    { value: 'pago_eps', label: 'Pago de EPS' },
-    { value: 'ruta_transporte', label: 'Ruta o servicio de transporte al trabajo' },
-    { value: 'dia_medio_dia', label: 'Un dia a la semana saliendo a medio dia' }
-  ];
+  // Opciones de salario emocional desde Item (L_EMOTIONAL_SALARY)
+  const opcionesSalarioEmocional = useMemo(() => 
+    emotionalSalaryItems.map(item => ({ 
+      value: item._id, 
+      label: item.description || item.value 
+    })), 
+    [emotionalSalaryItems]
+  );
 
   // Filtrar opciones de salario emocional
   const filteredSalarioEmocional = useMemo(() => {
@@ -191,7 +188,7 @@ export default function Oportunidades({ onVolver }) {
     return opcionesSalarioEmocional.filter(opcion =>
       opcion.label.toLowerCase().includes(q)
     );
-  }, [salarioEmocionalSearch]);
+  }, [salarioEmocionalSearch, opcionesSalarioEmocional]);
 
   // Filtrar opciones que ya están seleccionadas para no mostrarlas en el dropdown (vista crear)
   const filteredSalarioEmocionalDisponibles = useMemo(() => {
@@ -291,9 +288,10 @@ export default function Oportunidades({ onVolver }) {
   }, [isAdmin, companySearch]);
 
   useEffect(() => {
-    // Cargar países
-    setCountries(Country.getAllCountries());
-    // Cargar datos dinámicos desde Item
+    // Cargar países desde backend (Country)
+    api.get('/locations/countries', { params: { limit: 1000 } })
+      .then(res => setCountries(res.data?.data || []))
+      .catch(e => console.error('[Oportunidades] Error cargando países:', e));
     loadItemsData();
   }, [isAdmin]);
 
@@ -346,6 +344,10 @@ export default function Oportunidades({ onVolver }) {
       // Cargar Áreas de Desempeño (L_INTEREST_AREA)
       const { data: performanceData } = await api.get('/locations/items/L_INTEREST_AREA', { params: { limit: 100 } });
       setPerformanceAreas(performanceData.data || []);
+
+      // Cargar Salario Emocional (L_EMOTIONAL_SALARY)
+      const { data: emotionalData } = await api.get('/locations/items/L_EMOTIONAL_SALARY', { params: { limit: 100 } });
+      setEmotionalSalaryItems(emotionalData.data || []);
     } catch (error) {
       console.error('Error cargando datos dinámicos:', error);
     }
@@ -401,11 +403,12 @@ export default function Oportunidades({ onVolver }) {
     loadOportunidades();
   };
   
-  // Cargar ciudades cuando se selecciona un país
+  // Cargar ciudades desde backend cuando se selecciona un país (City por country)
   useEffect(() => {
     if (formData.pais) {
-      const countryCities = City.getCitiesOfCountry(formData.pais);
-      setCities(countryCities || []);
+      api.get('/locations/cities', { params: { country: formData.pais, limit: 1000 } })
+        .then(res => setCities(res.data?.data || []))
+        .catch(() => setCities([]));
     } else {
       setCities([]);
     }
@@ -1059,39 +1062,9 @@ export default function Oportunidades({ onVolver }) {
       setOportunidadSeleccionada(updatedOpp);
       setVista('detalle');
       setIsEditingDetail(false); // Volver a modo solo lectura
-      // Recargar datos en editFormData
-      const formDataEdit = {
-        nombreCargo: updatedOpp.nombreCargo || '',
-        auxilioEconomico: updatedOpp.auxilioEconomico || false,
-        requiereConfidencialidad: updatedOpp.requiereConfidencialidad || false,
-        apoyoEconomico: updatedOpp.apoyoEconomico ? updatedOpp.apoyoEconomico.toString() : '',
-        tipoVinculacion: updatedOpp.tipoVinculacion || '',
-        periodo: updatedOpp.periodo || '',
-        vacantes: updatedOpp.vacantes ? updatedOpp.vacantes.toString() : '',
-        fechaVencimiento: updatedOpp.fechaVencimiento ? new Date(updatedOpp.fechaVencimiento).toISOString().split('T')[0] : '',
-        pais: updatedOpp.pais || '',
-        ciudad: updatedOpp.ciudad || '',
-        jornadaOrdinariaSemanal: updatedOpp.jornadaOrdinariaSemanal ? updatedOpp.jornadaOrdinariaSemanal.toString() : '',
-        dedicacion: updatedOpp.dedicacion || '',
-        jornadaSemanalPractica: updatedOpp.jornadaSemanalPractica ? updatedOpp.jornadaSemanalPractica.toString() : '',
-        fechaInicioPractica: updatedOpp.fechaInicioPractica ? new Date(updatedOpp.fechaInicioPractica).toISOString().split('T')[0] : '',
-        fechaFinPractica: updatedOpp.fechaFinPractica ? new Date(updatedOpp.fechaFinPractica).toISOString().split('T')[0] : '',
-        horario: updatedOpp.horario || '',
-        areaDesempeno: updatedOpp.areaDesempeno || '',
-        enlacesFormatoEspecificos: updatedOpp.enlacesFormatoEspecificos || '',
-        salarioEmocional: (() => {
-          // Convertir salarioEmocional a array si es string (compatibilidad con datos antiguos)
-          return Array.isArray(updatedOpp.salarioEmocional) 
-            ? updatedOpp.salarioEmocional 
-            : (updatedOpp.salarioEmocional ? [updatedOpp.salarioEmocional] : []);
-        })(),
-        promedioMinimoRequerido: updatedOpp.promedioMinimoRequerido || '',
-        formacionAcademica: updatedOpp.formacionAcademica || [],
-        idiomas: updatedOpp.idiomas || [],
-        funciones: updatedOpp.funciones || '',
-        requisitos: updatedOpp.requisitos || ''
-      };
-      setEditFormData(formDataEdit);
+      // Recargar datos en editFormData con refs bien mapeados
+      const formDataEdit = buildEditFormDataFromOpp(updatedOpp);
+      if (formDataEdit) setEditFormData(formDataEdit);
       setEditSelectedCompany(updatedOpp.company);
       await loadOportunidades();
     } catch (error) {
@@ -1665,6 +1638,40 @@ export default function Oportunidades({ onVolver }) {
     return dedicaciones[dedicacion] || dedicacion;
   };
 
+  /** Construye editFormData desde una oportunidad (poblada o no) para que los selects coincidan. */
+  const buildEditFormDataFromOpp = (opp) => {
+    if (!opp) return null;
+    return {
+      nombreCargo: opp.nombreCargo || '',
+      auxilioEconomico: opp.auxilioEconomico || false,
+      requiereConfidencialidad: opp.requiereConfidencialidad || false,
+      apoyoEconomico: opp.apoyoEconomico ? opp.apoyoEconomico.toString() : '',
+      tipoVinculacion: opp.tipoVinculacion || '',
+      periodo: (opp.periodo && typeof opp.periodo === 'object' && opp.periodo._id) ? opp.periodo._id : (opp.periodo || ''),
+      vacantes: opp.vacantes ? opp.vacantes.toString() : '',
+      fechaVencimiento: opp.fechaVencimiento ? new Date(opp.fechaVencimiento).toISOString().split('T')[0] : '',
+      pais: (opp.pais && typeof opp.pais === 'object' && opp.pais._id) ? opp.pais._id : (opp.pais || ''),
+      ciudad: (opp.ciudad && typeof opp.ciudad === 'object' && opp.ciudad._id) ? opp.ciudad._id : (opp.ciudad || ''),
+      jornadaOrdinariaSemanal: opp.jornadaOrdinariaSemanal ? opp.jornadaOrdinariaSemanal.toString() : '',
+      dedicacion: (opp.dedicacion && typeof opp.dedicacion === 'object' && opp.dedicacion._id) ? opp.dedicacion._id : (opp.dedicacion || ''),
+      jornadaSemanalPractica: opp.jornadaSemanalPractica ? opp.jornadaSemanalPractica.toString() : '',
+      fechaInicioPractica: opp.fechaInicioPractica ? new Date(opp.fechaInicioPractica).toISOString().split('T')[0] : '',
+      fechaFinPractica: opp.fechaFinPractica ? new Date(opp.fechaFinPractica).toISOString().split('T')[0] : '',
+      horario: opp.horario || '',
+      areaDesempeno: (opp.areaDesempeno && typeof opp.areaDesempeno === 'object' && opp.areaDesempeno._id) ? opp.areaDesempeno._id : (opp.areaDesempeno || ''),
+      enlacesFormatoEspecificos: opp.enlacesFormatoEspecificos || '',
+      salarioEmocional: (() => {
+        const arr = Array.isArray(opp.salarioEmocional) ? opp.salarioEmocional : (opp.salarioEmocional ? [opp.salarioEmocional] : []);
+        return arr.map(x => (x && typeof x === 'object' && x._id) ? x._id : x);
+      })(),
+      promedioMinimoRequerido: opp.promedioMinimoRequerido || '',
+      formacionAcademica: opp.formacionAcademica || [],
+      idiomas: opp.idiomas || [],
+      funciones: opp.funciones || '',
+      requisitos: opp.requisitos || ''
+    };
+  };
+
   // Función para obtener el texto del salario emocional
   const getSalarioEmocionalText = (value) => {
     const opcion = opcionesSalarioEmocional.find(op => op.value === value);
@@ -1842,11 +1849,12 @@ export default function Oportunidades({ onVolver }) {
     'Otro'
   ];
 
-  // Cargar ciudades cuando se selecciona un país en edición/detalle
+  // Cargar ciudades desde backend cuando hay país en edición/detalle
   useEffect(() => {
     if ((vista === 'editar' || vista === 'detalle') && editFormData && editFormData.pais) {
-      const countryCities = City.getCitiesOfCountry(editFormData.pais);
-      setEditCities(countryCities || []);
+      api.get('/locations/cities', { params: { country: editFormData.pais, limit: 1000 } })
+        .then(res => setEditCities(res.data?.data || []))
+        .catch(() => setEditCities([]));
     } else {
       setEditCities([]);
     }
@@ -1859,46 +1867,27 @@ export default function Oportunidades({ onVolver }) {
     }
   }, [editFormData?.salarioEmocional, vista]);
 
-  // Inicializar editFormData cuando se carga una oportunidad en detalle
+  // Cargar oportunidad por ID al abrir detalle/editar para tener refs poblados (periodo, pais, ciudad, dedicacion, etc.)
   useEffect(() => {
-    if (vista === 'detalle' && oportunidadSeleccionada && !editFormData) {
-      const opp = oportunidadSeleccionada;
-      const formDataEdit = {
-        nombreCargo: opp.nombreCargo || '',
-        auxilioEconomico: opp.auxilioEconomico || false,
-        requiereConfidencialidad: opp.requiereConfidencialidad || false,
-        apoyoEconomico: opp.apoyoEconomico ? opp.apoyoEconomico.toString() : '',
-        tipoVinculacion: opp.tipoVinculacion || '',
-        periodo: opp.periodo || '',
-        vacantes: opp.vacantes ? opp.vacantes.toString() : '',
-        fechaVencimiento: opp.fechaVencimiento ? new Date(opp.fechaVencimiento).toISOString().split('T')[0] : '',
-        pais: opp.pais || '',
-        ciudad: opp.ciudad || '',
-        jornadaOrdinariaSemanal: opp.jornadaOrdinariaSemanal ? opp.jornadaOrdinariaSemanal.toString() : '',
-        dedicacion: opp.dedicacion || '',
-        jornadaSemanalPractica: opp.jornadaSemanalPractica ? opp.jornadaSemanalPractica.toString() : '',
-        fechaInicioPractica: opp.fechaInicioPractica ? new Date(opp.fechaInicioPractica).toISOString().split('T')[0] : '',
-        fechaFinPractica: opp.fechaFinPractica ? new Date(opp.fechaFinPractica).toISOString().split('T')[0] : '',
-        horario: opp.horario || '',
-        areaDesempeno: opp.areaDesempeno || '',
-        enlacesFormatoEspecificos: opp.enlacesFormatoEspecificos || '',
-        salarioEmocional: (() => {
-          // Convertir salarioEmocional a array si es string (compatibilidad con datos antiguos)
-          return Array.isArray(opp.salarioEmocional) 
-            ? opp.salarioEmocional 
-            : (opp.salarioEmocional ? [opp.salarioEmocional] : []);
-        })(),
-        promedioMinimoRequerido: opp.promedioMinimoRequerido || '',
-        formacionAcademica: opp.formacionAcademica || [],
-        idiomas: opp.idiomas || [],
-        funciones: opp.funciones || '',
-        requisitos: opp.requisitos || ''
-      };
-      setEditFormData(formDataEdit);
-      setEditSelectedCompany(opp.company);
-      setIsEditingDetail(false); // Inicializar en modo solo lectura
+    if ((vista === 'detalle' || vista === 'editar') && oportunidadSeleccionada?._id) {
+      let cancelled = false;
+      api.get(`/opportunities/${oportunidadSeleccionada._id}`)
+        .then((res) => {
+          if (cancelled) return;
+          const opp = res.data;
+          const formDataEdit = buildEditFormDataFromOpp(opp);
+          if (formDataEdit) {
+            setEditFormData(formDataEdit);
+            setEditSelectedCompany(opp.company);
+          }
+          if (vista === 'detalle') setIsEditingDetail(false);
+        })
+        .catch((err) => {
+          if (!cancelled) console.error('[Oportunidades] Error cargando oportunidad por ID:', err);
+        });
+      return () => { cancelled = true; };
     }
-  }, [vista, oportunidadSeleccionada]); // Removido editFormData de las dependencias para evitar resetear cuando se agregan programas/idiomas
+  }, [vista, oportunidadSeleccionada?._id]);
 
   // Filtrar opciones de salario emocional para edición
   const filteredEditSalarioEmocional = useMemo(() => {
@@ -1907,7 +1896,7 @@ export default function Oportunidades({ onVolver }) {
     return opcionesSalarioEmocional.filter(opcion =>
       opcion.label.toLowerCase().includes(q)
     );
-  }, [editSalarioEmocionalSearch]);
+  }, [editSalarioEmocionalSearch, opcionesSalarioEmocional]);
 
   // Filtrar opciones que ya están seleccionadas para no mostrarlas en el dropdown
   const filteredEditSalarioEmocionalDisponibles = useMemo(() => {
@@ -2208,12 +2197,15 @@ export default function Oportunidades({ onVolver }) {
                     <select
                       name="pais"
                       value={formData.pais}
-                      onChange={handleFormChange}
+                      onChange={(e) => {
+                        const { name, value } = e.target;
+                        setFormData(prev => ({ ...prev, [name]: value, ciudad: '' }));
+                      }}
                       className="form-select"
                     >
                       <option value="">Seleccionar</option>
                       {countries.map(country => (
-                        <option key={country.isoCode} value={country.isoCode}>
+                        <option key={country._id} value={country._id}>
                           {country.name}
                         </option>
                       ))}
@@ -2227,7 +2219,7 @@ export default function Oportunidades({ onVolver }) {
                     >
                       <option value="">Seleccionar</option>
                       {cities.map(city => (
-                        <option key={city.name} value={city.name}>
+                        <option key={city._id} value={city._id}>
                           {city.name}
                         </option>
                       ))}
@@ -2272,8 +2264,8 @@ export default function Oportunidades({ onVolver }) {
                   >
                     <option value="">Seleccionar</option>
                     {dedicationTypes.map(dedication => (
-                      <option key={dedication._id} value={dedication.value}>
-                        {dedication.value}
+                      <option key={dedication._id} value={dedication._id}>
+                        {dedication.description || dedication.value}
                       </option>
                     ))}
                   </select>
@@ -2361,59 +2353,10 @@ export default function Oportunidades({ onVolver }) {
                   >
                     <option value="">Seleccionar</option>
                     {performanceAreas.map(area => (
-                      <option key={area._id} value={area.value}>
-                        {area.value}
+                      <option key={area._id} value={area._id}>
+                        {area.description || area.value}
                       </option>
                     ))}
-                    <option value="planificacion_urbana_regional">Planificación urbana y regional</option>
-                    <option value="instrumentos_planificacion_gestion_suelo">Instrumentos de planificación y gestión de suelo</option>
-                    <option value="espacio_publico">Espacio público</option>
-                    <option value="movilidad_transporte">Movilidad y transporte</option>
-                    <option value="gestion_ambiental">Gestión ambiental</option>
-                    <option value="gestion_inmobiliaria">Gestión inmobiliaria</option>
-                    <option value="habitat_vivienda">Hábitat y vivienda</option>
-                    <option value="finanzas_publicas">Finanzas públicas</option>
-                    <option value="gestion_centros_historicos_patrimonio">Gestión de centros históricos y patrimonio</option>
-                    <option value="planeacion">Planeación</option>
-                    <option value="ingenieria_clinica_hospitalaria">Ingeniería clínica hospitalaria</option>
-                    <option value="ingenieria_rehabilitacion">Ingeniería de la rehabilitación</option>
-                    <option value="informatica_medica">Informática médica</option>
-                    <option value="procesamiento_imagenes_diagnosticas">Procesamiento de imágenes diagnósticas</option>
-                    <option value="nanotecnologia">Nanotecnología</option>
-                    <option value="inteligencia_artificial">Inteligencia artificial</option>
-                    <option value="medicina">Medicina</option>
-                    <option value="ingenieria_biomedica">Ingeniería Biomédica</option>
-                    <option value="geopolitica">Geopolítica</option>
-                    <option value="politica_internacional">Política internacional</option>
-                    <option value="seguridad">Seguridad</option>
-                    <option value="diplomacia">Diplomacia</option>
-                    <option value="inversiones">Inversiones</option>
-                    <option value="ciencia_politica">Ciencia Política</option>
-                    <option value="gestion_urbana">Gestión Urbana</option>
-                    <option value="urbanismo">Urbanismo</option>
-                    <option value="docencia">Docencia</option>
-                    <option value="acompanamiento_estudiantil">Acompañamiento estudiantil</option>
-                    <option value="mentoria">Mentoría</option>
-                    <option value="relaciones_internacionales">Relaciones internacionales</option>
-                    <option value="economia_politica">Economía Política</option>
-                    <option value="coyuntura_politica">Coyuntura Política</option>
-                    <option value="fronteras">Fronteras</option>
-                    <option value="sistemas_politicos">Sistemas Políticos</option>
-                    <option value="sistemas_urbanos">Sistemas Urbanos</option>
-                    <option value="gobierno_gerencia_publica">Gobierno y gerencia pública</option>
-                    <option value="politica_internacional_diplomacia">Política internacional y diplomacia</option>
-                    <option value="seguridad_paz_conflicto">Seguridad, paz y conflicto</option>
-                    <option value="desarrollo_participacion">Desarrollo y participación</option>
-                    <option value="ciudades_territorios_sostenibles">Ciudades y Territorios Sostenibles</option>
-                    <option value="migraciones_internacionales">Migraciones Internacionales</option>
-                    <option value="derechos_humanos">Derechos Humanos</option>
-                    <option value="justicia_transicional">Justicia Transicional</option>
-                    <option value="construccion_paz">Construcción de paz</option>
-                    <option value="artes_visuales">Artes visuales</option>
-                    <option value="artes_escenicas">Artes escénicas</option>
-                    <option value="artes_literarias">Artes literarias</option>
-                    <option value="audiovisuales">Audiovisuales</option>
-                    <option value="artes_electronicas">Artes electrónicas</option>
                   </select>
                 </div>
 
@@ -3515,7 +3458,7 @@ export default function Oportunidades({ onVolver }) {
                 />
               </div>
 
-              {/* País / Ciudad */}
+              {/* País / Ciudad (backend Country, City) */}
               <div className="form-field-group form-field-half-width">
                 <label className="form-label-with-icon">
                   <FiMapPin className="label-icon" />
@@ -3525,12 +3468,15 @@ export default function Oportunidades({ onVolver }) {
                   <select
                     name="pais"
                     value={editFormData.pais}
-                    onChange={handleEditFormChange}
+                    onChange={(e) => {
+                      const { name, value } = e.target;
+                      setEditFormData(prev => ({ ...prev, [name]: value, ciudad: '' }));
+                    }}
                     className="form-select"
                   >
                     <option value="">Seleccionar</option>
                     {countries.map(country => (
-                      <option key={country.isoCode} value={country.isoCode}>
+                      <option key={country._id} value={country._id}>
                         {country.name}
                       </option>
                     ))}
@@ -3544,7 +3490,7 @@ export default function Oportunidades({ onVolver }) {
                   >
                     <option value="">Seleccionar</option>
                     {editCities.map(city => (
-                      <option key={city.name} value={city.name}>
+                      <option key={city._id} value={city._id}>
                         {city.name}
                       </option>
                     ))}
@@ -3581,8 +3527,8 @@ export default function Oportunidades({ onVolver }) {
                 >
                   <option value="">Seleccionar</option>
                   {dedicationTypes.map(dedication => (
-                    <option key={dedication._id} value={dedication.value}>
-                      {dedication.value}
+                    <option key={dedication._id} value={dedication._id}>
+                      {dedication.description || dedication.value}
                     </option>
                   ))}
                 </select>
@@ -3653,85 +3599,11 @@ export default function Oportunidades({ onVolver }) {
                   className="form-select"
                 >
                   <option value="">Seleccionar</option>
-                  <option value="administrativa">Administrativa (Proyectos, Gerencia, Dirección Administrativa, Tesorería)</option>
-                  <option value="archivo">Archivo</option>
-                  <option value="area_contable">Area Contable</option>
-                  <option value="area_financiera">Área financiera</option>
-                  <option value="auditoria">Auditoría</option>
-                  <option value="bienestar">Bienestar</option>
-                  <option value="calidad">Calidad</option>
-                  <option value="capacitacion">Capacitación</option>
-                  <option value="compras_importaciones">Compras e importaciones</option>
-                  <option value="comunicaciones">Comunicaciones</option>
-                  <option value="contabilidad">Contabilidad</option>
-                  <option value="gerencia">Gerencia</option>
-                  <option value="investigacion">Investigación</option>
-                  <option value="juridica">Jurídica</option>
-                  <option value="logistica_cadena_suministro">Logística y cadena de suministro</option>
-                  <option value="mercadeo">Mercadeo</option>
-                  <option value="politica_publica">Política pública</option>
-                  <option value="presidencia">Presidencia</option>
-                  <option value="produccion">Producción</option>
-                  <option value="proyectos">Proyectos</option>
-                  <option value="recursos_humanos">Recursos humanos</option>
-                  <option value="responsabilidad_social">Responsabilidad social</option>
-                  <option value="riesgos">Riesgos</option>
-                  <option value="servicio_cliente">Servicio al cliente</option>
-                  <option value="sostenibilidad">Sostenibilidad</option>
-                  <option value="tecnologia">Tecnología</option>
-                  <option value="area_ambiental">Área ambiental</option>
-                  <option value="comercial_ventas_exportaciones">Comercial (Ventas - Exportaciones - Servicio al Cliente) y Mercadeo</option>
-                  <option value="finanzas">Finanzas</option>
-                  <option value="emprendimiento">Emprendimiento</option>
-                  <option value="planificacion_urbana_regional">Planificación urbana y regional</option>
-                  <option value="instrumentos_planificacion_gestion_suelo">Instrumentos de planificación y gestión de suelo</option>
-                  <option value="espacio_publico">Espacio público</option>
-                  <option value="movilidad_transporte">Movilidad y transporte</option>
-                  <option value="gestion_ambiental">Gestión ambiental</option>
-                  <option value="gestion_inmobiliaria">Gestión inmobiliaria</option>
-                  <option value="habitat_vivienda">Hábitat y vivienda</option>
-                  <option value="finanzas_publicas">Finanzas públicas</option>
-                  <option value="gestion_centros_historicos_patrimonio">Gestión de centros históricos y patrimonio</option>
-                  <option value="planeacion">Planeación</option>
-                  <option value="ingenieria_clinica_hospitalaria">Ingeniería clínica hospitalaria</option>
-                  <option value="ingenieria_rehabilitacion">Ingeniería de la rehabilitación</option>
-                  <option value="informatica_medica">Informática médica</option>
-                  <option value="procesamiento_imagenes_diagnosticas">Procesamiento de imágenes diagnósticas</option>
-                  <option value="nanotecnologia">Nanotecnología</option>
-                  <option value="inteligencia_artificial">Inteligencia artificial</option>
-                  <option value="medicina">Medicina</option>
-                  <option value="ingenieria_biomedica">Ingeniería Biomédica</option>
-                  <option value="geopolitica">Geopolítica</option>
-                  <option value="politica_internacional">Política internacional</option>
-                  <option value="seguridad">Seguridad</option>
-                  <option value="diplomacia">Diplomacia</option>
-                  <option value="inversiones">Inversiones</option>
-                  <option value="ciencia_politica">Ciencia Política</option>
-                  <option value="gestion_urbana">Gestión Urbana</option>
-                  <option value="urbanismo">Urbanismo</option>
-                  <option value="docencia">Docencia</option>
-                  <option value="acompanamiento_estudiantil">Acompañamiento estudiantil</option>
-                  <option value="mentoria">Mentoría</option>
-                  <option value="relaciones_internacionales">Relaciones internacionales</option>
-                  <option value="economia_politica">Economía Política</option>
-                  <option value="coyuntura_politica">Coyuntura Política</option>
-                  <option value="fronteras">Fronteras</option>
-                  <option value="sistemas_politicos">Sistemas Políticos</option>
-                  <option value="sistemas_urbanos">Sistemas Urbanos</option>
-                  <option value="gobierno_gerencia_publica">Gobierno y gerencia pública</option>
-                  <option value="politica_internacional_diplomacia">Política internacional y diplomacia</option>
-                  <option value="seguridad_paz_conflicto">Seguridad, paz y conflicto</option>
-                  <option value="desarrollo_participacion">Desarrollo y participación</option>
-                  <option value="ciudades_territorios_sostenibles">Ciudades y Territorios Sostenibles</option>
-                  <option value="migraciones_internacionales">Migraciones Internacionales</option>
-                  <option value="derechos_humanos">Derechos Humanos</option>
-                  <option value="justicia_transicional">Justicia Transicional</option>
-                  <option value="construccion_paz">Construcción de paz</option>
-                  <option value="artes_visuales">Artes visuales</option>
-                  <option value="artes_escenicas">Artes escénicas</option>
-                  <option value="artes_literarias">Artes literarias</option>
-                  <option value="audiovisuales">Audiovisuales</option>
-                  <option value="artes_electronicas">Artes electrónicas</option>
+                  {performanceAreas.map(area => (
+                    <option key={area._id} value={area._id}>
+                      {area.description || area.value}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -4493,13 +4365,15 @@ export default function Oportunidades({ onVolver }) {
         fechaInicioPractica: opp.fechaInicioPractica ? new Date(opp.fechaInicioPractica).toISOString().split('T')[0] : '',
         fechaFinPractica: opp.fechaFinPractica ? new Date(opp.fechaFinPractica).toISOString().split('T')[0] : '',
         horario: opp.horario || '',
-        areaDesempeno: opp.areaDesempeno || '',
+        areaDesempeno: (opp.areaDesempeno && typeof opp.areaDesempeno === 'object' && opp.areaDesempeno._id) 
+          ? opp.areaDesempeno._id 
+          : (opp.areaDesempeno || ''),
         enlacesFormatoEspecificos: opp.enlacesFormatoEspecificos || '',
         salarioEmocional: (() => {
-          // Convertir salarioEmocional a array si es string (compatibilidad con datos antiguos)
-          return Array.isArray(opp.salarioEmocional) 
+          const arr = Array.isArray(opp.salarioEmocional) 
             ? opp.salarioEmocional 
             : (opp.salarioEmocional ? [opp.salarioEmocional] : []);
+          return arr.map(x => (x && typeof x === 'object' && x._id) ? x._id : x);
         })(),
         promedioMinimoRequerido: opp.promedioMinimoRequerido || '',
         formacionAcademica: opp.formacionAcademica || [],
@@ -4557,14 +4431,26 @@ export default function Oportunidades({ onVolver }) {
                   <FiCopy className="btn-icon" />
                   Duplicar
                 </button>
-                <button className="btn-aplicaciones-header" onClick={() => {
-                  Swal.fire({
-                    icon: 'info',
-                    title: 'En desarrollo',
-                    text: 'La funcionalidad de ver aplicaciones estará disponible próximamente',
-                    confirmButtonText: 'Aceptar',
-                    confirmButtonColor: '#c41e3a'
-                  });
+                <button className="btn-aplicaciones-header" onClick={async () => {
+                  if (!oportunidadSeleccionada?._id) return;
+                  setLoadingAplicaciones(true);
+                  setShowModalAplicaciones(true);
+                  try {
+                    const base = oportunidadSeleccionada._isMTM ? '/oportunidades-mtm' : '/opportunities';
+                    const { data } = await api.get(`${base}/${oportunidadSeleccionada._id}/applications`);
+                    setAplicacionesList(data.postulaciones || []);
+                  } catch (err) {
+                    console.error(err);
+                    setAplicacionesList([]);
+                    Swal.fire({
+                      icon: 'error',
+                      title: 'Error',
+                      text: err.response?.data?.message || 'No se pudieron cargar las aplicaciones',
+                      confirmButtonColor: '#c41e3a'
+                    });
+                  } finally {
+                    setLoadingAplicaciones(false);
+                  }
                 }}>
                   <FiUsers className="btn-icon" />
                   Aplicaciones
@@ -4776,7 +4662,7 @@ export default function Oportunidades({ onVolver }) {
                 />
               </div>
 
-              {/* País / Ciudad */}
+              {/* País / Ciudad (backend Country, City) */}
               <div className="form-field-group form-field-half-width">
                 <label className="form-label-with-icon">
                   <FiMapPin className="label-icon" />
@@ -4786,13 +4672,17 @@ export default function Oportunidades({ onVolver }) {
                   <select
                     name="pais"
                     value={editFormData.pais}
-                    onChange={handleEditFormChange}
+                    onChange={(e) => {
+                      if (!isEditingDetail) return;
+                      const { name, value } = e.target;
+                      setEditFormData(prev => ({ ...prev, [name]: value, ciudad: '' }));
+                    }}
                     className="form-select"
                     disabled={!isEditingDetail}
                   >
                     <option value="">Seleccionar</option>
                     {countries.map(country => (
-                      <option key={country.isoCode} value={country.isoCode}>
+                      <option key={country._id} value={country._id}>
                         {country.name}
                       </option>
                     ))}
@@ -4806,7 +4696,7 @@ export default function Oportunidades({ onVolver }) {
                   >
                     <option value="">Seleccionar</option>
                     {editCities.map(city => (
-                      <option key={city.name} value={city.name}>
+                      <option key={city._id} value={city._id}>
                         {city.name}
                       </option>
                     ))}
@@ -4853,9 +4743,11 @@ export default function Oportunidades({ onVolver }) {
                   disabled={!isEditingDetail}
                 >
                   <option value="">Seleccionar</option>
-                  <option value="tiempo_completo">Tiempo completo</option>
-                  <option value="medio_tiempo">Medio tiempo</option>
-                  <option value="por_horas">Por horas</option>
+                  {dedicationTypes.map(dedication => (
+                    <option key={dedication._id} value={dedication._id}>
+                      {dedication.description || dedication.value}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -4950,8 +4842,8 @@ export default function Oportunidades({ onVolver }) {
                 >
                   <option value="">Seleccionar</option>
                   {performanceAreas.map(area => (
-                    <option key={area._id} value={area.value}>
-                      {area.value}
+                    <option key={area._id} value={area._id}>
+                      {area.description || area.value}
                     </option>
                   ))}
                 </select>
@@ -5396,25 +5288,35 @@ export default function Oportunidades({ onVolver }) {
           document.body
         )}
 
-        {/* Modal de Rechazo */}
-        {showModalRechazo && (
-          <div className="modal-overlay" onClick={() => {
-            setShowModalRechazo(false);
-            setMotivoRechazo('');
-            setMotivoRechazoOtro('');
-          }}>
-            <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
+        {/* Modal de Rechazo — renderizado en document.body para que quede siempre encima */}
+        {showModalRechazo && createPortal(
+          <div
+            className="oportunidades-modal-rechazo-overlay"
+            onClick={() => {
+              setShowModalRechazo(false);
+              setMotivoRechazo('');
+              setMotivoRechazoOtro('');
+            }}
+          >
+            <div className="oportunidades-modal-rechazo" onClick={(e) => e.stopPropagation()}>
+              <div className="oportunidades-modal-rechazo-header">
                 <h4>Rechazar Oportunidad</h4>
-                <button className="modal-close" onClick={() => {
-                  setShowModalRechazo(false);
-                  setMotivoRechazo('');
-                  setMotivoRechazoOtro('');
-                }}>×</button>
+                <button
+                  type="button"
+                  className="oportunidades-modal-rechazo-close"
+                  onClick={() => {
+                    setShowModalRechazo(false);
+                    setMotivoRechazo('');
+                    setMotivoRechazoOtro('');
+                  }}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
               </div>
-              <div className="modal-body">
-                <div className="modal-field">
-                  <label>Seleccione el motivo de rechazo <span className="required">*</span></label>
+              <div className="oportunidades-modal-rechazo-body">
+                <div className="oportunidades-modal-rechazo-field">
+                  <label>Seleccione el motivo de rechazo <span className="oportunidades-modal-rechazo-required">*</span></label>
                   <select
                     value={motivoRechazo}
                     onChange={(e) => {
@@ -5423,7 +5325,7 @@ export default function Oportunidades({ onVolver }) {
                         setMotivoRechazoOtro('');
                       }
                     }}
-                    className="form-select"
+                    className="oportunidades-modal-rechazo-select"
                   >
                     <option value="">- Seleccione un motivo -</option>
                     {motivosRechazo.map((motivo, idx) => (
@@ -5432,58 +5334,69 @@ export default function Oportunidades({ onVolver }) {
                   </select>
                 </div>
                 {motivoRechazo === 'Otro' && (
-                  <div className="modal-field">
-                    <label>Especifique el motivo <span className="required">*</span></label>
+                  <div className="oportunidades-modal-rechazo-field">
+                    <label>Especifique el motivo <span className="oportunidades-modal-rechazo-required">*</span></label>
                     <textarea
                       value={motivoRechazoOtro}
                       onChange={(e) => setMotivoRechazoOtro(e.target.value)}
-                      className="form-textarea"
+                      className="oportunidades-modal-rechazo-textarea"
                       placeholder="Ingrese el motivo de rechazo..."
                       rows="4"
                     />
                   </div>
                 )}
               </div>
-              <div className="modal-footer">
-                <button className="btn-secondary" onClick={() => {
-                  setShowModalRechazo(false);
-                  setMotivoRechazo('');
-                  setMotivoRechazoOtro('');
-                }}>
+              <div className="oportunidades-modal-rechazo-footer">
+                <button
+                  type="button"
+                  className="oportunidades-modal-rechazo-btn-cancelar"
+                  onClick={() => {
+                    setShowModalRechazo(false);
+                    setMotivoRechazo('');
+                    setMotivoRechazoOtro('');
+                  }}
+                >
                   Cancelar
                 </button>
-                <button className="btn-rechazar-programa" onClick={handleRechazarOportunidad}>
+                <button
+                  type="button"
+                  className="oportunidades-modal-rechazo-btn-rechazar"
+                  onClick={handleRechazarOportunidad}
+                >
                   Rechazar Oportunidad
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
-        {/* Modal de Historial de Estados */}
+        {/* Modal de Historial de Estados - clases propias para forzar estilos y centrado */}
         {showModalHistorial && (
-          <div className="modal-overlay" onClick={() => setShowModalHistorial(false)}>
-            <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
+          <div className="oportunidades-modal-historial-overlay" onClick={() => setShowModalHistorial(false)}>
+            <div className="oportunidades-modal-historial" onClick={(e) => e.stopPropagation()}>
+              <div className="oportunidades-modal-historial-header">
                 <h4>Historial de Estados</h4>
-                <button className="modal-close" onClick={() => setShowModalHistorial(false)}>×</button>
+                <button type="button" className="oportunidades-modal-historial-close" onClick={() => setShowModalHistorial(false)} aria-label="Cerrar">×</button>
               </div>
-              <div className="modal-body">
+              <div className="oportunidades-modal-historial-body">
                 {historialEstados.length === 0 ? (
-                  <p>No hay historial de cambios de estado registrado.</p>
+                  <p className="oportunidades-modal-historial-empty">No hay historial de cambios de estado registrado.</p>
                 ) : (
-                  <div className="historial-list">
+                  <div className="oportunidades-modal-historial-list">
                     {historialEstados.map((item, idx) => (
-                      <div key={idx} className="historial-item">
-                        <div className="historial-header">
-                          <span className="historial-estado">
-                            {item.estadoAnterior || 'N/A'} → {item.estadoNuevo}
+                      <div key={idx} className="oportunidades-modal-historial-item">
+                        <div className="oportunidades-modal-historial-item-header">
+                          <span className="oportunidades-modal-historial-estado">
+                            {item.estadoAnterior === item.estadoNuevo
+                              ? 'Edición'
+                              : `${item.estadoAnterior || 'N/A'} → ${item.estadoNuevo}`}
                           </span>
-                          <span className="historial-fecha">
+                          <span className="oportunidades-modal-historial-fecha">
                             {formatDate(item.fechaCambio)}
                           </span>
                         </div>
-                        <div className="historial-details">
+                        <div className="oportunidades-modal-historial-item-details">
                           <p><strong>Cambiado por:</strong> {item.cambiadoPor?.name || 'N/A'}</p>
                           {item.motivo && (
                             <p><strong>Motivo:</strong> {item.motivo}</p>
@@ -5497,10 +5410,188 @@ export default function Oportunidades({ onVolver }) {
                   </div>
                 )}
               </div>
-              <div className="modal-footer">
-                <button className="btn-secondary" onClick={() => setShowModalHistorial(false)}>
+              <div className="oportunidades-modal-historial-footer">
+                <button type="button" className="oportunidades-modal-historial-btn-cerrar" onClick={() => setShowModalHistorial(false)}>
                   Cerrar
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Vista Aplicaciones / Postulantes — pantalla completa */}
+        {showModalAplicaciones && (
+          <div
+            className="oportunidades-vista-aplicaciones-overlay"
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowModalAplicaciones(false); setAplicacionDetail(null); setSelectedPostulacionId(null); } }}
+          >
+            <div className="oportunidades-vista-aplicaciones" onClick={(e) => e.stopPropagation()}>
+              <div className="oportunidades-vista-aplicaciones-header">
+                <h4>Aplicaciones / Postulantes</h4>
+                <button
+                  type="button"
+                  className="oportunidades-modal-historial-close"
+                  onClick={() => { setShowModalAplicaciones(false); setAplicacionDetail(null); setSelectedPostulacionId(null); }}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="oportunidades-vista-aplicaciones-body">
+                <div className="oportunidades-vista-aplicaciones-tabla">
+                  {loadingAplicaciones ? (
+                    <p className="oportunidades-modal-historial-empty">Cargando aplicaciones...</p>
+                  ) : aplicacionesList.length === 0 ? (
+                    <p className="oportunidades-modal-historial-empty">No hay postulantes para esta oportunidad.</p>
+                  ) : (
+                    <div className="tabla-aplicaciones-wrap">
+                      <table className="tabla-aplicaciones">
+                        <thead>
+                          <tr>
+                            <th>Nombres</th>
+                            <th>Apellidos</th>
+                            <th>Programa en curso</th>
+                            <th>Programa finalizado</th>
+                            <th>Años de experiencia</th>
+                            <th>Fecha aplicación</th>
+                            <th>Estado</th>
+                            <th>Revisada</th>
+                            <th>Descargada</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {aplicacionesList.map((row, idx) => (
+                            <tr
+                              key={row._id || idx}
+                              className={selectedPostulacionId === (row._id?.toString?.() || row._id) ? 'selected' : ''}
+                              onClick={async () => {
+                                if (!oportunidadSeleccionada?._id || !row._id) return;
+                                setSelectedPostulacionId(row._id?.toString?.() || row._id);
+                                setLoadingDetail(true);
+                                setAplicacionDetail(null);
+                                try {
+                                  const base = oportunidadSeleccionada._isMTM ? '/oportunidades-mtm' : '/opportunities';
+                                  const { data } = await api.get(`${base}/${oportunidadSeleccionada._id}/applications/detail/${row._id}`);
+                                  setAplicacionDetail(data);
+                                } catch (err) {
+                                  console.error(err);
+                                  Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: err.response?.data?.message || 'No se pudo cargar el perfil',
+                                    confirmButtonColor: '#c41e3a'
+                                  });
+                                } finally {
+                                  setLoadingDetail(false);
+                                }
+                              }}
+                            >
+                              <td>{row.nombres ?? '—'}</td>
+                              <td>{row.apellidos ?? '—'}</td>
+                              <td>
+                                {Array.isArray(row.programasEnCurso) && row.programasEnCurso.length > 0
+                                  ? row.programasEnCurso.map((p, i) => <div key={i}>{p}</div>)
+                                  : 'Sin programas'}
+                              </td>
+                              <td>
+                                {Array.isArray(row.programasFinalizados) && row.programasFinalizados.length > 0
+                                  ? row.programasFinalizados.map((p, i) => <div key={i}>{p}</div>)
+                                  : 'Sin programas'}
+                              </td>
+                              <td>{row.añosExperiencia ?? '—'}</td>
+                              <td>{row.fechaPostulacion ? new Date(row.fechaPostulacion).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</td>
+                              <td>{row.estadoLabel ?? row.estado ?? '—'}</td>
+                              <td>{row.revisada ? '✓' : '—'}</td>
+                              <td>{row.descargada ? '✓' : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div className="oportunidades-vista-aplicaciones-detalle">
+                  {loadingDetail ? (
+                    <p className="oportunidades-modal-historial-empty">Cargando perfil...</p>
+                  ) : aplicacionDetail ? (
+                    <div className="detalle-postulante">
+                          <h5 className="detalle-postulante-nombre">{(aplicacionDetail.nombres || '') + ' ' + (aplicacionDetail.apellidos || '')}</h5>
+                          <div className="detalle-postulante-campo">
+                            <strong>Email:</strong> {aplicacionDetail.email ?? '—'}
+                          </div>
+                          <div className="detalle-postulante-campo">
+                            <strong>Teléfono:</strong> {aplicacionDetail.telefono ?? '—'}
+                          </div>
+                          {aplicacionDetail.linkedin && (
+                            <div className="detalle-postulante-campo">
+                              <strong>LinkedIn:</strong>{' '}
+                              <a href={aplicacionDetail.linkedin} target="_blank" rel="noopener noreferrer">{aplicacionDetail.linkedin}</a>
+                            </div>
+                          )}
+                          <div className="detalle-postulante-campo">
+                            <strong>Fecha de aplicación:</strong>{' '}
+                            {aplicacionDetail.fechaAplicacion ? new Date(aplicacionDetail.fechaAplicacion).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
+                          </div>
+                          <div className="detalle-postulante-campo">
+                            <strong>Estado:</strong> {aplicacionDetail.estadoLabel ?? aplicacionDetail.estado ?? '—'}
+                          </div>
+                          <div className="detalle-postulante-campo">
+                            <strong>Años de experiencia:</strong> {aplicacionDetail.añosExperiencia ?? '—'}
+                          </div>
+                          {Array.isArray(aplicacionDetail.programasEnCurso) && aplicacionDetail.programasEnCurso.length > 0 && (
+                            <div className="detalle-postulante-campo">
+                              <strong>Programas en curso:</strong>
+                              <ul>{aplicacionDetail.programasEnCurso.map((p, i) => <li key={i}>{p}</li>)}</ul>
+                            </div>
+                          )}
+                          {Array.isArray(aplicacionDetail.programasFinalizados) && aplicacionDetail.programasFinalizados.length > 0 && (
+                            <div className="detalle-postulante-campo">
+                              <strong>Programas finalizados:</strong>
+                              <ul>{aplicacionDetail.programasFinalizados.map((p, i) => <li key={i}>{p}</li>)}</ul>
+                            </div>
+                          )}
+                          {Array.isArray(aplicacionDetail.competencias) && aplicacionDetail.competencias.length > 0 && (
+                            <div className="detalle-postulante-campo">
+                              <strong>Competencias:</strong>
+                              <ul className="detalle-postulante-competencias">{aplicacionDetail.competencias.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                            </div>
+                          )}
+                          {Array.isArray(aplicacionDetail.hojasDeVida) && aplicacionDetail.hojasDeVida.length > 0 && (
+                            <div className="detalle-postulante-campo">
+                              <strong>Hojas de vida:</strong>
+                              <ul className="detalle-postulante-cvs">
+                                {aplicacionDetail.hojasDeVida.map((hv, i) => (
+                                  <li key={i}>
+                                    <a
+                                      href="#"
+                                      onClick={async (e) => {
+                                        e.preventDefault();
+                                        if (!hv.postulantDocId || !hv.attachmentId) return;
+                                        try {
+                                          const res = await api.get(`/postulants/${hv.postulantDocId}/attachments/${hv.attachmentId}/download`, { responseType: 'blob' });
+                                          const url = window.URL.createObjectURL(res.data);
+                                          const a = document.createElement('a');
+                                          a.href = url;
+                                          a.download = hv.name || 'hoja-de-vida.pdf';
+                                          a.click();
+                                          window.URL.revokeObjectURL(url);
+                                        } catch (err) {
+                                          Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo descargar el archivo', confirmButtonColor: '#c41e3a' });
+                                        }
+                                      }}
+                                    >
+                                      {hv.name || 'Descargar hoja de vida'}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                  ) : (
+                    <p className="oportunidades-modal-historial-empty">Seleccione un postulante de la lista para ver su perfil.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -5739,7 +5830,7 @@ export default function Oportunidades({ onVolver }) {
             {oportunidades.filter(o => listaTab === 'practicas' ? !o._isMTM : o._isMTM).map(oportunidad => {
               const estado = oportunidad.estado || oportunidad.status || 'Creada';
               const isActiva = estado === 'Activa' || estado === 'activa' || estado === 'published';
-              const numPostulantes = oportunidad.postulaciones?.length || 0;
+              const numPostulantes = oportunidad.aplicacionesCount ?? oportunidad.postulaciones?.length ?? 0;
               const salario = oportunidad.apoyoEconomico 
                 ? `$${oportunidad.apoyoEconomico.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : null;

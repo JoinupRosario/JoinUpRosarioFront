@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import { FiUsers, FiX, FiSend, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
 import api from '../../services/api';
@@ -39,6 +39,7 @@ export default function OfertasAfines() {
   const [submittingAplicar, setSubmittingAplicar] = useState(false);
   const [postulantId, setPostulantId] = useState(null);
   const [showConfirmacionAplicar, setShowConfirmacionAplicar] = useState(false);
+  const applyingToIdRef = useRef(null);
 
   const loadOfertas = async (page = 1) => {
     try {
@@ -105,12 +106,16 @@ export default function OfertasAfines() {
 
   const submitAplicar = async () => {
     if (!detalle) return;
+    const opportunityId = detalle._id;
+    if (!opportunityId) return;
+    if (applyingToIdRef.current !== null) return;
     const selected = profiles.find((p) => String(p._id) === String(selectedVersionId));
     const profileIdToSend = selected?.profileId || selected?._id;
     if (!profileIdToSend) return;
+    applyingToIdRef.current = String(opportunityId);
     setSubmittingAplicar(true);
     try {
-      await api.post(`/opportunities/${detalle._id}/aplicar`, { profileId: profileIdToSend });
+      await api.post(`/opportunities/${opportunityId}/aplicar`, { profileId: profileIdToSend });
       setShowModalAplicar(false);
       setShowConfirmacionAplicar(true);
     } catch (e) {
@@ -118,6 +123,7 @@ export default function OfertasAfines() {
       alert(msg);
     } finally {
       setSubmittingAplicar(false);
+      applyingToIdRef.current = null;
     }
   };
 
