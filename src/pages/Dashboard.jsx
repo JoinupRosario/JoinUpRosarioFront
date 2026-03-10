@@ -37,6 +37,8 @@ import Periodos from './componentss/periodos/Periodos';
 import ConfiguracionAsignaturas from './componentss/ConfiguracionAsignaturas';
 import CondicionesCurriculares from './componentss/CondicionesCurriculares';
 import ParametrizacionDocumentos from './componentss/parametrizacionDocumentos/ParametrizacionDocumentos';
+import NotificacionMonitorias from './componentss/notificaciones/notificacionMonitorias/NotificacionMonitorias';
+import NotificacionPracticas from './componentss/notificaciones/notificacionPracticas/NotificacionPracticas';
 import Oportunidades from './componentss/Oportunidades';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
@@ -95,7 +97,9 @@ export default function Dashboard() {
     '/dashboard/periodos': 'periodos',
     '/dashboard/asignaturas': 'asignaturas',
     '/dashboard/condiciones-curriculares': 'condiciones-curriculares',
-    '/dashboard/configuracion-documentos': 'configuracion-documentos'
+    '/dashboard/configuracion-documentos': 'configuracion-documentos',
+    '/dashboard/plantillas-notificacion-monitoria': 'plantillas-monitoria',
+    '/dashboard/plantillas-notificacion-practicas': 'plantillas-practicas'
   };
 
   // Mapeo de vistas a rutas
@@ -117,7 +121,9 @@ export default function Dashboard() {
     'periodos': '/dashboard/periodos',
     'asignaturas': '/dashboard/asignaturas',
     'condiciones-curriculares': '/dashboard/condiciones-curriculares',
-    'configuracion-documentos': '/dashboard/configuracion-documentos'
+    'configuracion-documentos': '/dashboard/configuracion-documentos',
+    'plantillas-monitoria': '/dashboard/plantillas-notificacion-monitoria',
+    'plantillas-practicas': '/dashboard/plantillas-notificacion-practicas'
   };
 
   // Obtener vista actual basada en la URL
@@ -151,6 +157,8 @@ export default function Dashboard() {
     if (path === '/dashboard/configuracion-documentos') {
       return 'configuracion-documentos';
     }
+    if (path === '/dashboard/plantillas-notificacion-monitoria') return 'plantillas-monitoria';
+    if (path === '/dashboard/plantillas-notificacion-practicas') return 'plantillas-practicas';
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
     return 'dashboard';
   };
@@ -326,6 +334,8 @@ export default function Dashboard() {
             'faculty-detail':           'Detalle de Facultad',
             'condiciones-curriculares': 'Condiciones Curriculares',
             'ubicaciones':              'Ubicaciones',
+            'plantillas-monitoria':     'Plantillas de notificaciones de monitorías',
+            'plantillas-practicas':     'Plantillas de notificaciones de Prácticas',
           }[vistaActual] && (
             <h1 className="header-page-title">
               {{
@@ -348,6 +358,8 @@ export default function Dashboard() {
                 'faculty-detail':           'Detalle de Facultad',
                 'condiciones-curriculares': 'Condiciones Curriculares',
                 'ubicaciones':              'Ubicaciones',
+                'plantillas-monitoria':     'Plantillas de notificaciones de monitorías',
+                'plantillas-practicas':     'Plantillas de notificaciones de Prácticas',
               }[vistaActual]}
             </h1>
           )}
@@ -553,6 +565,12 @@ export default function Dashboard() {
         )}
         {vistaActual === 'configuracion-documentos' && (
           <ParametrizacionDocumentos onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'plantillas-monitoria' && (
+          <NotificacionMonitorias onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'plantillas-practicas' && (
+          <NotificacionPracticas onVolver={() => navigate('/dashboard/configuracion')} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}

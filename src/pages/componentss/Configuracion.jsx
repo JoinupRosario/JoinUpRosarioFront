@@ -37,6 +37,12 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Parametrización de documentos') {
       navigate('/dashboard/configuracion-documentos');
     }
+    if (opcion.text === 'Plantillas de notificaciones de monitorías') {
+      navigate('/dashboard/plantillas-notificacion-monitoria');
+    }
+    if (opcion.text === 'Plantillas de notificaciones de Prácticas') {
+      navigate('/dashboard/plantillas-notificacion-practicas');
+    }
   };
   const opcionesConfiguracion = [
     { 
@@ -137,7 +143,7 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
-            const isClickable = ['Gestión de Parámetros', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos'].includes(opcion.text);
+            const isClickable = ['Gestión de Parámetros', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas'].includes(opcion.text);
             return (
               <div 
                 key={index} 
