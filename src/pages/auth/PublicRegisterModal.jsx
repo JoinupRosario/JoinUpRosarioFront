@@ -19,10 +19,18 @@ async function fetchCountries() {
   } catch { return []; }
 }
 
-async function searchCities(q) {
-  if (!q || q.length < 2) return [];
+async function fetchStatesByCountry(countryId) {
+  if (!countryId) return [];
   try {
-    const { data } = await axios.get(`${API}/locations/cities?search=${encodeURIComponent(q)}&limit=15`);
+    const { data } = await axios.get(`${API}/locations/states?country=${countryId}&limit=1000`);
+    return Array.isArray(data.data) ? data.data : [];
+  } catch { return []; }
+}
+
+async function fetchCitiesByState(stateId) {
+  if (!stateId) return [];
+  try {
+    const { data } = await axios.get(`${API}/locations/cities?state=${stateId}&limit=1000`);
     return Array.isArray(data.data) ? data.data : [];
   } catch { return []; }
 }
@@ -51,13 +59,14 @@ const LS_KEY = 'public_register_draft';
 const COMPANY_EMPTY = {
   legalName: '', commercialName: '', idType: 'NIT', nit: '',
   sector: '', sectorMineSnies: '', size: '', arl: '',
-  country: 'Colombia', city: '', address: '', phone: '',
+  country: 'Colombia', state: '', city: '', address: '', phone: '',
   website: '', domains: [], description: '',
   ciiuCodes: [], // hasta 3 códigos CIIU
+  ciiuCodesLabels: [], // descripción de cada código (mismo orden que ciiuCodes) para mostrar
 };
 const REP_EMPTY = {
   firstName: '', lastName: '', idType: 'CC', idNumber: '',
-  email: '', phone: '', country: 'Colombia', city: '', address: '',
+  email: '', phone: '', country: 'Colombia', state: '', city: '', address: '',
 };
 
 // ── Algoritmo DIAN (Módulo 11) ─────────────────────────────────────────────
@@ -111,23 +120,20 @@ export default function PublicRegisterModal({ open, onClose }) {
 
   // Archivos adjuntos
 
-  // Autocomplete ciudades empresa
-  const [companyCitySuggestions, setCompanyCitySuggestions] = useState([]);
-  const [companyCityLoading, setCompanyCityLoading] = useState(false);
-  const [showCompanyCityDrop, setShowCompanyCityDrop] = useState(false);
-  const companyCityTimer = useRef(null);
+  // Cascada País → Departamento → Ciudad (empresa)
+  const [companyStates, setCompanyStates] = useState([]);
+  const [companyCities, setCompanyCities] = useState([]);
 
-  // Autocomplete ciudades representante
-  const [repCitySuggestions, setRepCitySuggestions] = useState([]);
-  const [repCityLoading, setRepCityLoading] = useState(false);
-  const [showRepCityDrop, setShowRepCityDrop] = useState(false);
-  const repCityTimer = useRef(null);
+  // Cascada País → Departamento → Ciudad (representante legal)
+  const [repStates, setRepStates] = useState([]);
+  const [repCities, setRepCities] = useState([]);
 
   // Datos del formulario
   const [company, setCompany] = useState(COMPANY_EMPTY);
   const [domainInput, setDomainInput] = useState('');
   const [rep, setRep] = useState(REP_EMPTY);
   const [extraContacts, setExtraContacts] = useState([]);
+  const [mainContactIndex, setMainContactIndex] = useState(0); // 0 = representante legal, 1 = primer adicional, etc.
   const [hp, setHp] = useState('');
 
   // ── Cargar parámetros ─────────────────────────────────────────────────────
@@ -161,6 +167,7 @@ export default function PublicRegisterModal({ open, onClose }) {
       if (draft.company) setCompany(draft.company);
       if (draft.rep) setRep(draft.rep);
       if (draft.extraContacts) setExtraContacts(draft.extraContacts);
+      if (typeof draft.mainContactIndex === 'number') setMainContactIndex(draft.mainContactIndex);
       if (typeof draft.step === 'number') setStep(draft.step);
     }
   }, [open]);
@@ -168,8 +175,8 @@ export default function PublicRegisterModal({ open, onClose }) {
   // ── Guardar borrador ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!open || success) return;
-    saveDraft({ company, rep, extraContacts, step });
-  }, [company, rep, extraContacts, step, open, success]);
+    saveDraft({ company, rep, extraContacts, mainContactIndex, step });
+  }, [company, rep, extraContacts, mainContactIndex, step, open, success]);
 
   // ── Cerrar con confirmación ───────────────────────────────────────────────
   const handleClose = () => {
@@ -185,39 +192,47 @@ export default function PublicRegisterModal({ open, onClose }) {
   const setC = (field, val) => setCompany(p => ({ ...p, [field]: val }));
   const setR = (field, val) => setRep(p => ({ ...p, [field]: val }));
 
-  // ── Autocomplete ciudad empresa ───────────────────────────────────────────
-  const handleCompanyCityInput = (val) => {
-    setC('city', val);
-    setShowCompanyCityDrop(true);
-    clearTimeout(companyCityTimer.current);
-    if (val.length >= 2) {
-      setCompanyCityLoading(true);
-      companyCityTimer.current = setTimeout(async () => {
-        const results = await searchCities(val);
-        setCompanyCitySuggestions(results);
-        setCompanyCityLoading(false);
-      }, 350);
+  // ── Cascada Empresa: cargar departamentos al cambiar país ──────────────────
+  useEffect(() => {
+    const countryId = countries.find(c => c.name === company.country)?._id;
+    if (countryId) {
+      fetchStatesByCountry(countryId).then(setCompanyStates);
     } else {
-      setCompanyCitySuggestions([]);
+      setCompanyStates([]);
     }
-  };
+    setCompanyCities([]);
+  }, [company.country, countries]);
 
-  // ── Autocomplete ciudad representante ─────────────────────────────────────
-  const handleRepCityInput = (val) => {
-    setR('city', val);
-    setShowRepCityDrop(true);
-    clearTimeout(repCityTimer.current);
-    if (val.length >= 2) {
-      setRepCityLoading(true);
-      repCityTimer.current = setTimeout(async () => {
-        const results = await searchCities(val);
-        setRepCitySuggestions(results);
-        setRepCityLoading(false);
-      }, 350);
+  // ── Cascada Empresa: cargar ciudades al cambiar departamento ───────────────
+  useEffect(() => {
+    const stateId = companyStates.find(s => s.name === company.state)?._id;
+    if (stateId) {
+      fetchCitiesByState(stateId).then(setCompanyCities);
     } else {
-      setRepCitySuggestions([]);
+      setCompanyCities([]);
     }
-  };
+  }, [company.state, companyStates]);
+
+  // ── Cascada Representante: cargar departamentos al cambiar país ────────────
+  useEffect(() => {
+    const countryId = countries.find(c => c.name === rep.country)?._id;
+    if (countryId) {
+      fetchStatesByCountry(countryId).then(setRepStates);
+    } else {
+      setRepStates([]);
+    }
+    setRepCities([]);
+  }, [rep.country, countries]);
+
+  // ── Cascada Representante: cargar ciudades al cambiar departamento ─────────
+  useEffect(() => {
+    const stateId = repStates.find(s => s.name === rep.state)?._id;
+    if (stateId) {
+      fetchCitiesByState(stateId).then(setRepCities);
+    } else {
+      setRepCities([]);
+    }
+  }, [rep.state, repStates]);
 
   // ── CIIU autocomplete ─────────────────────────────────────────────────────
   const handleCiiuInput = (val) => {
@@ -238,15 +253,21 @@ export default function PublicRegisterModal({ open, onClose }) {
 
   const addCiiu = (item) => {
     const code = item.value || item._id;
+    const label = item.label || item.description || item.valueForReports || item.value || code;
     if (company.ciiuCodes.length < 3 && !company.ciiuCodes.includes(code)) {
       setC('ciiuCodes', [...company.ciiuCodes, code]);
+      setC('ciiuCodesLabels', [...(company.ciiuCodesLabels || []), label]);
     }
     setCiiuInput('');
     setCiiuSuggestions([]);
     setShowCiiuDrop(false);
   };
 
-  const removeCiiu = (code) => setC('ciiuCodes', company.ciiuCodes.filter(c => c !== code));
+  const removeCiiu = (code) => {
+    const idx = company.ciiuCodes.indexOf(code);
+    setC('ciiuCodes', company.ciiuCodes.filter(c => c !== code));
+    setC('ciiuCodesLabels', (company.ciiuCodesLabels || []).filter((_, i) => i !== idx));
+  };
 
   // ── Dominios ──────────────────────────────────────────────────────────────
   const addDomain = () => {
@@ -305,14 +326,16 @@ export default function PublicRegisterModal({ open, onClose }) {
     }
 
     if (step === 2) {
+      if (extraContacts.length < 1)
+        return setErrorMsg('Debe agregar al menos un contacto adicional (además del representante legal). Por ejemplo, la persona de RRHH que gestiona prácticas.'), false;
       for (let i = 0; i < extraContacts.length; i++) {
         const ec = extraContacts[i];
         if (!ec.firstName.trim() || !ec.lastName.trim())
-          return setErrorMsg(`El contacto ${i + 2} requiere nombre y apellido.`), false;
+          return setErrorMsg(`El contacto adicional ${i + 1} requiere nombre y apellido.`), false;
         if (!ec.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ec.email))
-          return setErrorMsg(`El correo del contacto ${i + 2} no tiene un formato válido.`), false;
+          return setErrorMsg(`El correo del contacto adicional ${i + 1} no tiene un formato válido.`), false;
         if (company.domains.length > 0 && !emailMatchesDomains(ec.email, company.domains))
-          return setErrorMsg(`El correo del contacto ${i + 2} (${ec.email}) debe pertenecer a uno de los dominios: ${company.domains.map(d => '@' + d).join(', ')}`), false;
+          return setErrorMsg(`El correo del contacto adicional ${i + 1} (${ec.email}) debe pertenecer a uno de los dominios: ${company.domains.map(d => '@' + d).join(', ')}`), false;
       }
     }
 
@@ -328,8 +351,9 @@ export default function PublicRegisterModal({ open, onClose }) {
     setSubmitting(true);
     setErrorMsg('');
     try {
+      const { ciiuCodesLabels, ...companyRest } = company;
       const payload = {
-        ...company,
+        ...companyRest,
         legalRepresentative: {
           firstName: rep.firstName,
           lastName: rep.lastName,
@@ -343,6 +367,7 @@ export default function PublicRegisterModal({ open, onClose }) {
         address: rep.address || company.address,
         phone: rep.phone || company.phone,
         extraContacts: extraContacts.filter(c => c.firstName && c.lastName && c.email),
+        mainContactIndex: mainContactIndex, // 0 = representante legal, 1 = primer adicional, etc.
         _hp: hp,
       };
       const data = await postPublicRegister(payload);
@@ -468,12 +493,15 @@ export default function PublicRegisterModal({ open, onClose }) {
                       {showCiiuDrop && (ciiuLoading || ciiuSuggestions.length > 0) && (
                         <div style={styles.cityDrop}>
                           {ciiuLoading && <div style={styles.cityDropItem}>Buscando...</div>}
-                          {ciiuSuggestions.map(item => (
-                            <div key={item._id || item.value} style={styles.cityDropItem}
-                              onMouseDown={() => addCiiu(item)}>
-                              <strong>{item.value}</strong>{item.label && item.label !== item.value ? ` — ${item.label}` : ''}
-                            </div>
-                          ))}
+                          {ciiuSuggestions.map(item => {
+                            const desc = item.label || item.description || item.valueForReports || '';
+                            return (
+                              <div key={item._id || item.value} style={styles.cityDropItem}
+                                onMouseDown={() => addCiiu(item)}>
+                                <strong>{item.value}</strong>{desc ? ` — ${desc}` : ''}
+                              </div>
+                            );
+                          })}
                           {!ciiuLoading && ciiuSuggestions.length === 0 && ciiuInput.length >= 3 && (
                             <div style={{ ...styles.cityDropItem, color: '#999' }}>Sin resultados</div>
                           )}
@@ -481,9 +509,13 @@ export default function PublicRegisterModal({ open, onClose }) {
                       )}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                      {company.ciiuCodes.map(c => (
-                        <span key={c} style={styles.tag}>{c}<button type="button" style={styles.tagRemove} onClick={() => removeCiiu(c)}>✕</button></span>
-                      ))}
+                      {company.ciiuCodes.map((c, idx) => {
+                        const label = (company.ciiuCodesLabels && company.ciiuCodesLabels[idx]) ? company.ciiuCodesLabels[idx] : '';
+                        const text = label ? `${c} — ${label}` : c;
+                        return (
+                          <span key={c} style={styles.tag} title={text}>{text}<button type="button" style={styles.tagRemove} onClick={() => removeCiiu(c)}>✕</button></span>
+                        );
+                      })}
                     </div>
                   </Field>
                   <Row>
@@ -494,36 +526,46 @@ export default function PublicRegisterModal({ open, onClose }) {
                   </Row>
                   <Row>
                     <Field label="País">
-                      <select style={styles.input} value={company.country} onChange={e => setC('country', e.target.value)}>
+                      <select
+                        style={styles.input}
+                        value={company.country}
+                        onChange={e => {
+                          setC('country', e.target.value);
+                          setC('state', '');
+                          setC('city', '');
+                        }}
+                      >
                         <option value="">Selecciona...</option>
                         {countries.length
                           ? countries.map(c => <option key={c._id} value={c.name}>{c.name}</option>)
                           : <option value="Colombia">Colombia</option>}
                       </select>
                     </Field>
-                    <Field label="Ciudad *">
-                      <div style={{ position: 'relative' }}>
-                        <input
-                          style={styles.input}
-                          value={company.city}
-                          onChange={e => handleCompanyCityInput(e.target.value)}
-                          onFocus={() => company.city.length >= 2 && setShowCompanyCityDrop(true)}
-                          onBlur={() => setTimeout(() => setShowCompanyCityDrop(false), 200)}
-                          placeholder="Busca tu ciudad..."
-                          autoComplete="off"
-                        />
-                        {showCompanyCityDrop && (companyCityLoading || companyCitySuggestions.length > 0) && (
-                          <div style={styles.cityDrop}>
-                            {companyCityLoading && <div style={styles.cityDropItem}>Buscando...</div>}
-                            {companyCitySuggestions.map(c => (
-                              <div key={c._id} style={styles.cityDropItem} onMouseDown={() => { setC('city', c.name); setShowCompanyCityDrop(false); }}>
-                                {c.name}{c.state?.name ? ` — ${c.state.name}` : ''}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    <Field label="Departamento / Estado">
+                      <select
+                        style={styles.input}
+                        value={company.state}
+                        onChange={e => { setC('state', e.target.value); setC('city', ''); }}
+                        disabled={!company.country}
+                      >
+                        <option value="">{company.country ? 'Selecciona departamento...' : 'Primero selecciona un país'}</option>
+                        {companyStates.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+                      </select>
                     </Field>
+                  </Row>
+                  <Row>
+                    <Field label="Ciudad *">
+                      <select
+                        style={styles.input}
+                        value={company.city}
+                        onChange={e => setC('city', e.target.value)}
+                        disabled={!company.state}
+                      >
+                        <option value="">{company.state ? 'Selecciona ciudad...' : 'Primero selecciona un departamento'}</option>
+                        {companyCities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                      </select>
+                    </Field>
+                    <div />
                   </Row>
                   <Field label="Dirección">
                     <input style={styles.input} value={company.address} onChange={e => setC('address', e.target.value)} placeholder="Calle 123 # 45-67" />
@@ -586,36 +628,46 @@ export default function PublicRegisterModal({ open, onClose }) {
                   </Row>
                   <Row>
                     <Field label="País">
-                      <select style={styles.input} value={rep.country} onChange={e => setR('country', e.target.value)}>
+                      <select
+                        style={styles.input}
+                        value={rep.country}
+                        onChange={e => {
+                          setR('country', e.target.value);
+                          setR('state', '');
+                          setR('city', '');
+                        }}
+                      >
                         <option value="">Selecciona...</option>
                         {countries.length
                           ? countries.map(c => <option key={c._id} value={c.name}>{c.name}</option>)
                           : <option value="Colombia">Colombia</option>}
                       </select>
                     </Field>
-                    <Field label="Ciudad *">
-                      <div style={{ position: 'relative' }}>
-                        <input
-                          style={styles.input}
-                          value={rep.city}
-                          onChange={e => handleRepCityInput(e.target.value)}
-                          onFocus={() => rep.city.length >= 2 && setShowRepCityDrop(true)}
-                          onBlur={() => setTimeout(() => setShowRepCityDrop(false), 200)}
-                          placeholder="Busca tu ciudad..."
-                          autoComplete="off"
-                        />
-                        {showRepCityDrop && (repCityLoading || repCitySuggestions.length > 0) && (
-                          <div style={styles.cityDrop}>
-                            {repCityLoading && <div style={styles.cityDropItem}>Buscando...</div>}
-                            {repCitySuggestions.map(c => (
-                              <div key={c._id} style={styles.cityDropItem} onMouseDown={() => { setR('city', c.name); setShowRepCityDrop(false); }}>
-                                {c.name}{c.state?.name ? ` — ${c.state.name}` : ''}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    <Field label="Departamento / Estado">
+                      <select
+                        style={styles.input}
+                        value={rep.state}
+                        onChange={e => { setR('state', e.target.value); setR('city', ''); }}
+                        disabled={!rep.country}
+                      >
+                        <option value="">{rep.country ? 'Selecciona departamento...' : 'Primero selecciona un país'}</option>
+                        {repStates.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+                      </select>
                     </Field>
+                  </Row>
+                  <Row>
+                    <Field label="Ciudad *">
+                      <select
+                        style={styles.input}
+                        value={rep.city}
+                        onChange={e => setR('city', e.target.value)}
+                        disabled={!rep.state}
+                      >
+                        <option value="">{rep.state ? 'Selecciona ciudad...' : 'Primero selecciona un departamento'}</option>
+                        {repCities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                      </select>
+                    </Field>
+                    <div />
                   </Row>
                   <Field label="Dirección">
                     <input style={styles.input} value={rep.address} onChange={e => setR('address', e.target.value)} placeholder="Calle 123 # 45-67" />
@@ -626,11 +678,31 @@ export default function PublicRegisterModal({ open, onClose }) {
                 </div>
               )}
 
-              {/* ── PASO 2: Contactos adicionales ──────────────────────── */}
+              {/* ── PASO 2: Contactos (representante legal + al menos 1 adicional, elegir principal) ──────────────────────── */}
               {step === 2 && (
                 <div>
-                  <SectionTitle text="Contactos Adicionales (opcional)" />
-                  <p style={styles.infoText}>Puedes agregar hasta 7 contactos adicionales. El representante legal ya fue registrado en el paso anterior.</p>
+                  <SectionTitle text="Contactos" />
+                  <p style={styles.infoText}>
+                    El contacto principal será quien gestione el acceso a la plataforma. Debe haber al menos dos contactos: el representante legal (paso anterior) y <strong>mínimo un contacto adicional</strong> (por ejemplo, la persona de RRHH que gestiona prácticas).
+                  </p>
+
+                  {/* Contacto 1: Representante legal (solo lectura, datos del paso anterior) */}
+                  <div style={{ ...styles.extraContactCard, background: '#f8f9fa', borderLeft: '4px solid #c41e3a' }}>
+                    <div style={styles.extraContactHeader}>
+                      <strong style={{ color: '#c41e3a' }}>Contacto 1 — Representante legal</strong>
+                      <span style={{ fontSize: 12, color: '#6b7280' }}>Datos del paso anterior</span>
+                    </div>
+                    <p style={{ margin: '8px 0 0', fontSize: 13, color: '#374151' }}>
+                      {rep.firstName} {rep.lastName} — {rep.email}
+                      {rep.phone ? ` — ${rep.phone}` : ''}
+                    </p>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer' }}>
+                      <input type="radio" name="mainContact" checked={mainContactIndex === 0} onChange={() => setMainContactIndex(0)} />
+                      <span>Marcar como contacto principal</span>
+                    </label>
+                  </div>
+
+                  {/* Contactos adicionales (obligatorio al menos 1) */}
                   {extraContacts.map((ec, i) => (
                     <div key={i} style={styles.extraContactCard}>
                       <div style={styles.extraContactHeader}>
@@ -649,7 +721,7 @@ export default function PublicRegisterModal({ open, onClose }) {
                         <Field label="Teléfono"><input style={styles.input} value={ec.phone} onChange={e => updateContact(i, 'phone', e.target.value)} placeholder="+57 300 000 0000" /></Field>
                       </Row>
                       <Row>
-                        <Field label="Cargo"><input style={styles.input} value={ec.position} onChange={e => updateContact(i, 'position', e.target.value)} placeholder="Cargo en la empresa" /></Field>
+                        <Field label="Cargo"><input style={styles.input} value={ec.position} onChange={e => updateContact(i, 'position', e.target.value)} placeholder="Ej: Gestión de prácticas / RRHH" /></Field>
                         <Field label="">
                           <label style={styles.checkLabel}>
                             <input type="checkbox" checked={ec.isPracticeTutor} onChange={e => updateContact(i, 'isPracticeTutor', e.target.checked)} style={{ marginRight: 6 }} />
@@ -657,10 +729,17 @@ export default function PublicRegisterModal({ open, onClose }) {
                           </label>
                         </Field>
                       </Row>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, cursor: 'pointer' }}>
+                        <input type="radio" name="mainContact" checked={mainContactIndex === i + 1} onChange={() => setMainContactIndex(i + 1)} />
+                        <span>Marcar como contacto principal</span>
+                      </label>
                     </div>
                   ))}
                   {extraContacts.length < 7 && (
-                    <button type="button" style={styles.addContactBtn} onClick={addContact}>+ Agregar contacto</button>
+                    <button type="button" style={styles.addContactBtn} onClick={addContact}>+ Agregar otro contacto</button>
+                  )}
+                  {extraContacts.length === 0 && (
+                    <p style={{ marginTop: 12, color: '#c41e3a', fontSize: 13 }}>Debe agregar al menos un contacto adicional (además del representante legal).</p>
                   )}
                 </div>
               )}
@@ -679,8 +758,17 @@ export default function PublicRegisterModal({ open, onClose }) {
                     <SummaryRow label="Sector MinE (SNIES)" value={company.sectorMineSnies} />
                     <SummaryRow label="Tamaño" value={company.size} />
                     <SummaryRow label="ARL" value={company.arl} />
-                    {company.ciiuCodes.length > 0 && <SummaryRow label="Códigos CIIU" value={company.ciiuCodes.join(', ')} />}
+                    {company.ciiuCodes.length > 0 && (
+                      <SummaryRow
+                        label="Códigos CIIU"
+                        value={company.ciiuCodes.map((c, idx) => {
+                          const label = (company.ciiuCodesLabels && company.ciiuCodesLabels[idx]) ? company.ciiuCodesLabels[idx] : '';
+                          return label ? `${c} — ${label}` : c;
+                        }).join('; ')}
+                      />
+                    )}
                     <SummaryRow label="País" value={company.country} />
+                    {company.state && <SummaryRow label="Departamento" value={company.state} />}
                     <SummaryRow label="Ciudad" value={company.city} />
                   </div>
                   <div style={{ ...styles.summaryBox, marginTop: 12 }}>
@@ -689,18 +777,26 @@ export default function PublicRegisterModal({ open, onClose }) {
                     <SummaryRow label="Correo" value={rep.email} />
                     <SummaryRow label="Teléfono" value={rep.phone} />
                     <SummaryRow label="País" value={rep.country} />
+                    {rep.state && <SummaryRow label="Departamento" value={rep.state} />}
                     <SummaryRow label="Ciudad" value={rep.city} />
                   </div>
-                  {extraContacts.filter(c => c.firstName && c.email).length > 0 && (
-                    <div style={{ ...styles.summaryBox, marginTop: 12 }}>
-                      <p style={{ fontWeight: 700, color: '#c41e3a', marginBottom: 8, marginTop: 0 }}>Contactos Adicionales ({extraContacts.filter(c => c.firstName && c.email).length})</p>
-                      {extraContacts.filter(c => c.firstName && c.email).map((c, i) => (
-                        <SummaryRow key={i} label={`Contacto ${i + 2}`} value={`${c.firstName} ${c.lastName} — ${c.email}`} />
-                      ))}
-                    </div>
-                  )}
+                  <div style={{ ...styles.summaryBox, marginTop: 12 }}>
+                    <p style={{ fontWeight: 700, color: '#c41e3a', marginBottom: 8, marginTop: 0 }}>Contactos</p>
+                    <SummaryRow label="Contacto 1 (Representante legal)" value={`${rep.firstName} ${rep.lastName} — ${rep.email}`} />
+                    {extraContacts.filter(c => c.firstName && c.email).map((c, i) => (
+                      <SummaryRow key={i} label={`Contacto ${i + 2}`} value={`${c.firstName} ${c.lastName} — ${c.email}`} />
+                    ))}
+                    <SummaryRow
+                      label="Contacto principal"
+                      value={mainContactIndex === 0
+                        ? `${rep.firstName} ${rep.lastName} (${rep.email})`
+                        : extraContacts[mainContactIndex - 1]
+                          ? `${extraContacts[mainContactIndex - 1].firstName} ${extraContacts[mainContactIndex - 1].lastName} (${extraContacts[mainContactIndex - 1].email})`
+                          : '—'}
+                    />
+                  </div>
                   <div style={styles.infoBox}>
-                    <strong>⚠️ Importante:</strong> Al enviar, tu entidad quedará en estado <em>Pendiente de aprobación</em>. La Coordinación de Empleabilidad e Inserción Laboral revisará tu información y te notificará al correo <strong>{rep.email}</strong>.
+                    <strong>⚠️ Importante:</strong> Al enviar, tu entidad quedará en estado <em>Pendiente de aprobación</em>. La Coordinación de Empleabilidad e Inserción Laboral revisará tu información y te notificará al correo del contacto principal.
                   </div>
                 </div>
               )}
@@ -713,8 +809,8 @@ export default function PublicRegisterModal({ open, onClose }) {
               <div style={styles.successIcon}>✓</div>
               <h3 style={styles.successTitle}>¡Registro enviado exitosamente!</h3>
               <p style={styles.successText}>Tu entidad <strong>{company.legalName}</strong> ha sido registrada con estado <em>Pendiente de aprobación</em>.</p>
-              <p style={styles.successText}>La Coordinación de Empleabilidad e Inserción Laboral revisará tu información y te notificará al correo <strong>{rep.email}</strong>.</p>
-              <p style={styles.successText}>Tu contraseña inicial es el <strong>NIT</strong>: <strong>{company.nit}</strong>. Podrás cambiarla una vez seas aprobado.</p>
+              <p style={styles.successText}>La Coordinación de Empleabilidad e Inserción Laboral revisará tu información y te notificará al correo del contacto principal.</p>
+              <p style={styles.successText}>La contraseña inicial de acceso será el <strong>NIT</strong> de la entidad: <strong>{company.nit}</strong>. Podrás cambiarla una vez seas aprobado.</p>
               <button style={styles.primaryBtn} onClick={handleClose}>Cerrar</button>
             </div>
           )}

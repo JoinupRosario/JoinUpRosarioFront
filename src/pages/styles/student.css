@@ -98,12 +98,116 @@
   box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
 }
 
-/* Contenedor de tabla */
+/* Pestañas por estado */
+.student-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #e5e7eb;
+  padding: 0 2px 0 0;
+  background-color: white;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  padding: 0 12px;
+}
+
+.student-tab {
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.student-tab:hover {
+  color: #374151;
+}
+
+.student-tab--active {
+  color: #c41e3a;
+  border-bottom-color: #c41e3a;
+}
+
+/* Paginación: fija abajo del viewport, siempre arriba del footer (no se mueve, no tapa filas) */
+.student-pagination {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #fff;
+  font-size: 13px;
+  color: #6b7280;
+  position: fixed;
+  bottom: 50px; /* justo arriba del footer fijo */
+  left: 0;
+  right: 0;
+  z-index: 25;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.student-pagination-info {
+  font-weight: 500;
+}
+
+.student-pagination-btns {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-pagination-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.student-pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #c41e3a;
+  color: #c41e3a;
+}
+
+.student-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.student-pagination-pages {
+  font-weight: 500;
+  color: #374151;
+}
+
+/* Contenedor de tabla: flex; espacio abajo para que la paginación fija no tape filas */
 .student-table-container {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 56px; /* reserva para la barra de paginación fija (no tape la última fila) */
+}
+
+/* Bloque de la tabla (nunca comparte fila con la paginación) */
+.student-table-wrap {
+  flex: 0 1 auto;
+  overflow-x: auto;
+  min-height: 0;
 }
 
 /* Tabla */

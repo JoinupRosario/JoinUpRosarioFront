@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
 import {
   FiArrowLeft,
   FiEdit,
@@ -250,7 +251,9 @@ const getDisplayYearsExperience = (profileData) => {
 const PostulantProfile = ({ onVolver }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  
+  const { user: currentUser } = useAuth();
+  const isAdministrativo = (currentUser?.modulo != null ? String(currentUser.modulo).trim().toLowerCase() : '') === 'administrativo';
+
   // Extraer el ID de la URL
   const extractIdFromPath = () => {
     const match = location.pathname.match(/\/dashboard\/postulantes\/([^/]+)$/);
@@ -2222,7 +2225,7 @@ const PostulantProfile = ({ onVolver }) => {
               <FiList className="btn-icon" />
               Historial de Aplicaciones
             </button>
-            {postulant?.user != null && (
+            {postulant?.user != null && isAdministrativo && (
               <button
                 className={postulant?.user?.estado === false ? 'btn-action btn-outline' : 'btn-guardar'}
                 onClick={handleToggleEstado}
@@ -2234,14 +2237,16 @@ const PostulantProfile = ({ onVolver }) => {
             )}
           </>
         )}
-        <button
-          className="btn-volver"
-          onClick={() => navigate('/dashboard/postulants')}
-          title="Volver"
-        >
-          <FiArrowLeft className="btn-icon" />
-          Volver
-        </button>
+        {isAdministrativo && (
+          <button
+            className="btn-volver"
+            onClick={() => navigate('/dashboard/postulants')}
+            title="Volver"
+          >
+            <FiArrowLeft className="btn-icon" />
+            Volver
+          </button>
+        )}
       </div>
 
       {/* Tabs de navegación */}

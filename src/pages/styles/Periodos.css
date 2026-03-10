@@ -248,8 +248,42 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Pestañas Activos / Inactivos */
+.periodos-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.periodos-tab {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+  margin-bottom: -2px;
+}
+
+.periodos-tab:hover {
+  color: #374151;
+  background: #eee;
+}
+
+.periodos-tab.active {
+  color: #c41e3a;
+  background: white;
+  border-color: #c41e3a;
+  border-bottom: 2px solid white;
+}
+
 .periodos-table-container {
-  margin-top: 15px;
+  margin-top: 0;
   border-top: 2px solid #c41e3a;
   padding-top: 15px;
   overflow-x: auto;
@@ -281,19 +315,29 @@
 
 .periodos-table th {
   background: #f8f9fa;
-  padding: 10px 12px;
+  padding: 8px 10px;
   text-align: left;
   font-weight: 600;
   color: #333;
   border-bottom: 2px solid #e0e0e0;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
+  letter-spacing: 0.2px;
+  white-space: normal;
+  line-height: 1.25;
+  max-width: 140px;
+}
+
+.periodos-table th.th-compact {
+  max-width: 120px;
+}
+
+.periodos-table th.th-estado {
+  max-width: 80px;
 }
 
 .periodos-table td {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid #f0f0f0;
   font-size: 12px;
   vertical-align: middle;

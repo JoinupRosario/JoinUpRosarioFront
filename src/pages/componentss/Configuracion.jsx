@@ -37,6 +37,9 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Parametrización de documentos') {
       navigate('/dashboard/configuracion-documentos');
     }
+    if (opcion.text === 'Configurar reglas de negocio') {
+      navigate('/dashboard/reglas-negocio');
+    }
     if (opcion.text === 'Plantillas de notificaciones de monitorías') {
       navigate('/dashboard/plantillas-notificacion-monitoria');
     }
@@ -115,6 +118,11 @@ export default function Configuracion({ onVolver }) {
       icon: FiMapPin,
       descripcion: 'Gestionar tipos de documento, niveles de estudio, dedicación, ARLs y otros parámetros del sistema'
     },
+    { 
+      text: 'Configurar reglas de negocio', 
+      icon: FiSettings,
+      descripcion: 'Tiempo mínimo de vencimiento de oportunidades (días desde apertura) y otras reglas'
+    },
     {
       text: 'Configuración Asignaturas',
       icon: FiBook,
@@ -143,7 +151,7 @@ export default function Configuracion({ onVolver }) {
         <div className="configuracion-list">
           {opcionesConfiguracion.map((opcion, index) => {
             const IconComponent = opcion.icon;
-            const isClickable = ['Gestión de Parámetros', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas'].includes(opcion.text);
+            const isClickable = ['Gestión de Parámetros', 'Configurar reglas de negocio', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas'].includes(opcion.text);
             return (
               <div 
                 key={index} 

@@ -71,6 +71,7 @@ export default function Periodos({ onVolver }) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
   const [pagination, setPagination] = useState({ total: 0, pages: 1 });
+  const [tabEstado, setTabEstado] = useState('activos'); // 'activos' | 'inactivos'
 
   const showAlert = (icon, title, text) => {
     return Swal.fire({
@@ -89,8 +90,9 @@ export default function Periodos({ onVolver }) {
   const loadPeriodos = useCallback(async () => {
     setLoading(true);
     try {
+      const estadoFilter = tabEstado === 'activos' ? 'Activo' : 'Inactivo';
       const { data } = await api.get('/periodos', {
-        params: { page, limit: perPage, search: searchTerm.trim() || undefined, tipo },
+        params: { page, limit: perPage, search: searchTerm.trim() || undefined, tipo, estado: estadoFilter },
       });
       setPeriodos(data.data || []);
       setPagination(data.pagination || { total: 0, pages: 1 });
@@ -101,7 +103,7 @@ export default function Periodos({ onVolver }) {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, searchTerm, tipo]);
+  }, [page, perPage, searchTerm, tipo, tabEstado]);
 
   useEffect(() => {
     loadPeriodos();
@@ -262,6 +264,23 @@ export default function Periodos({ onVolver }) {
             </div>
           </div>
 
+          <div className="periodos-tabs">
+            <button
+              type="button"
+              className={`periodos-tab ${tabEstado === 'activos' ? 'active' : ''}`}
+              onClick={() => { setTabEstado('activos'); setPage(1); }}
+            >
+              Activos
+            </button>
+            <button
+              type="button"
+              className={`periodos-tab ${tabEstado === 'inactivos' ? 'active' : ''}`}
+              onClick={() => { setTabEstado('inactivos'); setPage(1); }}
+            >
+              Inactivos
+            </button>
+          </div>
+
           <div className="periodos-table-container">
             {loading ? (
               <div className="loading-container">
@@ -271,7 +290,7 @@ export default function Periodos({ onVolver }) {
             ) : periodos.length === 0 ? (
               <div className="empty-state">
                 <FiClock className="empty-icon" />
-                <h3>No hay períodos</h3>
+                <h3>No hay períodos {tabEstado === 'activos' ? 'activos' : 'inactivos'}</h3>
                 <p>{searchTerm ? 'No hay resultados para la búsqueda.' : 'Cree un período con el botón "Crear período".'}</p>
               </div>
             ) : (
@@ -279,18 +298,32 @@ export default function Periodos({ onVolver }) {
                 <thead>
                   <tr>
                     <th className="th-check" />
-                    <th>{isMonitoria ? 'Período académico' : 'Periodo activo para realizar practica'}</th>
-                    <th>Rango de Fechas del periodo según Sistema Académico</th>
+                    <th className="th-compact" title={isMonitoria ? 'Período académico' : 'Periodo activo para realizar practica'}>
+                      {isMonitoria ? 'Período académico' : <>Período activo<br />para práctica</>}
+                    </th>
+                    <th className="th-compact" title="Rango de Fechas del periodo según Sistema Académico">
+                      Rango fechas<br />sistema académico
+                    </th>
                     {!isMonitoria && (
                       <>
-                        <th>Rango de Fechas de Inicio de práctica académica</th>
-                        <th>Fecha máxima de Finalización de práctica académica</th>
-                        <th>Rango de fechas de autorización para practica</th>
-                        <th>Rango de legalización de práctica</th>
-                        <th>Rango de fechas para publicar ofertas de práctica</th>
+                        <th className="th-compact" title="Rango de Fechas de Inicio de práctica académica">
+                          Inicio práctica<br />académica
+                        </th>
+                        <th className="th-compact" title="Fecha máxima de Finalización de práctica académica">
+                          Fecha máx.<br />fin práctica
+                        </th>
+                        <th className="th-compact" title="Rango de fechas de autorización para practica">
+                          Autorización<br />para práctica
+                        </th>
+                        <th className="th-compact" title="Rango de legalización de práctica">
+                          Rango<br />legalización
+                        </th>
+                        <th className="th-compact" title="Rango de fechas para publicar ofertas de práctica">
+                          Publicar ofertas<br />de práctica
+                        </th>
                       </>
                     )}
-                    <th>ESTADO</th>
+                    <th className="th-estado">Estado</th>
                   </tr>
                 </thead>
                 <tbody>

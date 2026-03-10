@@ -47,6 +47,7 @@ export default function Companies({ onVolver }) {
     economicSector: '',
     ciiuCode: '',
     ciiuCodes: [], // Hasta 3 códigos CIIU (5 dígitos DANE)
+    ciiuCodesWithDescriptions: [], // [{ code, description }] para mostrar código + actividad
     size: '',
     arl: '',
 
@@ -122,6 +123,7 @@ export default function Companies({ onVolver }) {
   // Estados para contactos
   const [contacts, setContacts] = useState([]);
   const [pendingContacts, setPendingContacts] = useState([]); // Contactos a crear al guardar (solo en creación)
+  const [mainContactIndex, setMainContactIndex] = useState(0); // 0 = representante legal, 1 = primer pendiente, etc. (solo creación)
   const [showContactForm, setShowContactForm] = useState(false);
   const [editingContact, setEditingContact] = useState(null); // _id al editar en BD, o índice (number) al editar pendiente
   const [contactForm, setContactForm] = useState({
@@ -499,6 +501,11 @@ export default function Companies({ onVolver }) {
     });
     
     const ciiuCodesArr = (company.ciiuCodes && company.ciiuCodes.length) ? company.ciiuCodes : (company.ciiuCode ? [company.ciiuCode] : []);
+    const ciiuCodesWithDescriptions = ciiuCodesArr.map(code => {
+      const item = ciiuCodes.find(c => (c.value || c.valueForCalculations) === code);
+      const description = item ? (item.description || item.valueForReports || '') : '';
+      return { code, description };
+    });
     const domainsArr = (company.domains && company.domains.length) ? company.domains : (company.domain ? [company.domain] : []);
     setForm({
       ...emptyForm,
@@ -506,6 +513,7 @@ export default function Companies({ onVolver }) {
       countryCode,
       stateCode,
       ciiuCodes: ciiuCodesArr,
+      ciiuCodesWithDescriptions,
       domains: domainsArr,
       contact: {
         ...emptyForm.contact,
@@ -528,6 +536,8 @@ export default function Companies({ onVolver }) {
     setVista('lista');
     setEditing(null);
     setForm(emptyForm);
+    setPendingContacts([]);
+    setMainContactIndex(0);
     setCiiuSearchTerm('');
     setShowCiiuDropdown(false);
     setNitError('');
@@ -639,6 +649,19 @@ export default function Companies({ onVolver }) {
       return;
     }
 
+    // Al crear: exigir al menos un contacto adicional y que el principal esté elegido
+    if (!editing) {
+      if (!pendingContacts || pendingContacts.length < 1) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Contactos requeridos',
+          text: 'Debe agregar al menos un contacto adicional (pestaña Contactos) además del representante legal. Por ejemplo, la persona de RRHH que gestiona prácticas.',
+          confirmButtonColor: '#c41e3a'
+        });
+        return;
+      }
+    }
+
     // Validar que el correo del R. Legal sea de un dominio permitido (si hay dominios)
     const allowedDomains = (form.domains || []).map(d => String(d).replace(/^@/, '').toLowerCase().trim()).filter(Boolean);
     if (allowedDomains.length > 0 && form.legalRepresentative?.email) {
@@ -668,14 +691,34 @@ export default function Companies({ onVolver }) {
       }
     }
 
-    // Contacto es lo mismo que representante legal - mínimo 1 contacto obligatorio
-    const formToSend = { ...form };
-    formToSend.contact = {
-      name: `${formToSend.legalRepresentative.firstName || ''} ${formToSend.legalRepresentative.lastName || ''}`.trim(),
-      email: formToSend.legalRepresentative.email || '',
-      position: formToSend.contact?.position || '',
-      phone: formToSend.contact?.phone || formToSend.phone || ''
-    };
+    // Contacto principal: representante legal o uno de los contactos adicionales (según mainContactIndex)
+    const { ciiuCodesWithDescriptions, ...formRest } = form;
+    const formToSend = { ...formRest };
+    if (editing) {
+      formToSend.contact = {
+        name: `${formToSend.legalRepresentative.firstName || ''} ${formToSend.legalRepresentative.lastName || ''}`.trim(),
+        email: formToSend.legalRepresentative.email || '',
+        position: formToSend.contact?.position || '',
+        phone: formToSend.contact?.phone || formToSend.phone || ''
+      };
+    } else {
+      if (mainContactIndex === 0) {
+        formToSend.contact = {
+          name: `${formToSend.legalRepresentative.firstName || ''} ${formToSend.legalRepresentative.lastName || ''}`.trim(),
+          email: formToSend.legalRepresentative.email || '',
+          position: formToSend.contact?.position || '',
+          phone: formToSend.contact?.phone || formToSend.phone || ''
+        };
+      } else {
+        const c = pendingContacts[mainContactIndex - 1];
+        formToSend.contact = {
+          name: `${c?.firstName || ''} ${c?.lastName || ''}`.trim(),
+          email: c?.userEmail || '',
+          position: c?.position || '',
+          phone: c?.phone || c?.mobile || ''
+        };
+      }
+    }
 
     try {
       let response;
@@ -684,8 +727,20 @@ export default function Companies({ onVolver }) {
       } else {
         response = await api.post('/companies', formToSend);
         const newCompanyId = response.data?.data?._id || response.data?._id;
-        if (newCompanyId && pendingContacts.length > 0) {
-          for (const payload of pendingContacts) {
+        if (newCompanyId) {
+          // Crear como contactos API a los que NO son el principal
+          const legalRepAsContact = {
+            firstName: form.legalRepresentative?.firstName || '',
+            lastName: form.legalRepresentative?.lastName || '',
+            userEmail: form.legalRepresentative?.email || '',
+            position: form.contact?.position || '',
+            phone: form.contact?.phone || form.phone || '',
+            isPrincipal: mainContactIndex === 0
+          };
+          const toCreate = mainContactIndex === 0
+            ? pendingContacts.map(pc => ({ ...pc, isPrincipal: false }))
+            : [legalRepAsContact, ...pendingContacts.filter((_, i) => i !== mainContactIndex - 1).map(pc => ({ ...pc, isPrincipal: false }))];
+          for (const payload of toCreate) {
             await api.post(`/companies/${newCompanyId}/contacts`, payload);
           }
         }
@@ -1278,7 +1333,10 @@ export default function Companies({ onVolver }) {
               <label className="form-label">Códigos CIIU (Sector Económico) * — hasta 3</label>
               {(form.ciiuCodes && form.ciiuCodes.length > 0) && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                  {form.ciiuCodes.map((code, idx) => (
+                  {(form.ciiuCodesWithDescriptions && form.ciiuCodesWithDescriptions.length > 0
+                    ? form.ciiuCodesWithDescriptions
+                    : form.ciiuCodes.map(code => ({ code, description: '' }))
+                  ).map((item, idx) => (
                     <span
                       key={idx}
                       style={{
@@ -1288,13 +1346,19 @@ export default function Companies({ onVolver }) {
                         padding: '4px 10px',
                         background: '#e5e7eb',
                         borderRadius: 6,
-                        fontSize: 13
+                        fontSize: 13,
+                        maxWidth: '100%'
                       }}
+                      title={item.description ? `${item.code} — ${item.description}` : item.code}
                     >
-                      {code}
+                      {item.description ? `${item.code} — ${item.description}` : item.code}
                       <button
                         type="button"
-                        onClick={() => setForm({ ...form, ciiuCodes: form.ciiuCodes.filter((_, i) => i !== idx) })}
+                        onClick={() => {
+                          const newCodes = form.ciiuCodes.filter((_, i) => i !== idx);
+                          const newWithDesc = (form.ciiuCodesWithDescriptions || []).filter((_, i) => i !== idx);
+                          setForm({ ...form, ciiuCodes: newCodes, ciiuCodesWithDescriptions: newWithDesc });
+                        }}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#6b7280', fontSize: 16 }}
                         aria-label="Quitar"
                       >
@@ -1352,7 +1416,14 @@ export default function Companies({ onVolver }) {
                                 if (alreadyAdded) return;
                                 const arr = form.ciiuCodes || [];
                                 if (arr.length >= 3) return;
-                                setForm({ ...form, ciiuCodes: [...arr, code], economicSector: arr[0] || code, ciiuCode: arr[0] || code });
+                                const withDesc = form.ciiuCodesWithDescriptions || [];
+                                setForm({
+                                  ...form,
+                                  ciiuCodes: [...arr, code],
+                                  ciiuCodesWithDescriptions: [...withDesc, { code, description }],
+                                  economicSector: arr[0] || code,
+                                  ciiuCode: arr[0] || code
+                                });
                                 setCiiuSearchTerm('');
                                 setShowCiiuDropdown(false);
                               }}
@@ -1363,7 +1434,7 @@ export default function Companies({ onVolver }) {
                                 opacity: alreadyAdded ? 0.6 : 1
                               }}
                             >
-                              <strong>{code}</strong> {description ? `- ${description}` : ''}
+                              <strong>{code}</strong> {description ? ` — ${description}` : ''}
                               {alreadyAdded && ' (ya agregado)'}
                             </div>
                           );
@@ -1883,7 +1954,11 @@ export default function Companies({ onVolver }) {
           <div className="contacts-section">
             <div className="contacts-header">
               <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
-                Máximo 8 contactos por escenario (incluye representante legal). Actual: <strong>{1 + (editing ? contacts.length : pendingContacts.length)}</strong>
+                {editing
+                  ? `Máximo 8 contactos por escenario (incluye representante legal). Actual: ${1 + contacts.length}`
+                  : 'Debe haber al menos dos contactos: el representante legal (pestaña Entidad) y mínimo un contacto adicional (ej. persona de RRHH que gestiona prácticas). Elija quién es el contacto principal.'}
+                {!editing && <br />}
+                {!editing && <>Actual: <strong>{1 + pendingContacts.length}</strong> contacto(s).</>}
               </p>
               <button
                 type="button"
@@ -1961,48 +2036,74 @@ export default function Companies({ onVolver }) {
                   )
                 ) : (
                   (() => {
-                    const list = pendingContacts;
-                    if (list.length === 0) {
-                      return <div className="contacts-empty">Añade contactos adicionales (el representante legal ya está en Datos del contacto). Al guardar la entidad se crearán todos.</div>;
-                    }
+                    const lr = form.legalRepresentative || {};
+                    const repLabel = `${lr.firstName || ''} ${lr.lastName || ''}`.trim() || 'Representante legal';
                     return (
-                      <table className="contacts-table">
-                        <thead>
-                          <tr>
-                            <th>NOMBRES</th>
-                            <th>APELLIDOS</th>
-                            <th>USUARIO</th>
-                            <th>TELÉFONO</th>
-                            <th>CARGO</th>
-                            <th>ACCIONES</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {list.map((contact, idx) => (
-                            <tr key={idx}>
-                              <td>{contact.firstName}</td>
-                              <td>{contact.lastName}</td>
-                              <td>{contact.userEmail}</td>
-                              <td>{contact.phone || contact.mobile || '-'}</td>
-                              <td>{contact.position || '-'}</td>
-                              <td>
-                                <div className="contact-actions">
-                                  <button type="button" className="btn-action btn-outline" onClick={() => openContactForm(contact, idx)}>
-                                    <FiEdit /> Editar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn-action btn-secondary"
-                                    onClick={() => setPendingContacts(prev => prev.filter((_, i) => i !== idx))}
-                                  >
-                                    <FiTrash2 /> Quitar
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <div className="contacts-list-create">
+                        <div className="contact-rep-card" style={{ background: '#f8f9fa', padding: 12, borderRadius: 8, marginBottom: 16, borderLeft: '4px solid #c41e3a' }}>
+                          <strong>Contacto 1 — Representante legal</strong>
+                          <p style={{ margin: '8px 0 0', fontSize: 13, color: '#374151' }}>
+                            {repLabel} — {lr.email || '(sin correo)'}
+                            {(form.contact?.phone || form.phone) ? ` — ${form.contact?.phone || form.phone}` : ''}
+                          </p>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', fontSize: 13 }}>
+                            <input type="radio" name="mainContactCreate" checked={mainContactIndex === 0} onChange={() => setMainContactIndex(0)} />
+                            Contacto principal
+                          </label>
+                        </div>
+                        {pendingContacts.length === 0 ? (
+                          <div className="contacts-empty">
+                            Debe agregar al menos un contacto adicional (por ejemplo, RRHH / gestión de prácticas). Use el botón &quot;Añadir contacto&quot;.
+                          </div>
+                        ) : (
+                          <>
+                            <table className="contacts-table">
+                              <thead>
+                                <tr>
+                                  <th>NOMBRES</th>
+                                  <th>APELLIDOS</th>
+                                  <th>USUARIO</th>
+                                  <th>TELÉFONO</th>
+                                  <th>CARGO</th>
+                                  <th>PRINCIPAL</th>
+                                  <th>ACCIONES</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pendingContacts.map((contact, idx) => (
+                                  <tr key={idx}>
+                                    <td>{contact.firstName}</td>
+                                    <td>{contact.lastName}</td>
+                                    <td>{contact.userEmail}</td>
+                                    <td>{contact.phone || contact.mobile || '-'}</td>
+                                    <td>{contact.position || '-'}</td>
+                                    <td>
+                                      <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <input type="radio" name="mainContactCreate" checked={mainContactIndex === idx + 1} onChange={() => setMainContactIndex(idx + 1)} />
+                                        Principal
+                                      </label>
+                                    </td>
+                                    <td>
+                                      <div className="contact-actions">
+                                        <button type="button" className="btn-action btn-outline" onClick={() => openContactForm(contact, idx)}>
+                                          <FiEdit /> Editar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn-action btn-secondary"
+                                          onClick={() => { setPendingContacts(prev => prev.filter((_, i) => i !== idx)); if (mainContactIndex === idx + 1) setMainContactIndex(0); }}
+                                        >
+                                          <FiTrash2 /> Quitar
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </>
+                        )}
+                      </div>
                     );
                   })()
                 )}
