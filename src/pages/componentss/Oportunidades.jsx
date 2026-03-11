@@ -5897,8 +5897,27 @@ export default function Oportunidades({ onVolver }) {
                                           a.download = hv.name || 'hoja-de-vida.pdf';
                                           a.click();
                                           window.URL.revokeObjectURL(url);
+                                          if (oportunidadSeleccionada?._id && aplicacionDetail?._id) {
+                                            try {
+                                              await api.patch(`/opportunities/${oportunidadSeleccionada._id}/applications/${aplicacionDetail._id}/descargo-hv`);
+                                            } catch (_) {}
+                                          }
+                                          Swal.fire({
+                                            icon: 'success',
+                                            title: 'Descarga iniciada',
+                                            text: 'El archivo se está descargando.',
+                                            timer: 2000,
+                                            showConfirmButton: false,
+                                            customClass: { container: 'swal-over-vista-aplicaciones' }
+                                          });
                                         } catch (err) {
-                                          Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo descargar el archivo', confirmButtonColor: '#c41e3a' });
+                                          Swal.fire({
+                                            icon: 'error',
+                                            title: 'Error',
+                                            text: 'No se pudo descargar el archivo',
+                                            confirmButtonColor: '#c41e3a',
+                                            customClass: { container: 'swal-over-vista-aplicaciones' }
+                                          });
                                         }
                                       }}
                                     >

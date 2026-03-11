@@ -94,7 +94,16 @@ export default function OfertasAfines() {
       }
       setPostulantId(id);
       const { data: profilesRes } = await api.get(`/postulants/${id}/profiles`);
-      const list = profilesRes?.profiles || [];
+      const versions = profilesRes?.profiles || [];
+      const baseProfiles = profilesRes?.baseProfiles || [];
+      const list = versions.length > 0
+        ? versions
+        : baseProfiles.map((b) => ({
+            _id: b._id,
+            profileId: b._id,
+            profileName: (b.studentCode || b.profileName || 'Perfil').toString().trim() || 'Perfil',
+            type: 'base',
+          }));
       setProfiles(list);
     } catch (e) {
       console.error('Error cargando perfiles', e);
@@ -115,7 +124,9 @@ export default function OfertasAfines() {
     applyingToIdRef.current = String(opportunityId);
     setSubmittingAplicar(true);
     try {
-      await api.post(`/opportunities/${opportunityId}/aplicar`, { profileId: profileIdToSend });
+      const body = { profileId: profileIdToSend };
+      if (selected?.type !== 'base' && selected?._id) body.profileVersionId = selected._id;
+      await api.post(`/opportunities/${opportunityId}/aplicar`, body);
       setShowModalAplicar(false);
       setShowConfirmacionAplicar(true);
     } catch (e) {
