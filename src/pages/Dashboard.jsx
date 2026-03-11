@@ -50,7 +50,6 @@ import NotificacionPracticas from './componentss/notificaciones/notificacionPrac
 import Oportunidades from './componentss/Oportunidades';
 import StatCard from '../components/ui/StatCard';
 import SimpleChart from '../components/ui/SimpleChart';
-import RecentActivity from '../components/ui/RecentActivity';
 import Postulants  from './componentss/postulants/postulants';
 import PostulantStatusLog from './componentss/postulants/postulantLogs/PostulantStatusLog';
 import PostulantDocumentLog from './componentss/postulants/postulantLogs/PostulantDocumentLog';
@@ -264,8 +263,7 @@ export default function Dashboard() {
       applicationsByMonth: [],
       practiceStatus: [],
       applicationTrends: []
-    },
-    recentActivity: []
+    }
   });
 
   // Cargar datos del dashboard (stats reales desde MongoDB)
@@ -287,36 +285,14 @@ export default function Dashboard() {
           registeredCompanies: apiStats.registeredCompanies ?? 0
         },
         charts: {
-          applicationsByMonth: [
-            { label: 'Ene', value: 45 },
-            { label: 'Feb', value: 52 },
-            { label: 'Mar', value: 38 },
-            { label: 'Abr', value: 67 },
-            { label: 'May', value: 73 },
-            { label: 'Jun', value: 89 }
-          ],
-          practiceStatus: [
-            { label: 'En Progreso', value: 89 },
-            { label: 'Completadas', value: 234 },
-            { label: 'Pendientes', value: 45 },
-            { label: 'Canceladas', value: 12 }
-          ],
-          applicationTrends: [
-            { label: 'Sem 1', value: 12 },
-            { label: 'Sem 2', value: 18 },
-            { label: 'Sem 3', value: 15 },
-            { label: 'Sem 4', value: 22 },
-            { label: 'Sem 5', value: 28 },
-            { label: 'Sem 6', value: 35 }
-          ]
-        },
-        recentActivity: [
-          { type: 'application', description: 'Nueva postulación de María González para práctica en Microsoft', user: 'María González', timestamp: new Date(Date.now() - 5 * 60 * 1000), status: 'pending' },
-          { type: 'company', description: 'Nueva empresa registrada: TechCorp Solutions', user: 'Admin', timestamp: new Date(Date.now() - 15 * 60 * 1000), status: 'approved' },
-          { type: 'practice', description: 'Práctica completada por Juan Pérez en Google', user: 'Juan Pérez', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), status: 'completed' },
-          { type: 'approval', description: 'Aprobación de práctica para Ana Rodríguez', user: 'Admin', timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), status: 'approved' },
-          { type: 'notification', description: 'Recordatorio: 5 prácticas vencen esta semana', user: 'Sistema', timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), status: 'pending' }
-        ]
+          applicationsByMonth: Array.isArray(apiStats.applicationsByMonth) && apiStats.applicationsByMonth.length > 0
+            ? apiStats.applicationsByMonth
+            : [{ label: 'Sin datos', value: 0 }],
+          practiceStatus: prev.charts.practiceStatus,
+          applicationTrends: Array.isArray(apiStats.applicationTrends) && apiStats.applicationTrends.length > 1
+            ? apiStats.applicationTrends
+            : [{ label: 'N/D', value: 0 }, { label: 'N/D', value: 0 }]
+        }
       }));
       setLoading(false);
     };
@@ -584,15 +560,6 @@ export default function Dashboard() {
                 type="line"
                 height={250}
                 loading={loading}
-              />
-            </div>
-
-            <div className="dashboard-activity">
-              <RecentActivity
-                title="Actividad Reciente"
-                activities={dashboardData.recentActivity}
-                loading={loading}
-                maxItems={6}
               />
             </div>
               </>
