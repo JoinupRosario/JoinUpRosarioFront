@@ -19,6 +19,14 @@ export default function Oportunidades({ onVolver }) {
   const [oportunidadSeleccionada, setOportunidadSeleccionada] = useState(null);
   const [showModalAprobacion, setShowModalAprobacion] = useState(false);
   const [showModalRechazo, setShowModalRechazo] = useState(false);
+  const [showModalCerrarOportunidad, setShowModalCerrarOportunidad] = useState(false);
+  const [cerrarContrato, setCerrarContrato] = useState('');
+  const [cerrarMotivoNo, setCerrarMotivoNo] = useState('');
+  const [cerrarMotivoNoOtro, setCerrarMotivoNoOtro] = useState('');
+  const [postulantesParaCerrar, setPostulantesParaCerrar] = useState([]);
+  const [selectedPostulantesCerrar, setSelectedPostulantesCerrar] = useState([]);
+  const [datosTutorCerrar, setDatosTutorCerrar] = useState({});
+  const [loadingPostulantesCerrar, setLoadingPostulantesCerrar] = useState(false);
   const [showModalHistorial, setShowModalHistorial] = useState(false);
   const [showModalAplicaciones, setShowModalAplicaciones] = useState(false);
   const [aplicacionesList, setAplicacionesList] = useState([]);
@@ -48,6 +56,7 @@ export default function Oportunidades({ onVolver }) {
   const [dedicationTypes, setDedicationTypes] = useState([]);
   const [performanceAreas, setPerformanceAreas] = useState([]);
   const [emotionalSalaryItems, setEmotionalSalaryItems] = useState([]);
+  const [arlItems, setArlItems] = useState([]);
   const [selectedLinkageDescription, setSelectedLinkageDescription] = useState('');
   
   // Estados para filtros, paginación y ordenamiento
@@ -348,6 +357,10 @@ export default function Oportunidades({ onVolver }) {
       // Cargar Salario Emocional (L_EMOTIONAL_SALARY)
       const { data: emotionalData } = await api.get('/locations/items/L_EMOTIONAL_SALARY', { params: { limit: 100 } });
       setEmotionalSalaryItems(emotionalData.data || []);
+
+      // Cargar ARL Empresa (Items con listId para ARL)
+      const { data: arlData } = await api.get('/locations/items/L_ARL', { params: { limit: 100 } }).catch(() => ({ data: { data: [] } }));
+      setArlItems(arlData?.data || []);
     } catch (error) {
       console.error('Error cargando datos dinámicos:', error);
     }
@@ -1763,6 +1776,95 @@ export default function Oportunidades({ onVolver }) {
         confirmButtonText: 'Aceptar',
         confirmButtonColor: '#c41e3a'
       });
+    }
+  };
+
+  const MOTIVOS_NO_CONTRATO = [
+    'Contratación otra universidad',
+    'Promoción interna',
+    'Las hojas de vida no cumplieron con el perfil publicado',
+    'El candidato seleccionado no aceptó la propuesta',
+    'Otro'
+  ];
+
+  const handleCerrarOportunidad = async () => {
+    if (!cerrarContrato) {
+      Swal.fire({ icon: 'warning', title: 'Seleccione si contrató o no', confirmButtonColor: '#c41e3a' });
+      return;
+    }
+    if (cerrarContrato === 'no') {
+      if (!cerrarMotivoNo) {
+        Swal.fire({ icon: 'warning', title: 'Seleccione el motivo', confirmButtonColor: '#c41e3a' });
+        return;
+      }
+      if (cerrarMotivoNo === 'Otro' && !cerrarMotivoNoOtro.trim()) {
+        Swal.fire({ icon: 'warning', title: 'Ingrese el motivo', text: 'Debe escribir el motivo al seleccionar Otro', confirmButtonColor: '#c41e3a' });
+        return;
+      }
+    }
+    const vacantes = oportunidadSeleccionada?.vacantes || 1;
+    if (cerrarContrato === 'si') {
+      if (selectedPostulantesCerrar.length === 0) {
+        Swal.fire({ icon: 'warning', title: 'Seleccione al menos un postulante', confirmButtonColor: '#c41e3a' });
+        return;
+      }
+      if (selectedPostulantesCerrar.length > vacantes) {
+        Swal.fire({ icon: 'warning', title: `Solo puede seleccionar hasta ${vacantes} postulante(s) (vacantes)`, confirmButtonColor: '#c41e3a' });
+        return;
+      }
+      // Validar Fecha Inicio Práctica: al menos practiceStartDaysAfterExpiry días después de vencimiento (misma regla que creación)
+      const vencimientoYMD = oportunidadSeleccionada?.fechaVencimiento ? (typeof oportunidadSeleccionada.fechaVencimiento === 'string' ? oportunidadSeleccionada.fechaVencimiento.slice(0, 10) : new Date(oportunidadSeleccionada.fechaVencimiento).toISOString().slice(0, 10)) : '';
+      const minInicioPractica = addDaysToDate(vencimientoYMD, practiceStartDaysAfterExpiry);
+      if (minInicioPractica) {
+        const conFechaInvalida = selectedPostulantesCerrar.some(pid => {
+          const d = datosTutorCerrar[pid] || {};
+          const f = d.fechaInicioPractica;
+          if (!f) return false;
+          const fYMD = typeof f === 'string' ? f.slice(0, 10) : new Date(f).toISOString().slice(0, 10);
+          return fYMD < minInicioPractica;
+        });
+        if (conFechaInvalida) {
+          Swal.fire({ icon: 'warning', title: 'Fecha inicio práctica inválida', text: `La fecha de inicio de la práctica debe ser al menos ${practiceStartDaysAfterExpiry} día(s) después de la fecha de vencimiento de la oportunidad (mín. ${minInicioPractica}).`, confirmButtonColor: '#c41e3a' });
+          return;
+        }
+      }
+    }
+    try {
+      Swal.fire({ title: 'Cerrando oportunidad...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      const payload = {
+        contrató: cerrarContrato === 'si',
+        motivoNoContrato: cerrarContrato === 'no' ? (cerrarMotivoNo === 'Otro' ? cerrarMotivoNoOtro : cerrarMotivoNo) : undefined,
+        postulantesSeleccionados: cerrarContrato === 'si' ? selectedPostulantesCerrar : [],
+        datosTutor: cerrarContrato === 'si' ? selectedPostulantesCerrar.map(pid => {
+          const d = datosTutorCerrar[pid] || {};
+          return {
+            postulacionId: pid,
+            nombreTutor: d.nombreTutor || '',
+            apellidoTutor: d.apellidoTutor || '',
+            emailTutor: d.emailTutor || '',
+            cargoTutor: d.cargoTutor || '',
+            tipoIdentTutor: d.tipoIdentTutor || '',
+            arlEmpresa: d.arlEmpresa || '',
+            identificacionTutor: d.identificacionTutor || '',
+            fechaInicioPractica: d.fechaInicioPractica ? new Date(d.fechaInicioPractica).toISOString() : null
+          };
+        }) : []
+      };
+      await api.post(`/opportunities/${oportunidadSeleccionada._id}/close`, payload);
+      Swal.close();
+      await Swal.fire({ icon: 'success', title: 'Oportunidad cerrada correctamente', confirmButtonColor: '#c41e3a' });
+      setShowModalCerrarOportunidad(false);
+      setCerrarContrato('');
+      setCerrarMotivoNo('');
+      setCerrarMotivoNoOtro('');
+      setSelectedPostulantesCerrar([]);
+      setDatosTutorCerrar({});
+      const { data } = await api.get(`/opportunities/${oportunidadSeleccionada._id}`);
+      setOportunidadSeleccionada(data);
+      await loadOportunidades();
+    } catch (err) {
+      Swal.close();
+      Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo cerrar la oportunidad', confirmButtonColor: '#c41e3a' });
     }
   };
 
@@ -4413,15 +4515,40 @@ export default function Oportunidades({ onVolver }) {
           <div className="detail-header-actions">
             {!isEditingDetail ? (
               <>
-                <button className="btn-editar-header" onClick={handleActivarEdicion}>
-                  <FiEdit className="btn-icon" />
-                  Editar
-                </button>
-                {estado !== 'Rechazada' && estado !== 'Cerrada' && (
-                  <button className="btn-rechazar-header" onClick={() => setShowModalRechazo(true)}>
-                    <FiXCircle className="btn-icon" />
-                    Rechazar
+                {(estado !== 'Cerrada' && opp.status !== 'Cerrada') && (
+                  <button className="btn-editar-header" onClick={handleActivarEdicion}>
+                    <FiEdit className="btn-icon" />
+                    Editar
                   </button>
+                )}
+                {estado !== 'Rechazada' && estado !== 'Cerrada' && (
+                  (estado === 'Activa' || estado === 'activa' || estado === 'published') ? (
+                    <button className="btn-cerrar-oportunidad-header" onClick={async () => {
+                      setShowModalCerrarOportunidad(true);
+                      setCerrarContrato('');
+                      setCerrarMotivoNo('');
+                      setSelectedPostulantesCerrar([]);
+                      setDatosTutorCerrar({});
+                      setLoadingPostulantesCerrar(true);
+                      try {
+                        const { data } = await api.get(`/opportunities/${oportunidadSeleccionada._id}/applications`);
+                        const list = (data.postulaciones || []).filter(p => p._source === 'postulacion_oportunidad' && p.estado !== 'rechazado');
+                        setPostulantesParaCerrar(list);
+                      } catch (_) {
+                        setPostulantesParaCerrar([]);
+                      } finally {
+                        setLoadingPostulantesCerrar(false);
+                      }
+                    }}>
+                      <FiXCircle className="btn-icon" />
+                      Cerrar oportunidad
+                    </button>
+                  ) : (
+                    <button className="btn-rechazar-header" onClick={() => setShowModalRechazo(true)}>
+                      <FiXCircle className="btn-icon" />
+                      Rechazar
+                    </button>
+                  )
                 )}
                 <button className="btn-historial-header" onClick={loadHistorialEstados}>
                   <FiList className="btn-icon" />
@@ -4506,6 +4633,48 @@ export default function Oportunidades({ onVolver }) {
                   <label className="form-label">Empresa</label>
                   <div className="company-display">
                     {editSelectedCompany.name || editSelectedCompany.commercialName}
+                  </div>
+                </div>
+              )}
+
+              {/* Información de cierre (trazabilidad) — solo cuando la oportunidad está Cerrada */}
+              {(oportunidadSeleccionada?.estado === 'Cerrada' || oportunidadSeleccionada?.status === 'Cerrada') && (
+                <div className="form-field-group form-field-full-width info-cierre-oportunidad">
+                  <div className="info-cierre-oportunidad-header">
+                    <FiFileText className="label-icon" />
+                    <strong>Información de cierre (trazabilidad)</strong>
+                  </div>
+                  <div className="info-cierre-oportunidad-body">
+                    {oportunidadSeleccionada?.fechaCierre && (
+                      <p><strong>Fecha de cierre:</strong> {new Date(oportunidadSeleccionada.fechaCierre).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                    )}
+                    {oportunidadSeleccionada?.motivoCierreNoContrato ? (
+                      <p><strong>No se contrató.</strong> Motivo: {oportunidadSeleccionada.motivoCierreNoContrato}</p>
+                    ) : null}
+                    {Array.isArray(oportunidadSeleccionada?.cierrePostulantesSeleccionados) && oportunidadSeleccionada.cierrePostulantesSeleccionados.length > 0 && (
+                      <>
+                        <p><strong>Postulante(s) seleccionado(s):</strong></p>
+                        <ul className="info-cierre-lista-postulantes">
+                          {oportunidadSeleccionada.cierrePostulantesSeleccionados.map((po) => {
+                            const name = po?.postulant?.postulantId?.name ?? po?.postulant?.name ?? '—';
+                            const id = (po?._id ?? po)?.toString?.() ?? po;
+                            const datosTutor = (oportunidadSeleccionada.cierreDatosTutor || []).find(d => (d.postulacionId?.toString?.() || d.postulacionId) === id);
+                            return (
+                              <li key={id} className="info-cierre-item">
+                                <span className="info-cierre-nombre">{name}</span>
+                                {datosTutor && (
+                                  <div className="info-cierre-datos-tutor">
+                                    <strong>Datos tutor:</strong> {[datosTutor.nombreTutor, datosTutor.apellidoTutor].filter(Boolean).join(' ') || '—'} · {datosTutor.emailTutor || '—'} · Cargo: {datosTutor.cargoTutor || '—'}
+                                    {datosTutor.arlEmpresa && <> · ARL: {arlItems.find(i => i._id === datosTutor.arlEmpresa)?.description || arlItems.find(i => i._id === datosTutor.arlEmpresa)?.value || datosTutor.arlEmpresa}</>}
+                                    {datosTutor.fechaInicioPractica && <> · Inicio práctica: {new Date(datosTutor.fechaInicioPractica).toLocaleDateString('es-CO')}</>}
+                                  </div>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -5371,6 +5540,104 @@ export default function Oportunidades({ onVolver }) {
           document.body
         )}
 
+        {/* Modal Cerrar Oportunidad — solo cuando está Activa */}
+        {showModalCerrarOportunidad && createPortal(
+          <div
+            className="oportunidades-modal-rechazo-overlay oportunidades-modal-cerrar-overlay"
+            style={{ zIndex: 100002 }}
+          >
+            <div className="oportunidades-modal-rechazo oportunidades-modal-cerrar" onClick={(e) => e.stopPropagation()}>
+              <div className="oportunidades-modal-rechazo-header">
+                <h4>Confirmación</h4>
+                <button type="button" className="oportunidades-modal-rechazo-close" onClick={() => { setShowModalCerrarOportunidad(false); setCerrarContrato(''); setCerrarMotivoNo(''); setCerrarMotivoNoOtro(''); setSelectedPostulantesCerrar([]); setDatosTutorCerrar({}); }} aria-label="Cerrar">×</button>
+              </div>
+              <div className="oportunidades-modal-rechazo-body">
+                <div className="oportunidades-modal-rechazo-field">
+                  <label>¿Contrató?</label>
+                  <select value={cerrarContrato} onChange={(e) => { setCerrarContrato(e.target.value); setCerrarMotivoNo(''); setSelectedPostulantesCerrar([]); setDatosTutorCerrar({}); }} className="oportunidades-modal-rechazo-select">
+                    <option value="">- Seleccione -</option>
+                    <option value="si">Sí</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+                {cerrarContrato === 'no' && (
+                  <div className="oportunidades-modal-rechazo-field">
+                    <label>¿Por qué?</label>
+                    <select value={cerrarMotivoNo} onChange={(e) => { setCerrarMotivoNo(e.target.value); setCerrarMotivoNoOtro(''); }} className="oportunidades-modal-rechazo-select">
+                      <option value="">- Seleccione -</option>
+                      {MOTIVOS_NO_CONTRATO.map((m, i) => <option key={i} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                )}
+                {cerrarContrato === 'no' && cerrarMotivoNo === 'Otro' && (
+                  <div className="oportunidades-modal-rechazo-field">
+                    <label>Especifique el motivo <span className="oportunidades-modal-rechazo-required">*</span></label>
+                    <textarea
+                      value={cerrarMotivoNoOtro}
+                      onChange={(e) => setCerrarMotivoNoOtro(e.target.value)}
+                      className="oportunidades-modal-rechazo-textarea"
+                      placeholder="Ingrese el motivo..."
+                      rows="3"
+                    />
+                  </div>
+                )}
+                {cerrarContrato === 'si' && (
+                  <>
+                    <div className="oportunidades-modal-rechazo-field">
+                      <label>Seleccione uno o más postulantes (máx. {oportunidadSeleccionada?.vacantes || 1} vacante(s))</label>
+                      {loadingPostulantesCerrar ? <p style={{ margin: 8, color: '#6b7280' }}>Cargando postulantes...</p> : postulantesParaCerrar.length === 0 ? <p style={{ margin: 8, color: '#6b7280' }}>No hay postulantes aplicados.</p> : (
+                        <div className="cerrar-oportunidad-lista-postulantes">
+                          {postulantesParaCerrar.map((p) => {
+                            const id = p._id?.toString?.() || p._id;
+                            const checked = selectedPostulantesCerrar.includes(id);
+                            const vacantes = oportunidadSeleccionada?.vacantes || 1;
+                            const toggle = () => {
+                              if (checked) { setSelectedPostulantesCerrar(prev => prev.filter(x => x !== id)); setDatosTutorCerrar(prev => { const next = { ...prev }; delete next[id]; return next; }); }
+                              else if (selectedPostulantesCerrar.length < vacantes) setSelectedPostulantesCerrar(prev => [...prev, id]);
+                            };
+                            return (
+                              <label key={id} className="cerrar-oportunidad-postulante-item">
+                                <input type="checkbox" checked={checked} onChange={toggle} disabled={!checked && selectedPostulantesCerrar.length >= vacantes} />
+                                <span>{(p.nombres || '') + ' ' + (p.apellidos || '')}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {selectedPostulantesCerrar.length > 0 && selectedPostulantesCerrar.map((pid) => {
+                      const p = postulantesParaCerrar.find(x => (x._id?.toString?.() || x._id) === pid);
+                      const nombre = p ? (p.nombres || '') + ' ' + (p.apellidos || '') : pid;
+                      const d = datosTutorCerrar[pid] || {};
+                      const setCampo = (campo, value) => setDatosTutorCerrar(prev => ({ ...prev, [pid]: { ...(prev[pid] || {}), [campo]: value } }));
+                      return (
+                        <div key={pid} className="cerrar-oportunidad-datos-tutor">
+                          <strong>Datos para el estudiante: {nombre}</strong>
+                          <div className="cerrar-oportunidad-tutor-campos">
+                            <div><label>Nombre Tutor</label><input value={d.nombreTutor || ''} onChange={(e) => setCampo('nombreTutor', e.target.value)} placeholder="Nombre" /></div>
+                            <div><label>Apellido Tutor</label><input value={d.apellidoTutor || ''} onChange={(e) => setCampo('apellidoTutor', e.target.value)} placeholder="Apellido" /></div>
+                            <div><label>Email Tutor</label><input type="email" value={d.emailTutor || ''} onChange={(e) => setCampo('emailTutor', e.target.value)} placeholder="mail@dominio.com" /></div>
+                            <div><label>Cargo Tutor</label><input value={d.cargoTutor || ''} onChange={(e) => setCampo('cargoTutor', e.target.value)} placeholder="Cargo" /></div>
+                            <div><label>Tipo Ident. Tutor</label><select value={d.tipoIdentTutor || ''} onChange={(e) => setCampo('tipoIdentTutor', e.target.value)}><option value="">Seleccionar</option><option value="CC">CC</option><option value="CE">CE</option><option value="NIT">NIT</option></select></div>
+                            <div><label>ARL Empresa</label><select value={d.arlEmpresa || ''} onChange={(e) => setCampo('arlEmpresa', e.target.value)}><option value="">Seleccionar</option>{arlItems.map((item) => <option key={item._id} value={item._id}>{item.description || item.value || item._id}</option>)}</select></div>
+                            <div><label>Identificación Tutor</label><input value={d.identificacionTutor || ''} onChange={(e) => setCampo('identificacionTutor', e.target.value)} placeholder="Número" /></div>
+                            <div><label>Fecha Inicio Práctica</label><input type="date" value={d.fechaInicioPractica || ''} onChange={(e) => setCampo('fechaInicioPractica', e.target.value)} min={addDaysToDate(oportunidadSeleccionada?.fechaVencimiento ? (typeof oportunidadSeleccionada.fechaVencimiento === 'string' ? oportunidadSeleccionada.fechaVencimiento.slice(0, 10) : new Date(oportunidadSeleccionada.fechaVencimiento).toISOString().slice(0, 10)) : '', practiceStartDaysAfterExpiry) || undefined} /></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+              <div className="oportunidades-modal-rechazo-footer">
+                <button type="button" className="oportunidades-modal-rechazo-btn-cancelar" onClick={() => { setShowModalCerrarOportunidad(false); setCerrarContrato(''); setCerrarMotivoNo(''); setCerrarMotivoNoOtro(''); setSelectedPostulantesCerrar([]); setDatosTutorCerrar({}); }}>Cerrar</button>
+                <button type="button" className="oportunidades-modal-rechazo-btn-rechazar" onClick={handleCerrarOportunidad}>Cerrar Oportunidad</button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
         {/* Modal de Historial de Estados - clases propias para forzar estilos y centrado */}
         {showModalHistorial && (
           <div className="oportunidades-modal-historial-overlay" onClick={() => setShowModalHistorial(false)}>
@@ -5535,6 +5802,61 @@ export default function Oportunidades({ onVolver }) {
                           <div className="detalle-postulante-campo">
                             <strong>Estado:</strong> {aplicacionDetail.estadoLabel ?? aplicacionDetail.estado ?? '—'}
                           </div>
+                          {aplicacionDetail._source === 'postulacion_oportunidad' && (
+                            <div className="detalle-postulante-acciones">
+                              {aplicacionDetail.estado === 'rechazado' ? (
+                                <button
+                                  type="button"
+                                  className="btn-deshacer-rechazo"
+                                  onClick={async () => {
+                                    if (!oportunidadSeleccionada?._id || !aplicacionDetail._id) return;
+                                    try {
+                                      const base = oportunidadSeleccionada._isMTM ? '/oportunidades-mtm' : '/opportunities';
+                                      await api.patch(`${base}/${oportunidadSeleccionada._id}/applications/${aplicacionDetail._id}/state`, { estado: 'empresa_consulto_perfil' });
+                                      const { data } = await api.get(`${base}/${oportunidadSeleccionada._id}/applications/detail/${aplicacionDetail._id}`);
+                                      setAplicacionDetail(data);
+                                      setAplicacionesList(prev => prev.map(r => (r._id?.toString?.() === aplicacionDetail._id?.toString?.() ? { ...r, estado: data.estado, estadoLabel: data.estadoLabel } : r)));
+                                      Swal.fire({ icon: 'success', title: 'Rechazo revertido', text: 'El estado del postulante se actualizó correctamente.', confirmButtonColor: '#c41e3a', customClass: { container: 'swal-over-vista-aplicaciones' } });
+                                    } catch (err) {
+                                      Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo revertir el rechazo', confirmButtonColor: '#c41e3a', customClass: { container: 'swal-over-vista-aplicaciones' } });
+                                    }
+                                  }}
+                                >
+                                  Deshacer rechazo
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn-rechazar-estudiante"
+                                  onClick={async () => {
+                                    const result = await Swal.fire({
+                                      icon: 'warning',
+                                      title: 'Rechazar postulante',
+                                      text: '¿Está seguro de rechazar a este postulante? Podrá deshacer esta acción después.',
+                                      showCancelButton: true,
+                                      confirmButtonText: 'Sí, rechazar',
+                                      cancelButtonText: 'Cancelar',
+                                      confirmButtonColor: '#c41e3a',
+                                      customClass: { container: 'swal-over-vista-aplicaciones' }
+                                    });
+                                    if (!result.isConfirmed || !oportunidadSeleccionada?._id || !aplicacionDetail._id) return;
+                                    try {
+                                      const base = oportunidadSeleccionada._isMTM ? '/oportunidades-mtm' : '/opportunities';
+                                      await api.patch(`${base}/${oportunidadSeleccionada._id}/applications/${aplicacionDetail._id}/state`, { estado: 'rechazado' });
+                                      const { data } = await api.get(`${base}/${oportunidadSeleccionada._id}/applications/detail/${aplicacionDetail._id}`);
+                                      setAplicacionDetail(data);
+                                      setAplicacionesList(prev => prev.map(r => (r._id?.toString?.() === aplicacionDetail._id?.toString?.() ? { ...r, estado: data.estado, estadoLabel: data.estadoLabel } : r)));
+                                      Swal.fire({ icon: 'success', title: 'Postulante rechazado', confirmButtonColor: '#c41e3a', customClass: { container: 'swal-over-vista-aplicaciones' } });
+                                    } catch (err) {
+                                      Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo rechazar al postulante', confirmButtonColor: '#c41e3a', customClass: { container: 'swal-over-vista-aplicaciones' } });
+                                    }
+                                  }}
+                                >
+                                  Rechazar estudiante
+                                </button>
+                              )}
+                            </div>
+                          )}
                           <div className="detalle-postulante-campo">
                             <strong>Años de experiencia:</strong> {aplicacionDetail.añosExperiencia ?? '—'}
                           </div>
