@@ -1720,6 +1720,85 @@ input:checked + .slider:before {
   border-color: #8b1824;
 }
 
+.form-modal-description {
+  margin-bottom: 12px;
+  color: #555;
+  font-size: 14px;
+}
+
+.form-modal-link-secondary {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #a91e2a;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.form-modal-link-secondary:hover {
+  color: #8b1824;
+}
+
+.from-other-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.from-other-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: #f8f9fa;
+}
+
+.from-other-list-item span {
+  flex: 1;
+  font-size: 14px;
+}
+
+.from-other-copy-btn {
+  flex-shrink: 0;
+}
+
+.from-other-list-empty {
+  padding: 12px;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+/* Aviso cuando el perfil está incompleto y no se puede generar HV */
+.perfil-hv-incomplete-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border: 1px solid #f0ad4e;
+  border-radius: 6px;
+  background: #fef8e7;
+  color: #856404;
+  font-size: 14px;
+}
+
+.perfil-hv-incomplete-alert-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 18px;
+}
+
+.perfil-hv-incomplete-alert span {
+  flex: 1;
+}
+
 /* Modal Carta: permitir que el dropdown de ciudad sobresalga (no recortado por overflow) */
 .carta-presentacion-modal.form-modal-content {
   overflow: visible;
@@ -2215,6 +2294,174 @@ input:checked + .slider:before {
 
 .perfil-profesional-top {
   margin-bottom: 24px;
+}
+
+/* Títulos de sección en flujo único (Perfil y experiencia) */
+.perfil-seccion-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+/* Bloque selección de perfil al inicio */
+.perfil-block-seleccion {
+  margin-bottom: 24px;
+}
+
+/* Tarjetas horizontales de selección de perfil (sin iconos, estilo global) */
+.perfil-profile-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.perfil-profile-card {
+  flex: 1 1 120px;
+  min-width: 100px;
+  max-width: 200px;
+  padding: 14px 16px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+}
+
+.perfil-profile-card:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.perfil-profile-card--selected {
+  border-style: solid;
+  border-color: #c41e3a;
+  background: #fef2f2;
+  box-shadow: 0 0 0 1px rgba(196, 30, 58, 0.15);
+}
+
+.perfil-profile-card--selected::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #c41e3a;
+  border-radius: 0 0 6px 6px;
+}
+
+.perfil-profile-card-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #111827;
+  text-align: center;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.perfil-profile-card--selected .perfil-profile-card-label {
+  color: #991b1b;
+}
+
+.perfil-profile-card-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.perfil-profile-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.perfil-profile-card-action:hover {
+  background: #f3f4f6;
+  color: #111827;
+  border-color: #d1d5db;
+}
+
+.perfil-profile-card-action--delete:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Campos fijos en grid (Independiente, Empleado, etc.) */
+.perfil-campos-fijos {
+  margin-bottom: 24px;
+}
+
+.perfil-campos-fijos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.perfil-block-inline {
+  padding: 12px 14px;
+}
+
+.perfil-block-inline .perfil-block-title {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+/* Grupo de secciones (áreas, competencias, idiomas) */
+.perfil-seccion-grupo {
+  margin-bottom: 24px;
+}
+
+.perfil-seccion-grupo .perfil-block {
+  margin-bottom: 16px;
+}
+
+.perfil-seccion-grupo .perfil-block:last-child {
+  margin-bottom: 0;
+}
+
+/* Documentos al final de la pestaña */
+.perfil-documentos-final {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Bloque Experiencia, logros y referencias (dentro de Perfil y experiencia) */
+.perfil-experiencia-block {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+  clear: both;
+}
+
+.perfil-experiencia-block-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f3f4f6;
 }
 
 /* ========== Tab Experiencia (secciones con tabla, línea roja en títulos) ========== */

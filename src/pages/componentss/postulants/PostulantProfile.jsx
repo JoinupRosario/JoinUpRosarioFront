@@ -397,6 +397,17 @@ const PostulantProfile = ({ onVolver }) => {
   const [editingReferenceId, setEditingReferenceId] = useState(null);
   const [referenceFormData, setReferenceFormData] = useState({ firstname: '', lastname: '', occupation: '', phone: '' });
   const [savingExperience, setSavingExperience] = useState(false);
+  /** Traer de otro perfil: listas y modo en modales de experiencia / logros / referencias */
+  const [workExpFromOtherOpen, setWorkExpFromOtherOpen] = useState(false);
+  const [otherExpFromOtherOpen, setOtherExpFromOtherOpen] = useState(false);
+  const [awardFromOtherOpen, setAwardFromOtherOpen] = useState(false);
+  const [refFromOtherOpen, setRefFromOtherOpen] = useState(false);
+  const [availableWorkExpsFromOther, setAvailableWorkExpsFromOther] = useState([]);
+  const [availableAwardsFromOther, setAvailableAwardsFromOther] = useState([]);
+  const [availableRefsFromOther, setAvailableRefsFromOther] = useState([]);
+  const [loadingFromOtherWorkExp, setLoadingFromOtherWorkExp] = useState(false);
+  const [loadingFromOtherAward, setLoadingFromOtherAward] = useState(false);
+  const [loadingFromOtherRef, setLoadingFromOtherRef] = useState(false);
   /** Opciones para selects en modales de experiencia (sector, tipo experiencia, tipo logro) */
   const [sectorOptions, setSectorOptions] = useState([]);
   const [experienceTypeOptions, setExperienceTypeOptions] = useState([]);
@@ -432,7 +443,7 @@ const PostulantProfile = ({ onVolver }) => {
     return [baseOption, ...versionOptions];
   }, [profiles, profileData?.postulantProfile?._id, profileData?.postulantProfile?.studentCode, profileData?.postulantProfile?.profileName]);
 
-  /** Generar hoja de vida: valida campos obligatorios según parametrización y aplica configuración del perfil elegido. */
+  /** Generar hoja de vida: valida perfil completo, campos obligatorios según parametrización y aplica configuración del perfil elegido. */
   const handleGenerarHojaVida = useCallback(async () => {
     if (generatingHvRef.current) return;
     if (!hojaDeVidaSelectedProfileId?.trim()) {
@@ -469,39 +480,8 @@ const PostulantProfile = ({ onVolver }) => {
     }
     const profileDataParams = versionId ? { profileId: baseProfileId, versionId } : { profileId: baseProfileId };
     try {
-      const [paramRes, profileRes] = await Promise.all([
-        api.get('/parametrizacion-documentos/hoja-vida'),
-        api.get(`/postulants/${postulant._id}/profile-data`, { params: profileDataParams }),
-      ]);
-      const parametrizacion = paramRes?.data || {};
-      const camposObligatorios = parametrizacion.camposObligatorios || {};
-      const profileDataForValidation = profileRes?.data || {};
-      const mandatoryKeys = Object.keys(camposObligatorios).filter((k) => camposObligatorios[k]);
-      const missing = mandatoryKeys.filter(
-        (key) => !isSeccionHojaVidaCompletada(profileDataForValidation, postulant, key)
-      );
-      if (missing.length > 0) {
-        const labels = missing.map((k) => SECCIONES_HOJA_VIDA_LABELS[k] || k);
-        const tableRows = labels.map((label, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(label)}</td></tr>`).join('');
-        Swal.fire({
-          icon: 'error',
-          title: 'Secciones obligatorias incompletas',
-          html: `
-            <p class="swal-obligatorios-intro">Para generar la hoja de vida debe completar la siguiente información:</p>
-            <table class="swal-obligatorios-table">
-              <thead><tr><th>#</th><th>Información a completar</th></tr></thead>
-              <tbody>${tableRows}</tbody>
-            </table>
-          `,
-          confirmButtonText: 'Aceptar',
-          confirmButtonColor: '#c41e3a',
-          width: '520px',
-        });
-        return;
-      }
       setHojaDeVidaModalOpen(false);
       setHojaDeVidaSelectedProfileId('');
-      setGeneratingHv(true);
       Swal.fire({
         title: 'Generando hoja de vida',
         html: 'Validando datos, generando el PDF y guardando en su perfil. La descarga comenzará en breve.',
@@ -534,7 +514,34 @@ const PostulantProfile = ({ onVolver }) => {
       setGeneratingHv(false);
       Swal.close();
       console.error('Error al validar/generar HV', err);
-      showError('Error', err.response?.data?.message || 'No se pudo validar el perfil o generar el PDF.');
+      let errorMessage = 'No se pudo validar el perfil o generar el PDF.';
+      let missingList = [];
+      const data = err.response?.data;
+      if (data) {
+        if (typeof data === 'object' && !(data instanceof Blob) && data.message) {
+          errorMessage = data.message;
+          if (Array.isArray(data.missing) && data.missing.length > 0) missingList = data.missing;
+        } else if (data instanceof Blob && data.text) {
+          try {
+            const text = await data.text();
+            const json = JSON.parse(text);
+            if (json.message) errorMessage = json.message;
+            if (Array.isArray(json.missing)) missingList = json.missing;
+          } catch (_) {}
+        }
+      }
+      if (missingList.length > 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Campos por completar',
+          html: `<p class="swal-obligatorios-intro">Para generar la hoja de vida complete:</p><ul class="swal-missing-list">${missingList.map((m) => `<li>${escapeHtml(m)}</li>`).join('')}</ul>`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#c41e3a',
+          width: '420px',
+        });
+      } else {
+        showError('Error', errorMessage);
+      }
     }
   }, [postulant?._id, profiles, hojaDeVidaSelectedProfileId, listForHojaVidaSelect, showError]);
 
@@ -947,7 +954,7 @@ const PostulantProfile = ({ onVolver }) => {
         confirmButtonColor: '#c41e3a',
       });
     })();
-  }, [refreshProfileAfterHv, loadProfileDataForProfile]);
+  }, [refreshProfileAfterHv, loadProfileDataForProfile, profileData?.postulantProfile?.perfilCompleto, profileData?.postulantProfile?._id, listForHojaVidaSelect, profiles, postulant?._id, showError]);
 
   /** Id del perfil base actual (para API enrolled/graduate/skills/languages). Debe estar antes de los useCallback que lo usan. */
   const currentBaseProfileId = (() => {
@@ -966,6 +973,12 @@ const PostulantProfile = ({ onVolver }) => {
     if (String(selectedProfileIdForView) === String(baseId)) return null;
     return selectedProfileIdForView;
   })();
+
+  /** Solo mostrar experiencias/referencias cuando los datos cargados corresponden al perfil actual (evita mostrar datos de otro perfil al cambiar). */
+  const profileDataBelongsToCurrentProfile =
+    profileData?.postulantProfile?._id != null &&
+    currentBaseProfileId != null &&
+    String(profileData.postulantProfile._id) === String(currentBaseProfileId);
 
   const handleAddSkill = useCallback(async () => {
     if (!postulant?._id || !currentBaseProfileId) return;
@@ -1404,6 +1417,7 @@ const PostulantProfile = ({ onVolver }) => {
         stateId: stateId || undefined,
         cityId: cityId || undefined,
         achievements: achievements?.trim()?.slice(0, 500) || undefined,
+        ...(currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {}),
       };
       if (editingWorkExpId) {
         await api.put(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/work-experiences/${editingWorkExpId}`, payload);
@@ -1415,14 +1429,14 @@ const PostulantProfile = ({ onVolver }) => {
       setWorkExpModalOpen(false);
       setEditingWorkExpId(null);
       setWorkExpFormData({ startDate: '', noEndDate: false, endDate: '', jobTitle: '', profession: '', companyName: '', companySector: '', contact: '', countryId: '', stateId: '', cityId: '', achievements: '' });
-      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
     } catch (err) {
       console.error(err);
       showError('Error', err.response?.data?.message || 'No se pudo guardar');
     } finally {
       setSavingExperience(false);
     }
-  }, [postulant?._id, currentBaseProfileId, workExpFormData, editingWorkExpId, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, workExpFormData, editingWorkExpId, showError, loadProfileDataForProfile]);
 
   const handleSaveOtherExperience = useCallback(async () => {
     if (!postulant?._id || !currentBaseProfileId) return;
@@ -1446,6 +1460,7 @@ const PostulantProfile = ({ onVolver }) => {
         stateId: stateId || undefined,
         cityId: cityId || undefined,
         activities: activities?.trim()?.slice(0, 1000) || undefined,
+        ...(currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {}),
       };
       if (editingOtherExpId) {
         await api.put(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/work-experiences/${editingOtherExpId}`, payload);
@@ -1457,14 +1472,14 @@ const PostulantProfile = ({ onVolver }) => {
       setOtherExpModalOpen(false);
       setEditingOtherExpId(null);
       setOtherExpFormData({ experienceType: '', startDate: '', noEndDate: false, endDate: '', jobTitle: '', investigationLine: '', companyName: '', course: '', countryId: '', stateId: '', cityId: '', activities: '' });
-      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
     } catch (err) {
       console.error(err);
       showError('Error', err.response?.data?.message || 'No se pudo guardar');
     } finally {
       setSavingExperience(false);
     }
-  }, [postulant?._id, currentBaseProfileId, otherExpFormData, editingOtherExpId, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, otherExpFormData, editingOtherExpId, showError, loadProfileDataForProfile]);
 
   const handleSaveAward = useCallback(async () => {
     if (!postulant?._id || !currentBaseProfileId) return;
@@ -1504,7 +1519,13 @@ const PostulantProfile = ({ onVolver }) => {
     }
     try {
       setSavingExperience(true);
-      const payload = { firstname: firstname.trim(), lastname: lastname.trim(), occupation: occupation.trim(), phone: phone.trim() };
+      const payload = {
+        firstname: firstname.trim(),
+        lastname: lastname.trim(),
+        occupation: occupation.trim(),
+        phone: phone.trim(),
+        ...(currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {}),
+      };
       if (editingReferenceId) {
         await api.put(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/references/${editingReferenceId}`, payload);
         createAlert('success', 'Guardado', 'Referencia actualizada.');
@@ -1515,14 +1536,111 @@ const PostulantProfile = ({ onVolver }) => {
       setReferenceModalOpen(false);
       setEditingReferenceId(null);
       setReferenceFormData({ firstname: '', lastname: '', occupation: '', phone: '' });
-      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
     } catch (err) {
       console.error(err);
       showError('Error', err.response?.data?.message || 'No se pudo guardar');
     } finally {
       setSavingExperience(false);
     }
-  }, [postulant?._id, currentBaseProfileId, referenceFormData, editingReferenceId, showError, loadProfileDataForProfile]);
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, referenceFormData, editingReferenceId, showError, loadProfileDataForProfile]);
+
+  const fetchAvailableWorkExperiences = useCallback(async () => {
+    if (!postulant?._id || !currentBaseProfileId) return;
+    setLoadingFromOtherWorkExp(true);
+    try {
+      const params = currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {};
+      const { data } = await api.get(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/available-work-experiences`, { params });
+      setAvailableWorkExpsFromOther(data || []);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo cargar la lista');
+    } finally {
+      setLoadingFromOtherWorkExp(false);
+    }
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, showError]);
+
+  const fetchAvailableAwards = useCallback(async () => {
+    if (!postulant?._id || !currentBaseProfileId) return;
+    setLoadingFromOtherAward(true);
+    try {
+      const { data } = await api.get(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/available-awards`);
+      setAvailableAwardsFromOther(data || []);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo cargar la lista');
+    } finally {
+      setLoadingFromOtherAward(false);
+    }
+  }, [postulant?._id, currentBaseProfileId, showError]);
+
+  const fetchAvailableReferences = useCallback(async () => {
+    if (!postulant?._id || !currentBaseProfileId) return;
+    setLoadingFromOtherRef(true);
+    try {
+      const params = currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {};
+      const { data } = await api.get(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/available-references`, { params });
+      setAvailableRefsFromOther(data || []);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo cargar la lista');
+    } finally {
+      setLoadingFromOtherRef(false);
+    }
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, showError]);
+
+  const handleCopyWorkExperienceFromOther = useCallback(async (sourceWorkExperienceId) => {
+    if (!postulant?._id || !currentBaseProfileId) return;
+    setSavingExperience(true);
+    try {
+      await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/work-experiences/copy-from/${sourceWorkExperienceId}`, currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {});
+      createAlert('success', 'Listo', 'Experiencia copiada a este perfil.');
+      setWorkExpFromOtherOpen(false);
+      setWorkExpModalOpen(false);
+      setOtherExpFromOtherOpen(false);
+      setOtherExpModalOpen(false);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo copiar');
+    } finally {
+      setSavingExperience(false);
+    }
+  }, [postulant?._id, currentBaseProfileId, currentVersionIdForApi, showError, loadProfileDataForProfile]);
+
+  const handleCopyAwardFromOther = useCallback(async (sourceAwardId) => {
+    if (!postulant?._id || !currentBaseProfileId) return;
+    setSavingExperience(true);
+    try {
+      await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/awards/copy-from/${sourceAwardId}`);
+      createAlert('success', 'Listo', 'Logro copiado a este perfil.');
+      setAwardFromOtherOpen(false);
+      setAwardModalOpen(false);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo copiar');
+    } finally {
+      setSavingExperience(false);
+    }
+  }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
+
+  const handleCopyReferenceFromOther = useCallback(async (sourceReferenceId) => {
+    if (!postulant?._id || !currentBaseProfileId) return;
+    setSavingExperience(true);
+    try {
+      await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/references/copy-from/${sourceReferenceId}`, currentVersionIdForApi ? { versionId: currentVersionIdForApi } : {});
+      createAlert('success', 'Listo', 'Referencia copiada a este perfil.');
+      setRefFromOtherOpen(false);
+      setReferenceModalOpen(false);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId, currentVersionIdForApi);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo copiar');
+    } finally {
+      setSavingExperience(false);
+    }
+  }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
 
   const handleDeleteWorkExperience = useCallback(async (workExpId) => {
     if (!postulant?._id || !currentBaseProfileId) return;
@@ -2153,11 +2271,11 @@ const PostulantProfile = ({ onVolver }) => {
       section('Información académica', missingAcademica),
     ].filter(Boolean).join('');
     if (!profileData && html) {
-      html += '<p style="margin-top:0.75rem; font-size:0.9em; color:#666;">Si abre las pestañas <strong>Perfil</strong> e <strong>Información académica</strong>, se evaluará también qué falta en esas secciones.</p>';
+      html += '<p style="margin-top:0.75rem; font-size:0.9em; color:#666;">Si abre las pestañas <strong>Perfil y experiencia</strong> e <strong>Información académica</strong>, se evaluará también qué falta en esas secciones.</p>';
     }
     Swal.fire({
       title: '¿Qué hace falta para completar su perfil?',
-      html: html || '<p>No hay datos cargados. Abra las pestañas Perfil e Información académica para ver el detalle.</p>',
+      html: html || '<p>No hay datos cargados. Abra las pestañas Perfil y experiencia e Información académica para ver el detalle.</p>',
       confirmButtonText: 'Entendido',
       confirmButtonColor: '#c41e3a',
       width: '520px',
@@ -2286,15 +2404,8 @@ const PostulantProfile = ({ onVolver }) => {
           className={`profile-tab ${activeTab === 'perfil' ? 'active' : ''}`}
           onClick={() => setActiveTab('perfil')}
         >
-          PERFIL
+          PERFIL Y EXPERIENCIA
         </button>
-        <button
-          className={`profile-tab ${activeTab === 'experiencia' ? 'active' : ''}`}
-          onClick={() => setActiveTab('experiencia')}
-        >
-          EXPERIENCIA
-        </button>
-      
       </div>
 
       {/* Contenido principal */}
@@ -3199,7 +3310,139 @@ const PostulantProfile = ({ onVolver }) => {
               ¡Atención! Recuerda que para generar tu hoja de vida necesitas crear y seleccionar un perfil, esto te permitirá aplicar a las oportunidades. La Universidad del Rosario no se hace responsable de la veracidad de la información ingresada en relación a los estudios o experiencia externos a la institución relacionados por el postulante.
             </div>
 
-            {/* Perfil Profesional: texto esencial del perfil, ubicado arriba para mayor visibilidad */}
+            {/* 1. Selección de perfil — primero para que el usuario elija y luego se renderice el resto */}
+            <div className="perfil-block perfil-block-seleccion">
+              <h3 className="perfil-seccion-titulo">Seleccione su perfil</h3>
+              <p className="perfil-block-note">Seleccione o cree un perfil; toda la información siguiente (áreas, competencias, experiencias, etc.) corresponde al perfil elegido.</p>
+              <div className="section-title-row">
+                <h4 className="perfil-block-title">Perfil profesional</h4>
+                {isEditing && (
+                  <span className="section-actions">
+                    <button type="button" className="section-action-btn section-action-add-only" onClick={handleCreateProfile} title="Agregar"><FiPlus /></button>
+                  </span>
+                )}
+              </div>
+              <p className="perfil-block-note">*Puede crear hasta 5 versiones diferentes de su perfil</p>
+              {loadingProfiles ? (
+                <div className="perfil-profile-list-loading">Cargando perfiles...</div>
+              ) : listForDisplay.length > 0 ? (
+                <div className="perfil-profile-cards">
+                  {listForDisplay.map((profile, index) => {
+                    const isVersion = profile.type === 'version';
+                    const isBase = profile.type === 'base';
+                    const baseNameFromData = isBase && profileData?.postulantProfile?._id?.toString() === profile._id?.toString()
+                      ? (profileData.postulantProfile.studentCode || profileData.postulantProfile.profileName || '').trim()
+                      : '';
+                    const profileNameStr = isBase ? (baseNameFromData || 'Perfil base') : ((profile.profileName && String(profile.profileName).trim()) || (profile.studentCode && String(profile.studentCode).trim()));
+                    const fallbackText = (profile.profileText && String(profile.profileText).trim()) || (isBase ? profileNameStr : profileNameStr);
+                    const label = (profileNameStr || fallbackText) ? (profileNameStr || fallbackText).slice(0, 50) + ((profileNameStr || fallbackText).length > 50 ? '…' : '') : (profile.createdAt || profile.dateCreation ? new Date(profile.createdAt || profile.dateCreation).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : null) || (isVersion ? `Versión ${index}` : isBase ? 'Perfil base' : `Hoja de vida ${index + 1}`);
+                    const profileIdStr = profile._id != null ? String(profile._id) : '';
+                    const currentVersionId = profileData?.selectedProfileVersion?._id != null ? String(profileData.selectedProfileVersion._id) : null;
+                    const isSelectedForView = profileIdStr !== '' && (currentVersionId === profileIdStr || (selectedProfileIdForView != null && String(selectedProfileIdForView) === profileIdStr));
+                    const baseProfileId = profile.profileId ?? profile._id;
+                    const versionId = profile.type === 'base' ? null : (profile.versionId ?? profile._id);
+                    const profileKey = profile._id ?? `${profile.profileId ?? 'p'}-${profile.versionId ?? index}`;
+                    const handleSelectProfile = () => {
+                      if (isSelectedForView) return;
+                      setSelectedProfileIdForView(profile._id);
+                      setProfileData(null);
+                      setLoadingProfileData(true);
+                      setAvailableWorkExpsFromOther([]);
+                      setAvailableAwardsFromOther([]);
+                      setAvailableRefsFromOther([]);
+                      const postulantId = postulant._id?.toString?.() ?? postulant._id;
+                      loadProfileDataForProfile(postulantId, baseProfileId, versionId).finally(() => setLoadingProfileData(false));
+                    };
+                    return (
+                      <div
+                        key={profileKey}
+                        role="button"
+                        tabIndex={0}
+                        className={`perfil-profile-card ${isSelectedForView ? 'perfil-profile-card--selected' : ''}`}
+                        onClick={handleSelectProfile}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectProfile(); } }}
+                        title="Seleccionar y ver este perfil"
+                      >
+                        <span className="perfil-profile-card-label">{label}</span>
+                        {isEditing && (
+                          <div className="perfil-profile-card-actions" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="perfil-profile-card-action" onClick={() => handleEditProfile(profile)} title="Editar"><FiEdit /></button>
+                            {profile.type !== 'base' && (
+                              <button type="button" className="perfil-profile-card-action perfil-profile-card-action--delete" onClick={() => handleDeleteProfile(profile)} title="Eliminar"><FiTrash2 /></button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="perfil-profile-list-empty">No hay perfiles creados. Cree una versión de perfil para empezar.</div>
+              )}
+            </div>
+
+            {/* 2. Campos fijos */}
+            <div className="perfil-campos-fijos">
+              <h3 className="perfil-seccion-titulo">Datos del perfil</h3>
+              <div className="perfil-campos-fijos-grid">
+                <div className="perfil-block perfil-block-inline">
+                  <h4 className="perfil-block-title">Independiente</h4>
+                  {isEditing ? (
+                    <div className="perfil-switch-row">
+                      <button type="button" role="switch" aria-checked={profileEditFields.independent} className={`form-modal-toggle ${profileEditFields.independent ? 'on' : ''}`} onClick={() => handleProfileFieldChange('independent', !profileEditFields.independent)}><span className="form-modal-toggle-thumb" /></button>
+                    </div>
+                  ) : (
+                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.independent ? 'sino-si' : 'sino-no'}`}>{profileData?.postulantProfile?.independent ? 'Sí' : 'No'}</span>
+                  )}
+                </div>
+                <div className="perfil-block perfil-block-inline">
+                  <h4 className="perfil-block-title">Empleado</h4>
+                  {isEditing ? (
+                    <div className="perfil-switch-row">
+                      <button type="button" role="switch" aria-checked={profileEditFields.employee} className={`form-modal-toggle ${profileEditFields.employee ? 'on' : ''}`} onClick={() => handleProfileFieldChange('employee', !profileEditFields.employee)}><span className="form-modal-toggle-thumb" /></button>
+                    </div>
+                  ) : (
+                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.employee ? 'sino-si' : 'sino-no'}`}>{profileData?.postulantProfile?.employee ? 'Sí' : 'No'}</span>
+                  )}
+                </div>
+                <div className="perfil-block perfil-block-inline">
+                  <h4 className="perfil-block-title">¿Discapacidad?</h4>
+                  {isEditing ? (
+                    <div className="perfil-switch-row">
+                      <button type="button" role="switch" aria-checked={profileEditFields.conditionDiscapacity} className={`form-modal-toggle ${profileEditFields.conditionDiscapacity ? 'on' : ''}`} onClick={() => handleProfileFieldChange('conditionDiscapacity', !profileEditFields.conditionDiscapacity)}><span className="form-modal-toggle-thumb" /></button>
+                    </div>
+                  ) : (
+                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.conditionDiscapacity ? 'sino-si' : 'sino-no'}`}>{profileData?.postulantProfile?.conditionDiscapacity ? 'Sí' : 'No'}</span>
+                  )}
+                </div>
+                <div className="perfil-block perfil-block-inline">
+                  <h4 className="perfil-block-title">¿Tiene empresa?</h4>
+                  {isEditing ? (
+                    <div className="perfil-switch-row">
+                      <button type="button" role="switch" aria-checked={profileEditFields.haveBusiness} className={`form-modal-toggle ${profileEditFields.haveBusiness ? 'on' : ''}`} onClick={() => handleProfileFieldChange('haveBusiness', !profileEditFields.haveBusiness)}><span className="form-modal-toggle-thumb" /></button>
+                    </div>
+                  ) : (
+                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.haveBusiness ? 'sino-si' : 'sino-no'}`}>{profileData?.postulantProfile?.haveBusiness ? 'Sí' : 'No'}</span>
+                  )}
+                </div>
+                <div className="perfil-block perfil-block-inline">
+                  <h4 className="perfil-block-title">Años de experiencia</h4>
+                  <div className="perfil-field-value">{getDisplayYearsExperience(profileData)}</div>
+                </div>
+                <div className="perfil-block perfil-block-inline">
+                  <h4 className="perfil-block-title">Tiempo total experiencia (meses)</h4>
+                  {isEditing ? (
+                    <div className="profile-field-input-wrapper">
+                      <input type="number" min={0} step={0.1} className="profile-field-input" value={profileEditFields.totalTimeExperience} onChange={e => handleProfileFieldChange('totalTimeExperience', e.target.value)} placeholder="0" />
+                    </div>
+                  ) : (
+                    <div className="perfil-field-value">{profileData?.postulantProfile?.totalTimeExperience != null ? String(profileData.postulantProfile.totalTimeExperience) : '0.0'}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Texto perfil profesional */}
             {(() => {
               const displayText = profileData?.selectedProfileVersion?.profileText ?? profileData?.postulantProfile?.profileText;
               const displayName = profileData?.selectedProfileVersion?.profileName;
@@ -3213,730 +3456,522 @@ const PostulantProfile = ({ onVolver }) => {
               );
             })()}
 
-            <div className="perfil-two-columns">
-              <div className="perfil-column perfil-column-left">
-                <div className="perfil-block perfil-block-profesional">
-                  <div className="section-title-row">
-                    <h4 className="perfil-block-title">Perfil profesional</h4>
-                    {isEditing && (
-                      <span className="section-actions">
-                        <button type="button" className="section-action-btn section-action-add-only" onClick={handleCreateProfile} title="Agregar"><FiPlus /></button>
-                      </span>
-                    )}
-                  </div>
-                  <p className="perfil-block-note">*Puede crear hasta 5 versiones diferentes de su perfil</p>
-                  {loadingProfiles ? (
-                    <div className="perfil-profile-list-loading">Cargando perfiles...</div>
-                  ) : listForDisplay.length > 0 ? (
-                    <ul className="perfil-profile-list">
-                      {listForDisplay.map((profile, index) => {
-                        const isVersion = profile.type === 'version';
-                        const isBase = profile.type === 'base';
-                        const baseNameFromData = isBase && profileData?.postulantProfile?._id?.toString() === profile._id?.toString()
-                          ? (profileData.postulantProfile.studentCode || profileData.postulantProfile.profileName || '').trim()
-                          : '';
-                        const profileNameStr = isBase
-                          ? (baseNameFromData || 'Perfil base')
-                          : ((profile.profileName && String(profile.profileName).trim()) || (profile.studentCode && String(profile.studentCode).trim()));
-                        const fallbackText = (profile.profileText && String(profile.profileText).trim()) || (isBase ? profileNameStr : profileNameStr);
-                        const label = (profileNameStr || fallbackText)
-                          ? (profileNameStr || fallbackText).slice(0, 50) + ((profileNameStr || fallbackText).length > 50 ? '…' : '')
-                          : (profile.createdAt || profile.dateCreation ? new Date(profile.createdAt || profile.dateCreation).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : null)
-                          || (isVersion ? `Versión ${index}` : isBase ? 'Perfil base' : `Hoja de vida ${index + 1}`);
-                        const isOptionsOpen = profileOptionsOpenId === profile._id;
-                        const profileIdStr = profile._id != null ? String(profile._id) : '';
-                        const currentVersionId = profileData?.selectedProfileVersion?._id != null ? String(profileData.selectedProfileVersion._id) : null;
-                        const isSelectedForView = profileIdStr !== '' && (currentVersionId === profileIdStr || (selectedProfileIdForView != null && String(selectedProfileIdForView) === profileIdStr));
-                        const baseProfileId = profile.profileId ?? profile._id;
-                        const versionId = profile.type === 'base' ? null : (profile.versionId ?? profile._id);
-                        const profileKey = profile._id ?? `${profile.profileId ?? 'p'}-${profile.versionId ?? index}`;
-                        const handleSelectProfile = () => {
-                          if (isSelectedForView) return; // ya está seleccionado
-                          setSelectedProfileIdForView(profile._id);
-                          setProfileData(null);
-                          setLoadingProfileData(true);
-                          const postulantId = postulant._id?.toString?.() ?? postulant._id;
-                          loadProfileDataForProfile(postulantId, baseProfileId, versionId).finally(() => setLoadingProfileData(false));
-                        };
-                        return (
-                          <li
-                            key={profileKey}
-                            role="button"
-                            tabIndex={0}
-                            className={`perfil-profile-item ${isSelectedForView ? 'perfil-profile-item-selected' : ''}`}
-                            onClick={handleSelectProfile}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectProfile(); } }}
-                            title="Seleccionar y ver este perfil"
-                          >
-                            <span className="perfil-profile-item-check"><FiCheck /></span>
-                            <span className="perfil-profile-item-name">
-                              {label}
-                              {isSelectedForView && <span className="perfil-profile-item-active-badge"></span>}
-                            </span>
-                            <div className="perfil-profile-item-actions" onClick={(e) => e.stopPropagation()}>
+            {/* 4. Áreas de interés, Competencias, Idiomas */}
+            <div className="perfil-seccion-grupo">
+              <h3 className="perfil-seccion-titulo">Áreas de interés, competencias e idiomas</h3>
+              <div className="perfil-block">
+                <div className="section-title-row">
+                  <h4 className="perfil-block-title">Áreas de Interés</h4>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setInterestAreaFormData({ area: '' }); setInterestAreaModalOpen(true); }} title="Agregar"><FiPlus /></button>
+                    </span>
+                  )}
+                </div>
+                {profileData?.interestAreas?.length > 0 ? (
+                  <ul className="perfil-tag-list">
+                    {profileData.interestAreas.map((ia) => (
+                      <li key={ia._id} className="perfil-tag-item">
+                        <span className="perfil-check-icon"><FiCheck /></span>
+                        <span className="perfil-tag-item-text">{ia.area?.name ?? ia.area?.value ?? '—'}</span>
+                        {isEditing && (
+                          <button type="button" className="perfil-tag-item-delete" onClick={() => handleDeleteInterestArea(ia._id)} title="Eliminar" aria-label="Eliminar"><FiX /></button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="perfil-field-value perfil-field-empty">—</div>
+                )}
+              </div>
+              <div className="perfil-block">
+                <div className="section-title-row">
+                  <h4 className="perfil-block-title">Competencias</h4>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setSkillFormData({ skillId: '', experienceYears: '' }); setSkillModalOpen(true); }} title="Agregar"><FiPlus /></button>
+                    </span>
+                  )}
+                </div>
+                {profileData?.skills?.length > 0 ? (
+                  <ul className="perfil-tag-list">
+                    {profileData.skills.map((s) => (
+                      <li key={s._id} className="perfil-tag-item">
+                        <span className="perfil-check-icon"><FiCheck /></span>
+                        <span className="perfil-tag-item-text">{s.skillId?.name || '—'}</span>
+                        {isEditing && (
+                          <button type="button" className="perfil-tag-item-delete" onClick={() => handleDeleteSkill(s._id)} title="Eliminar" aria-label="Eliminar"><FiX /></button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="perfil-field-value perfil-field-empty">—</div>
+                )}
+              </div>
+              <div className="perfil-block">
+                <div className="section-title-row">
+                  <h4 className="perfil-block-title">Idiomas</h4>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setLanguageFormData({ language: '', level: '' }); setLanguageModalOpen(true); }} title="Agregar"><FiPlus /></button>
+                    </span>
+                  )}
+                </div>
+                {profileData?.languages?.length > 0 ? (
+                  <ul className="perfil-lang-list">
+                    {profileData.languages.map((l) => (
+                      <li key={l._id} className="perfil-lang-item">
+                        <span>{l.language?.name ?? l.language?.value ?? '—'}</span>
+                        <span className="perfil-lang-level">{l.level?.name ?? l.level?.value ?? '—'}</span>
+                        {isEditing && (
+                          <button type="button" className="perfil-tag-item-delete" onClick={() => handleDeleteLanguage(l._id)} title="Eliminar" aria-label="Eliminar"><FiX /></button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="perfil-field-value perfil-field-empty">—</div>
+                )}
+              </div>
+            </div>
+
+            {/* 5. Habilidades técnicas */}
+            <div className="perfil-block">
+              <div className="section-title-row">
+                <h4 className="perfil-block-title">Habilidades técnicas y de software</h4>
+                {isEditing && <FiEdit className="field-edit-icon" style={{ marginLeft: '8px' }} />}
+              </div>
+              {isEditing ? (
+                <>
+                  <textarea className="form-control perfil-skills-textarea" value={profileEditFields.skillsTechnicalSoftware} onChange={e => handleProfileFieldChange('skillsTechnicalSoftware', e.target.value.slice(0, 512))} placeholder="Escriba sus habilidades técnicas y de software" rows={3} maxLength={512} />
+                  <div className="perfil-field-char-count">Caracteres restantes: {512 - (profileEditFields.skillsTechnicalSoftware || '').length}</div>
+                </>
+              ) : (
+                <div className="perfil-field-value">{profileData?.postulantProfile?.skillsTechnicalSoftware || '—'}</div>
+              )}
+            </div>
+
+            {/* 6. Experiencia, logros y referencias */}
+            <div className="perfil-experiencia-block">
+              <h3 className="perfil-experiencia-block-title">Experiencia, logros y referencias de este perfil</h3>
+              <section className="exp-section">
+                <div className="section-title-row">
+                  <h3 className="exp-section-title">Experiencias Laborales</h3>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingWorkExpId(null); setWorkExpFormData({ startDate: '', noEndDate: false, endDate: '', jobTitle: '', profession: '', companyName: '', companySector: '', contact: '', countryId: '', stateId: '', cityId: '', achievements: '' }); setWorkExpModalOpen(true); }} title="Agregar"><FiPlus /></button>
+                    </span>
+                  )}
+                </div>
+                <div className="exp-table-wrap">
+                  <table className="exp-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha de inicio</th>
+                        <th>Fecha de finalización</th>
+                        <th>Cargo</th>
+                        <th>Empresa</th>
+                        <th>Sector</th>
+                        <th>Contacto</th>
+                        <th>Profesión</th>
+                        <th>País</th>
+                        <th>Departamento</th>
+                        <th>Ciudad</th>
+                        {isEditing && <th>Acciones</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(profileDataBelongsToCurrentProfile && profileData?.workExperiences?.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP').length > 0) ? (
+                        profileData.workExperiences.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP').map((w, wi) => {
+                          const isOptionsOpen = expLaboralOptionsId === w._id;
+                          return (
+                            <tr key={w._id ?? `job-${wi}`}>
+                              <td>{w.startDate ? formatDate(w.startDate) : '—'}</td>
+                              <td>{w.noEndDate ? 'Actualidad' : (w.endDate ? formatDate(w.endDate) : '—')}</td>
+                              <td>{w.jobTitle || '—'}</td>
+                              <td>{w.companyName || '—'}</td>
+                              <td>{w.companySector?.name ?? w.companySector?.value ?? '—'}</td>
+                              <td>{w.contact || '—'}</td>
+                              <td>{w.profession || '—'}</td>
+                              <td>{w.countryId?.name ?? '—'}</td>
+                              <td>{w.stateId?.name ?? '—'}</td>
+                              <td>{w.cityId?.name ?? '—'}</td>
                               {isEditing && (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="perfil-profile-item-action-icon perfil-profile-item-action-edit"
-                                    onClick={() => handleEditProfile(profile)}
-                                    title="Editar"
-                                  >
-                                    <FiEdit />
-                                  </button>
-                                  {profile.type !== 'base' && (
-                                    <button
-                                      type="button"
-                                      className="perfil-profile-item-action-icon perfil-profile-item-action-delete"
-                                      onClick={() => handleDeleteProfile(profile)}
-                                      title="Eliminar"
-                                    >
-                                      <FiTrash2 />
-                                    </button>
-                                  )}
-                                </>
+                                <td>
+                                  <div className="academic-row-actions" ref={expLaboralOptionsId === w._id ? expOptionsAnchorRef : undefined}>
+                                    <button type="button" className="perfil-opciones-btn" onClick={() => setExpLaboralOptionsId(isOptionsOpen ? null : w._id)} title="Opciones">Opciones <FiMoreVertical /></button>
+                                    {isOptionsOpen && (
+                                      <>
+                                        <div className="perfil-opciones-backdrop" onClick={() => setExpLaboralOptionsId(null)} />
+                                        <div
+                                          className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
+                                          style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
+                                        >
+                                          <button type="button" onClick={() => {
+                                            setExpLaboralOptionsId(null);
+                                            setEditingWorkExpId(w._id);
+                                            setWorkExpFormData({
+                                              startDate: w.startDate ? (typeof w.startDate === 'string' ? w.startDate.slice(0, 10) : new Date(w.startDate).toISOString().slice(0, 10)) : '',
+                                              noEndDate: !!w.noEndDate,
+                                              endDate: w.endDate ? (typeof w.endDate === 'string' ? w.endDate.slice(0, 10) : new Date(w.endDate).toISOString().slice(0, 10)) : '',
+                                              jobTitle: w.jobTitle || '',
+                                              profession: w.profession || '',
+                                              companyName: w.companyName || '',
+                                              companySector: w.companySector?._id || w.companySector || '',
+                                              contact: w.contact || '',
+                                              countryId: w.countryId?._id || w.countryId || '',
+                                              stateId: w.stateId?._id || w.stateId || '',
+                                              cityId: w.cityId?._id || w.cityId || '',
+                                              achievements: w.achievements || '',
+                                            });
+                                            setWorkExpModalOpen(true);
+                                          }}>Editar</button>
+                                          <button type="button" onClick={() => handleDeleteWorkExperience(w._id)}>Eliminar</button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
                               )}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <div className="perfil-profile-list-empty">No hay perfiles creados. Cree una versión de perfil para empezar.</div>
-                  )}
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr><td colSpan={isEditing ? 11 : 10} className="exp-table-empty">No hay experiencias laborales registradas.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
+              </section>
 
-                <div className="perfil-block">
-                  <div className="section-title-row">
-                    <h4 className="perfil-block-title">Habilidades técnicas y de software</h4>
-                    {isEditing && <FiEdit className="field-edit-icon" style={{ marginLeft: '8px' }} />}
-                  </div>
-                  {isEditing ? (
-                    <>
-                      <textarea
-                        className="form-control perfil-skills-textarea"
-                        value={profileEditFields.skillsTechnicalSoftware}
-                        onChange={e => handleProfileFieldChange('skillsTechnicalSoftware', e.target.value.slice(0, 512))}
-                        placeholder="Escriba sus habilidades técnicas y de software"
-                        rows={3}
-                        maxLength={512}
-                      />
-                      <div className="perfil-field-char-count">Caracteres restantes: {512 - (profileEditFields.skillsTechnicalSoftware || '').length}</div>
-                    </>
-                  ) : (
-                    <div className="perfil-field-value">{profileData?.postulantProfile?.skillsTechnicalSoftware || '—'}</div>
-                  )}
-                </div>
-
-                <div className="perfil-block">
-                  <h4 className="perfil-block-title">¿Se encuentra en condición de discapacidad?</h4>
-                  {isEditing ? (
-                    <div className="perfil-switch-row">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={profileEditFields.conditionDiscapacity}
-                        className={`form-modal-toggle ${profileEditFields.conditionDiscapacity ? 'on' : ''}`}
-                        onClick={() => handleProfileFieldChange('conditionDiscapacity', !profileEditFields.conditionDiscapacity)}
-                      >
-                        <span className="form-modal-toggle-thumb" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.conditionDiscapacity ? 'sino-si' : 'sino-no'}`}>
-                      {profileData?.postulantProfile?.conditionDiscapacity ? 'Sí' : 'No'}
+              <section className="exp-section">
+                <div className="section-title-row">
+                  <h3 className="exp-section-title">Otras Experiencias</h3>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingOtherExpId(null); setOtherExpFormData({ experienceType: '', startDate: '', noEndDate: false, endDate: '', jobTitle: '', investigationLine: '', companyName: '', course: '', countryId: '', stateId: '', cityId: '', activities: '' }); setOtherExpModalOpen(true); }} title="Agregar"><FiPlus /></button>
                     </span>
                   )}
                 </div>
-
-                <div className="perfil-block">
-                  <h4 className="perfil-block-title">¿Tengo mi propia empresa?</h4>
-                  {isEditing ? (
-                    <div className="perfil-switch-row">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={profileEditFields.haveBusiness}
-                        className={`form-modal-toggle ${profileEditFields.haveBusiness ? 'on' : ''}`}
-                        onClick={() => handleProfileFieldChange('haveBusiness', !profileEditFields.haveBusiness)}
-                      >
-                        <span className="form-modal-toggle-thumb" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.haveBusiness ? 'sino-si' : 'sino-no'}`}>
-                      {profileData?.postulantProfile?.haveBusiness ? 'Sí' : 'No'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="perfil-block">
-                  <h4 className="perfil-block-title">Años de experiencia</h4>
-                  <div className="perfil-field-value">
-                    {getDisplayYearsExperience(profileData)}
-                  </div>
-                </div>
-
-                <div className="perfil-block">
-                  <div className="section-title-row">
-                    <h4 className="perfil-block-title">Otros documentos de soporte</h4>
-                    {isEditing && (
-                      <span className="section-actions">
-                        <button type="button" className="section-action-btn section-action-add-only" onClick={() => showFuncionalidadEnDesarrollo('Otros documentos de soporte')} title="Agregar"><FiPlus /></button>
-                      </span>
-                    )}
-                  </div>
-                  <p className="perfil-block-desc">Puede ingresar hasta 5 archivos de Soporte, según su necesidad. El tamaño máximo de cada archivo es de 5Mb. Se permiten las siguientes extensiones: .doc, .docx, .xls, .xlsx, .pdf, .jpg, .jpeg y .png</p>
-                  {profileData?.profileSupports?.length > 0 ? (
-                    <ul className="perfil-doc-list">
-                      {profileData.profileSupports.map((item) => {
-                        const att = item.attachmentId;
-                        const name = att?.name || 'Documento';
-                        return (
-                          <li key={item._id} className="perfil-doc-item">
-                            <span className="perfil-doc-icon"><FiFile /></span>
-                            <button type="button" className="perfil-doc-link" onClick={() => handleDownloadAttachment(att?._id, name)} title="Descargar">
-                              {name}
-                            </button>
-                            <button type="button" className="perfil-tag-item-delete perfil-doc-delete" onClick={() => handleDeleteProfileSupport(item._id)} title="Eliminar documento" aria-label="Eliminar"><FiTrash2 /></button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <div className="perfil-field-value perfil-field-empty">—</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="perfil-column perfil-column-right">
-                <div className="perfil-block">
-                  <div className="section-title-row">
-                    <h4 className="perfil-block-title">Áreas de Interés</h4>
-                    {isEditing && (
-                      <span className="section-actions">
-                        <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setInterestAreaFormData({ area: '' }); setInterestAreaModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                      </span>
-                    )}
-                  </div>
-                  {profileData?.interestAreas?.length > 0 ? (
-                    <ul className="perfil-tag-list">
-                      {profileData.interestAreas.map((ia) => (
-                        <li key={ia._id} className="perfil-tag-item">
-                          <span className="perfil-check-icon"><FiCheck /></span>
-                          <span className="perfil-tag-item-text">{ia.area?.name ?? ia.area?.value ?? '—'}</span>
-                          {isEditing && (
-                            <button type="button" className="perfil-tag-item-delete" onClick={() => handleDeleteInterestArea(ia._id)} title="Eliminar" aria-label="Eliminar"><FiX /></button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="perfil-field-value perfil-field-empty">—</div>
-                  )}
-                </div>
-
-                <div className="perfil-block">
-                  <div className="section-title-row">
-                    <h4 className="perfil-block-title">Competencias (Habilidades e intereses)</h4>
-                    {isEditing && (
-                      <span className="section-actions">
-                        <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setSkillFormData({ skillId: '', experienceYears: '' }); setSkillModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                      </span>
-                    )}
-                  </div>
-                  {profileData?.skills?.length > 0 ? (
-                    <ul className="perfil-tag-list">
-                      {profileData.skills.map((s) => (
-                        <li key={s._id} className="perfil-tag-item">
-                          <span className="perfil-check-icon"><FiCheck /></span>
-                          <span className="perfil-tag-item-text">{s.skillId?.name || '—'}</span>
-                          {isEditing && (
-                            <button type="button" className="perfil-tag-item-delete" onClick={() => handleDeleteSkill(s._id)} title="Eliminar" aria-label="Eliminar"><FiX /></button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="perfil-field-value perfil-field-empty">—</div>
-                  )}
-                </div>
-
-                <div className="perfil-block">
-                  <div className="section-title-row">
-                    <h4 className="perfil-block-title">Idiomas</h4>
-                    {isEditing && (
-                      <span className="section-actions">
-                        <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setLanguageFormData({ language: '', level: '' }); setLanguageModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                      </span>
-                    )}
-                  </div>
-                  {profileData?.languages?.length > 0 ? (
-                    <ul className="perfil-lang-list">
-                      {profileData.languages.map((l) => (
-                        <li key={l._id} className="perfil-lang-item">
-                          <span>{l.language?.name ?? l.language?.value ?? '—'}</span>
-                          <span className="perfil-lang-level">{l.level?.name ?? l.level?.value ?? '—'}</span>
-                          {isEditing && (
-                            <button type="button" className="perfil-tag-item-delete" onClick={() => handleDeleteLanguage(l._id)} title="Eliminar" aria-label="Eliminar"><FiX /></button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="perfil-field-value perfil-field-empty">—</div>
-                  )}
-                </div>
-
-                <div className="perfil-block">
-                  <h4 className="perfil-block-title">Independiente</h4>
-                  {isEditing ? (
-                    <div className="perfil-switch-row">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={profileEditFields.independent}
-                        className={`form-modal-toggle ${profileEditFields.independent ? 'on' : ''}`}
-                        onClick={() => handleProfileFieldChange('independent', !profileEditFields.independent)}
-                      >
-                        <span className="form-modal-toggle-thumb" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.independent ? 'sino-si' : 'sino-no'}`}>
-                      {profileData?.postulantProfile?.independent ? 'Sí' : 'No'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="perfil-block">
-                  <h4 className="perfil-block-title">Empleado</h4>
-                  {isEditing ? (
-                    <div className="perfil-switch-row">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={profileEditFields.employee}
-                        className={`form-modal-toggle ${profileEditFields.employee ? 'on' : ''}`}
-                        onClick={() => handleProfileFieldChange('employee', !profileEditFields.employee)}
-                      >
-                        <span className="form-modal-toggle-thumb" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.employee ? 'sino-si' : 'sino-no'}`}>
-                      {profileData?.postulantProfile?.employee ? 'Sí' : 'No'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="perfil-block">
-                  <h4 className="perfil-block-title">Tiempo total de experiencia laboral (En meses)</h4>
-                  {isEditing ? (
-                    <div className="profile-field-input-wrapper">
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        className="profile-field-input"
-                        value={profileEditFields.totalTimeExperience}
-                        onChange={e => handleProfileFieldChange('totalTimeExperience', e.target.value)}
-                        placeholder="0"
-                      />
-                    </div>
-                  ) : (
-                    <div className="perfil-field-value">{profileData?.postulantProfile?.totalTimeExperience != null ? String(profileData.postulantProfile.totalTimeExperience) : '0.0'}</div>
-                  )}
-                </div>
-
-                <div className="perfil-block">
-                  <div className="section-title-row">
-                    <h4 className="perfil-block-title">Hojas de vida</h4>
-                    {isEditing && (
-                      <span className="section-actions">
-                        <button
-                          type="button"
-                          className="section-action-btn section-action-add-only"
-                          onClick={() => {
-                            const baseId = profileData?.postulantProfile?._id ?? profiles?.[0]?.profileId;
-                            const isBaseSelected = baseId && (String(selectedProfileIdForView) === String(baseId) || !selectedProfileIdForView);
-                            setHojaDeVidaSelectedProfileId(isBaseSelected && baseId ? `base-${baseId}` : (selectedProfileIdForView || (baseId ? `base-${baseId}` : '')));
-                            setHojaDeVidaModalOpen(true);
-                          }}
-                          title="Generar hoja de vida"
-                        ><FiPlus /></button>
-                      </span>
-                    )}
-                  </div>
-                  <p className="perfil-block-desc">Puede generar hasta 5 archivos de Hoja de Vida, según los diferentes perfiles que tenga. El tamaño máximo de cada archivo es de 5Mb.</p>
-                  {profileData?.profileCvs?.length > 0 ? (
-                    <ul className="perfil-doc-list">
-                      {profileData.profileCvs.map((item) => {
-                        const att = item.attachmentId;
-                        const name = att?.name || 'Hoja de vida';
-                        const isDownloading = downloadingAttachmentId === att?._id;
-                        return (
-                          <li key={item._id} className="perfil-doc-item">
-                            <span className="perfil-doc-icon"><FiFile /></span>
-                            <button
-                              type="button"
-                              className="perfil-doc-link"
-                              onClick={() => handleDownloadAttachment(att?._id, name)}
-                              title="Descargar"
-                              disabled={isDownloading}
-                            >
-                              {isDownloading ? (
-                                <>
-                                  <span className="perfil-doc-loading-spinner" aria-hidden />
-                                  Descargando…
-                                </>
-                              ) : (
-                                name
+                <div className="exp-table-wrap">
+                  <table className="exp-table">
+                    <thead>
+                      <tr>
+                        <th>Tipo de Experiencia</th>
+                        <th>Fecha de inicio</th>
+                        <th>Fecha de finalización</th>
+                        <th>Nombre</th>
+                        <th>Institución</th>
+                        <th>Investigación</th>
+                        <th>Asignatura</th>
+                        <th>País</th>
+                        <th>Departamento</th>
+                        <th>Ciudad</th>
+                        {isEditing && <th>Acciones</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(profileDataBelongsToCurrentProfile && profileData?.workExperiences?.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP').length > 0) ? (
+                        profileData.workExperiences.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP').map((w, wi) => {
+                          const isOptionsOpen = otrasExpOptionsId === w._id;
+                          const expTypeRaw = w.experienceType;
+                          const expTypeId = typeof expTypeRaw === 'object' ? expTypeRaw?._id : expTypeRaw;
+                          const expTypeOption = experienceTypeOptions.find((o) => o._id === expTypeId);
+                          const expTypeLabel = (typeof expTypeRaw === 'object' && (expTypeRaw?.value ?? expTypeRaw?.name ?? expTypeRaw?.description))
+                            ? (expTypeRaw.value || expTypeRaw.name || expTypeRaw.description)
+                            : (expTypeOption?.value || expTypeOption?.name || expTypeOption?.description || expTypeId || '—');
+                          return (
+                            <tr key={w._id ?? `other-${wi}`}>
+                              <td>{expTypeLabel}</td>
+                              <td>{w.startDate ? formatDate(w.startDate) : '—'}</td>
+                              <td>{w.noEndDate ? 'Actualidad' : (w.endDate ? formatDate(w.endDate) : '—')}</td>
+                              <td>{w.jobTitle || w.companyName || '—'}</td>
+                              <td>{w.companyName || '—'}</td>
+                              <td>{w.investigationLine || '—'}</td>
+                              <td>{w.course || '—'}</td>
+                              <td>{w.countryId?.name ?? '—'}</td>
+                              <td>{w.stateId?.name ?? '—'}</td>
+                              <td>{w.cityId?.name ?? '—'}</td>
+                              {isEditing && (
+                                <td>
+                                  <div className="academic-row-actions" ref={otrasExpOptionsId === w._id ? expOptionsAnchorRef : undefined}>
+                                    <button type="button" className="perfil-opciones-btn" onClick={() => setOtrasExpOptionsId(isOptionsOpen ? null : w._id)} title="Opciones">Opciones <FiMoreVertical /></button>
+                                    {isOptionsOpen && (
+                                      <>
+                                        <div className="perfil-opciones-backdrop" onClick={() => setOtrasExpOptionsId(null)} />
+                                        <div
+                                          className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
+                                          style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
+                                        >
+                                          <button type="button" onClick={() => {
+                                            setOtrasExpOptionsId(null);
+                                            setEditingOtherExpId(w._id);
+                                            setOtherExpFormData({
+                                              experienceType: w.experienceType || '',
+                                              startDate: w.startDate ? (typeof w.startDate === 'string' ? w.startDate.slice(0, 10) : new Date(w.startDate).toISOString().slice(0, 10)) : '',
+                                              noEndDate: !!w.noEndDate,
+                                              endDate: w.endDate ? (typeof w.endDate === 'string' ? w.endDate.slice(0, 10) : new Date(w.endDate).toISOString().slice(0, 10)) : '',
+                                              jobTitle: w.jobTitle || w.companyName || '',
+                                              investigationLine: w.investigationLine || '',
+                                              companyName: w.companyName || '',
+                                              course: w.course || '',
+                                              countryId: w.countryId?._id || w.countryId || '',
+                                              stateId: w.stateId?._id || w.stateId || '',
+                                              cityId: w.cityId?._id || w.cityId || '',
+                                              activities: w.activities || '',
+                                            });
+                                            setOtherExpModalOpen(true);
+                                          }}>Editar</button>
+                                          <button type="button" onClick={() => handleDeleteWorkExperience(w._id)}>Eliminar</button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
                               )}
-                            </button>
-                            <button type="button" className="perfil-tag-item-delete perfil-doc-delete" onClick={() => handleDeleteProfileCv(item._id)} title="Eliminar hoja de vida" aria-label="Eliminar"><FiTrash2 /></button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <div className="perfil-field-value perfil-field-empty">—</div>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr><td colSpan={isEditing ? 11 : 10} className="exp-table-empty">No hay otras experiencias registradas.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="exp-section">
+                <div className="section-title-row">
+                  <h3 className="exp-section-title">Logros</h3>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingAwardId(null); setAwardFormData({ awardType: '', awardDate: '', name: '', description: '' }); setAwardModalOpen(true); }} title="Agregar"><FiPlus /></button>
+                    </span>
                   )}
                 </div>
-              </div>
+                <div className="exp-table-wrap">
+                  <table className="exp-table">
+                    <thead>
+                      <tr>
+                        <th>Tipo de Logro</th>
+                        <th>Fecha</th>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        {isEditing && <th>Acciones</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(profileDataBelongsToCurrentProfile && profileData?.awards?.length > 0) ? (
+                        profileData.awards.map((a) => {
+                          const isOptionsOpen = logrosOptionsId === a._id;
+                          return (
+                            <tr key={a._id}>
+                              <td>{a.awardType?.name ?? a.awardType?.value ?? '—'}</td>
+                              <td>{a.awardDate ? formatDate(a.awardDate) : '—'}</td>
+                              <td>{a.name || '—'}</td>
+                              <td>{a.description || '—'}</td>
+                              {isEditing && (
+                                <td>
+                                  <div className="academic-row-actions" ref={logrosOptionsId === a._id ? expOptionsAnchorRef : undefined}>
+                                    <button type="button" className="perfil-opciones-btn" onClick={() => setLogrosOptionsId(isOptionsOpen ? null : a._id)} title="Opciones">Opciones <FiMoreVertical /></button>
+                                    {isOptionsOpen && (
+                                      <>
+                                        <div className="perfil-opciones-backdrop" onClick={() => setLogrosOptionsId(null)} />
+                                        <div
+                                          className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
+                                          style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
+                                        >
+                                          <button type="button" onClick={() => {
+                                            setLogrosOptionsId(null);
+                                            setEditingAwardId(a._id);
+                                            setAwardFormData({
+                                              awardType: a.awardType?._id || a.awardType || '',
+                                              awardDate: a.awardDate ? (typeof a.awardDate === 'string' ? a.awardDate.slice(0, 10) : new Date(a.awardDate).toISOString().slice(0, 10)) : '',
+                                              name: a.name || '',
+                                              description: a.description || '',
+                                            });
+                                            setAwardModalOpen(true);
+                                          }}>Editar</button>
+                                          <button type="button" onClick={() => handleDeleteAward(a._id)}>Eliminar</button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr><td colSpan={isEditing ? 5 : 4} className="exp-table-empty">No hay logros registrados.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
 
+              <section className="exp-section">
+                <div className="section-title-row">
+                  <h3 className="exp-section-title">Referencias</h3>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingReferenceId(null); setReferenceFormData({ firstname: '', lastname: '', occupation: '', phone: '' }); setReferenceModalOpen(true); }} title="Agregar"><FiPlus /></button>
+                    </span>
+                  )}
+                </div>
+                <div className="exp-table-wrap">
+                  <table className="exp-table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Apellido</th>
+                        <th>Ocupación</th>
+                        <th>Teléfono</th>
+                        {isEditing && <th>Acciones</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(profileDataBelongsToCurrentProfile && profileData?.references?.length > 0) ? (
+                        profileData.references.map((r) => {
+                          const isOptionsOpen = refsOptionsId === r._id;
+                          return (
+                            <tr key={r._id}>
+                              <td>{r.firstname || '—'}</td>
+                              <td>{r.lastname || '—'}</td>
+                              <td>{r.occupation || '—'}</td>
+                              <td>{r.phone || '—'}</td>
+                              {isEditing && (
+                                <td>
+                                  <div className="academic-row-actions" ref={refsOptionsId === r._id ? expOptionsAnchorRef : undefined}>
+                                    <button type="button" className="perfil-opciones-btn" onClick={() => setRefsOptionsId(isOptionsOpen ? null : r._id)} title="Opciones">Opciones <FiMoreVertical /></button>
+                                    {isOptionsOpen && (
+                                      <>
+                                        <div className="perfil-opciones-backdrop" onClick={() => setRefsOptionsId(null)} />
+                                        <div
+                                          className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
+                                          style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
+                                        >
+                                          <button type="button" onClick={() => {
+                                            setRefsOptionsId(null);
+                                            setEditingReferenceId(r._id);
+                                            setReferenceFormData({ firstname: r.firstname || '', lastname: r.lastname || '', occupation: r.occupation || '', phone: r.phone || '' });
+                                            setReferenceModalOpen(true);
+                                          }}>Editar</button>
+                                          <button type="button" onClick={() => handleDeleteReference(r._id)}>Eliminar</button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr><td colSpan={isEditing ? 5 : 4} className="exp-table-empty">No hay referencias registradas.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </div>
+
+            {/* 7. Documentos — al final para facilitar subir/descargar */}
+            <div className="perfil-seccion-grupo perfil-documentos-final">
+              <h3 className="perfil-seccion-titulo">Documentos</h3>
+              <div className="perfil-block">
+                <div className="section-title-row">
+                  <h4 className="perfil-block-title">Otros documentos de soporte</h4>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => showFuncionalidadEnDesarrollo('Otros documentos de soporte')} title="Agregar"><FiPlus /></button>
+                    </span>
+                  )}
+                </div>
+                <p className="perfil-block-desc">Puede ingresar hasta 5 archivos de Soporte, según su necesidad. El tamaño máximo de cada archivo es de 5Mb. Se permiten las siguientes extensiones: .doc, .docx, .xls, .xlsx, .pdf, .jpg, .jpeg y .png</p>
+                {profileData?.profileSupports?.length > 0 ? (
+                  <ul className="perfil-doc-list">
+                    {profileData.profileSupports.map((item) => {
+                      const att = item.attachmentId;
+                      const name = att?.name || 'Documento';
+                      return (
+                        <li key={item._id} className="perfil-doc-item">
+                          <span className="perfil-doc-icon"><FiFile /></span>
+                          <button type="button" className="perfil-doc-link" onClick={() => handleDownloadAttachment(att?._id, name)} title="Descargar">
+                            {name}
+                          </button>
+                          <button type="button" className="perfil-tag-item-delete perfil-doc-delete" onClick={() => handleDeleteProfileSupport(item._id)} title="Eliminar documento" aria-label="Eliminar"><FiTrash2 /></button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="perfil-field-value perfil-field-empty">—</div>
+                )}
+              </div>
+              <div className="perfil-block">
+                <div className="section-title-row">
+                  <h4 className="perfil-block-title">Hojas de vida</h4>
+                  {isEditing && (
+                    <span className="section-actions">
+                      <button
+                        type="button"
+                        className="section-action-btn section-action-add-only"
+                        onClick={() => {
+                          const baseId = profileData?.postulantProfile?._id ?? profiles?.[0]?.profileId;
+                          const isBaseSelected = baseId && (String(selectedProfileIdForView) === String(baseId) || !selectedProfileIdForView);
+                          setHojaDeVidaSelectedProfileId(isBaseSelected && baseId ? `base-${baseId}` : (selectedProfileIdForView || (baseId ? `base-${baseId}` : '')));
+                          setHojaDeVidaModalOpen(true);
+                        }}
+                        title="Generar hoja de vida"
+                      ><FiPlus /></button>
+                    </span>
+                  )}
+                </div>
+                {profileData?.postulantProfile && profileData.postulantProfile.perfilCompleto === false && (
+                  <div className="perfil-hv-incomplete-alert" role="alert">
+                    <FiHelpCircle className="perfil-hv-incomplete-alert-icon" />
+                    <span>Para generar la hoja de vida debe completar: datos personales, áreas de interés, competencias, idiomas y al menos una referencia. No se exigen experiencia laboral, logros ni otras experiencias.</span>
+                  </div>
+                )}
+                <p className="perfil-block-desc">Puede generar hasta 5 archivos de Hoja de Vida, según los diferentes perfiles que tenga. El tamaño máximo de cada archivo es de 5Mb.</p>
+                {profileData?.profileCvs?.length > 0 ? (
+                  <ul className="perfil-doc-list">
+                    {profileData.profileCvs.map((item) => {
+                      const att = item.attachmentId;
+                      const name = att?.name || 'Hoja de vida';
+                      const isDownloading = downloadingAttachmentId === att?._id;
+                      return (
+                        <li key={item._id} className="perfil-doc-item">
+                          <span className="perfil-doc-icon"><FiFile /></span>
+                          <button
+                            type="button"
+                            className="perfil-doc-link"
+                            onClick={() => handleDownloadAttachment(att?._id, name)}
+                            title="Descargar"
+                            disabled={isDownloading}
+                          >
+                            {isDownloading ? (
+                              <>
+                                <span className="perfil-doc-loading-spinner" aria-hidden />
+                                Descargando…
+                              </>
+                            ) : (
+                              name
+                            )}
+                          </button>
+                          <button type="button" className="perfil-tag-item-delete perfil-doc-delete" onClick={() => handleDeleteProfileCv(item._id)} title="Eliminar hoja de vida" aria-label="Eliminar"><FiTrash2 /></button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="perfil-field-value perfil-field-empty">—</div>
+                )}
+              </div>
             </div>
-        )}
 
-      
-
-        {activeTab === 'experiencia' && (
-          <div className="profile-tab-content experiencia-tab">
-            <div className="experiencia-warning-banner">
-              ¡Atención! La Universidad del Rosario no se hace responsable de la veracidad de la información ingresada en relación a los estudios o experiencia externos a la institución relacionados por el postulante.
-            </div>
-
-            <section className="exp-section">
-              <div className="section-title-row">
-                <h3 className="exp-section-title">Experiencias Laborales</h3>
-                {isEditing && (
-                  <span className="section-actions">
-                    <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingWorkExpId(null); setWorkExpFormData({ startDate: '', noEndDate: false, endDate: '', jobTitle: '', profession: '', companyName: '', companySector: '', contact: '', countryId: '', stateId: '', cityId: '', achievements: '' }); setWorkExpModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                  </span>
-                )}
-              </div>
-              <div className="exp-table-wrap">
-                <table className="exp-table">
-                  <thead>
-                    <tr>
-                      <th>Fecha de inicio</th>
-                      <th>Fecha de finalización</th>
-                      <th>Cargo</th>
-                      <th>Empresa</th>
-                      <th>Sector</th>
-                      <th>Contacto</th>
-                      <th>Profesión</th>
-                      <th>País</th>
-                      <th>Departamento</th>
-                      <th>Ciudad</th>
-                      {isEditing && <th>Acciones</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {profileData?.workExperiences?.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP').length > 0 ? (
-                      profileData.workExperiences.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP').map((w, wi) => {
-                        const isOptionsOpen = expLaboralOptionsId === w._id;
-                        return (
-                          <tr key={w._id ?? `job-${wi}`}>
-                            <td>{w.startDate ? formatDate(w.startDate) : '—'}</td>
-                            <td>{w.noEndDate ? 'Actualidad' : (w.endDate ? formatDate(w.endDate) : '—')}</td>
-                            <td>{w.jobTitle || '—'}</td>
-                            <td>{w.companyName || '—'}</td>
-                            <td>{w.companySector?.name ?? w.companySector?.value ?? '—'}</td>
-                            <td>{w.contact || '—'}</td>
-                            <td>{w.profession || '—'}</td>
-                            <td>{w.countryId?.name ?? '—'}</td>
-                            <td>{w.stateId?.name ?? '—'}</td>
-                            <td>{w.cityId?.name ?? '—'}</td>
-                            {isEditing && (
-                              <td>
-                                <div className="academic-row-actions" ref={expLaboralOptionsId === w._id ? expOptionsAnchorRef : undefined}>
-                                  <button type="button" className="perfil-opciones-btn" onClick={() => setExpLaboralOptionsId(isOptionsOpen ? null : w._id)} title="Opciones">Opciones <FiMoreVertical /></button>
-                                  {isOptionsOpen && (
-                                    <>
-                                      <div className="perfil-opciones-backdrop" onClick={() => setExpLaboralOptionsId(null)} />
-                                      <div
-                                        className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
-                                        style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
-                                      >
-                                        <button type="button" onClick={() => {
-                                          setExpLaboralOptionsId(null);
-                                          setEditingWorkExpId(w._id);
-                                          setWorkExpFormData({
-                                            startDate: w.startDate ? (typeof w.startDate === 'string' ? w.startDate.slice(0, 10) : new Date(w.startDate).toISOString().slice(0, 10)) : '',
-                                            noEndDate: !!w.noEndDate,
-                                            endDate: w.endDate ? (typeof w.endDate === 'string' ? w.endDate.slice(0, 10) : new Date(w.endDate).toISOString().slice(0, 10)) : '',
-                                            jobTitle: w.jobTitle || '',
-                                            profession: w.profession || '',
-                                            companyName: w.companyName || '',
-                                            companySector: w.companySector?._id || w.companySector || '',
-                                            contact: w.contact || '',
-                                            countryId: w.countryId?._id || w.countryId || '',
-                                            stateId: w.stateId?._id || w.stateId || '',
-                                            cityId: w.cityId?._id || w.cityId || '',
-                                            achievements: w.achievements || '',
-                                          });
-                                          setWorkExpModalOpen(true);
-                                        }}>Editar</button>
-                                        <button type="button" onClick={() => handleDeleteWorkExperience(w._id)}>Eliminar</button>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr><td colSpan={isEditing ? 11 : 10} className="exp-table-empty">No hay experiencias laborales registradas.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="exp-section">
-              <div className="section-title-row">
-                <h3 className="exp-section-title">Otras Experiencias</h3>
-                {isEditing && (
-                  <span className="section-actions">
-                    <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingOtherExpId(null); setOtherExpFormData({ experienceType: '', startDate: '', noEndDate: false, endDate: '', jobTitle: '', investigationLine: '', companyName: '', course: '', countryId: '', stateId: '', cityId: '', activities: '' }); setOtherExpModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                  </span>
-                )}
-              </div>
-              <div className="exp-table-wrap">
-                <table className="exp-table">
-                  <thead>
-                    <tr>
-                      <th>Tipo de Experiencia</th>
-                      <th>Fecha de inicio</th>
-                      <th>Fecha de finalización</th>
-                      <th>Nombre</th>
-                      <th>Institución</th>
-                      <th>Investigación</th>
-                      <th>Asignatura</th>
-                      <th>País</th>
-                      <th>Departamento</th>
-                      <th>Ciudad</th>
-                      {isEditing && <th>Acciones</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {profileData?.workExperiences?.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP').length > 0 ? (
-                      profileData.workExperiences.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP').map((w, wi) => {
-                        const isOptionsOpen = otrasExpOptionsId === w._id;
-                        const expTypeRaw = w.experienceType;
-                        const expTypeId = typeof expTypeRaw === 'object' ? expTypeRaw?._id : expTypeRaw;
-                        const expTypeOption = experienceTypeOptions.find((o) => o._id === expTypeId);
-                        const expTypeLabel = (typeof expTypeRaw === 'object' && (expTypeRaw?.value ?? expTypeRaw?.name ?? expTypeRaw?.description))
-                          ? (expTypeRaw.value || expTypeRaw.name || expTypeRaw.description)
-                          : (expTypeOption?.value || expTypeOption?.name || expTypeOption?.description || expTypeId || '—');
-                        return (
-                          <tr key={w._id ?? `other-${wi}`}>
-                            <td>{expTypeLabel}</td>
-                            <td>{w.startDate ? formatDate(w.startDate) : '—'}</td>
-                            <td>{w.noEndDate ? 'Actualidad' : (w.endDate ? formatDate(w.endDate) : '—')}</td>
-                            <td>{w.jobTitle || w.companyName || '—'}</td>
-                            <td>{w.companyName || '—'}</td>
-                            <td>{w.investigationLine || '—'}</td>
-                            <td>{w.course || '—'}</td>
-                            <td>{w.countryId?.name ?? '—'}</td>
-                            <td>{w.stateId?.name ?? '—'}</td>
-                            <td>{w.cityId?.name ?? '—'}</td>
-                            {isEditing && (
-                              <td>
-                                <div className="academic-row-actions" ref={otrasExpOptionsId === w._id ? expOptionsAnchorRef : undefined}>
-                                  <button type="button" className="perfil-opciones-btn" onClick={() => setOtrasExpOptionsId(isOptionsOpen ? null : w._id)} title="Opciones">Opciones <FiMoreVertical /></button>
-                                  {isOptionsOpen && (
-                                    <>
-                                      <div className="perfil-opciones-backdrop" onClick={() => setOtrasExpOptionsId(null)} />
-                                      <div
-                                        className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
-                                        style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
-                                      >
-                                        <button type="button" onClick={() => {
-                                          setOtrasExpOptionsId(null);
-                                          setEditingOtherExpId(w._id);
-                                          setOtherExpFormData({
-                                            experienceType: w.experienceType || '',
-                                            startDate: w.startDate ? (typeof w.startDate === 'string' ? w.startDate.slice(0, 10) : new Date(w.startDate).toISOString().slice(0, 10)) : '',
-                                            noEndDate: !!w.noEndDate,
-                                            endDate: w.endDate ? (typeof w.endDate === 'string' ? w.endDate.slice(0, 10) : new Date(w.endDate).toISOString().slice(0, 10)) : '',
-                                            jobTitle: w.jobTitle || w.companyName || '',
-                                            investigationLine: w.investigationLine || '',
-                                            companyName: w.companyName || '',
-                                            course: w.course || '',
-                                            countryId: w.countryId?._id || w.countryId || '',
-                                            stateId: w.stateId?._id || w.stateId || '',
-                                            cityId: w.cityId?._id || w.cityId || '',
-                                            activities: w.activities || '',
-                                          });
-                                          setOtherExpModalOpen(true);
-                                        }}>Editar</button>
-                                        <button type="button" onClick={() => handleDeleteWorkExperience(w._id)}>Eliminar</button>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr><td colSpan={isEditing ? 11 : 10} className="exp-table-empty">No hay otras experiencias registradas.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="exp-section">
-              <div className="section-title-row">
-                <h3 className="exp-section-title">Logros</h3>
-                {isEditing && (
-                  <span className="section-actions">
-                    <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingAwardId(null); setAwardFormData({ awardType: '', awardDate: '', name: '', description: '' }); setAwardModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                  </span>
-                )}
-              </div>
-              <div className="exp-table-wrap">
-                <table className="exp-table">
-                  <thead>
-                    <tr>
-                      <th>Tipo de Logro</th>
-                      <th>Fecha</th>
-                      <th>Nombre</th>
-                      <th>Descripción</th>
-                      {isEditing && <th>Acciones</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {profileData?.awards?.length > 0 ? (
-                      profileData.awards.map((a) => {
-                        const isOptionsOpen = logrosOptionsId === a._id;
-                        return (
-                          <tr key={a._id}>
-                            <td>{a.awardType?.name ?? a.awardType?.value ?? '—'}</td>
-                            <td>{a.awardDate ? formatDate(a.awardDate) : '—'}</td>
-                            <td>{a.name || '—'}</td>
-                            <td>{a.description || '—'}</td>
-                            {isEditing && (
-                              <td>
-                                <div className="academic-row-actions" ref={logrosOptionsId === a._id ? expOptionsAnchorRef : undefined}>
-                                  <button type="button" className="perfil-opciones-btn" onClick={() => setLogrosOptionsId(isOptionsOpen ? null : a._id)} title="Opciones">Opciones <FiMoreVertical /></button>
-                                  {isOptionsOpen && (
-                                    <>
-                                      <div className="perfil-opciones-backdrop" onClick={() => setLogrosOptionsId(null)} />
-                                      <div
-                                        className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
-                                        style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
-                                      >
-                                        <button type="button" onClick={() => {
-                                          setLogrosOptionsId(null);
-                                          setEditingAwardId(a._id);
-                                          setAwardFormData({
-                                            awardType: a.awardType?._id || a.awardType || '',
-                                            awardDate: a.awardDate ? (typeof a.awardDate === 'string' ? a.awardDate.slice(0, 10) : new Date(a.awardDate).toISOString().slice(0, 10)) : '',
-                                            name: a.name || '',
-                                            description: a.description || '',
-                                          });
-                                          setAwardModalOpen(true);
-                                        }}>Editar</button>
-                                        <button type="button" onClick={() => handleDeleteAward(a._id)}>Eliminar</button>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr><td colSpan={isEditing ? 5 : 4} className="exp-table-empty">No hay logros registrados.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="exp-section">
-              <div className="section-title-row">
-                <h3 className="exp-section-title">Referencias</h3>
-                {isEditing && (
-                  <span className="section-actions">
-                    <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingReferenceId(null); setReferenceFormData({ firstname: '', lastname: '', occupation: '', phone: '' }); setReferenceModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                  </span>
-                )}
-              </div>
-              <div className="exp-table-wrap">
-                <table className="exp-table">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Apellido</th>
-                      <th>Ocupación</th>
-                      <th>Teléfono</th>
-                      {isEditing && <th>Acciones</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {profileData?.references?.length > 0 ? (
-                      profileData.references.map((r) => {
-                        const isOptionsOpen = refsOptionsId === r._id;
-                        return (
-                          <tr key={r._id}>
-                            <td>{r.firstname || '—'}</td>
-                            <td>{r.lastname || '—'}</td>
-                            <td>{r.occupation || '—'}</td>
-                            <td>{r.phone || '—'}</td>
-                            {isEditing && (
-                              <td>
-                                <div className="academic-row-actions" ref={refsOptionsId === r._id ? expOptionsAnchorRef : undefined}>
-                                  <button type="button" className="perfil-opciones-btn" onClick={() => setRefsOptionsId(isOptionsOpen ? null : r._id)} title="Opciones">Opciones <FiMoreVertical /></button>
-                                  {isOptionsOpen && (
-                                    <>
-                                      <div className="perfil-opciones-backdrop" onClick={() => setRefsOptionsId(null)} />
-                                      <div
-                                        className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
-                                        style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
-                                      >
-                                        <button type="button" onClick={() => {
-                                          setRefsOptionsId(null);
-                                          setEditingReferenceId(r._id);
-                                          setReferenceFormData({ firstname: r.firstname || '', lastname: r.lastname || '', occupation: r.occupation || '', phone: r.phone || '' });
-                                          setReferenceModalOpen(true);
-                                        }}>Editar</button>
-                                        <button type="button" onClick={() => handleDeleteReference(r._id)}>Eliminar</button>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr><td colSpan={isEditing ? 5 : 4} className="exp-table-empty">No hay referencias registradas.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
           </div>
         )}
       </div>
@@ -4406,13 +4441,41 @@ const PostulantProfile = ({ onVolver }) => {
 
       {/* Modal CREACIÓN/EDICIÓN DE LA EXPERIENCIA (Experiencia laboral) */}
       {workExpModalOpen && (
-        <div className="form-modal-overlay" onClick={() => { setWorkExpModalOpen(false); setEditingWorkExpId(null); }}>
+        <div className="form-modal-overlay" onClick={() => { setWorkExpModalOpen(false); setEditingWorkExpId(null); setWorkExpFromOtherOpen(false); }}>
           <div className="form-modal-content form-modal-content--wide" onClick={e => e.stopPropagation()}>
             <div className="form-modal-header">
-              <h3 className="form-modal-title">{editingWorkExpId ? 'Editar experiencia laboral' : 'Creación/Edición de la Experiencia'}</h3>
-              <button type="button" className="form-modal-close" onClick={() => { setWorkExpModalOpen(false); setEditingWorkExpId(null); }} aria-label="Cerrar"><FiX /></button>
+              <h3 className="form-modal-title">{editingWorkExpId ? 'Editar experiencia laboral' : (workExpFromOtherOpen ? 'Traer experiencia de otro perfil' : 'Creación/Edición de la Experiencia')}</h3>
+              <button type="button" className="form-modal-close" onClick={() => { setWorkExpModalOpen(false); setEditingWorkExpId(null); setWorkExpFromOtherOpen(false); }} aria-label="Cerrar"><FiX /></button>
             </div>
             <div className="form-modal-body">
+              {!editingWorkExpId && workExpFromOtherOpen ? (
+                <>
+                  <p className="form-modal-description">Si ya tiene experiencias laborales en otro perfil, puede copiarlas aquí. Se creará una copia independiente en este perfil.</p>
+                  <button type="button" className="form-modal-btn-cancel" style={{ marginBottom: 12 }} onClick={() => { setWorkExpFromOtherOpen(false); }}>← Volver a crear nueva</button>
+                  {loadingFromOtherWorkExp ? (
+                    <p className="text-muted">Cargando…</p>
+                  ) : (
+                    <ul className="from-other-list">
+                      {availableWorkExpsFromOther.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP').length === 0 ? (
+                        <li className="from-other-list-empty">No hay experiencias laborales en otros perfiles.</li>
+                      ) : (
+                        availableWorkExpsFromOther.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP').map((w) => (
+                          <li key={w._id} className="from-other-list-item">
+                            <span>{w.jobTitle || '—'} · {w.companyName || '—'} {w.startDate ? `(${formatDate(w.startDate)})` : ''}</span>
+                            <button type="button" className="form-modal-btn-save from-other-copy-btn" onClick={() => handleCopyWorkExperienceFromOther(w._id)} disabled={savingExperience}>Copiar</button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </>
+              ) : !editingWorkExpId && !workExpFromOtherOpen ? (
+                <button type="button" className="form-modal-link-secondary" style={{ marginBottom: 12 }} onClick={() => { setWorkExpFromOtherOpen(true); fetchAvailableWorkExperiences(); }}>
+                  Traer experiencia de otro perfil
+                </button>
+              ) : null}
+              {(!workExpFromOtherOpen || editingWorkExpId) && (
+              <>
               <div className="form-modal-grid">
                 <div className="form-floating mb-3">
                   <input type="date" id="we-startDate" value={workExpFormData.startDate} onChange={e => setWorkExpFormData(prev => ({ ...prev, startDate: e.target.value }))} className="form-control" />
@@ -4467,29 +4530,65 @@ const PostulantProfile = ({ onVolver }) => {
                 <label htmlFor="we-achievements">Logros</label>
                 <div className="form-modal-char-count">Caracteres restantes: {500 - (workExpFormData.achievements || '').length}</div>
               </div>
+              </>
+              )}
             </div>
+            {(!workExpFromOtherOpen || editingWorkExpId) && (
             <div className="form-modal-footer">
               <button type="button" className="form-modal-btn-cancel" onClick={() => { setWorkExpModalOpen(false); setEditingWorkExpId(null); }}>Cancelar</button>
               <button type="button" className="form-modal-btn-save" onClick={handleSaveWorkExperience} disabled={savingExperience}>{savingExperience ? 'Guardando...' : 'Guardar'}</button>
             </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Modal CREACIÓN/EDICIÓN DE OTRAS EXPERIENCIAS */}
       {otherExpModalOpen && (
-        <div className="form-modal-overlay" onClick={() => { setOtherExpModalOpen(false); setEditingOtherExpId(null); }}>
+        <div className="form-modal-overlay" onClick={() => { setOtherExpModalOpen(false); setEditingOtherExpId(null); setOtherExpFromOtherOpen(false); }}>
           <div className="form-modal-content form-modal-content--wide" onClick={e => e.stopPropagation()}>
             <div className="form-modal-header">
-              <h3 className="form-modal-title">{editingOtherExpId ? 'Editar otra experiencia' : 'Creación/Edición de la Otras Experiencias'}</h3>
+              <h3 className="form-modal-title">{editingOtherExpId ? 'Editar otra experiencia' : (otherExpFromOtherOpen ? 'Traer otra experiencia de otro perfil' : 'Creación/Edición de la Otras Experiencias')}</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {editingOtherExpId && (
                   <button type="button" className="form-modal-btn-cancel" style={{ marginRight: 'auto' }} onClick={() => { handleDeleteWorkExperience(editingOtherExpId); setOtherExpModalOpen(false); setEditingOtherExpId(null); }}>Eliminar</button>
                 )}
-                <button type="button" className="form-modal-close" onClick={() => { setOtherExpModalOpen(false); setEditingOtherExpId(null); }} aria-label="Cerrar"><FiX /></button>
+                <button type="button" className="form-modal-close" onClick={() => { setOtherExpModalOpen(false); setEditingOtherExpId(null); setOtherExpFromOtherOpen(false); }} aria-label="Cerrar"><FiX /></button>
               </div>
             </div>
             <div className="form-modal-body">
+              {!editingOtherExpId && otherExpFromOtherOpen ? (
+                <>
+                  <p className="form-modal-description">Si ya tiene otras experiencias en otro perfil, puede copiarlas aquí. Se creará una copia independiente en este perfil.</p>
+                  <button type="button" className="form-modal-btn-cancel" style={{ marginBottom: 12 }} onClick={() => setOtherExpFromOtherOpen(false)}>← Volver a crear nueva</button>
+                  {loadingFromOtherWorkExp ? (
+                    <p className="text-muted">Cargando…</p>
+                  ) : (
+                    <ul className="from-other-list">
+                      {availableWorkExpsFromOther.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP').length === 0 ? (
+                        <li className="from-other-list-empty">No hay otras experiencias en otros perfiles.</li>
+                      ) : (
+                        availableWorkExpsFromOther.filter((w) => (w.experienceType || 'JOB_EXP') !== 'JOB_EXP').map((w) => {
+                          const expType = experienceTypeOptions.find((o) => o._id === (w.experienceType?._id || w.experienceType));
+                          const expLabel = expType?.value || expType?.name || w.experienceType?.value || w.experienceType || '—';
+                          return (
+                            <li key={w._id} className="from-other-list-item">
+                              <span>{expLabel} · {w.jobTitle || w.companyName || '—'} {w.startDate ? `(${formatDate(w.startDate)})` : ''}</span>
+                              <button type="button" className="form-modal-btn-save from-other-copy-btn" onClick={() => handleCopyWorkExperienceFromOther(w._id)} disabled={savingExperience}>Copiar</button>
+                            </li>
+                          );
+                        })
+                      )}
+                    </ul>
+                  )}
+                </>
+              ) : !editingOtherExpId && !otherExpFromOtherOpen ? (
+                <button type="button" className="form-modal-link-secondary" style={{ marginBottom: 12 }} onClick={() => { setOtherExpFromOtherOpen(true); fetchAvailableWorkExperiences(); }}>
+                  Traer otra experiencia de otro perfil
+                </button>
+              ) : null}
+              {(!otherExpFromOtherOpen || editingOtherExpId) && (
+              <>
               <div className="form-modal-grid">
                 <div className="form-floating mb-3">
                   <select id="oe-expType" value={otherExpFormData.experienceType} onChange={e => setOtherExpFormData(prev => ({ ...prev, experienceType: e.target.value }))} className="form-select">
@@ -4544,24 +4643,56 @@ const PostulantProfile = ({ onVolver }) => {
                 <label htmlFor="oe-activities">Actividades</label>
                 <div className="form-modal-char-count">Caracteres restantes: {1000 - (otherExpFormData.activities || '').length}</div>
               </div>
+              </>
+              )}
             </div>
+            {(!otherExpFromOtherOpen || editingOtherExpId) && (
             <div className="form-modal-footer">
               <button type="button" className="form-modal-btn-cancel" onClick={() => { setOtherExpModalOpen(false); setEditingOtherExpId(null); }}>Cancelar</button>
               <button type="button" className="form-modal-btn-save" onClick={handleSaveOtherExperience} disabled={savingExperience}>{savingExperience ? 'Guardando...' : 'Guardar'}</button>
             </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Modal CREACIÓN/EDICIÓN DE LOGROS */}
       {awardModalOpen && (
-        <div className="form-modal-overlay" onClick={() => { setAwardModalOpen(false); setEditingAwardId(null); }}>
+        <div className="form-modal-overlay" onClick={() => { setAwardModalOpen(false); setEditingAwardId(null); setAwardFromOtherOpen(false); }}>
           <div className="form-modal-content" onClick={e => e.stopPropagation()}>
             <div className="form-modal-header">
-              <h3 className="form-modal-title">{editingAwardId ? 'Editar logro' : 'Creación/Edición de Logros'}</h3>
-              <button type="button" className="form-modal-close" onClick={() => { setAwardModalOpen(false); setEditingAwardId(null); }} aria-label="Cerrar"><FiX /></button>
+              <h3 className="form-modal-title">{editingAwardId ? 'Editar logro' : (awardFromOtherOpen ? 'Traer logro de otro perfil' : 'Creación/Edición de Logros')}</h3>
+              <button type="button" className="form-modal-close" onClick={() => { setAwardModalOpen(false); setEditingAwardId(null); setAwardFromOtherOpen(false); }} aria-label="Cerrar"><FiX /></button>
             </div>
             <div className="form-modal-body">
+              {!editingAwardId && awardFromOtherOpen ? (
+                <>
+                  <p className="form-modal-description">Si ya tiene logros en otro perfil, puede copiarlos aquí. Se creará una copia independiente en este perfil.</p>
+                  <button type="button" className="form-modal-btn-cancel" style={{ marginBottom: 12 }} onClick={() => setAwardFromOtherOpen(false)}>← Volver a crear nuevo</button>
+                  {loadingFromOtherAward ? (
+                    <p className="text-muted">Cargando…</p>
+                  ) : (
+                    <ul className="from-other-list">
+                      {availableAwardsFromOther.length === 0 ? (
+                        <li className="from-other-list-empty">No hay logros en otros perfiles.</li>
+                      ) : (
+                        availableAwardsFromOther.map((a) => (
+                          <li key={a._id} className="from-other-list-item">
+                            <span>{a.awardType?.value || a.awardType?.name || '—'} · {a.name || '—'} {a.awardDate ? `(${formatDate(a.awardDate)})` : ''}</span>
+                            <button type="button" className="form-modal-btn-save from-other-copy-btn" onClick={() => handleCopyAwardFromOther(a._id)} disabled={savingExperience}>Copiar</button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </>
+              ) : !editingAwardId && !awardFromOtherOpen ? (
+                <button type="button" className="form-modal-link-secondary" style={{ marginBottom: 12 }} onClick={() => { setAwardFromOtherOpen(true); fetchAvailableAwards(); }}>
+                  Traer logro de otro perfil
+                </button>
+              ) : null}
+              {(!awardFromOtherOpen || editingAwardId) && (
+              <>
               <div className="form-floating mb-3">
                 <select id="aw-type" value={awardFormData.awardType} onChange={e => setAwardFormData(prev => ({ ...prev, awardType: e.target.value }))} className="form-select">
                   <option value="">Seleccionar</option>
@@ -4584,24 +4715,56 @@ const PostulantProfile = ({ onVolver }) => {
                 <label htmlFor="aw-description">Descripción</label>
                 <div className="form-modal-char-count">Caracteres restantes: {500 - (awardFormData.description || '').length}</div>
               </div>
+              </>
+              )}
             </div>
+            {(!awardFromOtherOpen || editingAwardId) && (
             <div className="form-modal-footer">
               <button type="button" className="form-modal-btn-cancel" onClick={() => { setAwardModalOpen(false); setEditingAwardId(null); }}>Cancelar</button>
               <button type="button" className="form-modal-btn-save" onClick={handleSaveAward} disabled={savingExperience}>{savingExperience ? 'Guardando...' : 'Guardar'}</button>
             </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Modal CREACIÓN/EDICIÓN DE LA REFERENCIA */}
       {referenceModalOpen && (
-        <div className="form-modal-overlay" onClick={() => { setReferenceModalOpen(false); setEditingReferenceId(null); }}>
+        <div className="form-modal-overlay" onClick={() => { setReferenceModalOpen(false); setEditingReferenceId(null); setRefFromOtherOpen(false); }}>
           <div className="form-modal-content" onClick={e => e.stopPropagation()}>
             <div className="form-modal-header">
-              <h3 className="form-modal-title">{editingReferenceId ? 'Editar referencia' : 'Creación/Edición de la Referencia'}</h3>
-              <button type="button" className="form-modal-close" onClick={() => { setReferenceModalOpen(false); setEditingReferenceId(null); }} aria-label="Cerrar"><FiX /></button>
+              <h3 className="form-modal-title">{editingReferenceId ? 'Editar referencia' : (refFromOtherOpen ? 'Traer referencia de otro perfil' : 'Creación/Edición de la Referencia')}</h3>
+              <button type="button" className="form-modal-close" onClick={() => { setReferenceModalOpen(false); setEditingReferenceId(null); setRefFromOtherOpen(false); }} aria-label="Cerrar"><FiX /></button>
             </div>
             <div className="form-modal-body">
+              {!editingReferenceId && refFromOtherOpen ? (
+                <>
+                  <p className="form-modal-description">Si ya tiene referencias en otro perfil, puede copiarlas aquí. Se creará una copia independiente en este perfil.</p>
+                  <button type="button" className="form-modal-btn-cancel" style={{ marginBottom: 12 }} onClick={() => setRefFromOtherOpen(false)}>← Volver a crear nueva</button>
+                  {loadingFromOtherRef ? (
+                    <p className="text-muted">Cargando…</p>
+                  ) : (
+                    <ul className="from-other-list">
+                      {availableRefsFromOther.length === 0 ? (
+                        <li className="from-other-list-empty">No hay referencias en otros perfiles.</li>
+                      ) : (
+                        availableRefsFromOther.map((r) => (
+                          <li key={r._id} className="from-other-list-item">
+                            <span>{r.firstname} {r.lastname} · {r.occupation || '—'} · {r.phone || '—'}</span>
+                            <button type="button" className="form-modal-btn-save from-other-copy-btn" onClick={() => handleCopyReferenceFromOther(r._id)} disabled={savingExperience}>Copiar</button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </>
+              ) : !editingReferenceId && !refFromOtherOpen ? (
+                <button type="button" className="form-modal-link-secondary" style={{ marginBottom: 12 }} onClick={() => { setRefFromOtherOpen(true); fetchAvailableReferences(); }}>
+                  Traer referencia de otro perfil
+                </button>
+              ) : null}
+              {(!refFromOtherOpen || editingReferenceId) && (
+              <>
               <div className="form-modal-two-cols">
                 <div className="form-floating mb-3">
                   <input type="text" id="ref-firstname" value={referenceFormData.firstname} onChange={e => setReferenceFormData(prev => ({ ...prev, firstname: e.target.value }))} className="form-control" placeholder=" " />
@@ -4620,11 +4783,15 @@ const PostulantProfile = ({ onVolver }) => {
                   <label htmlFor="ref-phone">Teléfono <span className="text-danger">*</span></label>
                 </div>
               </div>
+              </>
+              )}
             </div>
+            {(!refFromOtherOpen || editingReferenceId) && (
             <div className="form-modal-footer">
               <button type="button" className="form-modal-btn-cancel" onClick={() => { setReferenceModalOpen(false); setEditingReferenceId(null); }}>Cancelar</button>
               <button type="button" className="form-modal-btn-save" onClick={handleSaveReference} disabled={savingExperience}>{savingExperience ? 'Guardando...' : 'Guardar'}</button>
             </div>
+            )}
           </div>
         </div>
       )}
