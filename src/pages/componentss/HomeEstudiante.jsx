@@ -55,7 +55,7 @@ export default function HomeEstudiante() {
             <button
               type="button"
               className="home-estudiante-btn"
-              onClick={() => navigate('/dashboard/ofertas-afines')}
+              onClick={() => navigate('/dashboard/oportunidades-practica')}
             >
               <HiOutlineBriefcase className="home-estudiante-btn-icon" />
               <span>Prácticas y Pasantías</span>
@@ -64,7 +64,7 @@ export default function HomeEstudiante() {
           <button
             type="button"
             className="home-estudiante-btn"
-            onClick={() => navigate('/dashboard/busqueda-avanzada')}
+            onClick={() => navigate('/dashboard/oportunidades-monitoria')}
           >
             <HiOutlineDocumentText className="home-estudiante-btn-icon" />
             <span>Monitorías, tutorías y mentorías</span>

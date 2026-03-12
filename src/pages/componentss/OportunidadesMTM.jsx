@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   FiArrowLeft, FiPlus, FiRefreshCw, FiSearch, FiEdit, FiCopy,
-  FiTrash2, FiEye, FiX, FiCheck, FiBookOpen, FiUsers, FiCalendar, FiClock
+  FiTrash2, FiEye, FiX, FiCheck, FiBookOpen, FiUsers, FiCalendar, FiClock, FiDownload
 } from 'react-icons/fi';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import { useAuth } from '../../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import * as XLSX from 'xlsx';
 import '../styles/OportunidadesMTM.css';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -401,6 +402,78 @@ export default function OportunidadesMTM({ onVolver }) {
     }
   };
 
+  const handleExportExcel = async () => {
+    Swal.fire({ title: 'Exportando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const baseParams = {
+        limit: 5000,
+        page: 1,
+        search: search || undefined,
+        ...(filterEstado && { estado: filterEstado }),
+        ...(filterPeriodo && { periodo: filterPeriodo }),
+        ...(filterCategoria && { categoria: filterCategoria })
+      };
+      const { data: firstPage } = await api.get('/oportunidades-mtm', { params: baseParams });
+      let list = [...(firstPage.data || [])];
+      const totalPages = firstPage.pagination?.pages ?? 1;
+      for (let page = 2; page <= totalPages; page++) {
+        const { data: next } = await api.get('/oportunidades-mtm', { params: { ...baseParams, page } });
+        list = list.concat(next.data || []);
+      }
+      const safe = (v) => (v != null && v !== '' ? String(v) : '');
+      const headers = [
+        'Nombre del cargo', 'Dedicación (h)', 'Valor/hora', 'Tipo vinculación', 'Categoría', 'Periodo',
+        'Vacantes', 'Vencimiento', 'Promedio mín.', 'Profesor', 'Unidad académica', 'Horario', 'Grupo',
+        'Estado', 'Asignaturas', 'Programas', 'Funciones', 'Requisitos'
+      ];
+      const rowForOp = (op) => [
+        safe(op.nombreCargo),
+        op.dedicacionHoras?.value ?? safe(op.dedicacionHoras),
+        op.valorPorHora?.value ?? safe(op.valorPorHora),
+        op.tipoVinculacion?.value ?? safe(op.tipoVinculacion),
+        op.categoria?.value ?? safe(op.categoria),
+        op.periodo?.codigo ?? safe(op.periodo),
+        op.vacantes ?? '',
+        op.fechaVencimiento ? fmtDate(op.fechaVencimiento) : '',
+        op.promedioMinimo ?? '',
+        safe(op.nombreProfesor),
+        safe(op.unidadAcademica),
+        safe(op.horario),
+        safe(op.grupo),
+        safe(op.estado),
+        (op.asignaturas && op.asignaturas.length) ? op.asignaturas.map(a => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join('; ') : '',
+        (op.programas && op.programas.length) ? op.programas.map(p => p.name || p.code).filter(Boolean).join('; ') : '',
+        safe((op.funciones || '').slice(0, 500)),
+        safe((op.requisitos || '').slice(0, 500))
+      ];
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...list.map(rowForOp)]);
+      ws['!cols'] = [
+        { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 10 },
+        { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 14 }, { wch: 10 },
+        { wch: 10 }, { wch: 32 }, { wch: 32 }, { wch: 40 }, { wch: 40 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, 'Oportunidades MTM');
+      XLSX.writeFile(wb, `oportunidades_mtm_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      Swal.close();
+      await Swal.fire({
+        icon: 'success',
+        title: 'Exportado',
+        text: `Se exportaron ${list.length} oportunidad(es) a Excel.`,
+        confirmButtonColor: '#3b82f6'
+      });
+    } catch (e) {
+      console.error('[MTM] export Excel:', e);
+      Swal.close();
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: e.response?.data?.message || e.message || 'No se pudo exportar. Intente de nuevo.',
+        confirmButtonColor: '#3b82f6'
+      });
+    }
+  };
+
   // ══════════════════════════════════════════════════════════════════════════
   // RENDERS
   // ══════════════════════════════════════════════════════════════════════════
@@ -422,6 +495,9 @@ export default function OportunidadesMTM({ onVolver }) {
           </div>
         </div>
         <div className="mtm-header-actions">
+          <button className="mtm-btn-secondary" onClick={handleExportExcel}>
+            <FiDownload size={14} /> Exportar Excel
+          </button>
           <button className="mtm-btn-secondary" onClick={() => loadOportunidades(1)}>
             <FiRefreshCw size={14} /> Actualizar
           </button>

@@ -94,8 +94,8 @@ export default function OfertasAfines() {
       }
       setPostulantId(id);
       const { data: profilesRes } = await api.get(`/postulants/${id}/profiles`);
-      const versions = profilesRes?.profiles || [];
-      const baseProfiles = profilesRes?.baseProfiles || [];
+      const versions = (profilesRes?.profiles || []).filter((p) => p.hasCv === true);
+      const baseProfiles = (profilesRes?.baseProfiles || []).filter((b) => b.hasCv === true);
       const list = versions.length > 0
         ? versions
         : baseProfiles.map((b) => ({
@@ -310,7 +310,7 @@ export default function OfertasAfines() {
                   <p>Cargando perfiles...</p>
                 </div>
               ) : profiles.length === 0 ? (
-                <p className="ofertas-afines-aplicar-modal__empty">No tiene hojas de vida creadas. Cree una en Mi perfil y vuelva a intentar.</p>
+                <p className="ofertas-afines-aplicar-modal__empty">No tiene perfiles con hoja de vida generada. Genere al menos una hoja de vida en Mi perfil y vuelva a intentar.</p>
               ) : (
                 <>
                   <ul className="ofertas-afines-aplicar-modal__list">

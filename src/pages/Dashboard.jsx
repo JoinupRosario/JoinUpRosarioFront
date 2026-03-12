@@ -56,12 +56,16 @@ import PostulantDocumentLog from './componentss/postulants/postulantLogs/Postula
 import PostulantProfile from './componentss/postulants/PostulantProfile';
 import Student from './componentss/students/student';
 import OfertasAfines from './componentss/OfertasAfines';
+import OfertasMonitoria from './componentss/OfertasMonitoria';
 import MisAplicaciones from './componentss/MisAplicaciones';
 import api from '../services/api';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
 import userAvatarImg from '../assets/images/login/user.png';
 import './Dashboard.css';
+
+/** Oculta visualmente menú Sucursales, badge Sede y vistas de sedes; la lógica y datos se mantienen. */
+const HIDE_SUCURSALES_UI = true;
 
 export default function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -114,7 +118,8 @@ export default function Dashboard() {
     '/dashboard': 'dashboard',
     '/dashboard/mi-perfil': 'mi-perfil',
     '/dashboard/busqueda-avanzada': 'busqueda-avanzada',
-    '/dashboard/ofertas-afines': 'ofertas-afines',
+    '/dashboard/oportunidades-practica': 'oportunidades-practica',
+    '/dashboard/oportunidades-monitoria': 'oportunidades-monitoria',
     '/dashboard/mis-aplicaciones': 'mis-aplicaciones',
     '/dashboard/usuarios': 'usuarios',
     '/dashboard/entidades': 'entidades',
@@ -144,7 +149,8 @@ export default function Dashboard() {
     'dashboard': '/dashboard',
     'mi-perfil': '/dashboard/mi-perfil',
     'busqueda-avanzada': '/dashboard/busqueda-avanzada',
-    'ofertas-afines': '/dashboard/ofertas-afines',
+    'oportunidades-practica': '/dashboard/oportunidades-practica',
+    'oportunidades-monitoria': '/dashboard/oportunidades-monitoria',
     'mis-aplicaciones': '/dashboard/mis-aplicaciones',
     'usuarios': '/dashboard/usuarios',
     'entidades': '/dashboard/entidades',
@@ -319,7 +325,8 @@ export default function Dashboard() {
     { text: 'Inicio', Icon: FiHome, vista: 'dashboard' },
     { text: 'Mi perfil', Icon: FiUser, vista: 'mi-perfil' },
     { text: 'Búsqueda avanzada', Icon: FiSearch, vista: 'busqueda-avanzada' },
-    { text: 'Ofertas afines', Icon: FiBookmark, vista: 'ofertas-afines' },
+    { text: 'Oportunidades de práctica', Icon: FiBookmark, vista: 'oportunidades-practica' },
+    { text: 'Oportunidades de monitoría', Icon: HiOutlineAcademicCap, vista: 'oportunidades-monitoria' },
     { text: 'Mis aplicaciones', Icon: FiList, vista: 'mis-aplicaciones' },
     { text: 'Legalizaciones de Prácticas', Icon: HiOutlineAcademicCap, vista: 'legalizaciones' },
     { text: 'Legalizaciones de Monitorías', Icon: HiOutlineDocumentText, vista: 'monitorias' },
@@ -381,7 +388,8 @@ export default function Dashboard() {
             'postulants':               'Postulantes',
             'mi-perfil':                'Mi perfil',
             'busqueda-avanzada':        'Búsqueda avanzada',
-            'ofertas-afines':           'Ofertas afines',
+            'oportunidades-practica':   'Oportunidades de práctica',
+            'oportunidades-monitoria':  'Oportunidades de monitoría',
             'mis-aplicaciones':         'Mis aplicaciones',
             'estudiantes':              'Estudiantes Habilitados para Prácticas',
             'legalizaciones':           'Legalizaciones de Prácticas',
@@ -409,6 +417,10 @@ export default function Dashboard() {
                 'oportunidades':            'Oportunidades',
                 'postulants':               'Postulantes',
                 'mi-perfil':                'Mi perfil de postulante',
+                'busqueda-avanzada':        'Búsqueda avanzada',
+                'oportunidades-practica':   'Oportunidades de práctica',
+                'oportunidades-monitoria':  'Oportunidades de monitoría',
+                'mis-aplicaciones':         'Mis aplicaciones',
                 'estudiantes':              'Estudiantes Habilitados para Prácticas',
                 'legalizaciones':           'Legalizaciones de Prácticas',
                 'monitorias':               'Legalizaciones de Monitorías',
@@ -443,7 +455,8 @@ export default function Dashboard() {
             <div className="user-details">
               <span className="user-name">{user?.name}</span>
               <span className="user-role">{isEstudiante ? 'Postulante' : (user?.role || '')}</span>
-              {(user?.sucursales?.length > 0 || sedeUsuario?.length > 0) && (
+              {/* Sucursales/Sede ocultos visualmente; datos y rutas se mantienen */}
+              {!HIDE_SUCURSALES_UI && (user?.sucursales?.length > 0 || sedeUsuario?.length > 0) && (
                 <span className="user-sede" title="Sede(s)">
                   Sede: {(user?.sucursales || sedeUsuario || []).map((s) => s.nombre).filter(Boolean).join(', ') || '—'}
                 </span>
@@ -462,7 +475,7 @@ export default function Dashboard() {
       {/* Sidebar Menu */}
       <aside className={`sidebar-menu ${menuOpen ? 'open' : ''}`}>
         <nav className="menu-nav">
-          {menuItems.map((item, index) => {
+          {menuItems.filter((item) => !HIDE_SUCURSALES_UI || item.vista !== 'sucursales').map((item, index) => {
             const IconComponent = item.Icon;
             const active = isMenuItemActive(item);
             return (
@@ -588,8 +601,11 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {vistaActual === 'ofertas-afines' && (
+        {vistaActual === 'oportunidades-practica' && (
           <OfertasAfines />
+        )}
+        {vistaActual === 'oportunidades-monitoria' && (
+          <OfertasMonitoria />
         )}
         {vistaActual === 'mis-aplicaciones' && (
           <MisAplicaciones />

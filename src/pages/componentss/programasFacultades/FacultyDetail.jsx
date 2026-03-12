@@ -5,6 +5,9 @@ import Swal from 'sweetalert2';
 import api from '../../../services/api';
 import '../../styles/ProgramasYFacultades.css';
 
+/** Oculta visualmente el campo Sede en detalle de facultad; sucursalId se mantiene en datos. */
+const HIDE_SUCURSALES_UI = true;
+
 const INITIAL_EDITED = {
   code: '',
   name: '',
@@ -317,6 +320,7 @@ export default function FacultyDetail({ onVolver }) {
               <span>{faculty.status ?? '-'}</span>
             )}
           </div>
+          {!HIDE_SUCURSALES_UI && (
           <div className="pyf-detail-field">
             <label><b>Sede</b>{isEditing && <FiEdit className="pyf-field-edit-icon" />}</label>
             {isEditing ? (
@@ -330,6 +334,7 @@ export default function FacultyDetail({ onVolver }) {
               <span>{faculty.sucursalId && typeof faculty.sucursalId === 'object' && faculty.sucursalId.nombre ? faculty.sucursalId.nombre : 'Sin sede'}</span>
             )}
           </div>
+          )}
           <div className="pyf-detail-field">
             <label><b>Autorizado para firmas</b>{isEditing && <FiEdit className="pyf-field-edit-icon" />}</label>
             {isEditing ? (

@@ -2899,6 +2899,57 @@
   color: #6b7280;
 }
 
+/* ── Formulario MTM compacto (4 columnas, todo a la vista) ───────────────── */
+.mtm-form-compact {
+  gap: 10px 12px;
+  padding: 6px 0;
+}
+.mtm-form-compact .form-field-group.form-field-half-width {
+  grid-column: span 1;
+}
+.mtm-form-compact .form-field-group.form-field-span-2 {
+  grid-column: span 2;
+}
+.mtm-form-compact .form-field-group.mtm-top-row {
+  grid-column: span 2;
+}
+.mtm-form-compact .form-field-group {
+  gap: 4px;
+}
+.mtm-form-compact .mtm-section-divider {
+  margin: 6px 0 0;
+}
+.mtm-form-compact .mtm-section-divider:first-of-type {
+  margin-top: 0;
+}
+.mtm-form-compact .mtm-form-intro {
+  padding: 8px 12px;
+  margin-bottom: 2px;
+}
+.mtm-form-compact .mtm-form-intro-icon {
+  font-size: 18px;
+}
+.mtm-form-compact .form-label-with-icon {
+  font-size: 12px;
+  font-weight: 600;
+}
+.mtm-form-compact .label-icon {
+  font-size: 14px;
+}
+.mtm-form-compact .form-input,
+.mtm-form-compact .form-select {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.mtm-form-compact .form-textarea {
+  min-height: 56px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.mtm-form-compact .mtm-section-divider-label {
+  font-size: 10px;
+}
+
 /* Paginación */
 .pagination-container {
   display: flex;
@@ -3816,6 +3867,11 @@
 /* SweetAlert sobre la vista Aplicaciones (modal rechazar/deshacer) */
 .swal-over-vista-aplicaciones {
   z-index: 100001 !important;
+}
+
+/* SweetAlert de éxito/error al cerrar oportunidad — por encima del modal Confirmación (100002) */
+.swal-over-modal-cierre {
+  z-index: 100003 !important;
 }
 
 .oportunidades-vista-aplicaciones-overlay {

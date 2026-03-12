@@ -16,6 +16,9 @@ import Swal from 'sweetalert2';
 import api from '../../services/api';
 import '../styles/Users.css';
 
+/** Oculta visualmente asociar sedes y columna Sede; la lógica y datos se mantienen. */
+const HIDE_SUCURSALES_UI = true;
+
 const Users = ({ onVolver }) => {
   const [vistaActual, setVistaActual] = useState('buscar');
   const [usersAdministrativos, setUsersAdministrativos] = useState([]);
@@ -583,6 +586,7 @@ const Users = ({ onVolver }) => {
                 <FiKey className="btn-icon" />
                 Asociar Programas
               </button>
+              {!HIDE_SUCURSALES_UI && (
               <button
                 className="btn-association btn-campus"
                 onClick={() => abrirGestionSedes(usersAdministrativos.find(u => u._id === selectedUserId))}
@@ -591,6 +595,7 @@ const Users = ({ onVolver }) => {
                 <FiKey className="btn-icon" />
                 Asociar Sedes
               </button>
+              )}
             </div>
           </div>
         )}
@@ -618,7 +623,7 @@ const Users = ({ onVolver }) => {
                   <th>IDENTIFICACIÓN</th>
                   <th>USUARIO</th>
                   <th>ROLES</th>
-                  <th>SEDE</th>
+                  {!HIDE_SUCURSALES_UI && <th>SEDE</th>}
                   <th>CELULAR</th>
                   <th>ESTADO</th>
                 </tr>
@@ -658,11 +663,13 @@ const Users = ({ onVolver }) => {
                         )}
                       </div>
                     </td>
+                    {!HIDE_SUCURSALES_UI && (
                     <td>
                       {user.sucursales?.length > 0
                         ? user.sucursales.map((s) => s.nombre).filter(Boolean).join(', ')
                         : (user.sucursal?.nombre || '-')}
                     </td>
+                    )}
                     <td>{user.phone || '-'}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="switch-container">
@@ -1283,13 +1290,18 @@ const Users = ({ onVolver }) => {
     );
   };
 
+  // Si sedes está oculto y por estado se llegó a 'sedes', volver a buscar
+  useEffect(() => {
+    if (HIDE_SUCURSALES_UI && vistaActual === 'sedes') setVistaActual('buscar');
+  }, [HIDE_SUCURSALES_UI, vistaActual]);
+
   return (
     <>
       {vistaActual === 'buscar' && renderBuscarUsuario()}
       {vistaActual === 'crear' && renderCrearUsuario()}
       {vistaActual === 'roles' && renderGestionRoles()}
       {vistaActual === 'programas' && renderGestionProgramas()}
-      {vistaActual === 'sedes' && renderGestionSedes()}
+      {vistaActual === 'sedes' && !HIDE_SUCURSALES_UI && renderGestionSedes()}
     </>
   );
 };
