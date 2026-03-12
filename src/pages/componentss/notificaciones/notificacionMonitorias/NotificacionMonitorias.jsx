@@ -1,33 +1,68 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiArrowLeft, FiPlus, FiEdit } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiMoreVertical, FiEye, FiEdit2, FiToggleLeft, FiToggleRight, FiUsers } from 'react-icons/fi';
+import Swal from 'sweetalert2';
 import api from '../../../../services/api';
 import ModalPlantilla from '../ModalPlantilla';
+import ModalPreviewPlantilla from '../ModalPreviewPlantilla';
+import ModalDestinatarios from '../ModalDestinatarios';
+import OptionsMenuPortal from '../OptionsMenuPortal';
 import '../../../styles/notificaciones.css';
 
-const STORAGE_KEY = 'plantillas_notif_monitoria';
 const TIPO = 'monitoria';
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-function getSavedPlantillas() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+const FRECUENCIAS = [
+  { value: 'inmediato', label: 'Inmediato' },
+  { value: 'diario', label: 'Diario' },
+  { value: 'semanal', label: 'Semanal' },
+];
+
+function getSelectedVariableKeysFromParam(param) {
+  const vars = param?.variables;
+  if (!Array.isArray(vars) || vars.length === 0) return [];
+  return vars.map((v) => {
+    const raw = (v.variable || '').trim();
+    const match = raw.match(/^\[?([A-Z0-9_]+)\]?$/i);
+    return match ? match[1].toUpperCase() : raw.replace(/^\[|\]$/g, '').toUpperCase();
+  }).filter(Boolean);
+}
+
+function mapPlantillaToItem(p) {
+  const param = p.parametroPlantillaId || {};
+  return {
+    _id: p._id,
+    parametroId: param._id,
+    value: param.value,
+    nombre: param.nombre || param.value,
+    asunto: p.asunto,
+    cuerpo: p.cuerpo,
+    frecuencia: p.frecuencia || 'inmediato',
+    destinatarios: p.destinatarios || [],
+    isActive: p.isActive !== false,
+    selectedVariableKeys: getSelectedVariableKeysFromParam(param),
+  };
 }
 
 export default function NotificacionMonitorias({ onVolver }) {
   const [parametros, setParametros] = useState([]);
   const [parametrosLoading, setParametrosLoading] = useState(true);
   const [parametrosError, setParametrosError] = useState(null);
-  const [savedPlantillas, setSavedPlantillas] = useState(getSavedPlantillas);
+  const [plantillas, setPlantillas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [pagination, setPagination] = useState({ total: 0, pages: 1, limit: 10 });
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [previewItem, setPreviewItem] = useState(null);
+  const [destinatariosItem, setDestinatariosItem] = useState(null);
 
-  const listCreated = Object.entries(savedPlantillas).map(([parametroId, data]) => ({
-    parametroId,
-    ...data,
-  }));
+  const closeMenu = () => {
+    setOpenMenuId(null);
+    setMenuAnchorRect(null);
+  };
 
   const loadParametros = useCallback(async () => {
     setParametrosLoading(true);
@@ -37,21 +72,38 @@ export default function NotificacionMonitorias({ onVolver }) {
       const list = data?.data ?? data ?? [];
       setParametros(Array.isArray(list) ? list : []);
     } catch (e) {
-      console.error('Error cargando parámetros plantilla:', e);
-      setParametrosError(e.response?.data?.message || e.message || 'No se pudieron cargar los eventos. Verifica que el backend esté en marcha y que hayas ejecutado el seeder de parámetros plantilla.');
+      console.error('Error cargando eventos:', e);
+      setParametrosError(e.response?.data?.message || e.message || 'No se pudieron cargar los eventos.');
       setParametros([]);
     } finally {
       setParametrosLoading(false);
     }
   }, []);
 
+  const loadPlantillas = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/plantillas-notificacion', {
+        params: { tipo: TIPO, page, limit: perPage },
+      });
+      setPlantillas(Array.isArray(data?.data) ? data.data : []);
+      setPagination(data?.pagination || { total: 0, pages: 1, limit: perPage });
+    } catch (e) {
+      console.error('Error cargando plantillas:', e);
+      setPlantillas([]);
+      setPagination({ total: 0, pages: 1, limit: perPage });
+    } finally {
+      setLoading(false);
+    }
+  }, [page, perPage]);
+
   useEffect(() => {
     loadParametros();
   }, [loadParametros]);
 
   useEffect(() => {
-    setSavedPlantillas(getSavedPlantillas());
-  }, [showModal]);
+    loadPlantillas();
+  }, [loadPlantillas]);
 
   const handleCrear = () => {
     setEditingItem(null);
@@ -66,22 +118,87 @@ export default function NotificacionMonitorias({ onVolver }) {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingItem(null);
-    setSavedPlantillas(getSavedPlantillas());
+    loadPlantillas();
   };
 
-  const handleSave = (plantilla) => {
-    const next = {
-      ...getSavedPlantillas(),
-      [plantilla.parametroId]: {
-        value: plantilla.value,
-        nombre: plantilla.nombre,
+  const handleSave = async (plantilla) => {
+    try {
+      const payload = {
+        parametroPlantillaId: plantilla.parametroId,
         asunto: plantilla.asunto,
-        cuerpo: plantilla.cuerpo,
-      },
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setSavedPlantillas(next);
+        cuerpo: plantilla.cuerpo || '',
+        frecuencia: plantilla.frecuencia || 'inmediato',
+        destinatarios: plantilla.destinatarios || [],
+        selectedVariableKeys: plantilla.selectedVariableKeys,
+        selectedVariables: plantilla.selectedVariables,
+      };
+      if (plantilla._id) {
+        await api.put(`/plantillas-notificacion/${plantilla._id}`, payload);
+      } else {
+        await api.post('/plantillas-notificacion', payload);
+      }
+      if (plantilla.parametroId && plantilla.selectedVariables?.length) {
+        await api.put(`/parametros-plantilla/${plantilla.parametroId}/variables`, { variables: plantilla.selectedVariables }).catch(() => {});
+      }
+      handleCloseModal();
+    } catch (e) {
+      console.error('Error guardando plantilla:', e);
+      throw e;
+    }
   };
+
+  const handleToggleActive = async (item) => {
+    closeMenu();
+    if (!item._id) return;
+    const willActivate = item.isActive === false;
+    const result = await Swal.fire({
+      title: willActivate ? '¿Habilitar plantilla?' : '¿Deshabilitar plantilla?',
+      text: willActivate
+        ? 'Esta plantilla se usará para enviar notificaciones de este evento.'
+        : 'Dejará de usarse para enviar notificaciones hasta que la habilites de nuevo.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#8b1538',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: willActivate ? 'Habilitar' : 'Deshabilitar',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await api.put(`/plantillas-notificacion/${item._id}`, { isActive: willActivate });
+      loadPlantillas();
+      Swal.fire({
+        icon: 'success',
+        title: willActivate ? 'Plantilla habilitada' : 'Plantilla deshabilitada',
+        timer: 2000,
+        showConfirmButton: false,
+        confirmButtonColor: '#8b1538',
+      });
+    } catch (e) {
+      console.error('Error cambiando estado:', e);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: e.response?.data?.message || 'No se pudo cambiar el estado.',
+        confirmButtonColor: '#8b1538',
+      });
+    }
+  };
+
+  const handleSaveDestinatarios = async (parametroId, destinatarios) => {
+    const item = destinatariosItem;
+    if (!item?._id) return;
+    try {
+      await api.put(`/plantillas-notificacion/${item._id}`, { destinatarios: Array.isArray(destinatarios) ? destinatarios : [] });
+      setDestinatariosItem(null);
+      loadPlantillas();
+    } catch (e) {
+      console.error('Error guardando destinatarios:', e);
+    }
+  };
+
+  const listItems = plantillas.map(mapPlantillaToItem);
+  const isLoading = parametrosLoading || loading;
 
   return (
     <div className="pn-content">
@@ -98,59 +215,147 @@ export default function NotificacionMonitorias({ onVolver }) {
       </div>
 
       <div className="pn-table-wrapper">
-        {parametrosLoading ? (
-          <div className="pn-loading">Cargando...</div>
-        ) : parametrosError ? (
+        {parametrosError ? (
           <div className="pn-empty">
             <p className="pn-error-msg">{parametrosError}</p>
-            <button type="button" className="pn-btn-secondary" onClick={loadParametros} style={{ marginTop: 16 }}>
-              Reintentar
-            </button>
+            <button type="button" className="pn-btn-secondary" onClick={loadParametros} style={{ marginTop: 16 }}>Reintentar</button>
           </div>
-        ) : listCreated.length === 0 ? (
+        ) : isLoading && plantillas.length === 0 ? (
+          <div className="pn-loading">Cargando...</div>
+        ) : listItems.length === 0 && !loading ? (
           <div className="pn-empty">
-            <p>No hay notificaciones creadas.</p>
-           
+            <p>No hay plantillas registradas.</p>
+            
           </div>
         ) : (
-          <table className="pn-table">
-            <thead>
-              <tr>
-                <th>Notificación</th>
-                <th>Asunto</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listCreated.map((item) => (
-                <tr key={item.parametroId}>
-                  <td className="pn-td-nombre">{item.nombre || item.value}</td>
-                  <td className="pn-td-asunto">{item.asunto || '—'}</td>
-                  <td className="pn-td-actions">
-                    <button
-                      type="button"
-                      className="pn-btn-action pn-btn-edit"
-                      title="Editar plantilla"
-                      onClick={() => handleEditar(item)}
-                    >
-                      <FiEdit /> Editar
-                    </button>
-                  </td>
+          <>
+            <table className="pn-table">
+              <thead>
+                <tr>
+                  <th>Plantilla</th>
+                  <th>Asunto</th>
+                  <th>Frecuencia</th>
+                  <th>Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {listItems.map((item) => (
+                  <tr key={item._id}>
+                    <td className="pn-td-nombre">{item.nombre || item.value}</td>
+                    <td className="pn-td-asunto">{item.asunto || '—'}</td>
+                    <td className="pn-td-frecuencia">
+                      {FRECUENCIAS.find((f) => f.value === (item.frecuencia || 'inmediato'))?.label || item.frecuencia || 'Inmediato'}
+                    </td>
+                    <td className="pn-td-actions">
+                      <div className="pn-options-wrap">
+                        <button
+                          type="button"
+                          className="pn-btn-options"
+                          onClick={(e) => {
+                            if (openMenuId === item._id) closeMenu();
+                            else {
+                              setOpenMenuId(item._id);
+                              setMenuAnchorRect(e.currentTarget.getBoundingClientRect());
+                            }
+                          }}
+                          title="Opciones"
+                        >
+                          <FiMoreVertical /> Opciones
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {pagination.pages > 0 && (
+              <div className="pn-pagination">
+                <div className="pn-pagination-per-page">
+                  <span>Mostrar</span>
+                  <select
+                    value={perPage}
+                    onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+                    className="pn-pagination-select"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                  <span>por página</span>
+                </div>
+                <span className="pn-pagination-info">
+                  {pagination.total === 0
+                    ? 'Mostrando 0 de 0'
+                    : `Mostrando ${(page - 1) * pagination.limit + 1}-${Math.min(page * pagination.limit, pagination.total)} de ${pagination.total}`}
+                </span>
+                <div className="pn-pagination-btns">
+                  <button
+                    type="button"
+                    className="pn-pagination-btn"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Anterior
+                  </button>
+                  <span className="pn-pagination-pages">Página {page} de {pagination.pages}</span>
+                  <button
+                    type="button"
+                    className="pn-pagination-btn"
+                    disabled={page >= pagination.pages}
+                    onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      <OptionsMenuPortal
+        open={!!openMenuId}
+        anchorRect={menuAnchorRect}
+        onClose={closeMenu}
+      >
+        {openMenuId && (() => {
+          const item = listItems.find((i) => i._id === openMenuId);
+          if (!item) return null;
+          return (
+            <>
+              <button type="button" className="pn-options-item" onClick={() => { setPreviewItem(item); closeMenu(); }}>
+                <FiEye /> Ver
+              </button>
+              <button type="button" className="pn-options-item" onClick={() => { handleEditar(item); closeMenu(); }}>
+                <FiEdit2 /> Editar
+              </button>
+              <button type="button" className="pn-options-item" onClick={() => handleToggleActive(item)}>
+                {item.isActive !== false ? <><FiToggleRight /> Deshabilitar</> : <><FiToggleLeft /> Habilitar</>}
+              </button>
+              <button type="button" className="pn-options-item" onClick={() => { setDestinatariosItem(item); closeMenu(); }}>
+                <FiUsers /> Destinatarios
+              </button>
+            </>
+          );
+        })()}
+      </OptionsMenuPortal>
 
       <ModalPlantilla
         open={showModal}
         tipo={TIPO}
         parametros={parametros}
-        savedPlantillas={savedPlantillas}
+        savedPlantillas={{}}
         editingItem={editingItem}
         onSave={handleSave}
         onClose={handleCloseModal}
+      />
+      <ModalPreviewPlantilla open={!!previewItem} item={previewItem} onClose={() => setPreviewItem(null)} />
+      <ModalDestinatarios
+        open={!!destinatariosItem}
+        item={destinatariosItem}
+        onSave={(destinatarios) => destinatariosItem && handleSaveDestinatarios(destinatariosItem.parametroId, destinatarios)}
+        onClose={() => setDestinatariosItem(null)}
       />
     </div>
   );
