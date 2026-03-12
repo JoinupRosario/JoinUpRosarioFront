@@ -3612,6 +3612,684 @@
   color: #1f2937;
 }
 
+/* Modal Historial de Estados: forzar centrado y estilos (evitar sobrescrituras) */
+.oportunidades-modal-historial-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  box-sizing: border-box !important;
+}
+
+.oportunidades-modal-historial {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 560px !important;
+  max-height: 85vh !important;
+  margin: auto !important;
+  background: #fff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.oportunidades-modal-historial-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 18px 20px !important;
+  background: linear-gradient(135deg, #c41e3a 0%, #a01930 100%) !important;
+  color: #fff !important;
+  flex-shrink: 0 !important;
+}
+
+.oportunidades-modal-historial-header h4 {
+  margin: 0 !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  letter-spacing: 0.02em !important;
+}
+
+.oportunidades-modal-historial-close {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  color: #fff !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 0.2s ease !important;
+}
+
+.oportunidades-modal-historial-close:hover {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
+.oportunidades-modal-historial-body {
+  padding: 20px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+.oportunidades-modal-historial-empty {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 14px !important;
+  text-align: center !important;
+  padding: 24px 0 !important;
+}
+
+.oportunidades-modal-historial-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+}
+
+.oportunidades-modal-historial-item {
+  padding: 16px !important;
+  background: #f8fafc !important;
+  border-radius: 10px !important;
+  border-left: 4px solid #c41e3a !important;
+  border: 1px solid #e2e8f0 !important;
+  border-left-width: 4px !important;
+  border-left-color: #c41e3a !important;
+}
+
+.oportunidades-modal-historial-item-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 10px !important;
+  padding-bottom: 10px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.oportunidades-modal-historial-estado {
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  font-size: 15px !important;
+}
+
+.oportunidades-modal-historial-fecha {
+  font-size: 12px !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+.oportunidades-modal-historial-item-details {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.oportunidades-modal-historial-item-details p {
+  margin: 0 !important;
+  font-size: 13px !important;
+  color: #475569 !important;
+  line-height: 1.45 !important;
+}
+
+.oportunidades-modal-historial-item-details strong {
+  color: #1e293b !important;
+}
+
+.oportunidades-modal-historial-footer {
+  padding: 16px 20px !important;
+  border-top: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  flex-shrink: 0 !important;
+}
+
+.oportunidades-modal-historial-btn-cerrar {
+  padding: 10px 20px !important;
+  background: #e2e8f0 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: background 0.2s ease, color 0.2s ease !important;
+}
+
+.oportunidades-modal-historial-btn-cerrar:hover {
+  background: #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+/* Tabla de aplicaciones / postulantes */
+.tabla-aplicaciones-wrap {
+  overflow-x: auto;
+  margin: 0 -4px;
+}
+.tabla-aplicaciones {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.tabla-aplicaciones th,
+.tabla-aplicaciones td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+.tabla-aplicaciones th {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #334155;
+}
+.tabla-aplicaciones tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+.tabla-aplicaciones tbody tr:hover {
+  background: #f1f5f9;
+}
+
+.tabla-aplicaciones tbody tr[class*="selected"],
+.tabla-aplicaciones tbody tr.selected {
+  background: #e0e7ff !important;
+  outline: 2px solid #c41e3a;
+  outline-offset: -2px;
+}
+
+.tabla-aplicaciones tbody tr {
+  cursor: pointer;
+}
+
+/* Vista Aplicaciones / Postulantes — pantalla completa */
+/* SweetAlert sobre la vista Aplicaciones (modal rechazar/deshacer) */
+.swal-over-vista-aplicaciones {
+  z-index: 100001 !important;
+}
+
+.oportunidades-vista-aplicaciones-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  padding: 0 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  box-sizing: border-box !important;
+}
+
+.oportunidades-vista-aplicaciones {
+  position: relative !important;
+  flex: 1 !important;
+  margin: 12px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  background: #fff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.oportunidades-vista-aplicaciones-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 20px !important;
+  background: linear-gradient(135deg, #c41e3a 0%, #a01930 100%) !important;
+  color: #fff !important;
+  flex-shrink: 0 !important;
+}
+
+.oportunidades-vista-aplicaciones-header h4 {
+  margin: 0 !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+}
+
+.oportunidades-vista-aplicaciones-body {
+  flex: 1 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0 !important;
+}
+
+.oportunidades-vista-aplicaciones-tabla {
+  flex: 0 0 55% !important;
+  min-width: 0 !important;
+  overflow: auto !important;
+  padding: 16px !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+
+.oportunidades-vista-aplicaciones-detalle {
+  flex: 1 !important;
+  min-width: 0 !important;
+  overflow: auto !important;
+  padding: 20px !important;
+  background: #f8fafc !important;
+}
+
+.detalle-postulante {
+  max-width: 640px;
+}
+
+.detalle-postulante-nombre {
+  margin: 0 0 16px 0 !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.detalle-postulante-campo {
+  margin-bottom: 14px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.detalle-postulante-campo strong {
+  display: inline-block;
+  min-width: 140px;
+  color: #475569;
+}
+
+.detalle-postulante-campo ul {
+  margin: 6px 0 0 0;
+  padding-left: 20px;
+}
+
+.detalle-postulante-competencias {
+  list-style: none !important;
+  padding-left: 0 !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detalle-postulante-competencias li {
+  background: #e2e8f0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.detalle-postulante-cvs ul {
+  list-style: none !important;
+  padding-left: 0 !important;
+}
+
+.detalle-postulante-cvs a {
+  color: #c41e3a;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.detalle-postulante-cvs a:hover {
+  color: #a01930;
+}
+
+.detalle-postulante-acciones {
+  margin: 16px 0;
+}
+.btn-rechazar-estudiante {
+  padding: 8px 16px;
+  background: #c41e3a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn-rechazar-estudiante:hover {
+  background: #a01930;
+}
+.btn-deshacer-rechazo {
+  padding: 8px 16px;
+  background: #64748b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn-deshacer-rechazo:hover {
+  background: #475569;
+}
+
+.btn-cerrar-oportunidad-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #c41e3a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn-cerrar-oportunidad-header:hover {
+  background: #a01930;
+}
+
+.cerrar-oportunidad-lista-postulantes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+.cerrar-oportunidad-postulante-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.cerrar-oportunidad-postulante-item input[type="checkbox"] {
+  margin: 0;
+}
+.cerrar-oportunidad-datos-tutor {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.cerrar-oportunidad-datos-tutor strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #334155;
+}
+.cerrar-oportunidad-tutor-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+.cerrar-oportunidad-tutor-campos > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cerrar-oportunidad-tutor-campos label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+.cerrar-oportunidad-tutor-campos input,
+.cerrar-oportunidad-tutor-campos select {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* Información de cierre (trazabilidad) en detalle de oportunidad */
+.info-cierre-oportunidad {
+  margin-top: 8px;
+  padding: 14px 18px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+}
+.info-cierre-oportunidad-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #0369a1;
+  font-size: 15px;
+}
+.info-cierre-oportunidad-body p {
+  margin: 6px 0;
+  font-size: 14px;
+  color: #334155;
+}
+.info-cierre-lista-postulantes {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+}
+.info-cierre-item {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.info-cierre-nombre {
+  font-weight: 600;
+  color: #1e293b;
+}
+.info-cierre-datos-tutor {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #475569;
+}
+
+/* Modal Rechazar Oportunidad: forzar centrado y estilos (evitar sobrescrituras) */
+.oportunidades-modal-rechazo-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  box-sizing: border-box !important;
+}
+
+.oportunidades-modal-rechazo {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 520px !important;
+  max-height: 90vh !important;
+  margin: auto !important;
+  background: #fff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Modal Cerrar Oportunidad: más grande */
+.oportunidades-modal-rechazo.oportunidades-modal-cerrar {
+  max-width: 720px !important;
+  width: 90vw !important;
+  max-height: 90vh !important;
+  overflow: auto !important;
+}
+
+/* Modal Cerrar Oportunidad: por encima de todo (header, sidebar, otros modales) */
+.oportunidades-modal-rechazo-overlay.oportunidades-modal-cerrar-overlay {
+  z-index: 100002 !important;
+}
+
+/* No cerrar al hacer clic en el overlay (solo con X o botones) */
+.oportunidades-modal-cerrar-overlay {
+  cursor: default !important;
+}
+.oportunidades-modal-cerrar-overlay:hover {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.oportunidades-modal-rechazo-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 18px 20px !important;
+  background: linear-gradient(135deg, #c41e3a 0%, #a01930 100%) !important;
+  color: #fff !important;
+  flex-shrink: 0 !important;
+}
+
+.oportunidades-modal-rechazo-header h4 {
+  margin: 0 !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  letter-spacing: 0.02em !important;
+}
+
+.oportunidades-modal-rechazo-close {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  color: #fff !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 0.2s ease !important;
+}
+
+.oportunidades-modal-rechazo-close:hover {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
+.oportunidades-modal-rechazo-body {
+  padding: 20px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+.oportunidades-modal-rechazo-field {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin-bottom: 16px !important;
+}
+
+.oportunidades-modal-rechazo-field:last-child {
+  margin-bottom: 0 !important;
+}
+
+.oportunidades-modal-rechazo-field label {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+}
+
+.oportunidades-modal-rechazo-required {
+  color: #c41e3a !important;
+}
+
+.oportunidades-modal-rechazo-select {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  font-size: 14px !important;
+  color: #1e293b !important;
+  background: #fff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  appearance: auto !important;
+  max-height: 280px !important;
+}
+
+.oportunidades-modal-rechazo-select:focus {
+  outline: none !important;
+  border-color: #c41e3a !important;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.12) !important;
+}
+
+.oportunidades-modal-rechazo-textarea {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  font-size: 14px !important;
+  color: #1e293b !important;
+  background: #fff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  resize: vertical !important;
+  min-height: 100px !important;
+  font-family: inherit !important;
+}
+
+.oportunidades-modal-rechazo-textarea:focus {
+  outline: none !important;
+  border-color: #c41e3a !important;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.12) !important;
+}
+
+.oportunidades-modal-rechazo-textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.oportunidades-modal-rechazo-footer {
+  padding: 16px 20px !important;
+  border-top: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+.oportunidades-modal-rechazo-btn-cancelar {
+  padding: 10px 20px !important;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: background 0.2s ease, color 0.2s ease !important;
+}
+
+.oportunidades-modal-rechazo-btn-cancelar:hover {
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+.oportunidades-modal-rechazo-btn-rechazar {
+  padding: 10px 20px !important;
+  background: #c41e3a !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: background 0.2s ease !important;
+}
+
+.oportunidades-modal-rechazo-btn-rechazar:hover {
+  background: #a01930 !important;
+}
+
 /* Responsive para vista detalle */
 @media (max-width: 1024px) {
   .detalle-sidebar {

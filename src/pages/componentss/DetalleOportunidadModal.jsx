@@ -30,8 +30,43 @@ const SALARIO_EMOCIONAL_LABELS = {
   dia_medio_dia: 'Un dia a la semana saliendo a medio dia',
 };
 
-function getSalarioEmocionalLabel(value) {
-  return SALARIO_EMOCIONAL_LABELS[value] || value;
+function getSalarioEmocionalLabel(item) {
+  if (item == null) return '—';
+  if (typeof item === 'object' && (item.value != null || item.description != null)) {
+    return item.description || item.value || '—';
+  }
+  return SALARIO_EMOCIONAL_LABELS[item] || item || '—';
+}
+
+/** Convierte ref Item (objeto con value/description) o string a texto para mostrar */
+function getItemRefLabel(item) {
+  if (item == null) return '—';
+  if (typeof item === 'object' && (item.value != null || item.description != null)) {
+    return item.description || item.value || '—';
+  }
+  return String(item);
+}
+
+function getAreaDesempenoLabel(area) {
+  return getItemRefLabel(area);
+}
+
+function getPeriodoLabel(periodo) {
+  if (periodo == null) return '—';
+  if (typeof periodo === 'object' && periodo.codigo != null) return periodo.codigo;
+  return String(periodo);
+}
+
+function getPaisLabel(pais) {
+  if (pais == null) return '—';
+  if (typeof pais === 'object' && (pais.name != null || pais.sortname != null)) return pais.name || pais.sortname || '—';
+  return String(pais);
+}
+
+function getCiudadLabel(ciudad) {
+  if (ciudad == null) return '—';
+  if (typeof ciudad === 'object' && ciudad.name != null) return ciudad.name;
+  return String(ciudad);
 }
 
 /**
@@ -76,19 +111,19 @@ export default function DetalleOportunidadModal({ detalle, loading, onClose, onA
                 <dt>Tipo de vinculación</dt>
                 <dd>{detalle.tipoVinculacion ?? '—'}</dd>
                 <dt>Periodo</dt>
-                <dd>{detalle.periodo ?? '—'}</dd>
+                <dd>{getPeriodoLabel(detalle.periodo)}</dd>
                 <dt>Vacantes</dt>
                 <dd>{detalle.vacantes != null ? detalle.vacantes : '—'}</dd>
                 <dt>Fecha de cierre</dt>
                 <dd>{formatDate(detalle.fechaVencimiento)}</dd>
                 <dt>País</dt>
-                <dd>{detalle.pais ?? '—'}</dd>
+                <dd>{getPaisLabel(detalle.pais)}</dd>
                 <dt>Ciudad</dt>
-                <dd>{detalle.ciudad ?? '—'}</dd>
+                <dd>{getCiudadLabel(detalle.ciudad)}</dd>
                 <dt>Jornada Ordinaria Semanal</dt>
                 <dd>{detalle.jornadaOrdinariaSemanal != null ? `${detalle.jornadaOrdinariaSemanal} h` : '—'}</dd>
                 <dt>Dedicación</dt>
-                <dd>{detalle.dedicacion ?? '—'}</dd>
+                <dd>{getItemRefLabel(detalle.dedicacion)}</dd>
                 <dt>Fecha de inicio de la práctica</dt>
                 <dd>{formatDate(detalle.fechaInicioPractica)}</dd>
                 <dt>Fecha fin de la práctica</dt>
@@ -96,7 +131,7 @@ export default function DetalleOportunidadModal({ detalle, loading, onClose, onA
                 <dt>Horario</dt>
                 <dd>{detalle.horario ?? '—'}</dd>
                 <dt>Área de desempeño</dt>
-                <dd>{detalle.areaDesempeno ?? '—'}</dd>
+                <dd>{getAreaDesempenoLabel(detalle.areaDesempeno)}</dd>
                 <dt>Promedio mínimo requerido</dt>
                 <dd>{detalle.promedioMinimoRequerido ?? '—'}</dd>
               </dl>

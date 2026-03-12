@@ -267,8 +267,9 @@ const PostulantProfile = ({ onVolver }) => {
   const [saving, setSaving] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [profileData, setProfileData] = useState(null);
-  // Perfiles (hojas de vida) - hasta 5 por postulante
+  // Perfiles (hojas de vida) - hasta 5 por postulante; baseProfiles = perfiles base (postulant_profile) para cuando no hay versiones
   const [profiles, setProfiles] = useState([]);
+  const [baseProfiles, setBaseProfiles] = useState([]);
   const [profilesMeta, setProfilesMeta] = useState({ count: 0, maxAllowed: 5 });
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
@@ -1654,11 +1655,13 @@ const PostulantProfile = ({ onVolver }) => {
       const count = res.data.count ?? 0;
       const maxAllowed = res.data.maxAllowed ?? 5;
       setProfiles(res.data.profiles || []);
+      setBaseProfiles(res.data.baseProfiles || []);
       setProfilesMeta({ count, maxAllowed });
       setPostulant(prev => prev ? { ...prev, profileCount: count, maxProfilesAllowed: maxAllowed } : null);
     } catch (err) {
       console.error('Error loading profiles', err);
       setProfiles([]);
+      setBaseProfiles([]);
       setProfilesMeta({ count: 0, maxAllowed: 5 });
     } finally {
       setLoadingProfiles(false);
@@ -1683,15 +1686,26 @@ const PostulantProfile = ({ onVolver }) => {
     }
   }, [postulant?._id, loadProfiles]);
 
-  /** Lista para la UI: incluye "Perfil base" primero cuando hay versiones, luego las versiones. */
+  /** Lista para la UI: con versiones = "Perfil base" (del primer profileId) + versiones; sin versiones = perfiles base para no perder la fila (p. ej. tras borrar todas las versiones). */
   const listForDisplay = useMemo(() => {
-    if (!profiles?.length) return profiles || [];
-    const baseId = profiles[0].profileId || profiles[0]._id;
-    return [
-      { type: 'base', _id: baseId, profileId: baseId, profileName: 'Perfil base', versionId: null },
-      ...profiles,
-    ];
-  }, [profiles]);
+    if (profiles?.length > 0) {
+      const baseId = profiles[0].profileId || profiles[0]._id;
+      return [
+        { type: 'base', _id: baseId, profileId: baseId, profileName: 'Perfil base', versionId: null },
+        ...profiles,
+      ];
+    }
+    if (baseProfiles?.length > 0) {
+      return baseProfiles.map((p) => ({
+        type: 'base',
+        _id: p._id,
+        profileId: p._id,
+        profileName: (p.studentCode || p.profileName || 'Perfil base').toString().trim() || 'Perfil base',
+        versionId: null,
+      }));
+    }
+    return [];
+  }, [profiles, baseProfiles]);
 
   /** Solo hacemos la carga inicial del primer perfil una vez por postulante; así no se pisa la selección al cambiar de perfil. */
   const initialProfileLoadDoneRef = useRef(false);
@@ -1712,11 +1726,16 @@ const PostulantProfile = ({ onVolver }) => {
       initialProfileLoadDoneRef.current = true;
       setSelectedProfileIdForView(firstId);
       loadProfileDataForProfile(postulant._id, baseId, versionId);
+    } else if (baseProfiles?.length > 0) {
+      const baseId = baseProfiles[0]._id;
+      initialProfileLoadDoneRef.current = true;
+      setSelectedProfileIdForView(baseId);
+      loadProfileDataForProfile(postulant._id, baseId, null);
     } else {
       initialProfileLoadDoneRef.current = true;
       loadProfileDataForProfile(postulant._id);
     }
-  }, [postulant?._id, loadingProfiles, profiles, loadProfileDataForProfile]);
+  }, [postulant?._id, loadingProfiles, profiles, baseProfiles, loadProfileDataForProfile]);
 
   const handleCreateProfile = useCallback(async () => {
     if (!postulant?._id || profilesMeta.count >= profilesMeta.maxAllowed) return;
