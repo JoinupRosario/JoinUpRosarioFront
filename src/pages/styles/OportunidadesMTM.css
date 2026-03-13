@@ -382,6 +382,57 @@
 .mtm-asig-item-name { color: #6b7280; font-size: 12px; }
 .mtm-asig-item-loading { padding: 12px 14px; color: #9ca3af; font-size: 13px; text-align: center; }
 
+/* ── Profesor responsable (usuarios administrativos) ───────────────────────── */
+.mtm-profesor-wrap { position: relative; }
+.mtm-profesor-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #166534;
+}
+.mtm-profesor-clear {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mtm-profesor-clear:hover { color: #374151; }
+.mtm-profesor-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+  z-index: 100;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.mtm-profesor-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 1px solid #f9fafb;
+  transition: background 0.1s;
+}
+.mtm-profesor-item:last-child { border-bottom: none; }
+.mtm-profesor-item:hover { background: #f0f7ff; }
+.mtm-profesor-item-name { font-weight: 600; color: #374151; }
+.mtm-profesor-item-email { color: #6b7280; font-size: 12px; margin-top: 2px; }
+.mtm-profesor-item-loading { padding: 12px 14px; color: #9ca3af; font-size: 13px; text-align: center; }
+.mtm-profesor-item-error { padding: 12px 14px; color: #b91c1c; font-size: 13px; text-align: center; background: #fef2f2; }
+
 .mtm-asig-tags {
   display: flex;
   flex-wrap: wrap;

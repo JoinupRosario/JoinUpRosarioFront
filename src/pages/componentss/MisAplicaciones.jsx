@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiX } from 'react-icons/fi';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
+import Swal from 'sweetalert2';
 import api from '../../services/api';
 import DetalleOportunidadModal from './DetalleOportunidadModal';
 import '../styles/Oportunidades.css';
@@ -23,19 +24,51 @@ export default function MisAplicaciones() {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [detalleMTM, setDetalleMTM] = useState(null);
   const [loadingDetalleMTM, setLoadingDetalleMTM] = useState(false);
+  const [submittingResponder, setSubmittingResponder] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const addBusinessDays = (date, days) => {
+    const d = new Date(date);
+    let added = 0;
+    while (added < days) {
+      d.setDate(d.getDate() + 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+    }
+    return d;
+  };
+
+  const refetch = () => {
+    setLoading(true);
     Promise.all([
       api.get('/opportunities/mis-postulaciones').then((r) => (r.data?.data || []).map((row) => ({ ...row, tipoOportunidad: 'Práctica' }))).catch(() => []),
-      api.get('/oportunidades-mtm/mis-postulaciones').then((r) => (r.data?.data || []).map((row) => ({ ...row, tipoOportunidad: 'Monitoría / Tutoría / Mentoría' }))).catch(() => []),
+      api.get('/oportunidades-mtm/mis-postulaciones').then((r) => {
+        const dias = r.data?.diasHabilesAceptarSeleccion ?? 8;
+        return (r.data?.data || []).map((row) => ({ ...row, tipoOportunidad: 'Monitoría / Tutoría / Mentoría', diasHabilesAceptarSeleccion: dias }));
+      }).catch(() => []),
     ]).then(([practicas, mtm]) => {
-      if (cancelled) return;
       const merged = [...practicas, ...mtm].sort((a, b) => new Date(b.fechaAplicacion || 0) - new Date(a.fechaAplicacion || 0));
       setData(merged);
-    }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    }).finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    refetch();
   }, []);
+
+  const estudianteResponder = (row, accion) => {
+    if (accion !== 'confirmar' && accion !== 'rechazar') return;
+    const id = row._id;
+    const isMTM = row.tipoOportunidad === 'Monitoría / Tutoría / Mentoría';
+    const base = isMTM ? `/oportunidades-mtm/${row.oportunidadId}` : `/opportunities/${row.opportunityId}`;
+    const url = `${base}/applications/${id}/estudiante-responder`;
+    setSubmittingResponder(id);
+    api.patch(url, { accion })
+      .then(() => refetch())
+      .catch((err) => {
+        const msg = err.response?.data?.message || err.message || 'Error al guardar';
+        alert(msg);
+      })
+      .finally(() => setSubmittingResponder(null));
+  };
 
   const verOferta = (opportunityId, tipo) => {
     if (!opportunityId) return;
@@ -98,12 +131,60 @@ export default function MisAplicaciones() {
                       ? new Date(row.fechaAplicacion).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
                       : '—'}
                   </td>
-                  <td>{row.estadoOportunidad || '—'}</td>
+                  <td>{row.estadoOportunidad === 'Inactiva' ? 'Cerrada' : (row.estadoOportunidad || '—')}</td>
                   <td>{ESTADO_LABELS[row.estado] || row.estado || '—'}</td>
                   <td>{row.empresaConsultoPerfil ? 'Sí' : 'No'}</td>
                   <td>{row.empresaDescargoHv ? 'Sí' : 'No'}</td>
                   <td>{row.seleccionadoPorEmpresa ?? row.seleccionado ? 'Sí' : 'No'}</td>
-                  <td>{row.aceptadoPorEstudiante ? 'Aceptado' : row.estadoConfirmacion === 'rechazado' ? 'Rechazado' : row.estadoConfirmacion === 'confirmado' ? 'Confirmado' : '—'}</td>
+                  <td>
+                    {row.estado === 'aceptado_estudiante'
+                      ? 'Aceptado'
+                      : row.estado === 'rechazado' && (row.seleccionadoPorEmpresa || row.seleccionado)
+                        ? 'Rechazado'
+                        :                         row.estado === 'seleccionado_empresa'
+                          ? (() => {
+                              const isMTM = row.tipoOportunidad === 'Monitoría / Tutoría / Mentoría';
+                              const dias = row.diasHabilesAceptarSeleccion ?? 8;
+                              const limite = row.seleccionadoAt && isMTM ? addBusinessDays(new Date(row.seleccionadoAt), dias) : null;
+                              const plazoVencido = limite && new Date() > limite;
+                              return plazoVencido ? (
+                                <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Plazo vencido</span>
+                              ) : (
+                              <select
+                                value=""
+                                disabled={!!submittingResponder}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  e.target.value = '';
+                                  if (v !== 'confirmar' && v !== 'rechazar') return;
+                                  const esConfirmar = v === 'confirmar';
+                                  const titulo = esConfirmar ? '¿Confirmar selección?' : '¿Rechazar selección?';
+                                  const texto = esConfirmar
+                                    ? '¿Está seguro de que desea confirmar esta selección? Quedará registrado como aceptado.'
+                                    : '¿Está seguro de que desea rechazar esta selección? La postulación quedará como rechazada.';
+                                  const btn = esConfirmar ? 'Sí, confirmar' : 'Sí, rechazar';
+                                  Swal.fire({
+                                    icon: 'question',
+                                    title: titulo,
+                                    text: texto,
+                                    showCancelButton: true,
+                                    confirmButtonText: btn,
+                                    cancelButtonText: 'Cancelar',
+                                    confirmButtonColor: '#c41e3a',
+                                  }).then((result) => {
+                                    if (result.isConfirmed) estudianteResponder(row, v);
+                                  });
+                                }}
+                                style={{ minWidth: '120px', padding: '4px 6px' }}
+                              >
+                                <option value="">Pendiente — Confirmar / Rechazar</option>
+                                <option value="confirmar">Confirmar</option>
+                                <option value="rechazar">Rechazar</option>
+                              </select>
+                              );
+                            })()
+                          : '—'}
+                  </td>
                   <td>
                     {(row.opportunityId || row.oportunidadId) ? (
                       <button

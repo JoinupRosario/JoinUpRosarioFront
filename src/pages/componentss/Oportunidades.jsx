@@ -98,6 +98,7 @@ export default function Oportunidades({ onVolver }) {
   const [newProgramName, setNewProgramName] = useState('');
   // Modal de programas MTM
   const [showMtmProgramsModal, setShowMtmProgramsModal] = useState(false);
+  const [mtmProgramsModalForEdit, setMtmProgramsModalForEdit] = useState(false);
   const [newMtmProgramLevel, setNewMtmProgramLevel] = useState('');
   const [newMtmProgramName, setNewMtmProgramName] = useState('');
   // Programas dinámicos desde el modelo Program (compartido por ambos modales)
@@ -167,6 +168,15 @@ export default function Oportunidades({ onVolver }) {
   const [showMtmProgramaDrop, setShowMtmProgramaDrop] = useState(false);
   const mtmAsigTimer = useRef(null);
   const mtmProgramaTimer = useRef(null);
+  // Profesor responsable (usuarios administrativos) — crear/editar MTM
+  const [mtmProfesorResponsable, setMtmProfesorResponsable] = useState('');
+  const [mtmProfesorDisplay, setMtmProfesorDisplay] = useState('');
+  const [mtmProfesorSearch, setMtmProfesorSearch] = useState('');
+  const [mtmProfesorResults, setMtmProfesorResults] = useState([]);
+  const [mtmProfesorLoading, setMtmProfesorLoading] = useState(false);
+  const [mtmProfesorError, setMtmProfesorError] = useState(false);
+  const [showMtmProfesorDrop, setShowMtmProfesorDrop] = useState(false);
+  const mtmProfesorWrapRef = useRef(null);
   // Datos paramétricos MTM
   const [mtmDedicacionItems, setMtmDedicacionItems] = useState([]);
   const [mtmValorItems, setMtmValorItems] = useState([]);
@@ -576,6 +586,35 @@ export default function Oportunidades({ onVolver }) {
     return () => clearTimeout(mtmProgramaTimer.current);
   }, [mtmProgramaSearch]);
 
+  // Búsqueda profesor responsable (usuarios administrativos) — MTM
+  const mtmProfesorTimer = useRef(null);
+  useEffect(() => {
+    if (mtmProfesorSearch.trim().length < 2) { setMtmProfesorResults([]); setShowMtmProfesorDrop(false); setMtmProfesorError(false); return; }
+    clearTimeout(mtmProfesorTimer.current);
+    mtmProfesorTimer.current = setTimeout(async () => {
+      setMtmProfesorLoading(true);
+      setMtmProfesorError(false);
+      try {
+        const res = await api.get(`/users-administrativos?search=${encodeURIComponent(mtmProfesorSearch.trim())}&limit=20&estado=true`);
+        setMtmProfesorResults(res.data?.data || []);
+        setShowMtmProfesorDrop(true);
+      } catch {
+        setMtmProfesorResults([]);
+        setShowMtmProfesorDrop(true);
+        setMtmProfesorError(true);
+      }
+      finally { setMtmProfesorLoading(false); }
+    }, 350);
+    return () => clearTimeout(mtmProfesorTimer.current);
+  }, [mtmProfesorSearch]);
+  useEffect(() => {
+    const handler = (e) => {
+      if (mtmProfesorWrapRef.current && !mtmProfesorWrapRef.current.contains(e.target)) setShowMtmProfesorDrop(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const filteredOportunidades = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return oportunidades;
@@ -710,6 +749,7 @@ export default function Oportunidades({ onVolver }) {
         }
         setSelectedCompany(universidad);
         setTipoOportunidad('monitoria');
+        setMtmProfesorResponsable(''); setMtmProfesorDisplay(''); setMtmProfesorSearch('');
         loadMtmParams();
       } catch (e) {
         console.error('Error buscando empresa universidad', e);
@@ -895,7 +935,7 @@ export default function Oportunidades({ onVolver }) {
     }));
   };
 
-  // Agregar programa MTM desde modal
+  // Agregar programa MTM desde modal (crear o editar)
   const handleAddMtmProgram = () => {
     if (!newMtmProgramLevel || !newMtmProgramName) {
       Swal.fire({ icon: 'warning', title: 'Campos requeridos', text: 'Selecciona el nivel y el programa.', confirmButtonText: 'Aceptar', confirmButtonColor: '#c41e3a' });
@@ -903,6 +943,16 @@ export default function Oportunidades({ onVolver }) {
     }
     const prog = allPrograms.find(p => p.name === newMtmProgramName);
     if (!prog) return;
+    if (mtmProgramsModalForEdit) {
+      const currentProgramas = mtmEditData?.programas || [];
+      if (currentProgramas.some(x => (x._id || x) === prog._id)) {
+        setNewMtmProgramLevel(''); setNewMtmProgramName(''); setShowMtmProgramsModal(false); setMtmProgramsModalForEdit(false);
+        return;
+      }
+      setMtmEditData(prev => ({ ...prev, programas: [...(prev?.programas || []), prog] }));
+      setNewMtmProgramLevel(''); setNewMtmProgramName(''); setShowMtmProgramsModal(false); setMtmProgramsModalForEdit(false);
+      return;
+    }
     if (mtmProgramas.find(x => x._id === prog._id)) {
       setNewMtmProgramLevel(''); setNewMtmProgramName(''); setShowMtmProgramsModal(false);
       return;
@@ -1134,6 +1184,7 @@ export default function Oportunidades({ onVolver }) {
           fechaVencimiento: formData.fechaVencimiento || null,
           asignaturas: mtmAsignaturas.map(a => a._id),
           promedioMinimo: formData.promedioMinimoRequerido ? parseFloat(formData.promedioMinimoRequerido) : null,
+          profesorResponsable: mtmProfesorResponsable || null,
           nombreProfesor: mtmNombreProfesor || null,
           unidadAcademica: mtmUnidadAcademica || null,
           horario: formData.horario || null,
@@ -1152,6 +1203,7 @@ export default function Oportunidades({ onVolver }) {
         setMtmNombreProfesor(''); setMtmUnidadAcademica(''); setMtmGrupo('');
         setMtmAsignaturas([]); setMtmProgramas([]);
         setMtmAsigSearch(''); setMtmProgramaSearch('');
+        setMtmProfesorResponsable(''); setMtmProfesorDisplay(''); setMtmProfesorSearch('');
         setFormData({ nombreCargo: '', auxilioEconomico: false, requiereConfidencialidad: false, apoyoEconomico: '', tipoVinculacion: '', periodo: '', vacantes: '', fechaVencimiento: '', pais: '', ciudad: '', jornadaOrdinariaSemanal: '', dedicacion: '', jornadaSemanalPractica: '', fechaInicioPractica: '', fechaFinPractica: '', horario: '', areaDesempeno: '', enlacesFormatoEspecificos: '', primerDocumento: null, primerDocumentoNombre: '', primerDocumentoRequerido: false, segundoDocumento: null, segundoDocumentoNombre: '', tercerDocumento: null, tercerDocumentoNombre: '', salarioEmocional: [], promedioMinimoRequerido: '', formacionAcademica: [], idiomas: [], funciones: '', requisitos: '' });
         setTipoOportunidad(null);
         setSelectedCompany(null);
@@ -2922,10 +2974,36 @@ export default function Oportunidades({ onVolver }) {
 
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon">
-                    <FiEdit className="label-icon" /> Nombre del profesor / responsable
+                    <FiEdit className="label-icon" /> Profesor responsable / coordinador
                   </label>
-                  <input type="text" value={mtmNombreProfesor} onChange={e => setMtmNombreProfesor(e.target.value)}
-                    className="form-input" placeholder="Nombre completo" />
+                  <div style={{ position: 'relative' }} ref={mtmProfesorWrapRef}>
+                    {mtmProfesorDisplay ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 14, color: '#166534' }}>
+                        <span>{mtmProfesorDisplay}</span>
+                        <button type="button" onClick={() => { setMtmProfesorResponsable(''); setMtmNombreProfesor(''); setMtmProfesorDisplay(''); setMtmProfesorSearch(''); }} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: '#6b7280' }} aria-label="Quitar"><FiX size={16} /></button>
+                      </div>
+                    ) : (
+                      <>
+                        <input type="text" className="form-input" placeholder="Buscar por nombre o identificación (mín. 2 caracteres)..."
+                          value={mtmProfesorSearch} onChange={e => setMtmProfesorSearch(e.target.value)} />
+                        {(showMtmProfesorDrop || mtmProfesorLoading) && (
+                          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.1)', zIndex: 200, maxHeight: 220, overflowY: 'auto' }}>
+                            {mtmProfesorLoading ? <div style={{ padding: '12px 14px', color: '#9ca3af', fontSize: 13 }}>Buscando...</div>
+                              : mtmProfesorError ? <div style={{ padding: '12px 14px', color: '#b91c1c', fontSize: 13, background: '#fef2f2' }}>No se pudo cargar. Verifique permisos o conexión.</div>
+                              : mtmProfesorResults.length === 0 ? <div style={{ padding: '12px 14px', color: '#9ca3af', fontSize: 13 }}>Sin resultados. Escribe al menos 2 caracteres.</div>
+                              : mtmProfesorResults.map(u => (
+                                <div key={u._id} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f9fafb', fontSize: 13 }} onMouseEnter={e => { e.currentTarget.style.background = '#f0f7ff'; }} onMouseLeave={e => { e.currentTarget.style.background = ''; }}
+                                  onClick={() => { const display = [u.nombres, u.apellidos].filter(Boolean).join(' '); setMtmProfesorResponsable(u._id); setMtmNombreProfesor(display); setMtmProfesorDisplay(display); setMtmProfesorSearch(''); setShowMtmProfesorDrop(false); }}>
+                                  <div style={{ fontWeight: 600, color: '#374151' }}>{[u.nombres, u.apellidos].filter(Boolean).join(' ')}</div>
+                                  {u.user?.email && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{u.user.email}</div>}
+                                </div>
+                              ))
+                            }
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="form-field-group form-field-half-width">
@@ -3298,7 +3376,7 @@ export default function Oportunidades({ onVolver }) {
             : [];
           return (
             <div
-              onClick={() => setShowMtmProgramsModal(false)}
+              onClick={() => { setShowMtmProgramsModal(false); setMtmProgramsModalForEdit(false); }}
               style={{
                 position: 'fixed', inset: 0, zIndex: 2000,
                 background: 'rgba(0,0,0,0.5)',
@@ -3317,7 +3395,7 @@ export default function Oportunidades({ onVolver }) {
               >
                 <div className="modal-header">
                   <h4>Agregar programa candidato</h4>
-                  <button className="modal-close" onClick={() => setShowMtmProgramsModal(false)}>×</button>
+                  <button className="modal-close" onClick={() => { setShowMtmProgramsModal(false); setMtmProgramsModalForEdit(false); }}>×</button>
                 </div>
                 <div className="modal-body">
                   {loadingPrograms ? (
@@ -3352,7 +3430,7 @@ export default function Oportunidades({ onVolver }) {
                   )}
                 </div>
                 <div className="modal-footer">
-                  <button className="btn-secondary" onClick={() => setShowMtmProgramsModal(false)}>Cerrar</button>
+                  <button className="btn-secondary" onClick={() => { setShowMtmProgramsModal(false); setMtmProgramsModalForEdit(false); }}>Cerrar</button>
                   <button className="btn-guardar" onClick={handleAddMtmProgram} disabled={loadingPrograms}>Añadir</button>
                 </div>
               </div>
@@ -4135,11 +4213,16 @@ export default function Oportunidades({ onVolver }) {
     // ── DETALLE MTM (lectura / edición) ──────────────────────────────────────
     if (opp._isMTM) {
       const fmtFecha = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-      const estadoColors = { Borrador: '#6b7280', Activa: '#16a34a', Inactiva: '#dc2626' };
-      const estadoCol = estadoColors[opp.estado] || '#6b7280';
+      const estadoDisplay = opp.estado === 'Inactiva' ? 'Cerrada' : (opp.estado || 'Borrador');
+      const estadoColors = { Borrador: '#6b7280', Activa: '#16a34a', Inactiva: '#dc2626', Cerrada: '#374151' };
+      const estadoCol = estadoColors[estadoDisplay] || '#6b7280';
 
       const handleActivarMtmEdicion = () => {
         if (!mtmDedicacionItems.length || !mtmCategoriaItems.length) loadMtmParams();
+        const profDisplay = opp.profesorResponsable ? [opp.profesorResponsable.nombres, opp.profesorResponsable.apellidos].filter(Boolean).join(' ') : (opp.nombreProfesor || '');
+        setMtmProfesorResponsable(opp.profesorResponsable?._id || '');
+        setMtmProfesorDisplay(profDisplay);
+        setMtmProfesorSearch('');
         setMtmEditData({
           nombreCargo:      opp.nombreCargo || '',
           categoria:        opp.categoria?._id || opp.categoria || '',
@@ -4150,12 +4233,15 @@ export default function Oportunidades({ onVolver }) {
           vacantes:         opp.vacantes != null ? String(opp.vacantes) : '',
           fechaVencimiento: opp.fechaVencimiento ? new Date(opp.fechaVencimiento).toISOString().split('T')[0] : '',
           promedioMinimo:   opp.promedioMinimo  != null ? String(opp.promedioMinimo) : '',
+          profesorResponsable: opp.profesorResponsable?._id || '',
           nombreProfesor:   opp.nombreProfesor  || '',
           unidadAcademica:  opp.unidadAcademica || '',
           horario:          opp.horario         || '',
           grupo:            opp.grupo           || '',
           funciones:        opp.funciones       || '',
           requisitos:       opp.requisitos      || '',
+          asignaturas:      Array.isArray(opp.asignaturas) ? opp.asignaturas : [],
+          programas:        Array.isArray(opp.programas) ? opp.programas : [],
         });
         setIsMtmEditing(true);
       };
@@ -4171,6 +4257,8 @@ export default function Oportunidades({ onVolver }) {
             ...mtmEditData,
             vacantes:       mtmEditData.vacantes       !== '' ? Number(mtmEditData.vacantes)       : undefined,
             promedioMinimo: mtmEditData.promedioMinimo !== '' ? Number(mtmEditData.promedioMinimo) : undefined,
+            asignaturas:    (mtmEditData.asignaturas || []).map(a => a._id || a),
+            programas:      (mtmEditData.programas || []).map(p => p._id || p),
           };
           await api.put(`/oportunidades-mtm/${opp._id}`, payload);
           const { data: refreshed } = await api.get(`/oportunidades-mtm/${opp._id}`);
@@ -4206,14 +4294,14 @@ export default function Oportunidades({ onVolver }) {
             </div>
             <div className="detail-header-actions">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: estadoCol + '18', color: estadoCol, border: `1px solid ${estadoCol}44`, borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 600 }}>
-                {opp.estado || 'Borrador'}
+                {estadoDisplay}
               </span>
               {!isMtmEditing ? (
                 <>
                   <button className="btn-editar-header" onClick={handleActivarMtmEdicion}>
                     <FiEdit className="btn-icon" /> Editar
                   </button>
-                  {opp.estado !== 'Activa' && (
+                  {opp.estado === 'Borrador' && (
                     <button className="btn-guardar-header" onClick={async () => {
                       try {
                         await api.patch(`/oportunidades-mtm/${opp._id}/status`, { estado: 'Activa' });
@@ -4374,10 +4462,39 @@ export default function Oportunidades({ onVolver }) {
                 </div>
 
                 <div className="form-field-group form-field-half-width">
-                  <label className="form-label-with-icon"><FiEdit className="label-icon" /> Profesor / Responsable</label>
-                  {isMtmEditing
-                    ? <input type="text" value={ed.nombreProfesor} onChange={e => setMtmEditData(p => ({ ...p, nombreProfesor: e.target.value }))} className="form-input" />
-                    : <div className="form-input" style={{ background: '#f9fafb' }}>{opp.nombreProfesor || '—'}</div>}
+                  <label className="form-label-with-icon"><FiEdit className="label-icon" /> Profesor / Coordinador</label>
+                  {!isMtmEditing
+                    ? <div className="form-input" style={{ background: '#f9fafb' }}>{opp.profesorResponsable ? [opp.profesorResponsable.nombres, opp.profesorResponsable.apellidos].filter(Boolean).join(' ') : (opp.nombreProfesor || '—')}</div>
+                    : (
+                      <div style={{ position: 'relative' }} ref={mtmProfesorWrapRef}>
+                        {mtmProfesorDisplay ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 14, color: '#166534' }}>
+                            <span>{mtmProfesorDisplay}</span>
+                            <button type="button" onClick={() => { setMtmEditData(p => ({ ...p, profesorResponsable: '', nombreProfesor: '' })); setMtmProfesorResponsable(''); setMtmProfesorDisplay(''); setMtmProfesorSearch(''); }} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: '#6b7280' }} aria-label="Quitar"><FiX size={16} /></button>
+                          </div>
+                        ) : (
+                          <>
+                            <input type="text" className="form-input" placeholder="Buscar por nombre o identificación (mín. 2 caracteres)..."
+                              value={mtmProfesorSearch} onChange={e => setMtmProfesorSearch(e.target.value)} />
+                            {(showMtmProfesorDrop || mtmProfesorLoading) && (
+                              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.1)', zIndex: 200, maxHeight: 220, overflowY: 'auto' }}>
+                                {mtmProfesorLoading ? <div style={{ padding: '12px 14px', color: '#9ca3af', fontSize: 13 }}>Buscando...</div>
+                                  : mtmProfesorError ? <div style={{ padding: '12px 14px', color: '#b91c1c', fontSize: 13, background: '#fef2f2' }}>No se pudo cargar. Verifique permisos o conexión.</div>
+                                  : mtmProfesorResults.length === 0 ? <div style={{ padding: '12px 14px', color: '#9ca3af', fontSize: 13 }}>Sin resultados.</div>
+                                  : mtmProfesorResults.map(u => (
+                                    <div key={u._id} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f9fafb', fontSize: 13 }} onMouseEnter={e => { e.currentTarget.style.background = '#f0f7ff'; }} onMouseLeave={e => { e.currentTarget.style.background = ''; }}
+                                      onClick={() => { const display = [u.nombres, u.apellidos].filter(Boolean).join(' '); setMtmEditData(p => ({ ...p, profesorResponsable: u._id, nombreProfesor: display })); setMtmProfesorResponsable(u._id); setMtmProfesorDisplay(display); setMtmProfesorSearch(''); setShowMtmProfesorDrop(false); }}>
+                                      <div style={{ fontWeight: 600, color: '#374151' }}>{[u.nombres, u.apellidos].filter(Boolean).join(' ')}</div>
+                                      {u.user?.email && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{u.user.email}</div>}
+                                    </div>
+                                  ))
+                                }
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                 </div>
                 <div className="form-field-group form-field-half-width">
                   <label className="form-label-with-icon"><FiMapPin className="label-icon" /> Unidad académica</label>
@@ -4399,8 +4516,51 @@ export default function Oportunidades({ onVolver }) {
                 </div>
 
                 <div className="form-field-group form-field-span-2">
-                  <label className="form-label-with-icon"><FiBook className="label-icon" /> Asignaturas asociadas</label>
-                  {(!opp.asignaturas || opp.asignaturas.length === 0) ? (
+                  <label className="form-label-with-icon"><FiBook className="label-icon" /> Asignaturas asociadas {isMtmEditing && <span style={{ fontSize: 11, fontWeight: 400, color: '#6b7280', marginLeft: 4 }}>(máx. 3)</span>}</label>
+                  {isMtmEditing ? (
+                    <>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder={(ed.asignaturas || []).length >= 3 ? 'Máximo 3 asignaturas seleccionadas' : 'Escribe al menos 3 caracteres...'}
+                          value={mtmAsigSearch}
+                          disabled={(ed.asignaturas || []).length >= 3}
+                          onChange={e => setMtmAsigSearch(e.target.value)}
+                        />
+                        {(showMtmAsigDrop || mtmAsigLoading) && (
+                          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,.1)', zIndex: 200, maxHeight: 200, overflowY: 'auto' }}>
+                            {mtmAsigLoading ? <div style={{ padding: '10px 14px', color: '#9ca3af', fontSize: 13 }}>Buscando...</div>
+                              : mtmAsigResults.length === 0 ? <div style={{ padding: '10px 14px', color: '#9ca3af', fontSize: 13 }}>Sin resultados</div>
+                              : mtmAsigResults.map(a => (
+                                <div key={a._id} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f9fafb', fontSize: 13 }}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#fff5f5'}
+                                  onMouseLeave={e => e.currentTarget.style.background = ''}
+                                  onClick={() => {
+                                    const list = ed.asignaturas || [];
+                                    if (list.some(x => (x._id || x) === a._id)) return;
+                                    if (list.length >= 3) return;
+                                    setMtmEditData(prev => ({ ...prev, asignaturas: [...(prev.asignaturas || []), a] }));
+                                    setMtmAsigSearch(''); setShowMtmAsigDrop(false);
+                                  }}>
+                                  <strong style={{ color: '#c41e3a' }}>{a.codAsignatura}</strong> — {a.nombreAsignatura}
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                      {(ed.asignaturas || []).length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                          {(ed.asignaturas || []).map(a => (
+                            <span key={a._id || a} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 20, padding: '5px 12px', fontSize: 12, color: '#991b1b', fontWeight: 500 }}>
+                              <FiBook size={11} />{a.codAsignatura} — {a.nombreAsignatura}
+                              <span style={{ cursor: 'pointer', opacity: .7, lineHeight: 1 }} onClick={() => setMtmEditData(prev => ({ ...prev, asignaturas: (prev.asignaturas || []).filter(x => (x._id || x) !== (a._id || a)) }))}>×</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (!opp.asignaturas || opp.asignaturas.length === 0) ? (
                     <div style={{ fontSize: 13, color: '#9ca3af', padding: '8px 0' }}>Sin asignaturas seleccionadas.</div>
                   ) : (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
@@ -4414,7 +4574,33 @@ export default function Oportunidades({ onVolver }) {
                 </div>
                 <div className="form-field-group form-field-span-2">
                   <label className="form-label-with-icon"><HiOutlineAcademicCap className="label-icon" /> Programas candidatos</label>
-                  {(!opp.programas || opp.programas.length === 0) ? (
+                  {isMtmEditing ? (
+                    <div className="programs-section">
+                      <div className="programs-header">
+                        <span className="programs-title">Programas candidatos</span>
+                        <button type="button" className="programs-add" onClick={() => { setMtmProgramsModalForEdit(true); setShowMtmProgramsModal(true); }} title="Añadir programa">
+                          <FiPlus />
+                        </button>
+                      </div>
+                      {(!ed.programas || ed.programas.length === 0) ? (
+                        <div className="programs-empty">
+                          <FiX style={{ marginRight: '4px', display: 'inline-block' }} />
+                          No hay programas seleccionados.
+                        </div>
+                      ) : (
+                        <ul className="programs-list" style={{ marginTop: 4 }}>
+                          {(ed.programas || []).map((p, idx) => (
+                            <li key={p._id || idx}>
+                              {p.labelLevel} — {p.name}
+                              <button type="button" className="program-remove" onClick={() => setMtmEditData(prev => ({ ...prev, programas: (prev.programas || []).filter((_, i) => i !== idx) }))} title="Eliminar">
+                                <FiX />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : (!opp.programas || opp.programas.length === 0) ? (
                     <div style={{ fontSize: 13, color: '#9ca3af', padding: '8px 0' }}>Sin programas seleccionados.</div>
                   ) : (
                     <ul className="programs-list" style={{ marginTop: 4 }}>
@@ -4435,12 +4621,125 @@ export default function Oportunidades({ onVolver }) {
                     ? <textarea value={ed.requisitos} onChange={e => setMtmEditData(p => ({ ...p, requisitos: e.target.value }))} className="form-textarea" maxLength={250} rows={2} />
                     : <div className="form-textarea" style={{ background: '#f9fafb', minHeight: 56, whiteSpace: 'pre-wrap' }}>{opp.requisitos || '—'}</div>}
                 </div>
+
+                {/* Información de cierre (trazabilidad) — cuando la oportunidad MTM está cerrada */}
+                {opp.estado === 'Inactiva' && (opp.fechaCierre || (Array.isArray(opp.cierrePostulantesSeleccionados) && opp.cierrePostulantesSeleccionados.length > 0)) && (
+                  <div className="form-field-group form-field-span-2 info-cierre-oportunidad">
+                    <div className="info-cierre-oportunidad-header">
+                      <FiFileText className="label-icon" />
+                      <strong>Información de cierre (trazabilidad)</strong>
+                    </div>
+                    <div className="info-cierre-oportunidad-body">
+                      {opp.fechaCierre && (
+                        <p><strong>Fecha de cierre:</strong> {new Date(opp.fechaCierre).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                      )}
+                      {opp.cerradoPor && (
+                        <p><strong>Cerrado por:</strong> {opp.cerradoPor?.name ?? '—'}</p>
+                      )}
+                      {Array.isArray(opp.cierrePostulantesSeleccionados) && opp.cierrePostulantesSeleccionados.length > 0 && (
+                        <>
+                          <p><strong>Postulante(s) seleccionado(s):</strong></p>
+                          <ul className="info-cierre-lista-postulantes">
+                            {opp.cierrePostulantesSeleccionados.map((po) => {
+                              const name = po?.postulant?.postulantId?.name ?? po?.postulant?.name ?? '—';
+                              const id = (po?._id ?? po)?.toString?.() ?? po;
+                              return (
+                                <li key={id} className="info-cierre-item">
+                                  <span className="info-cierre-nombre">{name}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Modales solo para detalle MTM — misma UI que prácticas pero montados aquí para que estén en el árbol */}
+        {/* Modal de Programas MTM (edición en detalle) */}
+        {showMtmProgramsModal && (() => {
+          const normStr = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+          const uniqueLevels = [];
+          const seen = new Set();
+          allPrograms.forEach(p => {
+            if (!p.labelLevel) return;
+            const n = normStr(p.labelLevel);
+            if (!seen.has(n)) { seen.add(n); uniqueLevels.push(p.labelLevel); }
+          });
+          uniqueLevels.sort((a, b) => a.localeCompare(b, 'es'));
+          const programasDelNivel = newMtmProgramLevel
+            ? allPrograms
+                .filter(p => normStr(p.labelLevel) === normStr(newMtmProgramLevel))
+                .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+            : [];
+          return (
+            <div
+              onClick={() => { setShowMtmProgramsModal(false); setMtmProgramsModalForEdit(false); }}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 2000,
+                background: 'rgba(0,0,0,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 20
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  width: 520, maxWidth: 'calc(100vw - 40px)', maxHeight: '90vh',
+                  background: '#fff', borderRadius: 12,
+                  boxShadow: '0 20px 60px rgba(0,0,0,.25)',
+                  display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                }}
+              >
+                <div className="modal-header">
+                  <h4>Agregar programa candidato</h4>
+                  <button className="modal-close" onClick={() => { setShowMtmProgramsModal(false); setMtmProgramsModalForEdit(false); }}>×</button>
+                </div>
+                <div className="modal-body">
+                  {loadingPrograms ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af', fontSize: 13 }}>
+                      Cargando niveles y programas...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="modal-field">
+                        <label>Nivel <span className="required">*</span></label>
+                        <select value={newMtmProgramLevel} onChange={e => setNewMtmProgramLevel(e.target.value)}>
+                          <option value="">— Seleccione un nivel —</option>
+                          {uniqueLevels.map(lv => <option key={lv} value={lv}>{lv}</option>)}
+                        </select>
+                      </div>
+                      <div className="modal-field">
+                        <label>Programa <span className="required">*</span></label>
+                        <select
+                          value={newMtmProgramName}
+                          onChange={e => setNewMtmProgramName(e.target.value)}
+                          disabled={!newMtmProgramLevel}
+                        >
+                          <option value="">
+                            {newMtmProgramLevel ? '— Seleccione un programa —' : '— Primero seleccione un nivel —'}
+                          </option>
+                          {programasDelNivel.map(p => (
+                            <option key={p._id} value={p.name}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button className="btn-secondary" onClick={() => { setShowMtmProgramsModal(false); setMtmProgramsModalForEdit(false); }}>Cerrar</button>
+                  <button className="btn-guardar" onClick={handleAddMtmProgram} disabled={loadingPrograms}>Añadir</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {showModalCerrarOportunidad && createPortal(
           <div className="oportunidades-modal-rechazo-overlay oportunidades-modal-cerrar-overlay" style={{ zIndex: 100002 }} onClick={() => { setShowModalCerrarOportunidad(false); setCerrarContrato(''); setCerrarMotivoNo(''); setCerrarMotivoNoOtro(''); setSelectedPostulantesCerrar([]); setDatosTutorCerrar({}); }}>
             <div className="oportunidades-modal-rechazo oportunidades-modal-cerrar" onClick={(e) => e.stopPropagation()}>
@@ -4665,7 +4964,30 @@ export default function Oportunidades({ onVolver }) {
                           <ul>
                             {aplicacionDetail.hojasDeVida.map((hv, i) => (
                               <li key={i}>
-                                <a href="#" onClick={async (e) => { e.preventDefault(); try { const res = await api.get(`/postulants/${hv.postulantDocId}/attachments/${hv.attachmentId}/download`, { responseType: 'blob' }); const url = window.URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = hv.name || 'hoja-de-vida.pdf'; a.click(); window.URL.revokeObjectURL(url); } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo descargar', confirmButtonColor: '#c41e3a' }); } }}>
+                                <a href="#" onClick={async (e) => {
+                                  e.preventDefault();
+                                  if (!hv.postulantDocId || !hv.attachmentId) return;
+                                  try {
+                                    const res = await api.get(`/postulants/${hv.postulantDocId}/attachments/${hv.attachmentId}/download`, { responseType: 'blob' });
+                                    const url = window.URL.createObjectURL(res.data);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = hv.name || 'hoja-de-vida.pdf';
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    if (oportunidadSeleccionada?._id && aplicacionDetail?._id) {
+                                      try {
+                                        await api.patch(`/oportunidades-mtm/${oportunidadSeleccionada._id}/applications/${aplicacionDetail._id}/descargo-hv`);
+                                        const { data } = await api.get(`/oportunidades-mtm/${oportunidadSeleccionada._id}/applications/detail/${aplicacionDetail._id}`);
+                                        setAplicacionDetail(data);
+                                        setAplicacionesList(prev => prev.map(r => (r._id?.toString?.() === aplicacionDetail._id?.toString?.() ? { ...r, descargada: true } : r)));
+                                      } catch (_) {}
+                                    }
+                                    Swal.fire({ icon: 'success', title: 'Descarga iniciada', timer: 2000, showConfirmButton: false, customClass: { container: 'swal-over-modal-cierre' } });
+                                  } catch (err) {
+                                    Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo descargar', confirmButtonColor: '#c41e3a', customClass: { container: 'swal-over-modal-cierre' } });
+                                  }
+                                }}>
                                   {hv.name || 'Descargar hoja de vida'}
                                 </a>
                               </li>

@@ -28,6 +28,7 @@ const EMPTY_FORM = {
   vacantes: '',
   fechaVencimiento: '',
   promedioMinimo: '',
+  profesorResponsable: '',
   nombreProfesor: '',
   unidadAcademica: '',
   horario: '',
@@ -114,6 +115,16 @@ export default function OportunidadesMTM({ onVolver }) {
   const [showProgramaDrop, setShowProgramaDrop] = useState(false);
   const programaTimer = useRef(null);
   const programaWrapRef = useRef(null);
+
+  // ── Profesor responsable (usuarios administrativos)
+  const [profesorSearch, setProfesorSearch] = useState('');
+  const [profesorResults, setProfesorResults] = useState([]);
+  const [profesorLoading, setProfesorLoading] = useState(false);
+  const [showProfesorDrop, setShowProfesorDrop] = useState(false);
+  const [profesorDisplay, setProfesorDisplay] = useState('');
+  const [profesorError, setProfesorError] = useState(false);
+  const profesorTimer = useRef(null);
+  const profesorWrapRef = useRef(null);
 
   // ── Search debounce
   const searchTimer = useRef(null);
@@ -222,14 +233,17 @@ export default function OportunidadesMTM({ onVolver }) {
   // Programas multi-select
   // ══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    if (programaSearch.length < 2) { setProgramaResults([]); setShowProgramaDrop(false); return; }
+    if (programaSearch.trim().length < 2) { setProgramaResults([]); setShowProgramaDrop(false); return; }
     clearTimeout(programaTimer.current);
     programaTimer.current = setTimeout(async () => {
       try {
-        const res = await api.get(`/programs?search=${encodeURIComponent(programaSearch)}&status=ACTIVE&limit=20`);
-        setProgramaResults(res.data.data || []);
+        const res = await api.get(`/programs?search=${encodeURIComponent(programaSearch.trim())}&status=ACTIVE&limit=20`);
+        setProgramaResults(res.data?.data || res.data || []);
         setShowProgramaDrop(true);
-      } catch { setProgramaResults([]); }
+      } catch {
+        setProgramaResults([]);
+        setShowProgramaDrop(true);
+      }
     }, 350);
     return () => clearTimeout(programaTimer.current);
   }, [programaSearch]);
@@ -252,6 +266,48 @@ export default function OportunidadesMTM({ onVolver }) {
   };
   const removePrograma = (id) => setForm(f => ({ ...f, programas: f.programas.filter(p => p._id !== id) }));
 
+  // ── Profesor responsable (usuarios administrativos)
+  useEffect(() => {
+    if (profesorSearch.trim().length < 2) { setProfesorResults([]); setShowProfesorDrop(false); setProfesorError(false); return; }
+    clearTimeout(profesorTimer.current);
+    profesorTimer.current = setTimeout(async () => {
+      setProfesorLoading(true);
+      setProfesorError(false);
+      try {
+        const res = await api.get(`/users-administrativos?search=${encodeURIComponent(profesorSearch.trim())}&limit=20&estado=true`);
+        setProfesorResults(res.data?.data || []);
+        setShowProfesorDrop(true);
+      } catch {
+        setProfesorResults([]);
+        setShowProfesorDrop(true);
+        setProfesorError(true);
+      }
+      finally { setProfesorLoading(false); }
+    }, 350);
+    return () => clearTimeout(profesorTimer.current);
+  }, [profesorSearch]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (profesorWrapRef.current && !profesorWrapRef.current.contains(e.target)) setShowProfesorDrop(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectProfesor = (u) => {
+    const display = [u.nombres, u.apellidos].filter(Boolean).join(' ');
+    setForm(f => ({ ...f, profesorResponsable: u._id, nombreProfesor: display }));
+    setProfesorDisplay(display);
+    setProfesorSearch('');
+    setShowProfesorDrop(false);
+  };
+  const clearProfesor = () => {
+    setForm(f => ({ ...f, profesorResponsable: '', nombreProfesor: '' }));
+    setProfesorDisplay('');
+    setProfesorSearch('');
+  };
+
   // ══════════════════════════════════════════════════════════════════════════
   // CRUD Actions
   // ══════════════════════════════════════════════════════════════════════════
@@ -259,32 +315,53 @@ export default function OportunidadesMTM({ onVolver }) {
     setForm(EMPTY_FORM);
     setAsigSearch('');
     setProgramaSearch('');
+    setProfesorSearch('');
+    setProfesorDisplay('');
     setSelected(null);
     setVista('crear');
   };
 
-  const handleEdit = (op) => {
-    setForm({
-      nombreCargo: op.nombreCargo || '',
-      dedicacionHoras: op.dedicacionHoras?._id || op.dedicacionHoras || '',
-      valorPorHora: op.valorPorHora?._id || op.valorPorHora || '',
-      tipoVinculacion: op.tipoVinculacion?._id || op.tipoVinculacion || '',
-      categoria: op.categoria?._id || op.categoria || '',
-      periodo: op.periodo?._id || op.periodo || '',
-      vacantes: op.vacantes ?? '',
-      fechaVencimiento: op.fechaVencimiento ? op.fechaVencimiento.slice(0, 10) : '',
-      promedioMinimo: op.promedioMinimo ?? '',
-      nombreProfesor: op.nombreProfesor || '',
-      unidadAcademica: op.unidadAcademica || '',
-      horario: op.horario || '',
-      grupo: op.grupo || '',
-      funciones: op.funciones || '',
-      requisitos: op.requisitos || '',
-      asignaturas: op.asignaturas || [],
-      programas: op.programas || []
-    });
-    setSelected(op);
-    setVista('editar');
+  const handleEdit = async (op) => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/oportunidades-mtm/${op._id}`);
+      const data = res.data;
+      const prof = data.profesorResponsable;
+      const profDisplay = prof ? [prof.nombres, prof.apellidos].filter(Boolean).join(' ') : (data.nombreProfesor || '');
+      setForm({
+        nombreCargo: data.nombreCargo || '',
+        dedicacionHoras: data.dedicacionHoras?._id || data.dedicacionHoras || '',
+        valorPorHora: data.valorPorHora?._id || data.valorPorHora || '',
+        tipoVinculacion: data.tipoVinculacion?._id || data.tipoVinculacion || '',
+        categoria: data.categoria?._id || data.categoria || '',
+        periodo: data.periodo?._id || data.periodo || '',
+        vacantes: data.vacantes ?? '',
+        fechaVencimiento: data.fechaVencimiento ? data.fechaVencimiento.slice(0, 10) : '',
+        promedioMinimo: data.promedioMinimo ?? '',
+        profesorResponsable: prof?._id || data.profesorResponsable || '',
+        nombreProfesor: data.nombreProfesor || '',
+        unidadAcademica: data.unidadAcademica || '',
+        horario: data.horario || '',
+        grupo: data.grupo || '',
+        funciones: data.funciones || '',
+        requisitos: data.requisitos || '',
+        asignaturas: Array.isArray(data.asignaturas) ? data.asignaturas : [],
+        programas: Array.isArray(data.programas) ? data.programas : []
+      });
+      setProfesorDisplay(profDisplay);
+      setProfesorSearch('');
+      setAsigSearch('');
+      setProgramaSearch('');
+      setShowAsigDrop(false);
+      setShowProgramaDrop(false);
+      setShowProfesorDrop(false);
+      setSelected(data);
+      setVista('editar');
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo cargar la oportunidad.', confirmButtonColor: '#3b82f6' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleView = async (op) => {
@@ -316,7 +393,9 @@ export default function OportunidadesMTM({ onVolver }) {
         tipoVinculacion: form.tipoVinculacion || null,
         categoria: form.categoria || null,
         periodo: form.periodo || null,
-        fechaVencimiento: form.fechaVencimiento || null
+        fechaVencimiento: form.fechaVencimiento || null,
+        profesorResponsable: form.profesorResponsable || null,
+        nombreProfesor: form.nombreProfesor || null
       };
 
       if (vista === 'crear') {
@@ -436,7 +515,7 @@ export default function OportunidadesMTM({ onVolver }) {
         op.vacantes ?? '',
         op.fechaVencimiento ? fmtDate(op.fechaVencimiento) : '',
         op.promedioMinimo ?? '',
-        safe(op.nombreProfesor),
+        op.profesorResponsable ? [op.profesorResponsable.nombres, op.profesorResponsable.apellidos].filter(Boolean).join(' ') || safe(op.nombreProfesor) : safe(op.nombreProfesor),
         safe(op.unidadAcademica),
         safe(op.horario),
         safe(op.grupo),
@@ -698,9 +777,42 @@ export default function OportunidadesMTM({ onVolver }) {
             <div className="mtm-form-section-title">Responsable y ofertante</div>
 
             <div className="mtm-form-group">
-              <label className="mtm-form-label">Nombre del profesor / responsable</label>
-              <input className="mtm-form-input" placeholder="Nombre completo"
-                value={form.nombreProfesor} onChange={e => setForm(f => ({ ...f, nombreProfesor: e.target.value }))} />
+              <label className="mtm-form-label">Profesor responsable / coordinador</label>
+              <div className="mtm-profesor-wrap" ref={profesorWrapRef}>
+                {profesorDisplay ? (
+                  <div className="mtm-profesor-selected">
+                    <span>{profesorDisplay}</span>
+                    <button type="button" className="mtm-profesor-clear" onClick={clearProfesor} aria-label="Quitar profesor"><FiX size={16} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      className="mtm-form-input"
+                      placeholder="Buscar por nombre o identificación (mín. 2 caracteres)..."
+                      value={profesorSearch}
+                      onChange={e => setProfesorSearch(e.target.value)}
+                      onFocus={() => { if (profesorSearch.trim().length >= 2) setShowProfesorDrop(true); }}
+                    />
+                    {(showProfesorDrop || profesorLoading) && (
+                      <div className="mtm-profesor-dropdown">
+                        {profesorLoading
+                          ? <div className="mtm-profesor-item-loading">Buscando...</div>
+                          : profesorError
+                            ? <div className="mtm-profesor-item-error">No se pudo cargar la lista. Verifique permisos o conexión.</div>
+                            : profesorResults.length === 0
+                              ? <div className="mtm-profesor-item-loading">Sin resultados. Escribe al menos 2 caracteres.</div>
+                              : profesorResults.map(u => (
+                              <div key={u._id} className="mtm-profesor-item" onClick={() => selectProfesor(u)}>
+                                <div className="mtm-profesor-item-name">{[u.nombres, u.apellidos].filter(Boolean).join(' ')}</div>
+                                {u.user?.email && <div className="mtm-profesor-item-email">{u.user.email}</div>}
+                              </div>
+                            ))
+                        }
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="mtm-form-group">
@@ -775,9 +887,11 @@ export default function OportunidadesMTM({ onVolver }) {
                   value={programaSearch}
                   onChange={e => setProgramaSearch(e.target.value)}
                 />
-                {showProgramaDrop && programaResults.length > 0 && (
+                {(showProgramaDrop || programaSearch.trim().length >= 2) && (
                   <div className="mtm-programas-dropdown">
-                    {programaResults.map(p => {
+                    {programaResults.length === 0
+                      ? <div className="mtm-profesor-item-loading">Escribe al menos 2 caracteres para buscar programas.</div>
+                      : programaResults.map(p => {
                       const checked = !!form.programas.find(x => x._id === p._id);
                       return (
                         <div key={p._id} className="mtm-programa-item" onClick={() => togglePrograma(p)}>
@@ -788,7 +902,8 @@ export default function OportunidadesMTM({ onVolver }) {
                           </div>
                         </div>
                       );
-                    })}
+                    })
+                  }
                   </div>
                 )}
               </div>
@@ -898,9 +1013,15 @@ export default function OportunidadesMTM({ onVolver }) {
               <div className="mtm-detail-value">{op.grupo || '—'}</div>
             </div>
             <div className="mtm-detail-group">
-              <div className="mtm-detail-label">Profesor / Responsable</div>
-              <div className="mtm-detail-value">{op.nombreProfesor || '—'}</div>
+              <div className="mtm-detail-label">Profesor / Coordinador</div>
+              <div className="mtm-detail-value">{op.profesorResponsable ? [op.profesorResponsable.nombres, op.profesorResponsable.apellidos].filter(Boolean).join(' ') : (op.nombreProfesor || '—')}</div>
             </div>
+            {op.profesorResponsable?.user?.email && (
+              <div className="mtm-detail-group">
+                <div className="mtm-detail-label">Correo del coordinador</div>
+                <div className="mtm-detail-value">{op.profesorResponsable.user.email}</div>
+              </div>
+            )}
             <div className="mtm-detail-group">
               <div className="mtm-detail-label">Unidad académica</div>
               <div className="mtm-detail-value">{op.unidadAcademica || '—'}</div>

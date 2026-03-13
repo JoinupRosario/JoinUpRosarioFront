@@ -58,6 +58,11 @@ import Student from './componentss/students/student';
 import OfertasAfines from './componentss/OfertasAfines';
 import OfertasMonitoria from './componentss/OfertasMonitoria';
 import MisAplicaciones from './componentss/MisAplicaciones';
+import LegalizacionesMonitorias from './componentss/LegalizacionesMonitorias';
+import DetalleLegalizacionMTM from './componentss/DetalleLegalizacionMTM';
+import AdminLegalizacionMonitorias from './componentss/AdminLegalizacionMonitorias';
+import AdminDetalleLegalizacionMTM from './componentss/AdminDetalleLegalizacionMTM';
+import PlanDeTrabajoMTM from './componentss/PlanDeTrabajoMTM';
 import api from '../services/api';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
@@ -128,6 +133,7 @@ export default function Dashboard() {
     '/dashboard/postulantes/states-log': 'documents-log',
     '/dashboard/estudiantes': 'estudiantes',
     '/dashboard/legalizaciones': 'legalizaciones',
+    '/dashboard/monitorias': 'monitorias',
     '/dashboard/roles': 'roles',
     '/dashboard/sucursales': 'sucursales',
     '/dashboard/reportes': 'reportes',
@@ -158,6 +164,7 @@ export default function Dashboard() {
     'postulants': '/dashboard/postulants',
     'estudiantes': '/dashboard/estudiantes',
     'legalizaciones': '/dashboard/legalizaciones',
+    'monitorias': '/dashboard/monitorias',
     'roles': '/dashboard/roles',
     'sucursales': '/dashboard/sucursales',
     'reportes': '/dashboard/reportes',
@@ -210,6 +217,9 @@ export default function Dashboard() {
     }
     if (path === '/dashboard/plantillas-notificacion-monitoria') return 'plantillas-monitoria';
     if (path === '/dashboard/plantillas-notificacion-practicas') return 'plantillas-practicas';
+    if (path.match(/^\/dashboard\/monitorias\/detalle\/[^/]+$/)) return 'monitorias-detalle';
+    if (path.match(/^\/dashboard\/monitorias\/revision\/[^/]+$/)) return 'monitorias-revision';
+    if (path.match(/^\/dashboard\/monitorias\/plan\/[^/]+$/)) return 'monitorias-plan';
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
     return 'dashboard';
   };
@@ -394,6 +404,9 @@ export default function Dashboard() {
             'estudiantes':              'Estudiantes Habilitados para Prácticas',
             'legalizaciones':           'Legalizaciones de Prácticas',
             'monitorias':               'Legalizaciones de Monitorías',
+            'monitorias-detalle':       'Detalle de la oportunidad — Legalización',
+            'monitorias-revision':      'Revisión de legalización MTM',
+            'monitorias-plan':          'Plan de trabajo MTM',
             'roles':                    'Gestión de Roles',
             'sucursales':               'Sucursales',
             'reportes':                 'Reportes',
@@ -424,6 +437,9 @@ export default function Dashboard() {
                 'estudiantes':              'Estudiantes Habilitados para Prácticas',
                 'legalizaciones':           'Legalizaciones de Prácticas',
                 'monitorias':               'Legalizaciones de Monitorías',
+                'monitorias-detalle':       'Detalle de la oportunidad — Legalización',
+                'monitorias-revision':      'Revisión de legalización MTM',
+                'monitorias-plan':          'Plan de trabajo MTM',
                 'roles':                    'Gestión de Roles',
                 'sucursales':               'Sucursales',
                 'reportes':                 'Reportes',
@@ -618,11 +634,31 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {vistaActual === 'monitorias' && (
+        {/* Legalizaciones de monitorías: estudiante ve sus aceptadas y su detalle; admin ve listado y revisión (otro componente) */}
+        {vistaActual === 'monitorias' && isEstudiante && <LegalizacionesMonitorias />}
+        {vistaActual === 'monitorias' && !isEstudiante && <AdminLegalizacionMonitorias />}
+        {vistaActual === 'monitorias-detalle' && isEstudiante && (
+          <DetalleLegalizacionMTM onVolver={() => navigate('/dashboard/monitorias')} />
+        )}
+        {vistaActual === 'monitorias-detalle' && !isEstudiante && (
           <div className="dashboard-content">
             <div className="dashboard-welcome">
-              <h2>Legalizaciones de Monitorías</h2>
-              <p>Gestión de legalizaciones de monitorías. Esta sección estará disponible próximamente.</p>
+              <p>Use la vista de revisión desde el listado de legalizaciones.</p>
+              <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard/monitorias')}>Ir al listado</button>
+            </div>
+          </div>
+        )}
+        {vistaActual === 'monitorias-revision' && (
+          <AdminDetalleLegalizacionMTM onVolver={() => navigate('/dashboard/monitorias')} />
+        )}
+        {vistaActual === 'monitorias-plan' && isEstudiante && (
+          <PlanDeTrabajoMTM onVolver={() => navigate('/dashboard/monitorias')} />
+        )}
+        {vistaActual === 'monitorias-plan' && !isEstudiante && (
+          <div className="dashboard-content">
+            <div className="dashboard-welcome">
+              <p>El plan de trabajo se gestiona desde la vista del estudiante.</p>
+              <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard/monitorias')}>Ir al listado</button>
             </div>
           </div>
         )}
