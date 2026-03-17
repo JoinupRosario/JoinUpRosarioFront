@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
 import '../styles/Oportunidades.css';
 
 const ESTADO_LABEL = {
@@ -29,6 +30,7 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
   const [creando, setCreando] = useState(false);
   const [saving, setSaving] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [previewPlan, setPreviewPlan] = useState({ open: false, url: null, title: '' });
 
   const [form, setForm] = useState({
     justificacion: '',
@@ -168,64 +170,51 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
 
   const puedeEditar = plan && (plan.estado === 'borrador' || plan.estado === 'rechazado');
 
-  const descargarPDF = () => {
-    if (!plan || !datos) return;
+  const getPlanHtml = () => {
+    if (!plan || !datos) return '';
     const act = (plan.actividades || []).map((a) => ({
       fecha: a.fecha ? new Date(a.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—',
-      tema: a.tema || '—',
-      estrategiasMetodologias: a.estrategiasMetodologias || '—',
+      tema: (a.tema || '—').replace(/</g, '&lt;'),
+      estrategiasMetodologias: (a.estrategiasMetodologias || '—').replace(/</g, '&lt;').replace(/\n/g, '<br>'),
     }));
-    const html = `
-<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Plan de trabajo MTM</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 12px; padding: 24px; color: #111; max-width: 800px; margin: 0 auto; }
-  h1 { font-size: 18px; color: #c41e3a; border-bottom: 2px solid #c41e3a; padding-bottom: 8px; }
-  h2 { font-size: 14px; margin-top: 20px; color: #374151; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
-  th { background: #f3f4f6; font-weight: 600; }
-  .grid { display: grid; grid-template-columns: 180px 1fr; gap: 6px 16px; margin-top: 8px; }
-  .grid dt { margin: 0; color: #6b7280; }
-  .grid dd { margin: 0; }
-  .bloque { margin-top: 12px; }
-  @media print { body { padding: 12px; } }
-</style></head><body>
-  <h1>Plan de trabajo — Monitoría académica</h1>
-  <h2>Datos básicos de la MTM</h2>
-  <dl class="grid">
-    <dt>Facultad</dt><dd>${(datos.facultad || '—').replace(/</g, '&lt;')}</dd>
-    <dt>Programa</dt><dd>${(datos.programa || '—').replace(/</g, '&lt;')}</dd>
-    <dt>Asignatura / Área</dt><dd>${(datos.asignaturaArea || '—').replace(/</g, '&lt;')}</dd>
-    <dt>Periodo</dt><dd>${(datos.periodo || '—').replace(/</g, '&lt;')}</dd>
-    <dt>Profesor / Responsable</dt><dd>${(datos.profesorResponsable || '—').replace(/</g, '&lt;')}</dd>
-    <dt>Código del monitor</dt><dd>${(datos.codigoMonitor || '—').replace(/</g, '&lt;')}</dd>
-    <dt>Nombre del monitor</dt><dd>${(datos.nombreMonitor || '—').replace(/</g, '&lt;')}</dd>
-    <dt>Teléfono</dt><dd>${(datos.telefono || '—').replace(/</g, '&lt;')}</dd>
-    <dt>Correo institucional</dt><dd>${(datos.correoInstitucional || '—').replace(/</g, '&lt;')}</dd>
-  </dl>
-  <h2>Justificación de la monitoría académica</h2>
-  <div class="bloque">${(plan.justificacion || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
-  <h2>Objetivo general</h2>
-  <div class="bloque">${(plan.objetivoGeneral || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
-  <h2>Objetivos específicos</h2>
-  <div class="bloque">${(plan.objetivosEspecificos || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
-  <h2>Actividades</h2>
-  <table>
-    <thead><tr><th>Fecha</th><th>Tema</th><th>Estrategias, metodologías y actividades</th></tr></thead>
-    <tbody>
-      ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${(a.tema || '').replace(/</g, '&lt;')}</td><td>${(a.estrategiasMetodologias || '').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</td></tr>`).join('') : '<tr><td colspan="3">—</td></tr>'}
-    </tbody>
-  </table>
-  <p style="margin-top: 24px; font-size: 11px; color: #6b7280;">Documento generado el ${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.</p>
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Plan de trabajo MTM</title>
+<style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#111;max-width:800px;margin:0 auto}h1{font-size:18px;color:#c41e3a;border-bottom:2px solid #c41e3a;padding-bottom:8px}h2{font-size:14px;margin-top:20px;color:#374151}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}th{background:#f3f4f6;font-weight:600}.grid{display:grid;grid-template-columns:180px 1fr;gap:6px 16px;margin-top:8px}.grid dt{margin:0;color:#6b7280}.grid dd{margin:0}.bloque{margin-top:12px}@media print{body{padding:12px}}</style></head><body>
+<h1>Plan de trabajo — Monitoría académica</h1>
+<h2>Datos básicos de la MTM</h2>
+<dl class="grid">
+<dt>Facultad</dt><dd>${(datos.facultad || '—').replace(/</g, '&lt;')}</dd>
+<dt>Programa</dt><dd>${(datos.programa || '—').replace(/</g, '&lt;')}</dd>
+<dt>Asignatura / Área</dt><dd>${(datos.asignaturaArea || '—').replace(/</g, '&lt;')}</dd>
+<dt>Periodo</dt><dd>${(datos.periodo || '—').replace(/</g, '&lt;')}</dd>
+<dt>Profesor / Responsable</dt><dd>${(datos.profesorResponsable || '—').replace(/</g, '&lt;')}</dd>
+<dt>Código del monitor</dt><dd>${(datos.codigoMonitor || '—').replace(/</g, '&lt;')}</dd>
+<dt>Nombre del monitor</dt><dd>${(datos.nombreMonitor || '—').replace(/</g, '&lt;')}</dd>
+<dt>Teléfono</dt><dd>${(datos.telefono || '—').replace(/</g, '&lt;')}</dd>
+<dt>Correo institucional</dt><dd>${(datos.correoInstitucional || '—').replace(/</g, '&lt;')}</dd>
+</dl>
+<h2>Justificación de la monitoría académica</h2><div class="bloque">${(plan.justificacion || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
+<h2>Objetivo general</h2><div class="bloque">${(plan.objetivoGeneral || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
+<h2>Objetivos específicos</h2><div class="bloque">${(plan.objetivosEspecificos || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
+<h2>Actividades</h2>
+<table><thead><tr><th>Fecha</th><th>Tema</th><th>Estrategias, metodologías y actividades</th></tr></thead><tbody>
+${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.estrategiasMetodologias}</td></tr>`).join('') : '<tr><td colspan="3">—</td></tr>'}
+</tbody></table>
+<p style="margin-top:24px;font-size:11px;color:#6b7280">Documento generado el ${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.</p>
 </body></html>`;
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      w.focus();
-      setTimeout(() => { w.print(); }, 300);
-    }
+  };
+
+  const descargarPDF = () => {
+    if (!plan || !datos) return;
+    const html = getPlanHtml();
+    if (!html) return;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    setPreviewPlan({ open: true, url, title: 'Plan de trabajo MTM' });
+  };
+
+  const closePreviewPlan = () => {
+    if (previewPlan.url) URL.revokeObjectURL(previewPlan.url);
+    setPreviewPlan({ open: false, url: null, title: '' });
   };
 
   if (loading) {
@@ -275,6 +264,11 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
                 {enviando ? 'Enviando...' : 'Enviar a revisión'}
               </button>
             </>
+          )}
+          {yaExiste && plan && datos && (
+            <button type="button" className="btn-secondary" onClick={descargarPDF} title="Abre una ventana para imprimir o guardar como PDF">
+              Descargar / Imprimir PDF
+            </button>
           )}
         </div>
       </header>
@@ -415,13 +409,18 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
       )}
 
       {plan?.estado === 'aprobado' && (
-        <div className="legalizacion-mtm__estado legalizacion-mtm__estado--ok" style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
-          <span>Plan aprobado. Puede descargar el documento y acceder a seguimientos cuando estén habilitados.</span>
-          <button type="button" className="btn-guardar" style={{ fontSize: 13 }} onClick={descargarPDF}>
-            Descargar PDF
-          </button>
+        <div className="legalizacion-mtm__estado legalizacion-mtm__estado--ok" style={{ marginTop: 16 }}>
+          Plan aprobado. Puede acceder a seguimientos desde el listado de legalizaciones.
         </div>
       )}
+
+      <PdfPreviewModal
+        open={previewPlan.open}
+        onClose={closePreviewPlan}
+        title={previewPlan.title}
+        url={previewPlan.url}
+        showPrintButton
+      />
     </div>
   );
 }

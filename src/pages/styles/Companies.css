@@ -44,7 +44,7 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(196, 30, 58, 0.4);
 }
-.companies-section { padding: 20px; max-width: 1100px; margin: 0 auto; overflow-x: hidden; }
+.companies-section { padding: 20px; width: 100%; max-width: none; overflow-x: hidden; }
 .companies-tabs { display: flex; gap: 8px; margin-bottom: 18px; justify-content: flex-start; }
 .tab { padding: 8px 14px; border-radius: 6px; background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; font-weight: 600; cursor: pointer; }
 .tab.active { background: #c41e3a; border-color: #c41e3a; color: #fff; }

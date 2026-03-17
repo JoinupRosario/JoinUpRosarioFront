@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/auth/Login';
 import SamlSuccess from './pages/auth/SamlSuccess';
 import Dashboard from './pages/Dashboard';
+import AsistenciaMTMPublic from './pages/AsistenciaMTMPublic';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import './App.css';
 
@@ -34,6 +35,7 @@ function AppContent() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/auth/saml-success" element={<SamlSuccess />} />
+        <Route path="/asistencia-mtm/:token" element={<AsistenciaMTMPublic />} />
         <Route
           path="/dashboard/*"
           element={

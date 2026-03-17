@@ -63,6 +63,7 @@ import DetalleLegalizacionMTM from './componentss/DetalleLegalizacionMTM';
 import AdminLegalizacionMonitorias from './componentss/AdminLegalizacionMonitorias';
 import AdminDetalleLegalizacionMTM from './componentss/AdminDetalleLegalizacionMTM';
 import PlanDeTrabajoMTM from './componentss/PlanDeTrabajoMTM';
+import SeguimientosMTM from './componentss/SeguimientosMTM';
 import api from '../services/api';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
@@ -233,6 +234,7 @@ export default function Dashboard() {
     if (path.match(/^\/dashboard\/monitorias\/detalle\/[^/]+$/)) return 'monitorias-detalle';
     if (path.match(/^\/dashboard\/monitorias\/revision\/[^/]+$/)) return 'monitorias-revision';
     if (path.match(/^\/dashboard\/monitorias\/plan\/[^/]+$/)) return 'monitorias-plan';
+    if (path.match(/^\/dashboard\/monitorias\/seguimientos\/[^/]+$/)) return 'monitorias-seguimientos';
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
     return 'dashboard';
   };
@@ -465,6 +467,7 @@ export default function Dashboard() {
             'monitorias-detalle':       'Detalle de la oportunidad — Legalización',
             'monitorias-revision':      'Revisión de legalización MTM',
             'monitorias-plan':          'Plan de trabajo MTM',
+            'monitorias-seguimientos':  'Seguimientos MTM',
             'roles':                    'Gestión de Roles',
             'sucursales':               'Sucursales',
             'reportes':                 'Reportes',
@@ -498,6 +501,7 @@ export default function Dashboard() {
                 'monitorias-detalle':       'Detalle de la oportunidad — Legalización',
                 'monitorias-revision':      'Revisión de legalización MTM',
                 'monitorias-plan':          'Plan de trabajo MTM',
+                'monitorias-seguimientos':  'Seguimientos MTM',
                 'roles':                    'Gestión de Roles',
                 'sucursales':               'Sucursales',
                 'reportes':                 'Reportes',
@@ -719,6 +723,9 @@ export default function Dashboard() {
               <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard/monitorias')}>Ir al listado</button>
             </div>
           </div>
+        )}
+        {vistaActual === 'monitorias-seguimientos' && (
+          <SeguimientosMTM onVolver={() => navigate('/dashboard/monitorias')} />
         )}
         {vistaActual === 'configuracion-personal' && (
           isEstudiante

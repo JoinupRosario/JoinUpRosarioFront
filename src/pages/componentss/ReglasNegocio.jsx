@@ -8,10 +8,12 @@ const CODE_OPPORTUNITY_MIN_EXPIRY_DAYS = 'OPPORTUNITY_MIN_EXPIRY_DAYS';
 const CODE_PRACTICE_START_DAYS_AFTER_EXPIRY = 'PRACTICE_START_DAYS_AFTER_EXPIRY';
 const CODE_PRACTICE_END_DAYS_AFTER_START = 'PRACTICE_END_DAYS_AFTER_START';
 const CODE_PRACTICE_NO_STUDENTS_MESSAGE = 'PRACTICE_NO_STUDENTS_MESSAGE';
+const CODE_DIAS_HABILES_ACEPTAR_SELECCION_MTM = 'DIAS_HABILES_ACEPTAR_SELECCION_MTM';
 const DEFAULT_DAYS = 5;
 const DEFAULT_START_AFTER_EXPIRY = 0;
 const DEFAULT_END_AFTER_START = 1;
 const DEFAULT_NO_STUDENTS_MSG = '(no hay estudiantes para este periodo)';
+const DEFAULT_DIAS_HABILES_MTM = 8;
 
 function saveParameter({ parameterId, code, name, description, value }) {
   if (parameterId) {
@@ -32,6 +34,7 @@ const TABS = [
   { id: 'inicio', label: 'Inicio práctica' },
   { id: 'fin', label: 'Fin práctica' },
   { id: 'aviso', label: 'Aviso formación' },
+  { id: 'mtm-aceptar', label: 'Aceptar selección MTM' },
 ];
 
 export default function ReglasNegocio({ onVolver }) {
@@ -46,6 +49,8 @@ export default function ReglasNegocio({ onVolver }) {
   const [practiceEndId, setPracticeEndId] = useState(null);
   const [noStudentsMessage, setNoStudentsMessage] = useState(DEFAULT_NO_STUDENTS_MSG);
   const [noStudentsMessageId, setNoStudentsMessageId] = useState(null);
+  const [diasHabilesAceptarMTM, setDiasHabilesAceptarMTM] = useState(DEFAULT_DIAS_HABILES_MTM);
+  const [diasHabilesMTMId, setDiasHabilesMTMId] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -53,11 +58,13 @@ export default function ReglasNegocio({ onVolver }) {
       api.get(`/parameters/code/${CODE_PRACTICE_START_DAYS_AFTER_EXPIRY}`).then(r => r.data).catch(() => null),
       api.get(`/parameters/code/${CODE_PRACTICE_END_DAYS_AFTER_START}`).then(r => r.data).catch(() => null),
       api.get(`/parameters/code/${CODE_PRACTICE_NO_STUDENTS_MESSAGE}`).then(r => r.data).catch(() => null),
-    ]).then(([p1, p2, p3, p4]) => {
+      api.get(`/parameters/code/${CODE_DIAS_HABILES_ACEPTAR_SELECCION_MTM}`).then(r => r.data).catch(() => null),
+    ]).then(([p1, p2, p3, p4, p5]) => {
       if (p1) { setDays(typeof p1.value === 'number' ? p1.value : DEFAULT_DAYS); setParameterId(p1._id); }
       if (p2) { setPracticeStartDaysAfterExpiry(typeof p2.value === 'number' ? p2.value : DEFAULT_START_AFTER_EXPIRY); setPracticeStartId(p2._id); }
       if (p3) { setPracticeEndDaysAfterStart(typeof p3.value === 'number' ? p3.value : DEFAULT_END_AFTER_START); setPracticeEndId(p3._id); }
       if (p4) { setNoStudentsMessage(typeof p4.value === 'string' ? p4.value : DEFAULT_NO_STUDENTS_MSG); setNoStudentsMessageId(p4._id); }
+      if (p5) { setDiasHabilesAceptarMTM(typeof p5.value === 'number' ? p5.value : DEFAULT_DIAS_HABILES_MTM); setDiasHabilesMTMId(p5._id); }
     }).finally(() => setLoading(false));
   }, []);
 
@@ -133,6 +140,26 @@ export default function ReglasNegocio({ onVolver }) {
       if (res?.data?._id) setNoStudentsMessageId(res.data._id);
       setNoStudentsMessage(msg);
       Swal.fire({ icon: 'success', title: 'Guardado', text: 'Aviso de formación académica guardado.', confirmButtonColor: '#c41e3a' });
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo guardar.', confirmButtonColor: '#c41e3a' });
+    } finally { setSaving(false); }
+  };
+
+  const handleSaveDiasHabilesMTM = async (e) => {
+    e.preventDefault();
+    const num = Math.max(1, Math.min(60, Number(diasHabilesAceptarMTM) || DEFAULT_DIAS_HABILES_MTM));
+    setSaving(true);
+    try {
+      const res = await saveParameter({
+        parameterId: diasHabilesMTMId,
+        code: CODE_DIAS_HABILES_ACEPTAR_SELECCION_MTM,
+        name: 'Días hábiles para aceptar selección MTM',
+        description: `Plazo en días hábiles (lun–vie) que tiene el estudiante para aceptar o rechazar una oferta de monitoría/tutoría/mentoría una vez seleccionado. Valor por defecto: ${num} días.`,
+        value: num,
+      });
+      if (res?.data?._id) setDiasHabilesMTMId(res.data._id);
+      setDiasHabilesAceptarMTM(num);
+      Swal.fire({ icon: 'success', title: 'Guardado', text: 'Plazo para aceptar selección MTM guardado.', confirmButtonColor: '#c41e3a' });
     } catch (err) {
       Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo guardar.', confirmButtonColor: '#c41e3a' });
     } finally { setSaving(false); }
@@ -228,6 +255,23 @@ export default function ReglasNegocio({ onVolver }) {
                   </p>
                   <form onSubmit={handleSaveNoStudentsMessage} className="reglas-form-row">
                     <input type="text" className="reglas-input-text" value={noStudentsMessage} onChange={(e) => setNoStudentsMessage(e.target.value)} placeholder={DEFAULT_NO_STUDENTS_MSG} />
+                    <span className="reglas-btn-wrap">
+                      <button type="submit" className="btn-guardar" disabled={saving}><FiSave className="btn-icon" />{saving ? 'Guardando...' : 'Guardar'}</button>
+                    </span>
+                  </form>
+                </div>
+              )}
+
+              {activeTab === 4 && (
+                <div className="reglas-card reglas-card--single">
+                  <h4 className="reglas-card-title">Plazo para aceptar selección (Monitorías, Tutorías y Mentorías)</h4>
+                  <p className="reglas-card-desc">
+                    Número de <strong>días hábiles</strong> (lunes a viernes) que tiene el estudiante para aceptar o rechazar una oferta de MTM una vez que fue seleccionado. Transcurrido este plazo, la opción de confirmar/rechazar se deshabilita. Valor inicial recomendado: 8 días.
+                  </p>
+                  <form onSubmit={handleSaveDiasHabilesMTM} className="reglas-form-row">
+                    <span className="reglas-label">Días hábiles</span>
+                    <input type="number" className="reglas-input-num" min={1} max={60} value={diasHabilesAceptarMTM} onChange={(e) => setDiasHabilesAceptarMTM(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} />
+                    <span className="reglas-unit">días</span>
                     <span className="reglas-btn-wrap">
                       <button type="submit" className="btn-guardar" disabled={saving}><FiSave className="btn-icon" />{saving ? 'Guardando...' : 'Guardar'}</button>
                     </span>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FiX } from 'react-icons/fi';
+import { FiX, FiDownload } from 'react-icons/fi';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import Swal from 'sweetalert2';
+import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import DetalleOportunidadModal from './DetalleOportunidadModal';
 import '../styles/Oportunidades.css';
@@ -70,6 +71,35 @@ export default function MisAplicaciones() {
       .finally(() => setSubmittingResponder(null));
   };
 
+  const exportarExcel = () => {
+    if (data.length === 0) {
+      Swal.fire({ icon: 'info', title: 'Sin datos', text: 'No hay aplicaciones para exportar.', confirmButtonColor: '#c41e3a' });
+      return;
+    }
+    const headers = [
+      'Cargo', 'Tipo', 'Empresa', 'Nombre coordinador', 'Fecha de aplicación', 'Estado oportunidad', 'Estado postulación',
+      'Consulta perfil', 'Descarga HV', 'Seleccionado', 'Estado Confirmado/Rechazado'
+    ];
+    const rows = data.map((row) => [
+      row.cargo || '',
+      row.tipoOportunidad || '',
+      row.empresa ?? (row.tipoOportunidad === 'Monitoría / Tutoría / Mentoría' ? 'Universidad del Rosario' : ''),
+      row.nombreCoordinador ?? '',
+      row.fechaAplicacion ? new Date(row.fechaAplicacion).toLocaleDateString('es-CO') : '',
+      row.estadoOportunidad === 'Inactiva' ? 'Cerrada' : (row.estadoOportunidad || ''),
+      ESTADO_LABELS[row.estado] || row.estado || '',
+      row.empresaConsultoPerfil ? 'Sí' : 'No',
+      row.empresaDescargoHv ? 'Sí' : 'No',
+      row.seleccionadoPorEmpresa ?? row.seleccionado ? 'Sí' : 'No',
+      row.estado === 'aceptado_estudiante' ? 'Aceptado' : row.estado === 'rechazado' && (row.seleccionadoPorEmpresa || row.seleccionado) ? 'Rechazado' : row.estado === 'seleccionado_empresa' ? 'Pendiente' : '',
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Mis aplicaciones');
+    XLSX.writeFile(wb, `mis_aplicaciones_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    Swal.fire({ icon: 'success', title: 'Exportado', text: `Se exportaron ${data.length} registro(s) a Excel.`, confirmButtonColor: '#c41e3a', timer: 2000, timerProgressBar: true });
+  };
+
   const verOferta = (opportunityId, tipo) => {
     if (!opportunityId) return;
     if (tipo === 'Monitoría / Tutoría / Mentoría') {
@@ -84,10 +114,17 @@ export default function MisAplicaciones() {
   };
 
   return (
-    <div className="dashboard-content">
-      <div className="dashboard-welcome" style={{ marginBottom: '1rem' }}>
-        <h2>Mis aplicaciones</h2>
-        <p>Estado de sus postulaciones a ofertas de práctica y de monitorías, tutorías y mentorías.</p>
+    <div className="dashboard-content mis-aplicaciones-content">
+      <div className="dashboard-welcome" style={{ marginBottom: '1rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+        <div>
+          <h2>Mis aplicaciones</h2>
+          <p style={{ margin: 0 }}>Estado de sus postulaciones a ofertas de práctica y de monitorías, tutorías y mentorías.</p>
+        </div>
+        {data.length > 0 && (
+          <button type="button" className="btn-guardar" onClick={exportarExcel} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <FiDownload size={18} /> Exportar a Excel
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -110,6 +147,7 @@ export default function MisAplicaciones() {
                 <th>Cargo</th>
                 <th>Tipo</th>
                 <th>Empresa</th>
+                <th>Nombre coordinador</th>
                 <th>Fecha de aplicación</th>
                 <th>Estado oportunidad</th>
                 <th>Estado postulación</th>
@@ -126,6 +164,7 @@ export default function MisAplicaciones() {
                   <td>{row.cargo || '—'}</td>
                   <td>{row.tipoOportunidad || '—'}</td>
                   <td>{row.empresa ?? (row.tipoOportunidad === 'Monitoría / Tutoría / Mentoría' ? 'Universidad del Rosario' : '—')}</td>
+                  <td>{row.nombreCoordinador ?? '—'}</td>
                   <td>
                     {row.fechaAplicacion
                       ? new Date(row.fechaAplicacion).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -147,8 +186,13 @@ export default function MisAplicaciones() {
                               const dias = row.diasHabilesAceptarSeleccion ?? 8;
                               const limite = row.seleccionadoAt && isMTM ? addBusinessDays(new Date(row.seleccionadoAt), dias) : null;
                               const plazoVencido = limite && new Date() > limite;
+                              const bloqueadoPorAceptacion = !!row.tieneAceptadaDefinitivaGlobal && row.estado !== 'aceptado_estudiante' && !row.puedeAceptarDefinitivo;
                               return plazoVencido ? (
                                 <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Plazo vencido</span>
+                              ) : bloqueadoPorAceptacion ? (
+                                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                                  Ya aceptó otra oportunidad definitivamente
+                                </span>
                               ) : (
                               <select
                                 value=""

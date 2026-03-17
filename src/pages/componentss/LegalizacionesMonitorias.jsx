@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FiDownload } from 'react-icons/fi';
+import * as XLSX from 'xlsx';
+import Swal from 'sweetalert2';
 import api from '../../services/api';
 import '../styles/Oportunidades.css';
 
@@ -26,15 +29,48 @@ export default function LegalizacionesMonitorias() {
   };
 
   const legalizacionAprobada = (row) => row?.estadoLegalizacion === 'Aprobada';
+  const planAprobado = (row) => row?.planAprobado === true;
+
+  const exportarExcel = () => {
+    if (!data.length) {
+      Swal.fire({ icon: 'warning', title: 'Sin datos', text: 'No hay legalizaciones para exportar.', confirmButtonColor: '#c41e3a' });
+      return;
+    }
+    const headers = ['Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Código monitoría', 'Nombre monitoría', 'Periodo', 'Coordinador', 'Estado', 'Finalizado por monitor'];
+    const rows = data.map((row) => [
+      row.numeroIdentidad ?? '',
+      row.nombre ?? '',
+      row.apellido ?? '',
+      row.programa ?? '',
+      row.codigoMonitoria ?? '',
+      row.nombreMonitoria ?? '',
+      row.periodo ?? '',
+      row.coordinador ?? '',
+      row.estado ?? '',
+      row.finalizadoPorMonitor ?? '',
+    ]);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Mis legalizaciones');
+    XLSX.writeFile(wb, `mis_legalizaciones_mtm_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    Swal.fire({ icon: 'success', title: 'Exportado', text: `Se exportaron ${data.length} registro(s) a Excel.`, confirmButtonColor: '#c41e3a', timer: 2000, timerProgressBar: true });
+  };
 
   return (
-    <div className="dashboard-content">
-      <div className="dashboard-welcome" style={{ marginBottom: '1rem' }}>
-        <h2>Legalizaciones de Monitorías</h2>
-        <p>
-          Oportunidades de monitoría, tutoría y mentoría que aceptó. Aquí puede gestionar el detalle de la oportunidad,
-          plan de trabajo y seguimientos.
-        </p>
+    <div className="dashboard-content legalizaciones-monitorias-content">
+      <div className="dashboard-welcome" style={{ marginBottom: '1rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h2>Legalizaciones de Monitorías</h2>
+          <p style={{ marginBottom: 0 }}>
+            Oportunidades de monitoría, tutoría y mentoría que aceptó. Aquí puede gestionar el detalle de la oportunidad,
+            plan de trabajo y seguimientos.
+          </p>
+        </div>
+        {data.length > 0 && (
+          <button type="button" className="btn-guardar" onClick={exportarExcel} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <FiDownload /> Exportar a Excel
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -101,7 +137,14 @@ export default function LegalizacionesMonitorias() {
                       >
                         Plan de trabajo
                       </button>
-                      <button type="button" className="btn-secondary" style={{ fontSize: '12px', padding: '4px 8px' }} disabled title="Próximamente">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{ fontSize: '12px', padding: '4px 8px' }}
+                        onClick={() => navigate(`/dashboard/monitorias/seguimientos/${row._id}`)}
+                        disabled={!planAprobado(row)}
+                        title={planAprobado(row) ? 'Ver y gestionar seguimientos' : 'Disponible cuando el plan de trabajo esté aprobado por el profesor'}
+                      >
                         Seguimientos
                       </button>
                     </div>
