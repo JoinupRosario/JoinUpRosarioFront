@@ -15,8 +15,10 @@ import { HiOutlineKey } from 'react-icons/hi';
 import Swal from 'sweetalert2';
 import '../styles/Roles.css';
 import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Roles = ({ onVolver }) => {
+  const { refreshPermissions } = useAuth();
   const [vistaActual, setVistaActual] = useState('buscar');
   const [roles, setRoles] = useState([]);
   const [permisos, setPermisos] = useState([]);
@@ -208,6 +210,8 @@ const Roles = ({ onVolver }) => {
         setSelectedRol(null);
         setPermisosSeleccionados({});
         cargarRoles();
+        // Refrescar permisos del usuario en la app para que menú y rutas reflejen los cambios de inmediato
+        await refreshPermissions();
       }
 
     } catch (error) {

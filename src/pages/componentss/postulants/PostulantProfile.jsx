@@ -251,7 +251,9 @@ const getDisplayYearsExperience = (profileData) => {
 const PostulantProfile = ({ onVolver }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, hasPermission } = useAuth();
+  const canADPS = hasPermission('ADPS'); // Puede actualizar datos del postulante desde Sistema Académico
+  const canADAP = hasPermission('ADAP'); // Puede actualizar datos académicos desde Sistema Académico
   const isAdministrativo = (currentUser?.modulo != null ? String(currentUser.modulo).trim().toLowerCase() : '') === 'administrativo';
 
   // Extraer el ID de la URL
@@ -2306,22 +2308,26 @@ const PostulantProfile = ({ onVolver }) => {
                 </>
               )}
             </button>
-            <button
-              className="btn-action btn-outline"
-              onClick={handleActualizarInfoBasicaUniversitas}
-              title="Actualizar Info Básica (Universitas)"
-            >
-              <FiFile className="btn-icon" />
-              Actualizar Info Básica (Universitas)
-            </button>
-            <button
-              className="btn-action btn-outline"
-              onClick={() => handleActualizarInfoAcademicaUniversitas('Actualizar Info Académica (Universitas)')}
-              title="Actualizar Info Académica (Universitas)"
-            >
-              <FiFile className="btn-icon" />
-              Actualizar Info Académica (Universitas)
-            </button>
+            {canADPS && (
+              <button
+                className="btn-action btn-outline"
+                onClick={handleActualizarInfoBasicaUniversitas}
+                title="Actualizar Info Básica (Universitas)"
+              >
+                <FiFile className="btn-icon" />
+                Actualizar Info Básica (Universitas)
+              </button>
+            )}
+            {canADAP && (
+              <button
+                className="btn-action btn-outline"
+                onClick={() => handleActualizarInfoAcademicaUniversitas('Actualizar Info Académica (Universitas)')}
+                title="Actualizar Info Académica (Universitas)"
+              >
+                <FiFile className="btn-icon" />
+                Actualizar Info Académica (Universitas)
+              </button>
+            )}
             <button
               className="btn-volver"
               onClick={() => {

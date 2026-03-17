@@ -6,10 +6,20 @@ import { Country, State, City } from 'country-state-city';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import '../styles/Companies.css';
 
 export default function Companies({ onVolver }) {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canAAME = hasPermission('AAME');
+  const canLEMP = hasPermission('LEMP');
+  const canCEMP = hasPermission('CEMP');
+  const canEEMP = hasPermission('EEMP');
+  const canCCON = hasPermission('CCON');
+  const canECON = hasPermission('ECON');
+  const canCCEC = hasPermission('CCEC');
+
   const [loading, setLoading] = useState(true);
   const [companies, setCompanies] = useState([]);
   const [search, setSearch] = useState('');
@@ -1214,6 +1224,7 @@ export default function Companies({ onVolver }) {
       : [];
 
   if (vista === 'form') {
+    const puedeGuardarEntidad = (editing && canEEMP) || (!editing && canCEMP);
     return (
       <div className="companies-content">
         <div className="companies-header">
@@ -1222,7 +1233,9 @@ export default function Companies({ onVolver }) {
               <FiArrowLeft className="btn-icon" />
               Volver
             </button>
-            <button className="btn-guardar" onClick={saveForm}>Guardar</button>
+            {puedeGuardarEntidad && (
+              <button className="btn-guardar" onClick={saveForm}>Guardar</button>
+            )}
           </div>
           <div className="section-header">
             <h3>{editing ? 'EDITAR ENTIDAD' : 'CREAR ENTIDAD'}</h3>
@@ -1960,17 +1973,19 @@ export default function Companies({ onVolver }) {
                 {!editing && <br />}
                 {!editing && <>Actual: <strong>{1 + pendingContacts.length}</strong> contacto(s).</>}
               </p>
-              <button
-                type="button"
-                className="btn-guardar"
-                onClick={() => openContactForm()}
-                style={{ marginBottom: '20px' }}
-                disabled={(editing ? contacts.length : pendingContacts.length) >= 7}
-                title={(editing ? contacts.length : pendingContacts.length) >= 7 ? 'Máximo 8 contactos (representante legal + 7 adicionales)' : ''}
-              >
-                <FiPlus className="btn-icon" />
-                {editing ? 'Crear contacto' : 'Añadir contacto'}
-              </button>
+              {canCCON && (
+                <button
+                  type="button"
+                  className="btn-guardar"
+                  onClick={() => openContactForm()}
+                  style={{ marginBottom: '20px' }}
+                  disabled={(editing ? contacts.length : pendingContacts.length) >= 7}
+                  title={(editing ? contacts.length : pendingContacts.length) >= 7 ? 'Máximo 8 contactos (representante legal + 7 adicionales)' : ''}
+                >
+                  <FiPlus className="btn-icon" />
+                  {editing ? 'Crear contacto' : 'Añadir contacto'}
+                </button>
+              )}
             </div>
 
             {!showContactForm ? (
@@ -2002,31 +2017,39 @@ export default function Companies({ onVolver }) {
                             <td>{contact.position || '-'}</td>
                             <td>{contact.isPrincipal ? 'Sí' : 'No'}</td>
                             <td>
-                              <select 
-                                value={contact.status || 'active'} 
-                                onChange={(e) => handleContactStatusChange(contact, e.target.value, e)}
-                                className="status-select"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <option value="active">Activo</option>
-                                <option value="inactive">Inactivo</option>
-                              </select>
+                              {canECON ? (
+                                <select 
+                                  value={contact.status || 'active'} 
+                                  onChange={(e) => handleContactStatusChange(contact, e.target.value, e)}
+                                  className="status-select"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <option value="active">Activo</option>
+                                  <option value="inactive">Inactivo</option>
+                                </select>
+                              ) : (
+                                <span className="status-text">{contact.status === 'active' ? 'Activo' : 'Inactivo'}</span>
+                              )}
                             </td>
                             <td>
                               <div className="contact-actions">
-                                <button 
-                                  className="btn-action btn-outline" 
-                                  onClick={() => openContactForm(contact)}
-                                >
-                                  <FiEdit /> Editar
-                                </button>
-                                <button 
-                                  className="btn-action btn-secondary" 
-                                  onClick={() => resetContactPassword(contact._id)}
-                                  title="Restablecer contraseña"
-                                >
-                                  🔑
-                                </button>
+                                {canECON && (
+                                  <>
+                                    <button 
+                                      className="btn-action btn-outline" 
+                                      onClick={() => openContactForm(contact)}
+                                    >
+                                      <FiEdit /> Editar
+                                    </button>
+                                    <button 
+                                      className="btn-action btn-secondary" 
+                                      onClick={() => resetContactPassword(contact._id)}
+                                      title="Restablecer contraseña"
+                                    >
+                                      🔑
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -2378,6 +2401,20 @@ export default function Companies({ onVolver }) {
     );
   }
 
+  if (vista === 'lista' && !canAAME && !canLEMP) {
+    return (
+      <div className="companies-content">
+        <div className="companies-section">
+          <p className="companies-sin-permiso">No tiene permiso para listar o ver entidades (AAME / LEMP).</p>
+          <button className="btn-volver" onClick={onVolver || (() => navigate('/dashboard/entidades'))}>
+            <FiArrowLeft className="btn-icon" />
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="companies-content">
       <div className="companies-header">
@@ -2399,10 +2436,12 @@ export default function Companies({ onVolver }) {
           <button type="button" className="btn-volver" onClick={exportToExcel} title="Exportar todas las entidades (según filtros actuales)">
             Exportar Excel
           </button>
-          <button className="btn-guardar" onClick={startCreate}>
-            <FiPlus className="btn-icon" />
-            Crear Entidad
-          </button>
+          {canCEMP && (
+            <button className="btn-guardar" onClick={startCreate}>
+              <FiPlus className="btn-icon" />
+              Crear Entidad
+            </button>
+          )}
         </div>
         <div className="section-header">
           <h3>ENTIDADES</h3>
@@ -2514,9 +2553,9 @@ export default function Companies({ onVolver }) {
                 companies.map(c => (
                   <tr 
                     key={c._id} 
-                    onClick={() => startEdit(c)}
-                    style={{ cursor: 'pointer' }}
-                    className="table-row-clickable"
+                    onClick={() => (canLEMP || canEEMP) && startEdit(c)}
+                    style={{ cursor: (canLEMP || canEEMP) ? 'pointer' : 'default' }}
+                    className={(canLEMP || canEEMP) ? 'table-row-clickable' : ''}
                   >
                     <td>{c.name || '-'}</td>
                     <td>{c.nit || '-'}</td>

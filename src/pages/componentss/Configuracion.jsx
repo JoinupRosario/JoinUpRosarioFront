@@ -10,10 +10,13 @@ import {
   FiBook
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import '../styles/Configuracion.css';
 
 export default function Configuracion({ onVolver }) {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canAMCO = hasPermission('AMCO');
 
   const handleOptionClick = (opcion) => {
     if (opcion.text === 'Gestión de Parámetros') {
@@ -134,6 +137,20 @@ export default function Configuracion({ onVolver }) {
       descripcion: 'Configurar formatos y tipos de documentos (hoja de vida y otros que se requieran)'
     }
   ];
+
+  if (!canAMCO) {
+    return (
+      <div className="configuracion-content">
+        <div className="configuracion-section">
+          <p className="configuracion-sin-permiso">No tiene permiso para acceder a Configuración (AMCO).</p>
+          <button className="btn-volver" onClick={onVolver}>
+            <FiArrowLeft className="btn-icon" />
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="configuracion-content">

@@ -20,6 +20,7 @@ import {
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import '../../styles/postulants.css';
 
 // Utilidades de alertas
@@ -37,7 +38,11 @@ const createAlert = (icon, title, text, confirmButtonText = 'Aceptar') => {
 
 const Postulants = ({ onVolver }) => {
   const navigate = useNavigate();
-  
+  const { hasPermission } = useAuth();
+  const canCEPO = hasPermission('CEPO');   // Cambiar estado de postulante
+  const canCPOS = hasPermission('CPOS');   // Cargar postulantes (UXXI)
+  const canVPPO = hasPermission('VPPO');  // Ver perfil / programas
+
   // Estados principales
   const [postulants, setPostulants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -250,17 +255,19 @@ const Postulants = ({ onVolver }) => {
   }, []);
 
   const handleRowClick = useCallback((postulant) => {
+    if (!canVPPO) return; // Solo quien tiene VPPO puede abrir el perfil del postulante
     if (postulant._id) {
       navigate(`/dashboard/postulantes/${postulant._id}`);
     }
-  }, [navigate]);
+  }, [navigate, canVPPO]);
 
   const handleLinkClick = useCallback((e, postulant) => {
     e.stopPropagation();
+    if (!canVPPO) return;
     if (postulant._id) {
       navigate(`/dashboard/postulantes/${postulant._id}`);
     }
-  }, [navigate]);
+  }, [navigate, canVPPO]);
 
   // Activar / inactivar usuario del postulante (toggle de la tabla)
   const toggleEstadoPostulant = useCallback(async (postulantId, nuevoEstadoBoolean) => {
@@ -374,7 +381,7 @@ const Postulants = ({ onVolver }) => {
             <th>USUARIO</th>
             <th>ACTUALIZADO</th>
             <th>% COMPLETITUD</th>
-            <th>ESTADO</th>
+            {canCEPO && <th>ESTADO</th>}
             <th>ACCIONES</th>
           </tr>
         </thead>
@@ -386,14 +393,15 @@ const Postulants = ({ onVolver }) => {
               <tr
                 key={p._id}
                 onClick={() => handleRowClick(p)}
-                className="table-row-clickable"
+                className={canVPPO ? 'table-row-clickable' : ''}
+                style={canVPPO ? undefined : { cursor: 'default' }}
               >
                 <td>
                   {p._id ? (
                     <span
                       onClick={(e) => handleLinkClick(e, p)}
-                      className="postulant-link"
-                      style={{ cursor: 'pointer' }}
+                      className={canVPPO ? 'postulant-link' : ''}
+                      style={{ cursor: canVPPO ? 'pointer' : 'default' }}
                     >
                       {(p.student_code ?? p.identity_postulant ?? p.code ?? p.user?.code ?? '').trim() || '-'}
                     </span>
@@ -405,8 +413,8 @@ const Postulants = ({ onVolver }) => {
                   {p._id ? (
                     <span
                       onClick={(e) => handleLinkClick(e, p)}
-                      className="postulant-link"
-                      style={{ cursor: 'pointer' }}
+                      className={canVPPO ? 'postulant-link' : ''}
+                      style={{ cursor: canVPPO ? 'pointer' : 'default' }}
                     >
                       {[p.name ?? p.user?.name ?? '', p.user?.lastname ?? ''].map(s => String(s).trim()).filter(Boolean).join(' ') || '-'}
                     </span>
@@ -417,44 +425,50 @@ const Postulants = ({ onVolver }) => {
                 <td>{(p.email ?? p.user?.email ?? '').trim() || '-'}</td>
                 <td>{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '-'}</td>
                 <td>{getProfilePercent(p)}%</td>
-                <td onClick={(e) => e.stopPropagation()}>
-                  <div className="switch-container">
-                    <label className="switch">
-                      <input
-                        type="checkbox"
-                        checked={isActivo}
-                        onChange={() => toggleEstadoPostulant(p._id, !isActivo)}
-                      />
-                      <span className="slider"></span>
-                    </label>
-                    <span className={`status-text ${isActivo ? 'active' : 'inactive'}`}>
-                      {isActivo ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </div>
-                </td>
+                {canCEPO && (
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="switch-container">
+                      <label className="switch">
+                        <input
+                          type="checkbox"
+                          checked={isActivo}
+                          onChange={() => toggleEstadoPostulant(p._id, !isActivo)}
+                        />
+                        <span className="slider"></span>
+                      </label>
+                      <span className={`status-text ${isActivo ? 'active' : 'inactive'}`}>
+                        {isActivo ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+                  </td>
+                )}
                 <td onClick={(e) => e.stopPropagation()}>
                   <div className="postulant-actions-cell">
-                    <button
-                      type="button"
-                      className="btn-actions-trigger"
-                      onClick={(e) => toggleActions(e, p._id)}
-                      title="Opciones"
-                      aria-expanded={actionsOpenForId === p._id}
-                    >
-                      <FiMoreVertical />
-                      <span>Opciones</span>
-                    </button>
-                    {actionsOpenForId === p._id && (
-                      <div className="postulant-actions-dropdown" onClick={(e) => e.stopPropagation()}>
+                    {canVPPO && (
+                      <>
                         <button
                           type="button"
-                          className="postulant-actions-option"
-                          onClick={(e) => openCursosModal(e, p)}
+                          className="btn-actions-trigger"
+                          onClick={(e) => toggleActions(e, p._id)}
+                          title="Opciones"
+                          aria-expanded={actionsOpenForId === p._id}
                         >
-                          <FiBook className="btn-icon" />
-                          Ver programas
+                          <FiMoreVertical />
+                          <span>Opciones</span>
                         </button>
-                      </div>
+                        {actionsOpenForId === p._id && (
+                          <div className="postulant-actions-dropdown" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className="postulant-actions-option"
+                              onClick={(e) => openCursosModal(e, p)}
+                            >
+                              <FiBook className="btn-icon" />
+                              Ver programas
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </td>
@@ -499,15 +513,17 @@ const Postulants = ({ onVolver }) => {
               <FiRefreshCw className="btn-icon" />
               Actualizar
             </button>
-            <button
-              className="btn-action btn-primary"
-              onClick={handleAbrirPreviewUxxi}
-              disabled={cargandoPreview || sincronizando}
-              title="Sincronizar postulantes desde el archivo UXXI (SFTP)"
-            >
-              <FiUploadCloud className="btn-icon" />
-              {cargandoPreview ? 'Leyendo archivo...' : 'Cargar postulantes UXXI'}
-            </button>
+            {canCPOS && (
+              <button
+                className="btn-action btn-primary"
+                onClick={handleAbrirPreviewUxxi}
+                disabled={cargandoPreview || sincronizando}
+                title="Sincronizar postulantes desde el archivo UXXI (SFTP)"
+              >
+                <FiUploadCloud className="btn-icon" />
+                {cargandoPreview ? 'Leyendo archivo...' : 'Cargar postulantes UXXI'}
+              </button>
+            )}
             <button
               className="btn-action btn-outline"
               onClick={() => showFuncionalidadEnDesarrollo('Cargar lista negra')}

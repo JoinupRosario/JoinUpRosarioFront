@@ -222,6 +222,21 @@ export const AuthProvider = ({ children }) => {
   /** Helper para verificar si el usuario tiene alguno de los permisos dados. */
   const hasAnyPermission = (...codigos) => codigos.some((c) => hasPermission(c));
 
+  /** Refresca permisos y roles desde el backend (útil tras cambiar permisos de un rol en la vista de Roles). */
+  const refreshPermissions = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const { permissions, roles } = await fetchAndStorePermissions(token);
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: { token, user: state.user, permissions, roles },
+      });
+    } catch {
+      // Si falla (ej. 401), no sobrescribir estado
+    }
+  };
+
   const value = {
     ...state,
     login,
@@ -230,6 +245,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     hasPermission,
     hasAnyPermission,
+    refreshPermissions,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

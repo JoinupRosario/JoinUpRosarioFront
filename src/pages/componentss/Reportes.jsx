@@ -20,9 +20,12 @@ import {
   FiRefreshCw,
   FiCheckCircle
 } from 'react-icons/fi';
+import { useAuth } from '../../contexts/AuthContext';
 import '../styles/Reportes.css';
 
 export default function Reportes({ onVolver }) {
+  const { hasPermission } = useAuth();
+  const canVerReportes = hasPermission('AMRE') || hasPermission('GPAG');
   const reportes = [
     // Fila 1
     { 
@@ -218,9 +221,24 @@ export default function Reportes({ onVolver }) {
   ];
 
   const handleReporteClick = (reporte) => {
+    if (!canVerReportes) return;
     console.log('Generando reporte:', reporte.nombre);
     alert(`Generando reporte: ${reporte.nombre}`);
   };
+
+  if (!canVerReportes) {
+    return (
+      <div className="reportes-content">
+        <div className="reportes-section">
+          <p className="reportes-sin-permiso">No tiene permiso para ver o generar reportes (AMRE / GPAG).</p>
+          <button className="btn-volver" onClick={onVolver}>
+            <FiArrowLeft className="btn-icon" />
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="reportes-content">

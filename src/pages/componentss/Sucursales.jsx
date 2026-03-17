@@ -3,9 +3,16 @@ import { FiArrowLeft, FiPlus, FiRefreshCw, FiSearch } from 'react-icons/fi';
 import { Country, City } from 'country-state-city';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import '../styles/Sucursales.css';
 
 export default function Sucursales({ onVolver }) {
+  const { hasPermission } = useAuth();
+  const canCTSU = hasPermission('AMSU') || hasPermission('CTSU');
+  const canCCSU = hasPermission('CCSU');
+  const canEDSU = hasPermission('EDSU');
+  const canELSU = hasPermission('ELSU');
+
   const [loading, setLoading] = useState(true);
   const [sucursales, setSucursales] = useState([]);
   const [search, setSearch] = useState('');
@@ -188,6 +195,7 @@ export default function Sucursales({ onVolver }) {
   };
 
   if (vista === 'form') {
+    const puedeGuardar = (editing && canEDSU) || (!editing && canCCSU);
     return (
       <div className="sucursales-content">
         <div className="sucursales-header">
@@ -196,9 +204,11 @@ export default function Sucursales({ onVolver }) {
               <FiArrowLeft className="btn-icon" />
               Volver
             </button>
-            <button className="btn-guardar" onClick={saveForm}>
-              Guardar
-            </button>
+            {puedeGuardar && (
+              <button className="btn-guardar" onClick={saveForm}>
+                Guardar
+              </button>
+            )}
           </div>
           <h3 className="section-header-title">{editing ? 'EDITAR SUCURSAL' : 'CREAR SUCURSAL'}</h3>
         </div>
@@ -387,14 +397,30 @@ export default function Sucursales({ onVolver }) {
     );
   }
 
+  if (!canCTSU) {
+    return (
+      <div className="sucursales-content">
+        <div className="sucursales-section">
+          <p className="sucursales-sin-permiso">No tiene permiso para consultar sucursales (AMSU / CTSU).</p>
+          <button className="btn-volver" onClick={onVolver}>
+            <FiArrowLeft className="btn-icon" />
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="sucursales-content">
       <div className="sucursales-header">
         <div className="configuracion-actions">
-          <button className="btn-crear" onClick={startCreate}>
-            <FiPlus className="btn-icon" />
-            Crear Sucursal
-          </button>
+          {canCCSU && (
+            <button className="btn-crear" onClick={startCreate}>
+              <FiPlus className="btn-icon" />
+              Crear Sucursal
+            </button>
+          )}
           <button className="btn-refresh" onClick={loadSucursales}>
             <FiRefreshCw className="btn-icon" />
           </button>
@@ -441,27 +467,33 @@ export default function Sucursales({ onVolver }) {
                   filtered.map(sucursal => (
                     <tr 
                       key={sucursal._id}
-                      onClick={() => startEdit(sucursal)}
-                      style={{ cursor: 'pointer' }}
-                      className="table-row-clickable"
+                      onClick={() => (canEDSU || canCTSU) && startEdit(sucursal)}
+                      style={{ cursor: (canEDSU || canCTSU) ? 'pointer' : 'default' }}
+                      className={(canEDSU || canCTSU) ? 'table-row-clickable' : ''}
                     >
                       <td>{sucursal.codigo}</td>
                       <td>{sucursal.nombre}</td>
                       <td>{sucursal.directorioActivo?.tipo || '-'}</td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <div className="switch-container">
-                          <label className="switch">
-                            <input
-                              type="checkbox"
-                              checked={sucursal.estado}
-                              onChange={() => handleEstadoChange(sucursal, !sucursal.estado)}
-                            />
-                            <span className="slider"></span>
-                          </label>
+                        {canEDSU ? (
+                          <div className="switch-container">
+                            <label className="switch">
+                              <input
+                                type="checkbox"
+                                checked={sucursal.estado}
+                                onChange={() => handleEstadoChange(sucursal, !sucursal.estado)}
+                              />
+                              <span className="slider"></span>
+                            </label>
+                            <span className={`status-text ${sucursal.estado ? 'active' : 'inactive'}`}>
+                              {sucursal.estado ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </div>
+                        ) : (
                           <span className={`status-text ${sucursal.estado ? 'active' : 'inactive'}`}>
                             {sucursal.estado ? 'Activo' : 'Inactivo'}
                           </span>
-                        </div>
+                        )}
                       </td>
                     </tr>
                   ))

@@ -14,9 +14,18 @@ import {
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import '../styles/Users.css';
 
 const Users = ({ onVolver }) => {
+  const { hasPermission } = useAuth();
+  const canLUSU = hasPermission('LUSU');
+  const canCUSU = hasPermission('CUSU');
+  const canEDUS = hasPermission('EDUS');
+  const canCEUS = hasPermission('CEUS') || hasPermission('CEUS2');
+  const canARUS = hasPermission('ARUS');
+  const canVUSU = hasPermission('VUSU');
+
   const [vistaActual, setVistaActual] = useState('buscar');
   const [usersAdministrativos, setUsersAdministrativos] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -506,29 +515,31 @@ const Users = ({ onVolver }) => {
               <FiRefreshCw className="btn-icon" />
               Refrescar
             </button>
-            <button
-              className="btn-guardar"
-              onClick={() => {
-        setFormData({
-          tipoIdentificacion: '',
-          identificacion: '',
-          nombres: '',
-          apellidos: '',
-          phone: '',
-          email: '',
-          directorioActivo: true,
-          password: '',
-          confirmPassword: '',
-          estado: true
-        });
-        setSelectedUser(null);
-        setEditingUser(null);
-        setVistaActual('crear');
-              }}
-            >
-              <FiPlus className="btn-icon" />
-              Registrar Usuario
-            </button>
+            {canCUSU && (
+              <button
+                className="btn-guardar"
+                onClick={() => {
+                  setFormData({
+                    tipoIdentificacion: '',
+                    identificacion: '',
+                    nombres: '',
+                    apellidos: '',
+                    phone: '',
+                    email: '',
+                    directorioActivo: true,
+                    password: '',
+                    confirmPassword: '',
+                    estado: true
+                  });
+                  setSelectedUser(null);
+                  setEditingUser(null);
+                  setVistaActual('crear');
+                }}
+              >
+                <FiPlus className="btn-icon" />
+                Registrar Usuario
+              </button>
+            )}
           </div>
           <div className="section-header">
             <h3>BUSCAR USUARIO</h3>
@@ -558,8 +569,8 @@ const Users = ({ onVolver }) => {
           </select>
         </div>
 
-        {/* Barra de opciones de asociación - Solo visible cuando hay un usuario seleccionado */}
-        {selectedUserId && (
+        {/* Barra de opciones de asociación - Solo visible cuando hay un usuario seleccionado y permisos */}
+        {selectedUserId && (canARUS || canEDUS) && (
           <div className="association-bar">
             <div className="association-info">
               <span className="selected-user-info">
@@ -567,30 +578,36 @@ const Users = ({ onVolver }) => {
               </span>
             </div>
             <div className="association-actions">
-              <button
-                className="btn-association btn-roles"
-                onClick={() => abrirGestionRoles(usersAdministrativos.find(u => u._id === selectedUserId))}
-                title="Asociar roles"
-              >
-                <FiKey className="btn-icon" />
-                Asociar Roles
-              </button>
-              <button
-                className="btn-association btn-programs"
-                onClick={() => abrirGestionProgramas(usersAdministrativos.find(u => u._id === selectedUserId))}
-                title="Asociar Programas / Opciones Académicas"
-              >
-                <FiKey className="btn-icon" />
-                Asociar Programas
-              </button>
-              <button
-                className="btn-association btn-campus"
-                onClick={() => abrirGestionSedes(usersAdministrativos.find(u => u._id === selectedUserId))}
-                title="Asociar Sede"
-              >
-                <FiKey className="btn-icon" />
-                Asociar Sedes
-              </button>
+              {canARUS && (
+                <button
+                  className="btn-association btn-roles"
+                  onClick={() => abrirGestionRoles(usersAdministrativos.find(u => u._id === selectedUserId))}
+                  title="Asociar roles"
+                >
+                  <FiKey className="btn-icon" />
+                  Asociar Roles
+                </button>
+              )}
+              {canEDUS && (
+                <>
+                  <button
+                    className="btn-association btn-programs"
+                    onClick={() => abrirGestionProgramas(usersAdministrativos.find(u => u._id === selectedUserId))}
+                    title="Asociar Programas / Opciones Académicas"
+                  >
+                    <FiKey className="btn-icon" />
+                    Asociar Programas
+                  </button>
+                  <button
+                    className="btn-association btn-campus"
+                    onClick={() => abrirGestionSedes(usersAdministrativos.find(u => u._id === selectedUserId))}
+                    title="Asociar Sede"
+                  >
+                    <FiKey className="btn-icon" />
+                    Asociar Sedes
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -627,9 +644,9 @@ const Users = ({ onVolver }) => {
                 {usersAdministrativos.map((user, idx) => (
                   <tr
                     key={user._id}
-                    onClick={() => startEdit(user)}
-                    style={{ cursor: 'pointer' }}
-                    className="table-row-clickable"
+                    onClick={() => (canVUSU || canEDUS) && startEdit(user)}
+                    style={{ cursor: (canVUSU || canEDUS) ? 'pointer' : 'default' }}
+                    className={(canVUSU || canEDUS) ? 'table-row-clickable' : ''}
                   >
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="user-selection">
@@ -665,19 +682,25 @@ const Users = ({ onVolver }) => {
                     </td>
                     <td>{user.phone || '-'}</td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <div className="switch-container">
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={user.estado}
-                            onChange={() => toggleEstadoUsuario(user._id, !user.estado)}
-                          />
-                          <span className="slider"></span>
-                        </label>
+                      {canCEUS ? (
+                        <div className="switch-container">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={user.estado}
+                              onChange={() => toggleEstadoUsuario(user._id, !user.estado)}
+                            />
+                            <span className="slider"></span>
+                          </label>
+                          <span className={`status-text ${user.estado ? 'active' : 'inactive'}`}>
+                            {user.estado ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </div>
+                      ) : (
                         <span className={`status-text ${user.estado ? 'active' : 'inactive'}`}>
                           {user.estado ? 'Activo' : 'Inactivo'}
                         </span>
-                      </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -764,10 +787,12 @@ const Users = ({ onVolver }) => {
               <FiArrowLeft className="btn-icon" />
               Volver
             </button>
-            <button className="btn-guardar" onClick={handleCrearUserAdministrativo}>
-              <FiUserCheck className="btn-icon" />
-              {editingUser ? 'Actualizar Usuario' : 'Registrar Usuario'}
-            </button>
+            {((editingUser && canEDUS) || (!editingUser && canCUSU)) && (
+              <button className="btn-guardar" onClick={handleCrearUserAdministrativo}>
+                <FiUserCheck className="btn-icon" />
+                {editingUser ? 'Actualizar Usuario' : 'Registrar Usuario'}
+              </button>
+            )}
           </div>
           <div className="section-header">
             <h3>{editingUser ? 'EDITAR USUARIO' : 'REGISTRAR USUARIO'}</h3>

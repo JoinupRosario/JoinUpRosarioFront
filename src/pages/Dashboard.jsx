@@ -67,7 +67,7 @@ export default function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sedeUsuario, setSedeUsuario] = useState([]);
-  const { user, logout, loading: authLoading } = useAuth();
+  const { user, logout, loading: authLoading, hasPermission } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -89,6 +89,19 @@ export default function Dashboard() {
   // Usuario con módulo estudiante o módulo vacío (migrados mal): solo directorio activo y vista estudiante
   const moduloRaw = user?.modulo != null ? String(user.modulo).trim().toLowerCase() : '';
   const isEstudiante = moduloRaw === 'estudiante' || moduloRaw === '';
+
+  // Permiso acceso al módulo Postulantes (para menú y redirección)
+  const hasAMPO = hasPermission('AMPO');
+  // Ver perfil postulante (sin esto solo puede ver la lista, no abrir el perfil)
+  const hasVPPO = hasPermission('VPPO');
+  const hasEMIP = hasPermission('EMIP');
+  // Módulos administrativos (menú y redirección por URL)
+  const hasAMRO = hasPermission('AMRO');  // Roles
+  const hasAMUS = hasPermission('AMUS'); // Usuarios
+  const hasAMRE = hasPermission('AMRE'); // Reportes
+  const hasAMSU = hasPermission('AMSU'); // Sucursales
+  const hasAMCO = hasPermission('AMCO'); // Configuración
+  const hasAAME = hasPermission('AAME'); // Entidades / Empresas
 
   // ID del postulante del usuario estudiante (para enlace "Mi perfil")
   const [postulantIdMe, setPostulantIdMe] = useState(null);
@@ -227,6 +240,39 @@ export default function Dashboard() {
     }
   }, [isEstudiante, vistaActual, navigate]);
 
+  // Sin permiso AMPO: redirigir a dashboard si entró por URL a una vista de postulantes
+  const postulantViews = ['postulants', 'postulant-profile', 'postulants-log', 'postulants-document-log'];
+  useEffect(() => {
+    if (!isEstudiante && !hasAMPO && postulantViews.includes(vistaActual)) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+    // Tiene AMPO pero está en perfil de postulante sin VPPO ni EMIP: solo puede ver lista, no perfil
+    if (!isEstudiante && vistaActual === 'postulant-profile' && !hasVPPO && !hasEMIP) {
+      navigate('/dashboard/postulantes', { replace: true });
+    }
+  }, [isEstudiante, hasAMPO, hasVPPO, hasEMIP, vistaActual, navigate]);
+
+  // Sin permiso al módulo: redirigir si entró por URL a Roles, Usuarios, Reportes, Sucursales, Configuración, Entidades
+  const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones'];
+  useEffect(() => {
+    if (isEstudiante) return;
+    const sinPermiso = {
+      'roles': !hasAMRO,
+      'usuarios': !hasAMUS,
+      'reportes': !hasAMRE,
+      'sucursales': !hasAMSU,
+      'entidades': !hasAAME
+    };
+    if (sinPermiso[vistaActual]) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+    if (configViews.includes(vistaActual) && !hasAMCO) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isEstudiante, hasAMRO, hasAMUS, hasAMRE, hasAMSU, hasAMCO, hasAAME, vistaActual, navigate]);
+
   // Esperar a que termine la verificación de autenticación antes de renderizar
   if (authLoading) {
     return (
@@ -326,7 +372,19 @@ export default function Dashboard() {
     { text: 'Configuración', Icon: HiOutlineCog, vista: 'configuracion-personal' },
   ];
 
-  const menuItems = isEstudiante ? menuItemsEstudiante : menuItemsAdmin;
+  // Ocultar ítems del menú según permiso de acceso al módulo
+  const menuItems = isEstudiante
+    ? menuItemsEstudiante
+    : menuItemsAdmin.filter((item) => {
+        if (item.vista === 'postulants') return hasAMPO;
+        if (item.vista === 'roles') return hasAMRO;
+        if (item.vista === 'usuarios') return hasAMUS;
+        if (item.vista === 'reportes') return hasAMRE;
+        if (item.vista === 'sucursales') return hasAMSU;
+        if (item.vista === 'configuracion') return hasAMCO;
+        if (item.vista === 'entidades') return hasAAME;
+        return true;
+      });
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
