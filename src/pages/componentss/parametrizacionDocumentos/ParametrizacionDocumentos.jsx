@@ -8,6 +8,7 @@ import {
   FiUpload,
   FiX,
   FiMenu,
+  FiEye,
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -16,6 +17,7 @@ import '../../styles/ParametrizacionDocumentos.css';
 const TABS = [
   { key: 'hoja-vida', label: 'Hoja de vida', icon: FiFileText },
   { key: 'carta-presentacion', label: 'Carta de presentación', icon: FiMail },
+  { key: 'acuerdo-vinculacion', label: 'Acuerdo de vinculación', icon: FiFileText },
 ];
 
 /** Secciones de la hoja de vida según HU (formato y obligatorios). key alineado con backend CvFormat. */
@@ -90,6 +92,14 @@ export default function ParametrizacionDocumentos({ onVolver }) {
   const [textosInternos, setTextosInternos] = useState({ encabezado: '', cuerpo: '', cierre: '' });
   /** Carta: si incluir fecha y cómo (fecha_actual / fecha_elegible / ninguna). */
   const [opcionFechaCarta, setOpcionFechaCarta] = useState('fecha_actual');
+
+  /** Acuerdo de vinculación: logo + textos legales */
+  const [acuerdoLogoPreview, setAcuerdoLogoPreview] = useState(null);
+  const [acuerdoLogoFile, setAcuerdoLogoFile] = useState(null);
+  const [acuerdoLogoBase64Saved, setAcuerdoLogoBase64Saved] = useState(null);
+  const [textosLegalesAcuerdo, setTextosLegalesAcuerdo] = useState('');
+  const acuerdoLogoInputRef = useRef(null);
+  const [loadingPreviewAcuerdo, setLoadingPreviewAcuerdo] = useState(false);
 
   const [loadingParametrizacion, setLoadingParametrizacion] = useState(true);
   const [savingParametrizacion, setSavingParametrizacion] = useState(false);
@@ -244,20 +254,88 @@ export default function ParametrizacionDocumentos({ onVolver }) {
     setDragIndex(null);
   };
 
+  const handleAcuerdoLogoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorParametrizacion('El logo debe ser una imagen (PNG, JPG o SVG).');
+      return;
+    }
+    if (file.size > MAX_LOGO_MB * 1024 * 1024) {
+      setErrorParametrizacion(`El logo no debe superar ${MAX_LOGO_MB} MB.`);
+      return;
+    }
+    setErrorParametrizacion(null);
+    setAcuerdoLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setAcuerdoLogoPreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleAcuerdoLogoRemove = () => {
+    setAcuerdoLogoFile(null);
+    setAcuerdoLogoPreview(null);
+    setAcuerdoLogoBase64Saved(null);
+    if (acuerdoLogoInputRef.current) acuerdoLogoInputRef.current.value = '';
+  };
+
+  const handleVistaPreviaAcuerdo = async () => {
+    setLoadingPreviewAcuerdo(true);
+    setErrorParametrizacion(null);
+    try {
+      let logoBase64 = acuerdoLogoBase64Saved;
+      if (acuerdoLogoFile) {
+        logoBase64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(acuerdoLogoFile);
+        });
+      }
+      const res = await api.post('/parametrizacion-documentos/acuerdo-vinculacion/preview', {
+        logoBase64: logoBase64 || null,
+        textosLegalesAcuerdo: textosLegalesAcuerdo.trim() || null,
+      }, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      setErrorParametrizacion(err.response?.data?.message || 'No se pudo generar la vista previa.');
+    } finally {
+      setLoadingPreviewAcuerdo(false);
+    }
+  };
+
   const toggleVisibleSeccion = (key) => {
     setFormatSecciones((prev) =>
       prev.map((s) => (s.key === key ? { ...s, visible: !s.visible } : s))
     );
   };
 
-  /** Cargar parametrización al cambiar de tab (hoja de vida o carta de presentación RQ04_HU003). */
+  /** Cargar parametrización al cambiar de tab. */
   useEffect(() => {
-    const endpoint = activeTab === 'carta-presentacion' ? '/parametrizacion-documentos/carta-presentacion' : '/parametrizacion-documentos/hoja-vida';
+    let endpoint = '/parametrizacion-documentos/hoja-vida';
+    if (activeTab === 'carta-presentacion') endpoint = '/parametrizacion-documentos/carta-presentacion';
+    if (activeTab === 'acuerdo-vinculacion') endpoint = '/parametrizacion-documentos/acuerdo-vinculacion';
     const seccionesDef = activeTab === 'carta-presentacion' ? SECCIONES_CARTA_PRESENTACION : SECCIONES_HOJA_VIDA;
     const defaultFormat = activeTab === 'carta-presentacion' ? DEFAULT_FORMAT_SECTIONS_CARTA : DEFAULT_FORMAT_SECTIONS;
+    const isAcuerdo = activeTab === 'acuerdo-vinculacion';
     let cancelled = false;
     setLoadingParametrizacion(true);
     setErrorParametrizacion(null);
+    if (isAcuerdo) {
+      api.get(endpoint)
+        .then((res) => {
+          if (cancelled) return;
+          const data = res.data || {};
+          setAcuerdoLogoBase64Saved(data.logoBase64 ?? null);
+          setAcuerdoLogoPreview(data.logoBase64 ?? null);
+          setTextosLegalesAcuerdo(typeof data.textosLegalesAcuerdo === 'string' ? data.textosLegalesAcuerdo : (data.textosLegalesAcuerdo ? JSON.stringify(data.textosLegalesAcuerdo, null, 2) : ''));
+        })
+        .catch((err) => { if (!cancelled) setErrorParametrizacion(err.response?.data?.message || 'Error al cargar.'); })
+        .finally(() => { if (!cancelled) setLoadingParametrizacion(false); });
+      return () => { cancelled = true; };
+    }
     api
       .get(endpoint)
       .then((res) => {
@@ -321,6 +399,38 @@ export default function ParametrizacionDocumentos({ onVolver }) {
         setErrorParametrizacion('Debe tener al menos una sección visible en el PDF.');
         return;
       }
+    }
+    if (activeTab === 'acuerdo-vinculacion') {
+      setSavingParametrizacion(true);
+      const resolveAcuerdoLogo = () => {
+        if (acuerdoLogoFile) {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(acuerdoLogoFile);
+          });
+        }
+        return Promise.resolve(acuerdoLogoBase64Saved);
+      };
+      resolveAcuerdoLogo()
+        .then((logoBase64) => api.put('/parametrizacion-documentos/acuerdo-vinculacion', {
+          logoBase64: logoBase64 || null,
+          textosLegalesAcuerdo: textosLegalesAcuerdo.trim() || null,
+        }))
+        .then((res) => {
+          const data = res.data || {};
+          if (data.logoBase64 != null) {
+            setAcuerdoLogoBase64Saved(data.logoBase64);
+            setAcuerdoLogoPreview(data.logoBase64);
+            setAcuerdoLogoFile(null);
+            if (acuerdoLogoInputRef.current) acuerdoLogoInputRef.current.value = '';
+          }
+          setErrorParametrizacion(null);
+          Swal.fire({ icon: 'success', title: 'Guardado', text: 'Configuración guardada correctamente.', confirmButtonColor: '#c41e3a' });
+        })
+        .catch((err) => setErrorParametrizacion(err.response?.data?.message || 'Error al guardar.'))
+        .finally(() => setSavingParametrizacion(false));
+      return;
     }
     setSavingParametrizacion(true);
     const resolveLogoBase64 = () => {
@@ -716,6 +826,87 @@ export default function ParametrizacionDocumentos({ onVolver }) {
               </section>
 
               <div className="param-docs-footer-actions">
+                <button
+                  type="button"
+                  className="param-docs-btn-save"
+                  onClick={handleGuardar}
+                  disabled={loadingParametrizacion || savingParametrizacion}
+                >
+                  <FiSave className="btn-icon" />
+                  {savingParametrizacion ? 'Guardando…' : 'Guardar configuración'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'acuerdo-vinculacion' && (
+            <div className="param-docs-tab-content param-docs-acuerdo-vinculacion" style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 200px)' }}>
+              {loadingParametrizacion && <p className="param-docs-loading">Cargando configuración…</p>}
+              {errorParametrizacion && (
+                <div className="param-docs-error" role="alert">
+                  {errorParametrizacion}
+                </div>
+              )}
+              <p className="param-docs-block-desc" style={{ marginBottom: '1rem' }}>
+                Cuando el estudiante acepte una oferta con tipo de vinculación &quot;Acuerdo de vinculación&quot;, la plataforma generará automáticamente el acuerdo con las tablas de estudiante, escenario de práctica y universidad, y los datos que ya están en el sistema.
+              </p>
+              <section className="param-docs-block param-docs-block--logo">
+                <h4 className="param-docs-block-title">Logo del documento</h4>
+                <p className="param-docs-block-desc">
+                  Logo institucional que aparece al inicio del PDF (ej. Universidad del Rosario). PNG, JPG o SVG. Máx. 5 MB.
+                </p>
+                <div className="param-docs-logo-zone">
+                  <input
+                    ref={acuerdoLogoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                    onChange={handleAcuerdoLogoChange}
+                    className="param-docs-logo-input"
+                    id="param-docs-logo-acuerdo"
+                  />
+                  {acuerdoLogoPreview ? (
+                    <div className="param-docs-logo-preview-wrap">
+                      <img src={acuerdoLogoPreview} alt="Vista previa logo acuerdo" className="param-docs-logo-preview" />
+                      <div className="param-docs-logo-meta">
+                        {acuerdoLogoFile?.name && <span className="param-docs-logo-filename">{acuerdoLogoFile.name}</span>}
+                        <button type="button" className="param-docs-logo-remove" onClick={handleAcuerdoLogoRemove} title="Quitar logo">
+                          <FiX /> Quitar logo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label htmlFor="param-docs-logo-acuerdo" className="param-docs-logo-upload-label">
+                      <FiUpload className="param-docs-logo-upload-icon" />
+                      <span>Haga clic para cargar el logo</span>
+                      <span className="param-docs-logo-upload-hint">PNG, JPG o SVG. Máx. 5 MB</span>
+                    </label>
+                  )}
+                </div>
+              </section>
+              <section className="param-docs-block" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <h4 className="param-docs-block-title">Textos legales</h4>
+                <p className="param-docs-block-desc">
+                  Texto que aparece después de las tablas en el documento (consideraciones preliminares, cláusulas, etc.). Opcional.
+                </p>
+                <textarea
+                  className="param-docs-textarea"
+                  value={textosLegalesAcuerdo}
+                  onChange={(e) => setTextosLegalesAcuerdo(e.target.value)}
+                  placeholder="Consideraciones preliminares y cláusulas..."
+                  style={{ width: '100%', flex: 1, minHeight: '200px', resize: 'vertical', boxSizing: 'border-box' }}
+                />
+              </section>
+              <div className="param-docs-footer-actions" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                <button
+                  type="button"
+                  className="param-docs-btn-save"
+                  onClick={handleVistaPreviaAcuerdo}
+                  disabled={loadingParametrizacion || loadingPreviewAcuerdo}
+                  title="Ver cómo quedaría el PDF generado con datos de ejemplo"
+                >
+                  <FiEye className="btn-icon" />
+                  {loadingPreviewAcuerdo ? 'Generando…' : 'Vista previa'}
+                </button>
                 <button
                   type="button"
                   className="param-docs-btn-save"
