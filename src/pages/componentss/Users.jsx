@@ -602,16 +602,16 @@ const Users = ({ onVolver }) => {
                     Asociar Programas
                   </button>
                   {!HIDE_SUCURSALES_UI && (
-              <button
-                    className="btn-association btn-campus"
-                    onClick={() => abrirGestionSedes(usersAdministrativos.find(u => u._id === selectedUserId))}
-                    title="Asociar Sede"
-                  >
-                    <FiKey className="btn-icon" />
-                    Asociar Sedes
-                  </button>
+                    <button
+                      className="btn-association btn-campus"
+                      onClick={() => abrirGestionSedes(usersAdministrativos.find(u => u._id === selectedUserId))}
+                      title="Asociar Sede"
+                    >
+                      <FiKey className="btn-icon" />
+                      Asociar Sedes
+                    </button>
+                  )}
                 </>
-              )}
               )}
             </div>
           </div>
