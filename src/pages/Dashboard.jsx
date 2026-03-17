@@ -56,12 +56,21 @@ import PostulantDocumentLog from './componentss/postulants/postulantLogs/Postula
 import PostulantProfile from './componentss/postulants/PostulantProfile';
 import Student from './componentss/students/student';
 import OfertasAfines from './componentss/OfertasAfines';
+import OfertasMonitoria from './componentss/OfertasMonitoria';
 import MisAplicaciones from './componentss/MisAplicaciones';
+import LegalizacionesMonitorias from './componentss/LegalizacionesMonitorias';
+import DetalleLegalizacionMTM from './componentss/DetalleLegalizacionMTM';
+import AdminLegalizacionMonitorias from './componentss/AdminLegalizacionMonitorias';
+import AdminDetalleLegalizacionMTM from './componentss/AdminDetalleLegalizacionMTM';
+import PlanDeTrabajoMTM from './componentss/PlanDeTrabajoMTM';
 import api from '../services/api';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
 import userAvatarImg from '../assets/images/login/user.png';
 import './Dashboard.css';
+
+/** Oculta visualmente menú Sucursales, badge Sede y vistas de sedes; la lógica y datos se mantienen. */
+const HIDE_SUCURSALES_UI = true;
 
 export default function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -127,7 +136,8 @@ export default function Dashboard() {
     '/dashboard': 'dashboard',
     '/dashboard/mi-perfil': 'mi-perfil',
     '/dashboard/busqueda-avanzada': 'busqueda-avanzada',
-    '/dashboard/ofertas-afines': 'ofertas-afines',
+    '/dashboard/oportunidades-practica': 'oportunidades-practica',
+    '/dashboard/oportunidades-monitoria': 'oportunidades-monitoria',
     '/dashboard/mis-aplicaciones': 'mis-aplicaciones',
     '/dashboard/usuarios': 'usuarios',
     '/dashboard/entidades': 'entidades',
@@ -136,6 +146,7 @@ export default function Dashboard() {
     '/dashboard/postulantes/states-log': 'documents-log',
     '/dashboard/estudiantes': 'estudiantes',
     '/dashboard/legalizaciones': 'legalizaciones',
+    '/dashboard/monitorias': 'monitorias',
     '/dashboard/roles': 'roles',
     '/dashboard/sucursales': 'sucursales',
     '/dashboard/reportes': 'reportes',
@@ -157,7 +168,8 @@ export default function Dashboard() {
     'dashboard': '/dashboard',
     'mi-perfil': '/dashboard/mi-perfil',
     'busqueda-avanzada': '/dashboard/busqueda-avanzada',
-    'ofertas-afines': '/dashboard/ofertas-afines',
+    'oportunidades-practica': '/dashboard/oportunidades-practica',
+    'oportunidades-monitoria': '/dashboard/oportunidades-monitoria',
     'mis-aplicaciones': '/dashboard/mis-aplicaciones',
     'usuarios': '/dashboard/usuarios',
     'entidades': '/dashboard/entidades',
@@ -165,6 +177,7 @@ export default function Dashboard() {
     'postulants': '/dashboard/postulants',
     'estudiantes': '/dashboard/estudiantes',
     'legalizaciones': '/dashboard/legalizaciones',
+    'monitorias': '/dashboard/monitorias',
     'roles': '/dashboard/roles',
     'sucursales': '/dashboard/sucursales',
     'reportes': '/dashboard/reportes',
@@ -217,6 +230,9 @@ export default function Dashboard() {
     }
     if (path === '/dashboard/plantillas-notificacion-monitoria') return 'plantillas-monitoria';
     if (path === '/dashboard/plantillas-notificacion-practicas') return 'plantillas-practicas';
+    if (path.match(/^\/dashboard\/monitorias\/detalle\/[^/]+$/)) return 'monitorias-detalle';
+    if (path.match(/^\/dashboard\/monitorias\/revision\/[^/]+$/)) return 'monitorias-revision';
+    if (path.match(/^\/dashboard\/monitorias\/plan\/[^/]+$/)) return 'monitorias-plan';
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
     return 'dashboard';
   };
@@ -365,7 +381,8 @@ export default function Dashboard() {
     { text: 'Inicio', Icon: FiHome, vista: 'dashboard' },
     { text: 'Mi perfil', Icon: FiUser, vista: 'mi-perfil' },
     { text: 'Búsqueda avanzada', Icon: FiSearch, vista: 'busqueda-avanzada' },
-    { text: 'Ofertas afines', Icon: FiBookmark, vista: 'ofertas-afines' },
+    { text: 'Oportunidades de práctica', Icon: FiBookmark, vista: 'oportunidades-practica' },
+    { text: 'Oportunidades de monitoría', Icon: HiOutlineAcademicCap, vista: 'oportunidades-monitoria' },
     { text: 'Mis aplicaciones', Icon: FiList, vista: 'mis-aplicaciones' },
     { text: 'Legalizaciones de Prácticas', Icon: HiOutlineAcademicCap, vista: 'legalizaciones' },
     { text: 'Legalizaciones de Monitorías', Icon: HiOutlineDocumentText, vista: 'monitorias' },
@@ -439,11 +456,15 @@ export default function Dashboard() {
             'postulants':               'Postulantes',
             'mi-perfil':                'Mi perfil',
             'busqueda-avanzada':        'Búsqueda avanzada',
-            'ofertas-afines':           'Ofertas afines',
+            'oportunidades-practica':   'Oportunidades de práctica',
+            'oportunidades-monitoria':  'Oportunidades de monitoría',
             'mis-aplicaciones':         'Mis aplicaciones',
             'estudiantes':              'Estudiantes Habilitados para Prácticas',
             'legalizaciones':           'Legalizaciones de Prácticas',
             'monitorias':               'Legalizaciones de Monitorías',
+            'monitorias-detalle':       'Detalle de la oportunidad — Legalización',
+            'monitorias-revision':      'Revisión de legalización MTM',
+            'monitorias-plan':          'Plan de trabajo MTM',
             'roles':                    'Gestión de Roles',
             'sucursales':               'Sucursales',
             'reportes':                 'Reportes',
@@ -467,9 +488,16 @@ export default function Dashboard() {
                 'oportunidades':            'Oportunidades',
                 'postulants':               'Postulantes',
                 'mi-perfil':                'Mi perfil de postulante',
+                'busqueda-avanzada':        'Búsqueda avanzada',
+                'oportunidades-practica':   'Oportunidades de práctica',
+                'oportunidades-monitoria':  'Oportunidades de monitoría',
+                'mis-aplicaciones':         'Mis aplicaciones',
                 'estudiantes':              'Estudiantes Habilitados para Prácticas',
                 'legalizaciones':           'Legalizaciones de Prácticas',
                 'monitorias':               'Legalizaciones de Monitorías',
+                'monitorias-detalle':       'Detalle de la oportunidad — Legalización',
+                'monitorias-revision':      'Revisión de legalización MTM',
+                'monitorias-plan':          'Plan de trabajo MTM',
                 'roles':                    'Gestión de Roles',
                 'sucursales':               'Sucursales',
                 'reportes':                 'Reportes',
@@ -501,7 +529,8 @@ export default function Dashboard() {
             <div className="user-details">
               <span className="user-name">{user?.name}</span>
               <span className="user-role">{isEstudiante ? 'Postulante' : (user?.role || '')}</span>
-              {(user?.sucursales?.length > 0 || sedeUsuario?.length > 0) && (
+              {/* Sucursales/Sede ocultos visualmente; datos y rutas se mantienen */}
+              {!HIDE_SUCURSALES_UI && (user?.sucursales?.length > 0 || sedeUsuario?.length > 0) && (
                 <span className="user-sede" title="Sede(s)">
                   Sede: {(user?.sucursales || sedeUsuario || []).map((s) => s.nombre).filter(Boolean).join(', ') || '—'}
                 </span>
@@ -520,7 +549,7 @@ export default function Dashboard() {
       {/* Sidebar Menu */}
       <aside className={`sidebar-menu ${menuOpen ? 'open' : ''}`}>
         <nav className="menu-nav">
-          {menuItems.map((item, index) => {
+          {menuItems.filter((item) => !HIDE_SUCURSALES_UI || item.vista !== 'sucursales').map((item, index) => {
             const IconComponent = item.Icon;
             const active = isMenuItemActive(item);
             return (
@@ -646,8 +675,11 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {vistaActual === 'ofertas-afines' && (
+        {vistaActual === 'oportunidades-practica' && (
           <OfertasAfines />
+        )}
+        {vistaActual === 'oportunidades-monitoria' && (
+          <OfertasMonitoria />
         )}
         {vistaActual === 'mis-aplicaciones' && (
           <MisAplicaciones />
@@ -660,11 +692,31 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {vistaActual === 'monitorias' && (
+        {/* Legalizaciones de monitorías: estudiante ve sus aceptadas y su detalle; admin ve listado y revisión (otro componente) */}
+        {vistaActual === 'monitorias' && isEstudiante && <LegalizacionesMonitorias />}
+        {vistaActual === 'monitorias' && !isEstudiante && <AdminLegalizacionMonitorias />}
+        {vistaActual === 'monitorias-detalle' && isEstudiante && (
+          <DetalleLegalizacionMTM onVolver={() => navigate('/dashboard/monitorias')} />
+        )}
+        {vistaActual === 'monitorias-detalle' && !isEstudiante && (
           <div className="dashboard-content">
             <div className="dashboard-welcome">
-              <h2>Legalizaciones de Monitorías</h2>
-              <p>Gestión de legalizaciones de monitorías. Esta sección estará disponible próximamente.</p>
+              <p>Use la vista de revisión desde el listado de legalizaciones.</p>
+              <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard/monitorias')}>Ir al listado</button>
+            </div>
+          </div>
+        )}
+        {vistaActual === 'monitorias-revision' && (
+          <AdminDetalleLegalizacionMTM onVolver={() => navigate('/dashboard/monitorias')} />
+        )}
+        {vistaActual === 'monitorias-plan' && isEstudiante && (
+          <PlanDeTrabajoMTM onVolver={() => navigate('/dashboard/monitorias')} />
+        )}
+        {vistaActual === 'monitorias-plan' && !isEstudiante && (
+          <div className="dashboard-content">
+            <div className="dashboard-welcome">
+              <p>El plan de trabajo se gestiona desde la vista del estudiante.</p>
+              <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard/monitorias')}>Ir al listado</button>
             </div>
           </div>
         )}

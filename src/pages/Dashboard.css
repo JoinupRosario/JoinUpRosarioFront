@@ -319,7 +319,7 @@
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding-bottom: 50px; /* Espacio del footer fijo */
+  padding-bottom: 180px !important; /* Espacio fijo para que el footer nunca tape contenido (plan de trabajo, etc.) */
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;

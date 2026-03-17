@@ -17,6 +17,9 @@ import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import '../styles/Users.css';
 
+/** Oculta visualmente asociar sedes y columna Sede; la lógica y datos se mantienen. */
+const HIDE_SUCURSALES_UI = true;
+
 const Users = ({ onVolver }) => {
   const { hasPermission } = useAuth();
   const canLUSU = hasPermission('LUSU');
@@ -598,7 +601,8 @@ const Users = ({ onVolver }) => {
                     <FiKey className="btn-icon" />
                     Asociar Programas
                   </button>
-                  <button
+                  {!HIDE_SUCURSALES_UI && (
+              <button
                     className="btn-association btn-campus"
                     onClick={() => abrirGestionSedes(usersAdministrativos.find(u => u._id === selectedUserId))}
                     title="Asociar Sede"
@@ -607,6 +611,7 @@ const Users = ({ onVolver }) => {
                     Asociar Sedes
                   </button>
                 </>
+              )}
               )}
             </div>
           </div>
@@ -635,7 +640,7 @@ const Users = ({ onVolver }) => {
                   <th>IDENTIFICACIÓN</th>
                   <th>USUARIO</th>
                   <th>ROLES</th>
-                  <th>SEDE</th>
+                  {!HIDE_SUCURSALES_UI && <th>SEDE</th>}
                   <th>CELULAR</th>
                   <th>ESTADO</th>
                 </tr>
@@ -675,11 +680,13 @@ const Users = ({ onVolver }) => {
                         )}
                       </div>
                     </td>
+                    {!HIDE_SUCURSALES_UI && (
                     <td>
                       {user.sucursales?.length > 0
                         ? user.sucursales.map((s) => s.nombre).filter(Boolean).join(', ')
                         : (user.sucursal?.nombre || '-')}
                     </td>
+                    )}
                     <td>{user.phone || '-'}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       {canCEUS ? (
@@ -1308,13 +1315,18 @@ const Users = ({ onVolver }) => {
     );
   };
 
+  // Si sedes está oculto y por estado se llegó a 'sedes', volver a buscar
+  useEffect(() => {
+    if (HIDE_SUCURSALES_UI && vistaActual === 'sedes') setVistaActual('buscar');
+  }, [HIDE_SUCURSALES_UI, vistaActual]);
+
   return (
     <>
       {vistaActual === 'buscar' && renderBuscarUsuario()}
       {vistaActual === 'crear' && renderCrearUsuario()}
       {vistaActual === 'roles' && renderGestionRoles()}
       {vistaActual === 'programas' && renderGestionProgramas()}
-      {vistaActual === 'sedes' && renderGestionSedes()}
+      {vistaActual === 'sedes' && !HIDE_SUCURSALES_UI && renderGestionSedes()}
     </>
   );
 };

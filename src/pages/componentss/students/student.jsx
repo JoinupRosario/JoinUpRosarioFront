@@ -35,6 +35,9 @@ const ESTADOS_TABS = [
 
 const PAGE_SIZE = 15;
 
+/** Oculta visualmente el campo Sede al traer de UXXI; filtros y API se mantienen. */
+const HIDE_SUCURSALES_UI = true;
+
 const createAlert = (icon, title, text, confirmButtonText = 'Aceptar') =>
   Swal.fire({ icon, title, text, confirmButtonText, confirmButtonColor: '#c41e3a', background: '#fff', color: '#333' });
 
@@ -182,7 +185,7 @@ const Student = ({ onVolver }) => {
   // Lanzar el proceso de preview (SFTP + OSB + reglas)
   const handleBuscarYCargar = useCallback(async () => {
     const camposFaltantes = [
-      !filtros.sede         && 'Sede',
+      !HIDE_SUCURSALES_UI && !filtros.sede && 'Sede',
       !filtros.programa     && 'Programa',
       !filtros.periodo      && 'Periodo académico',
       !filtros.tipoPractica && 'Tipo de práctica',
@@ -541,7 +544,8 @@ const Student = ({ onVolver }) => {
               <div className="uxxi-modal-body">
                 <div className="uxxi-filters-grid">
 
-                  {/* Sede */}
+                  {/* Sede: oculto visualmente; filtros.sede y API se mantienen */}
+                  {!HIDE_SUCURSALES_UI && (
                   <div className="uxxi-field">
                     <label className="uxxi-label">Sede</label>
                     <select className="uxxi-select" value={filtros.sede} onChange={e => setFiltros(f => ({ ...f, sede: e.target.value }))}>
@@ -552,6 +556,7 @@ const Student = ({ onVolver }) => {
                     </select>
                     {sedes.length === 0 && <span className="uxxi-field-hint">Sin sedes disponibles</span>}
                   </div>
+                  )}
 
                   {/* Nivel */}
                   <div className="uxxi-field">
