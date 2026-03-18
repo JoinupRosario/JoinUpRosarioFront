@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import { FiUsers, FiX, FiSend, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
 import api from '../../services/api';
@@ -25,6 +26,7 @@ function getStatusTextColor(estado) {
 }
 
 export default function OfertasAfines() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [opportunities, setOpportunities] = useState([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -39,6 +41,9 @@ export default function OfertasAfines() {
   const [submittingAplicar, setSubmittingAplicar] = useState(false);
   const [postulantId, setPostulantId] = useState(null);
   const [showConfirmacionAplicar, setShowConfirmacionAplicar] = useState(false);
+  const [errorAplicar, setErrorAplicar] = useState('');
+  const [yaConfirmadoPractica, setYaConfirmadoPractica] = useState(false);
+  const [loadingEstadoPostulante, setLoadingEstadoPostulante] = useState(true);
   const applyingToIdRef = useRef(null);
 
   const loadOfertas = async (page = 1) => {
@@ -62,8 +67,25 @@ export default function OfertasAfines() {
   };
 
   useEffect(() => {
-    loadOfertas(currentPage);
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get('/opportunities/mis-postulaciones');
+        if (!cancelled && data?.tieneAceptadaDefinitivaGlobal === true) {
+          setYaConfirmadoPractica(true);
+        }
+      } catch (e) {
+        if (!cancelled && e?.response?.status !== 403) console.error('Error estado postulante', e);
+      } finally {
+        if (!cancelled) setLoadingEstadoPostulante(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!loadingEstadoPostulante && !yaConfirmadoPractica) loadOfertas(currentPage);
+  }, [loadingEstadoPostulante, yaConfirmadoPractica]);
 
   const openDetalle = async (oportunidad) => {
     setLoadingDetalle(true);
@@ -80,6 +102,7 @@ export default function OfertasAfines() {
 
   const openModalAplicar = async () => {
     if (!detalle || detalle.estado !== 'Activa') return;
+    setErrorAplicar('');
     setShowModalAplicar(true);
     setSelectedVersionId('');
     setProfiles([]);
@@ -131,7 +154,7 @@ export default function OfertasAfines() {
       setShowConfirmacionAplicar(true);
     } catch (e) {
       const msg = e.response?.data?.message || e.message || 'Error al enviar la postulación';
-      alert(msg);
+      setErrorAplicar(msg);
     } finally {
       setSubmittingAplicar(false);
       applyingToIdRef.current = null;
@@ -144,24 +167,49 @@ export default function OfertasAfines() {
     loadOfertas(currentPage);
   };
 
+  const closeModalAplicar = () => {
+    if (submittingAplicar) return;
+    setErrorAplicar('');
+    setShowModalAplicar(false);
+  };
+
   return (
     <div className="dashboard-content">
       <div className="dashboard-welcome ofertas-afines-welcome">
-        <button
-          type="button"
-          className="ofertas-afines-refresh-btn ofertas-afines-refresh-btn--welcome"
-          onClick={() => loadOfertas(currentPage)}
-          disabled={loading}
-          title="Actualizar lista de ofertas"
-        >
-          <FiRefreshCw size={18} className={loading ? 'ofertas-afines-refresh-btn__icon--spin' : ''} />
-          <span>Refrescar</span>
-        </button>
+        {!yaConfirmadoPractica && (
+          <button
+            type="button"
+            className="ofertas-afines-refresh-btn ofertas-afines-refresh-btn--welcome"
+            onClick={() => loadOfertas(currentPage)}
+            disabled={loading}
+            title="Actualizar lista de ofertas"
+          >
+            <FiRefreshCw size={18} className={loading ? 'ofertas-afines-refresh-btn__icon--spin' : ''} />
+            <span>Refrescar</span>
+          </button>
+        )}
         <h2>Prácticas y Pasantías</h2>
         <p>Ofertas que coinciden con tu periodo y programa autorizados.</p>
       </div>
 
-      {loading ? (
+      {loadingEstadoPostulante ? (
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <p>Comprobando tu estado...</p>
+        </div>
+      ) : yaConfirmadoPractica ? (
+        <div className="empty-state ofertas-afines-empty ofertas-afines-ya-confirmado">
+          <p><strong>Ya tienes una práctica confirmada.</strong></p>
+          <p>No puedes postularte a más oportunidades. Debes responder o gestionar tu postulación actual antes de aplicar a otras.</p>
+          <button
+            type="button"
+            className="ofertas-afines-refresh-btn ofertas-afines-refresh-btn--empty"
+            onClick={() => navigate('/dashboard/mis-aplicaciones')}
+          >
+            Ver mis aplicaciones
+          </button>
+        </div>
+      ) : loading ? (
         <div className="loading-container">
           <div className="loading-spinner" />
           <p>Cargando ofertas...</p>
@@ -292,11 +340,11 @@ export default function OfertasAfines() {
 
       {/* Modal selección hoja de vida para aplicar */}
       {showModalAplicar && (
-        <div className="modal-overlay" onClick={() => !submittingAplicar && setShowModalAplicar(false)}>
+        <div className="modal-overlay" onClick={closeModalAplicar}>
           <div className="modal-content ofertas-afines-aplicar-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ofertas-afines-aplicar-modal__header">
               <h3 className="ofertas-afines-aplicar-modal__title">Aplicar con hoja de vida</h3>
-              <button type="button" className="ofertas-afines-aplicar-modal__close" onClick={() => !submittingAplicar && setShowModalAplicar(false)} aria-label="Cerrar">
+              <button type="button" className="ofertas-afines-aplicar-modal__close" onClick={closeModalAplicar} aria-label="Cerrar">
                 <FiX size={22} />
               </button>
             </div>
@@ -334,8 +382,11 @@ export default function OfertasAfines() {
                       );
                     })}
                   </ul>
+                  {errorAplicar && (
+                    <p className="ofertas-afines-aplicar-modal__error" role="alert">{errorAplicar}</p>
+                  )}
                   <div className="ofertas-afines-aplicar-modal__footer">
-                    <button type="button" className="ofertas-afines-aplicar-modal__btn ofertas-afines-aplicar-modal__btn--secondary" onClick={() => setShowModalAplicar(false)} disabled={submittingAplicar}>
+                    <button type="button" className="ofertas-afines-aplicar-modal__btn ofertas-afines-aplicar-modal__btn--secondary" onClick={closeModalAplicar} disabled={submittingAplicar}>
                       Cancelar
                     </button>
                     <button

@@ -313,13 +313,13 @@
   transition: opacity 0.3s;
 }
 
-/* Main Content: padding-bottom para que el contenido no quede oculto tras el footer fijo */
+/* Main Content: padding-bottom mínimo para que el contenido no quede oculto tras el footer fijo (50px) */
 .dashboard-main {
   flex: 1;
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding-bottom: 180px !important; /* Espacio fijo para que el footer nunca tape contenido (plan de trabajo, etc.) */
+  padding-bottom: 60px; /* Solo lo necesario: altura del footer + pequeño margen */
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -327,6 +327,7 @@
   flex-direction: column;
   min-height: 0; /* Permite que el flex funcione correctamente */
   height: calc(100vh - 70px - 50px); /* Altura fija para el scroll */
+  background-color: #f8fafc; /* Mismo fondo que dashboard-content para que no se vea franja gris */
 }
 
 /* Dashboard Content */

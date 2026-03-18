@@ -376,10 +376,10 @@ export default function Oportunidades({ onVolver }) {
     }
   };
 
-  // Actualizar descripción del tipo de vinculación cuando cambia el valor seleccionado
+  // Actualizar descripción del tipo de vinculación cuando cambia el valor seleccionado (valor = _id del ítem)
   useEffect(() => {
     if (formData.tipoVinculacion && linkageTypes.length > 0) {
-      const selectedLinkage = linkageTypes.find(linkage => linkage.value === formData.tipoVinculacion);
+      const selectedLinkage = linkageTypes.find(linkage => String(linkage._id) === String(formData.tipoVinculacion));
       setSelectedLinkageDescription(selectedLinkage?.description || '');
     } else {
       setSelectedLinkageDescription('');
@@ -389,7 +389,7 @@ export default function Oportunidades({ onVolver }) {
   // Actualizar descripción del tipo de vinculación en modo edición
   useEffect(() => {
     if (editFormData?.tipoVinculacion && linkageTypes.length > 0) {
-      const selectedLinkage = linkageTypes.find(linkage => linkage.value === editFormData.tipoVinculacion);
+      const selectedLinkage = linkageTypes.find(linkage => String(linkage._id) === String(editFormData.tipoVinculacion));
       setSelectedLinkageDescription(selectedLinkage?.description || '');
     } else if (!editFormData?.tipoVinculacion) {
       setSelectedLinkageDescription('');
@@ -786,9 +786,9 @@ export default function Oportunidades({ onVolver }) {
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // Manejo especial para tipo de vinculación - actualizar descripción
+    // Manejo especial para tipo de vinculación - actualizar descripción (value = _id del ítem)
     if (name === 'tipoVinculacion') {
-      const selectedLinkage = linkageTypes.find(linkage => linkage.value === value);
+      const selectedLinkage = linkageTypes.find(linkage => String(linkage._id) === String(value));
       setSelectedLinkageDescription(selectedLinkage?.description || '');
       setFormData(prev => ({
         ...prev,
@@ -1680,8 +1680,15 @@ export default function Oportunidades({ onVolver }) {
     });
   };
 
-  // Función para obtener el texto del tipo de vinculación
+  // Función para obtener el texto del tipo de vinculación (objeto Item poblado, _id o valor legacy)
   const getTipoVinculacionText = (tipo) => {
+    if (!tipo) return '';
+    if (typeof tipo === 'object' && tipo.value) return tipo.value;
+    const id = typeof tipo === 'object' && tipo._id ? tipo._id : tipo;
+    if (linkageTypes.length && id) {
+      const item = linkageTypes.find(l => String(l._id) === String(id));
+      if (item) return item.value;
+    }
     const tipos = {
       'contrato_laboral_nomina': 'Contrato laboral por nómina',
       'contrato_aprendizaje': 'Contrato de aprendizaje',
@@ -1690,7 +1697,7 @@ export default function Oportunidades({ onVolver }) {
       'acuerdo_vinculacion': 'Acuerdo de vinculación',
       'otro_documento': 'Otro documento'
     };
-    return tipos[tipo] || tipo;
+    return tipos[id] || id || '';
   };
 
   // Función para obtener el texto de dedicación
@@ -1711,7 +1718,7 @@ export default function Oportunidades({ onVolver }) {
       auxilioEconomico: opp.auxilioEconomico || false,
       requiereConfidencialidad: opp.requiereConfidencialidad || false,
       apoyoEconomico: opp.apoyoEconomico ? opp.apoyoEconomico.toString() : '',
-      tipoVinculacion: opp.tipoVinculacion || '',
+      tipoVinculacion: (opp.tipoVinculacion && typeof opp.tipoVinculacion === 'object' && opp.tipoVinculacion._id) ? opp.tipoVinculacion._id : (opp.tipoVinculacion || ''),
       periodo: (opp.periodo && typeof opp.periodo === 'object' && opp.periodo._id) ? opp.periodo._id : (opp.periodo || ''),
       vacantes: opp.vacantes ? opp.vacantes.toString() : '',
       fechaVencimiento: opp.fechaVencimiento ? new Date(opp.fechaVencimiento).toISOString().split('T')[0] : '',
@@ -2314,7 +2321,7 @@ export default function Oportunidades({ onVolver }) {
                   >
                     <option value="">Seleccionar</option>
                     {linkageTypes.map(linkage => (
-                      <option key={linkage._id} value={linkage.value}>
+                      <option key={linkage._id} value={linkage._id}>
                         {linkage.value}
                       </option>
                     ))}
@@ -3575,7 +3582,7 @@ export default function Oportunidades({ onVolver }) {
                 >
                   <option value="">Seleccionar</option>
                   {linkageTypes.map(linkage => (
-                    <option key={linkage._id} value={linkage.value}>
+                    <option key={linkage._id} value={linkage._id}>
                       {linkage.value}
                     </option>
                   ))}
@@ -4083,9 +4090,9 @@ export default function Oportunidades({ onVolver }) {
   const handleEditFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // Manejo especial para tipo de vinculación - actualizar descripción
+    // Manejo especial para tipo de vinculación - actualizar descripción (value = _id del ítem)
     if (name === 'tipoVinculacion') {
-      const selectedLinkage = linkageTypes.find(linkage => linkage.value === value);
+      const selectedLinkage = linkageTypes.find(linkage => String(linkage._id) === String(value));
       setSelectedLinkageDescription(selectedLinkage?.description || '');
       setEditFormData(prev => ({
         ...prev,
@@ -5345,7 +5352,7 @@ export default function Oportunidades({ onVolver }) {
                 >
                   <option value="">Seleccionar</option>
                   {linkageTypes.map(linkage => (
-                    <option key={linkage._id} value={linkage.value}>
+                    <option key={linkage._id} value={linkage._id}>
                       {linkage.value}
                     </option>
                   ))}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
 import '../styles/Oportunidades.css';
@@ -27,6 +28,7 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
   const [tabActiva, setTabActiva] = useState('datos');
   const [previewPdf, setPreviewPdf] = useState({ open: false, url: null, title: '' });
   const [deletingDoc, setDeletingDoc] = useState(null);
+  const [asistenciaLink, setAsistenciaLink] = useState('');
 
   useEffect(() => {
     if (!postulacionId) return;
@@ -226,6 +228,58 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
       .finally(() => setDeletingDoc(null));
   };
 
+  const handleObtenerLinkAsistencia = async () => {
+    try {
+      const { data } = await api.get(`/oportunidades-mtm/legalizaciones/${postulacionId}/link-asistencia`);
+      const link = data?.link;
+      if (!link) return;
+      setAsistenciaLink(link);
+      await navigator.clipboard.writeText(link);
+      Swal.fire({ icon: 'success', title: 'Link copiado', text: 'El link de asistencia se copió al portapapeles.', confirmButtonColor: '#c41e3a' });
+    } catch (e) {
+      const msg = e.response?.data?.message || 'No se pudo obtener el link de asistencia.';
+      Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#c41e3a' });
+    }
+  };
+
+  const handleExportarReporteAsistencia = async () => {
+    try {
+      const { data } = await api.get(`/oportunidades-mtm/legalizaciones/${postulacionId}/reporte-asistencia`);
+      const list = data?.data ?? [];
+      if (!list.length) {
+        Swal.fire({ icon: 'warning', title: 'Sin registros', text: 'No hay asistencias registradas para exportar.', confirmButtonColor: '#c41e3a' });
+        return;
+      }
+      const headers = [
+        'Código monitoría', 'Nombre y apellido monitor', 'Identificación monitor', 'Correo monitor',
+        'Nombre y apellido coordinador', 'Periodo académico', 'Nombre actividad',
+        'Nombres estudiante', 'Apellidos estudiante', 'Identificación estudiante', 'Programa estudiante', 'Fecha diligenciamiento',
+      ];
+      const rows = list.map((row) => [
+        row.codigoMonitoria ?? '',
+        row.nombreApellidoMonitor ?? '',
+        row.identificacionMonitor ?? '',
+        row.correoMonitor ?? '',
+        row.nombreApellidoCoordinador ?? '',
+        row.periodoAcademico ?? '',
+        row.nombreActividad ?? '',
+        row.nombresEstudiante ?? '',
+        row.apellidosEstudiante ?? '',
+        row.identificacionEstudiante ?? '',
+        row.programaEstudiante ?? '',
+        row.fechaDiligenciamiento ? new Date(row.fechaDiligenciamiento).toLocaleString('es-CO') : '',
+      ]);
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Asistencia MTM');
+      XLSX.writeFile(wb, `asistencia_mtm_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      Swal.fire({ icon: 'success', title: 'Exportado', text: `Se exportaron ${list.length} registro(s).`, confirmButtonColor: '#c41e3a', timer: 1800, timerProgressBar: true });
+    } catch (e) {
+      const msg = e.response?.data?.message || 'No se pudo exportar el reporte de asistencia.';
+      Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#c41e3a' });
+    }
+  };
+
   if (loading) {
     return (
       <div className="dashboard-content">
@@ -361,11 +415,44 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
                 <dd>{oportunidad?.profesorResponsable?.user?.email ?? '—'}</dd>
                 <dt>Categoría</dt>
                 <dd>{oportunidad?.categoria?.value ?? oportunidad?.categoria?.description ?? '—'}</dd>
+                <dt>Número de horas a la semana</dt>
+                <dd>{oportunidad?.dedicacionHoras?.value ?? oportunidad?.dedicacionHoras?.description ?? '—'}</dd>
+                {(oportunidad?.limiteHoras != null && oportunidad.limiteHoras !== '') && (
+                  <>
+                    <dt>Límite de horas</dt>
+                    <dd>{oportunidad.limiteHoras}</dd>
+                  </>
+                )}
+                {(oportunidad?.centroCosto) && (
+                  <>
+                    <dt>Centro de costo</dt>
+                    <dd>{oportunidad.centroCosto}</dd>
+                  </>
+                )}
+                {(oportunidad?.codigoCPS) && (
+                  <>
+                    <dt>Código CPS</dt>
+                    <dd>{oportunidad.codigoCPS}</dd>
+                  </>
+                )}
                 <dt>Valor por hora</dt>
                 <dd>{oportunidad?.valorPorHora?.value ?? oportunidad?.valorPorHora?.description ?? '—'}</dd>
                 <dt>Asignaturas</dt>
                 <dd>{oportunidad?.asignaturas?.length ? oportunidad.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ') : '—'}</dd>
               </dl>
+              <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" className="btn-secondary" onClick={handleObtenerLinkAsistencia}>
+                  Obtener / Copiar link de asistencia
+                </button>
+                <button type="button" className="btn-secondary" onClick={handleExportarReporteAsistencia}>
+                  Exportar reporte de asistencia
+                </button>
+              </div>
+              {asistenciaLink && (
+                <p style={{ marginTop: 10, fontSize: 12, color: '#6b7280', wordBreak: 'break-all' }}>
+                  Link de asistencia: {asistenciaLink}
+                </p>
+              )}
             </section>
 
             <section className="legalizacion-mtm__section">

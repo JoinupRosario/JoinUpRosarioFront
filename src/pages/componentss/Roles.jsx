@@ -28,7 +28,9 @@ const Roles = ({ onVolver }) => {
   const [loading, setLoading] = useState(true);
   const [selectedRol, setSelectedRol] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
   const [filterEstado, setFilterEstado] = useState('todos');
+  const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, pages: 0 });
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -81,18 +83,33 @@ const Roles = ({ onVolver }) => {
     });
   };
 
-  // Cargar datos iniciales
+  // Debounce búsqueda (backend)
   useEffect(() => {
-    cargarRoles();
-    cargarPermisos();
-  }, []);
+    const t = setTimeout(() => setSearchDebounced(searchTerm.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
-  const cargarRoles = async () => {
+  // Cargar roles con búsqueda y paginación por backend
+  const cargarRoles = async (opts = {}) => {
     try {
       setLoading(true);
-      const response = await api.get('/roles');
+      const page = opts.page ?? pagination.page;
+      const limit = opts.limit ?? pagination.limit;
+      const params = {
+        page,
+        limit,
+        search: (opts.search ?? searchDebounced) || undefined,
+        estado: filterEstado === 'todos' ? undefined : filterEstado === 'activos' ? 'activos' : 'inactivos'
+      };
+      const response = await api.get('/roles', { params });
       if (response.data.success) {
         setRoles(response.data.data);
+        setPagination({
+          page: response.data.page ?? page,
+          limit: response.data.limit ?? limit,
+          total: response.data.total ?? 0,
+          pages: response.data.pages ?? 1
+        });
       }
     } catch (error) {
       console.error('Error al cargar roles:', error);
@@ -101,6 +118,14 @@ const Roles = ({ onVolver }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    cargarPermisos();
+  }, []);
+
+  useEffect(() => {
+    cargarRoles({ page: 1 });
+  }, [searchDebounced, filterEstado]);
 
   const cargarPermisos = async () => {
     try {
@@ -114,15 +139,14 @@ const Roles = ({ onVolver }) => {
     }
   };
 
-  // Filtrar roles
-  const rolesFiltrados = roles.filter(rol => {
-    const coincideNombre = rol.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-    const coincideEstado = filterEstado === 'todos' ||
-      (filterEstado === 'activos' && rol.estado) ||
-      (filterEstado === 'inactivos' && !rol.estado);
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > pagination.pages) return;
+    cargarRoles({ page: newPage });
+  };
 
-    return coincideNombre && coincideEstado;
-  });
+  const handleLimitChange = (newLimit) => {
+    cargarRoles({ page: 1, limit: Number(newLimit) });
+  };
 
   // Manejar creación/edición de rol
   const handleCrearRol = async (e) => {
@@ -244,7 +268,7 @@ const Roles = ({ onVolver }) => {
       });
 
       if (response.data.success) {
-        await showSuccess('Éxito', `Rol ${accion}do correctamente`);
+        await showSuccess('Éxito', nuevoEstado ? 'Rol activado correctamente.' : 'Rol desactivado correctamente.');
         cargarRoles();
       }
     } catch (error) {
@@ -372,21 +396,21 @@ const Roles = ({ onVolver }) => {
           </div>
         </div>
 
-        {/* Lista de Roles */}
+        {/* Lista de Roles (grid 2 columnas) */}
         <div className="roles-list">
           {loading ? (
             <div className="loading-container">
               <div className="loading-spinner"></div>
               <p>Cargando roles...</p>
             </div>
-          ) : rolesFiltrados.length === 0 ? (
+          ) : roles.length === 0 ? (
             <div className="empty-state">
               <HiOutlineKey className="empty-icon" />
               <h3>No se encontraron roles</h3>
-              <p>{roles.length === 0 ? 'No hay roles creados todavía.' : 'Intenta con otros términos de búsqueda.'}</p>
+              <p>{pagination.total === 0 ? 'No hay roles creados todavía.' : 'Intenta con otros términos de búsqueda o filtros.'}</p>
             </div>
           ) : (
-            rolesFiltrados.map(rol => (
+            roles.map(rol => (
               <div key={rol._id} className="role-item">
                 <div className="role-info">
                   <span className="role-name">{rol.nombre}</span>
@@ -457,6 +481,49 @@ const Roles = ({ onVolver }) => {
             ))
           )}
         </div>
+
+        {/* Paginación */}
+        {!loading && pagination.pages > 0 && (
+          <div className="roles-pagination">
+            <div className="roles-pagination-left">
+              <span>Mostrar:</span>
+              <select
+                value={pagination.limit}
+                onChange={(e) => handleLimitChange(e.target.value)}
+                className="roles-pagination-select"
+              >
+                <option value={6}>6</option>
+                <option value={12}>12</option>
+                <option value={24}>24</option>
+                <option value={48}>48</option>
+              </select>
+              <span className="roles-pagination-info">
+                Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
+              </span>
+            </div>
+            <div className="roles-pagination-right">
+              <button
+                type="button"
+                className="roles-pagination-btn"
+                disabled={pagination.page <= 1}
+                onClick={() => handlePageChange(pagination.page - 1)}
+              >
+                Anterior
+              </button>
+              <span className="roles-pagination-pages">
+                Página {pagination.page} de {pagination.pages}
+              </span>
+              <button
+                type="button"
+                className="roles-pagination-btn"
+                disabled={pagination.page >= pagination.pages}
+                onClick={() => handlePageChange(pagination.page + 1)}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

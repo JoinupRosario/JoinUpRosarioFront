@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
+import SeguimientosMTM from './SeguimientosMTM';
 import '../styles/Oportunidades.css';
 
 const DOC_FIELDS = [
@@ -30,6 +31,7 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [aprobandoPlan, setAprobandoPlan] = useState(false);
   const [rechazandoPlan, setRechazandoPlan] = useState(false);
+  const [planPreview, setPlanPreview] = useState({ open: false, url: null, title: '' });
 
   useEffect(() => {
     if (!postulacionId) return;
@@ -64,8 +66,10 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
         const url = window.URL.createObjectURL(res.data);
         const a = document.createElement('a');
         a.href = url;
-        a.download = cedulaAttachment.name || 'cedula.pdf';
+        a.download = (cedulaAttachment.name || 'cedula').replace(/[^a-zA-Z0-9._-]/g, '_') + '.pdf';
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       })
       .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo descargar.', confirmButtonColor: '#c41e3a' }));
@@ -83,19 +87,24 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
 
   const downloadDoc = async (tipo, fileName) => {
     try {
-      const { data } = await api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/documentos/${tipo}/url`);
-      if (data?.url) {
-        const a = document.createElement('a');
-        a.href = data.url;
-        a.download = fileName || `${tipo}.pdf`;
-        a.rel = 'noopener noreferrer';
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      const res = await api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/documentos/${tipo}/descarga`, { responseType: 'blob' });
+      const blob = res.data;
+      if (!blob || blob.size === 0) throw new Error('Archivo vacío');
+      const blobUrl = URL.createObjectURL(blob);
+      const name = (fileName || `${tipo}.pdf`).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
     } catch (e) {
-      Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo descargar.', confirmButtonColor: '#c41e3a' });
+      let msg = e.message || 'No se pudo descargar';
+      if (e.response?.data instanceof Blob) {
+        try { const j = JSON.parse(await e.response.data.text()); msg = j.message || msg; } catch { }
+      } else if (e.response?.data?.message) msg = e.response.data.message;
+      Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#c41e3a' });
     }
   };
 
@@ -185,6 +194,48 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   };
 
   const PLAN_ESTADO_LABEL = { borrador: 'Borrador', enviado_revision: 'Enviado a revisión', aprobado: 'Aprobado', rechazado: 'Rechazado' };
+
+  const descargarPDFPlan = (pt) => {
+    if (!pt) return;
+    const esc = (s) => (s || '').toString().replace(/</g, '&lt;');
+    const act = (pt.actividades || []).map((a) => ({
+      fecha: a.fecha ? new Date(a.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—',
+      tema: esc(a.tema),
+      estrategiasMetodologias: esc(a.estrategiasMetodologias).replace(/\n/g, '<br>'),
+    }));
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Plan de trabajo MTM</title>
+<style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#111;max-width:800px;margin:0 auto}h1{font-size:18px;color:#c41e3a;border-bottom:2px solid #c41e3a;padding-bottom:8px}h2{font-size:14px;margin-top:20px;color:#374151}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}th{background:#f3f4f6;font-weight:600}.grid{display:grid;grid-template-columns:180px 1fr;gap:6px 16px;margin-top:8px}.grid dt{margin:0;color:#6b7280}.grid dd{margin:0}.bloque{margin-top:12px}</style></head><body>
+<h1>Plan de trabajo — Monitoría académica</h1>
+<h2>Datos básicos de la MTM</h2>
+<dl class="grid">
+<dt>Facultad</dt><dd>${esc(pt.facultad)}</dd>
+<dt>Programa</dt><dd>${esc(pt.programa)}</dd>
+<dt>Asignatura / Área</dt><dd>${esc(pt.asignaturaArea)}</dd>
+<dt>Periodo</dt><dd>${esc(pt.periodo)}</dd>
+<dt>Profesor / Responsable</dt><dd>${esc(pt.profesorResponsable)}</dd>
+<dt>Código del monitor</dt><dd>${esc(pt.codigoMonitor)}</dd>
+<dt>Nombre del monitor</dt><dd>${esc(pt.nombreMonitor)}</dd>
+<dt>Teléfono</dt><dd>${esc(pt.telefono)}</dd>
+<dt>Correo institucional</dt><dd>${esc(pt.correoInstitucional)}</dd>
+</dl>
+<h2>Justificación</h2><div class="bloque">${(pt.justificacion || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
+<h2>Objetivo general</h2><div class="bloque">${(pt.objetivoGeneral || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
+<h2>Objetivos específicos</h2><div class="bloque">${(pt.objetivosEspecificos || '—').replace(/\n/g, '<br>').replace(/</g, '&lt;')}</div>
+<h2>Actividades</h2>
+<table><thead><tr><th>Fecha</th><th>Tema</th><th>Estrategias y actividades</th></tr></thead><tbody>
+${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.estrategiasMetodologias}</td></tr>`).join('') : '<tr><td colspan="3">—</td></tr>'}
+</tbody></table>
+<p style="margin-top:24px;font-size:11px;color:#6b7280">Documento generado el ${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.</p>
+</body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    setPlanPreview({ open: true, url, title: 'Plan de trabajo MTM' });
+  };
+
+  const closePlanPreview = () => {
+    if (planPreview.url) URL.revokeObjectURL(planPreview.url);
+    setPlanPreview({ open: false, url: null, title: '' });
+  };
 
   const aprobarPlanTrabajo = () => {
     setAprobandoPlan(true);
@@ -295,6 +346,13 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
                 Plan de trabajo
               </button>
             )}
+            <button
+              type="button"
+              className={`legalizacion-mtm__tab ${tabActiva === 'seguimientos' ? 'legalizacion-mtm__tab--active' : ''}`}
+              onClick={() => setTabActiva('seguimientos')}
+            >
+              Seguimientos
+            </button>
           </div>
 
           <div className="legalizacion-mtm__body">
@@ -317,6 +375,7 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
                     </dd>
                     <dt>Celular</dt><dd>{estudiante?.celular ?? '—'}</dd>
                     <dt>Dirección</dt><dd>{estudiante?.direccion ?? '—'}</dd>
+                    <dt>Zona de residencia</dt><dd>{estudiante?.zonaResidencia ?? '—'}</dd>
                     <dt>Localidad / Barrio</dt><dd>{estudiante?.localidadBarrio ?? '—'}</dd>
                     <dt>Facultad</dt><dd>{estudiante?.facultad ?? '—'}</dd>
                     <dt>Programa</dt><dd>{estudiante?.programa ?? '—'}</dd>
@@ -334,9 +393,34 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
                     <dt>Coordinador</dt><dd>{oportunidad?.profesorResponsable ? [oportunidad.profesorResponsable.nombres, oportunidad.profesorResponsable.apellidos].filter(Boolean).join(' ') : '—'}</dd>
                     <dt>Correo coordinador</dt><dd>{oportunidad?.profesorResponsable?.user?.email ?? '—'}</dd>
                     <dt>Categoría</dt><dd>{oportunidad?.categoria?.value ?? oportunidad?.categoria?.description ?? '—'}</dd>
+                    <dt>Número de horas a la semana</dt><dd>{oportunidad?.dedicacionHoras?.value ?? oportunidad?.dedicacionHoras?.description ?? '—'}</dd>
+                    {oportunidad?.limiteHoras != null && <><dt>Límite de horas</dt><dd>{oportunidad.limiteHoras}</dd></>}
+                    {oportunidad?.centroCosto && <><dt>Centro de costo</dt><dd>{oportunidad.centroCosto}</dd></>}
+                    {oportunidad?.codigoCPS && <><dt>Código CPS</dt><dd>{oportunidad.codigoCPS}</dd></>}
                     <dt>Valor por hora</dt><dd>{oportunidad?.valorPorHora?.value ?? oportunidad?.valorPorHora?.description ?? '—'}</dd>
                     <dt>Asignaturas</dt><dd>{oportunidad?.asignaturas?.length ? oportunidad.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ') : '—'}</dd>
                   </dl>
+                </section>
+                <section className="legalizacion-mtm__section">
+                  <h3 className="legalizacion-mtm__section-title">Link de asistencia</h3>
+                  <p className="legalizacion-mtm__hint">Un único link por MTM para todo el semestre. Compártalo con los estudiantes para que registren su asistencia a los espacios.</p>
+                  <button
+                    type="button"
+                    className="btn-guardar"
+                    onClick={() => {
+                      api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/link-asistencia`)
+                        .then((r) => {
+                          const urlToCopy = r.data?.link;
+                          if (!urlToCopy) return;
+                          navigator.clipboard.writeText(urlToCopy).then(() => {
+                            Swal.fire({ icon: 'success', title: 'Link copiado', text: 'El link de asistencia se copió al portapapeles.', confirmButtonColor: '#c41e3a' });
+                          }).catch(() => Swal.fire({ icon: 'info', title: 'Link de asistencia', text: urlToCopy, confirmButtonColor: '#c41e3a' }));
+                        })
+                        .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo obtener el link.', confirmButtonColor: '#c41e3a' }));
+                    }}
+                  >
+                    Obtener / Copiar link de asistencia
+                  </button>
                 </section>
               </div>
             )}
@@ -345,6 +429,31 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
               <section className="legalizacion-mtm__section legalizacion-mtm__section--docs">
                 <h3 className="legalizacion-mtm__section-title">Documentos cargados</h3>
                 <p className="legalizacion-mtm__hint">Descargue, revise y apruebe o rechace cada documento. Todos deben estar aprobados para poder aprobar la legalización.</p>
+                <div style={{ marginBottom: 12 }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={async () => {
+                      let count = 0;
+                      if (estudiante?.cedulaAttachment?.name) {
+                        descargarCedulaPerfil(estudiante.postulantId, estudiante.cedulaAttachment);
+                        count++;
+                        await new Promise((r) => setTimeout(r, 350));
+                      }
+                      const tipos = DOC_FIELDS.filter((f) => docs[f.key]?.key);
+                      for (let i = 0; i < tipos.length; i++) {
+                        const { tipo, key } = tipos[i];
+                        const doc = docs[key];
+                        await downloadDoc(tipo, doc?.originalName || `${key}.pdf`);
+                        count++;
+                        if (i < tipos.length - 1) await new Promise((r) => setTimeout(r, 350));
+                      }
+                      if (count > 0) Swal.fire({ icon: 'success', title: 'Descargas iniciadas', text: `${count} archivo(s) se están guardando en Descargas.`, confirmButtonColor: '#c41e3a', timer: 2500, timerProgressBar: true });
+                    }}
+                  >
+                    Descargar todos los documentos
+                  </button>
+                </div>
                 <div className="legalizacion-mtm__docs-list">
                   {DOC_FIELDS.map(({ key, label, tipo }) => {
                     const doc = docs[key];
@@ -397,6 +506,12 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
               </section>
             )}
 
+            {tabActiva === 'seguimientos' && (
+              <section className="legalizacion-mtm__section">
+                <SeguimientosMTM compact isAdmin />
+              </section>
+            )}
+
             {tabActiva === 'plan' && (
               <section className="legalizacion-mtm__section">
                 <h3 className="legalizacion-mtm__section-title">Plan de trabajo</h3>
@@ -410,6 +525,9 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
                       <span className={`legalizacion-mtm__estado legalizacion-mtm__estado--${planTrabajo.estado === 'aprobado' ? 'ok' : planTrabajo.estado === 'rechazado' ? 'error' : 'revision'}`}>
                         Estado: {PLAN_ESTADO_LABEL[planTrabajo.estado] ?? planTrabajo.estado}
                       </span>
+                      <button type="button" className="btn-secondary" onClick={() => descargarPDFPlan(planTrabajo)} title="Abre una ventana para imprimir o guardar como PDF">
+                        Descargar / Imprimir PDF
+                      </button>
                       {planEnRevision && (
                         <>
                           <button type="button" className="btn-secondary" onClick={rechazarPlanTrabajo} disabled={rechazandoPlan}>Rechazar plan</button>
@@ -451,6 +569,7 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
       )}
 
       <PdfPreviewModal open={previewPdf.open} onClose={() => setPreviewPdf({ open: false, url: null, title: '' })} title={previewPdf.title} url={previewPdf.url} />
+      <PdfPreviewModal open={planPreview.open} onClose={closePlanPreview} title={planPreview.title} url={planPreview.url} showPrintButton />
     </div>
   );
 }
