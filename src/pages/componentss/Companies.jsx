@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit, FiPlus, FiRefreshCw, FiSearch, FiTrash2 } from 'react-icons/fi';
@@ -131,6 +131,17 @@ export default function Companies({ onVolver }) {
   const [newDomainInput, setNewDomainInput] = useState('');
   const [emailDomainError, setEmailDomainError] = useState('');
   const [contactEmailDomainError, setContactEmailDomainError] = useState('');
+  /** Archivos elegidos en creación; se suben a S3 solo tras POST /companies exitoso */
+  const [pendingCompanyFiles, setPendingCompanyFiles] = useState({
+    logo: null,
+    chamberOfCommerceCertificate: null,
+    rutDocument: null,
+    agencyAccreditationDocument: null,
+  });
+  const refInputLogo = useRef(null);
+  const refInputCamara = useRef(null);
+  const refInputRut = useRef(null);
+  const refInputAgencia = useRef(null);
   // Estados para contactos
   const [contacts, setContacts] = useState([]);
   const [pendingContacts, setPendingContacts] = useState([]); // Contactos a crear al guardar (solo en creación)
@@ -143,6 +154,8 @@ export default function Companies({ onVolver }) {
     alternateEmail: '',
     country: '',
     countryCode: '',
+    state: '',
+    stateCode: '',
     city: '',
     address: '',
     phone: '',
@@ -172,18 +185,21 @@ export default function Companies({ onVolver }) {
   // Obtener países, estados y ciudades
   const countries = Country.getAllCountries();
   const statesForForm = form.countryCode ? State.getStatesOfCountry(form.countryCode) : [];
-  const citiesForForm = form.stateCode 
-    ? City.getCitiesOfState(form.countryCode, form.stateCode)
-    : form.countryCode 
-      ? City.getCitiesOfCountry(form.countryCode)
-      : [];
-  
+  /** Ciudades solo por departamento/estado; si el país no tiene estados en la librería, todas las ciudades del país. */
+  const citiesForForm =
+    form.countryCode && form.stateCode
+      ? City.getCitiesOfState(form.countryCode, form.stateCode)
+      : form.countryCode && statesForForm.length === 0
+        ? City.getCitiesOfCountry(form.countryCode)
+        : [];
+
   const statesForSede = nuevaSede.countryCode ? State.getStatesOfCountry(nuevaSede.countryCode) : [];
-  const citiesForSede = nuevaSede.stateCode 
-    ? City.getCitiesOfState(nuevaSede.countryCode, nuevaSede.stateCode)
-    : nuevaSede.countryCode 
-      ? City.getCitiesOfCountry(nuevaSede.countryCode)
-      : [];
+  const citiesForSede =
+    nuevaSede.countryCode && nuevaSede.stateCode
+      ? City.getCitiesOfState(nuevaSede.countryCode, nuevaSede.stateCode)
+      : nuevaSede.countryCode && statesForSede.length === 0
+        ? City.getCitiesOfCountry(nuevaSede.countryCode)
+        : [];
 
   const addProgram = () => {
     if (!newProgramLevel || !newProgramName) return;
@@ -459,6 +475,15 @@ export default function Companies({ onVolver }) {
     setEditingContact(null);
     setNitError('');
     setEmailDomainError('');
+    setPendingCompanyFiles({
+      logo: null,
+      chamberOfCommerceCertificate: null,
+      rutDocument: null,
+      agencyAccreditationDocument: null,
+    });
+    [refInputLogo, refInputCamara, refInputRut, refInputAgencia].forEach((r) => {
+      if (r.current) r.current.value = '';
+    });
     setVista('form');
   };
 
@@ -540,6 +565,15 @@ export default function Companies({ onVolver }) {
     setEmailDomainError('');
     setShowContactForm(false);
     setEditingContact(null);
+    setPendingCompanyFiles({
+      logo: null,
+      chamberOfCommerceCertificate: null,
+      rutDocument: null,
+      agencyAccreditationDocument: null,
+    });
+    [refInputLogo, refInputCamara, refInputRut, refInputAgencia].forEach((r) => {
+      if (r.current) r.current.value = '';
+    });
     setVista('form');
   };
 
@@ -557,6 +591,15 @@ export default function Companies({ onVolver }) {
     setEditingContact(null);
     setShowSedeForm(false);
     setEditingSedeIndex(null);
+    setPendingCompanyFiles({
+      logo: null,
+      chamberOfCommerceCertificate: null,
+      rutDocument: null,
+      agencyAccreditationDocument: null,
+    });
+    [refInputLogo, refInputCamara, refInputRut, refInputAgencia].forEach((r) => {
+      if (r.current) r.current.value = '';
+    });
     setNuevaSede({
       name: '',
       address: '',
@@ -597,6 +640,32 @@ export default function Companies({ onVolver }) {
       stateCode: '',
       city: ''
     });
+  };
+
+  const hasStoredCompanyFile = (val) =>
+    val != null && String(val).trim().length > 0;
+
+  const openCompanyDocument = async (companyId, field) => {
+    if (!companyId) return;
+    try {
+      const { data } = await api.get(`/companies/${companyId}/document/${field}`);
+      const url = data?.url;
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      else
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Documento',
+          text: data?.message || 'Sin enlace disponible',
+          confirmButtonColor: '#c41e3a',
+        });
+    } catch (e) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Documento',
+        text: e.response?.data?.message || 'No se pudo abrir el archivo. Verifique que S3 esté configurado.',
+        confirmButtonColor: '#c41e3a',
+      });
+    }
   };
 
   const saveSede = () => {
@@ -678,7 +747,6 @@ export default function Companies({ onVolver }) {
     if (allowedDomains.length > 0 && form.legalRepresentative?.email) {
       const emailDom = form.legalRepresentative.email.split('@')[1]?.toLowerCase();
       if (!emailDom || !allowedDomains.includes(emailDom)) {
-        setEmailDomainError(`El correo del representante legal debe ser de uno de los dominios: ${allowedDomains.join(', ')}`);
         await Swal.fire({
           icon: 'warning',
           title: 'Correo no permitido',
@@ -689,15 +757,25 @@ export default function Companies({ onVolver }) {
       }
     }
 
-    // Validar NIT Colombia cuando el tipo es NIT
+    // Validar NIT Colombia cuando el tipo es NIT (solo alerta Swal, sin mensaje fijo arriba del formulario)
     if (String(form.idType || '').toUpperCase() === 'NIT' && (form.idNumber || form.nit)) {
       const nitStr = String(form.idNumber || form.nit).replace(/\D/g, '');
       if (nitStr.length !== 10) {
-        setNitError('El NIT debe tener exactamente 10 dígitos (9 base + 1 dígito de verificación).');
+        await Swal.fire({
+          icon: 'warning',
+          title: 'NIT inválido',
+          text: 'El NIT debe tener exactamente 10 dígitos (9 base + 1 dígito de verificación).',
+          confirmButtonColor: '#c41e3a'
+        });
         return;
       }
       if (!validarNitColombia(nitStr)) {
-        setNitError('El dígito de verificación del NIT no es válido (algoritmo DIAN Colombia).');
+        await Swal.fire({
+          icon: 'warning',
+          title: 'NIT inválido',
+          text: 'El dígito de verificación del NIT no es válido (algoritmo DIAN Colombia).',
+          confirmButtonColor: '#c41e3a'
+        });
         return;
       }
     }
@@ -731,6 +809,7 @@ export default function Companies({ onVolver }) {
       }
     }
 
+    let filesUploadNote = '';
     try {
       let response;
       if (editing) {
@@ -739,7 +818,6 @@ export default function Companies({ onVolver }) {
         response = await api.post('/companies', formToSend);
         const newCompanyId = response.data?.data?._id || response.data?._id;
         if (newCompanyId) {
-          // Crear como contactos API a los que NO son el principal
           const legalRepAsContact = {
             firstName: form.legalRepresentative?.firstName || '',
             lastName: form.legalRepresentative?.lastName || '',
@@ -754,30 +832,66 @@ export default function Companies({ onVolver }) {
           for (const payload of toCreate) {
             await api.post(`/companies/${newCompanyId}/contacts`, payload);
           }
+          const { logo, chamberOfCommerceCertificate, rutDocument, agencyAccreditationDocument } = pendingCompanyFiles;
+          const hasFiles = !!(logo || chamberOfCommerceCertificate || rutDocument || agencyAccreditationDocument);
+          if (hasFiles) {
+            try {
+              const fd = new FormData();
+              if (logo) fd.append('logo', logo);
+              if (chamberOfCommerceCertificate) fd.append('chamberOfCommerceCertificate', chamberOfCommerceCertificate);
+              if (rutDocument) fd.append('rutDocument', rutDocument);
+              if (agencyAccreditationDocument) fd.append('agencyAccreditationDocument', agencyAccreditationDocument);
+              await api.post(`/companies/${newCompanyId}/initial-files`, fd);
+              filesUploadNote = ' Logo y documentos guardados en almacenamiento.';
+            } catch (upErr) {
+              console.error('Error subiendo archivos entidad', upErr);
+              filesUploadNote = ` ${upErr.response?.data?.message || 'No se pudieron subir los archivos. Puede editar la entidad e intentar de nuevo (o contacte a sistemas si S3 no está configurado).'}`;
+              await Swal.fire({
+                icon: 'warning',
+                title: 'Archivos',
+                text: upErr.response?.data?.message || 'La empresa y contactos se crearon, pero falló la subida de archivos.',
+                confirmButtonColor: '#c41e3a',
+              });
+            }
+            setPendingCompanyFiles({
+              logo: null,
+              chamberOfCommerceCertificate: null,
+              rutDocument: null,
+              agencyAccreditationDocument: null,
+            });
+            [refInputLogo, refInputCamara, refInputRut, refInputAgencia].forEach((r) => {
+              if (r.current) r.current.value = '';
+            });
+          }
         }
       }
       
       cancelForm();
       await loadCompanies();
+      const baseOk =
+        response.data?.message ||
+        (editing ? 'Empresa actualizada correctamente' : 'Empresa y contactos creados correctamente');
       await Swal.fire({
         icon: 'success',
         title: 'Éxito',
-        text: response.data?.message || (editing ? 'Empresa actualizada correctamente' : 'Empresa y contactos creados correctamente'),
+        text: baseOk + (filesUploadNote ? ` ${filesUploadNote}` : ''),
         confirmButtonText: 'Aceptar',
         confirmButtonColor: '#c41e3a'
       });
     } catch (error) {
       console.error('Error guardando empresa', error);
-      
-      // Obtener mensaje de error del backend
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          error.message || 
-                          'Error al guardar la empresa. Por favor verifique los datos e intente nuevamente.';
-      
+      const d = error.response?.data;
+      let errorMessage =
+        (typeof d?.message === 'string' && d.message) ||
+        (typeof d?.error === 'string' && d.error) ||
+        (Array.isArray(d?.errors) && d.errors.join('\n')) ||
+        (typeof d === 'string' ? d : '') ||
+        error.message ||
+        'Error al guardar la empresa. Por favor verifique los datos e intente nuevamente.';
+
       await Swal.fire({
         icon: 'error',
-        title: 'Error',
+        title: 'No se pudo guardar',
         text: errorMessage,
         confirmButtonText: 'Aceptar',
         confirmButtonColor: '#c41e3a'
@@ -949,12 +1063,21 @@ export default function Companies({ onVolver }) {
   
   const openContactForm = (contact = null, pendingIndex = undefined) => {
     if (contact) {
+      let sc = contact.stateCode || '';
+      if (!sc && contact.state && contact.countryCode) {
+        const found = State.getStatesOfCountry(contact.countryCode).find(
+          (s) => s.name === contact.state
+        );
+        sc = found?.isoCode || '';
+      }
       setContactForm({
         firstName: contact.firstName || '',
         lastName: contact.lastName || '',
         alternateEmail: contact.alternateEmail || '',
         country: contact.country || '',
         countryCode: contact.countryCode || '',
+        state: contact.state || '',
+        stateCode: sc,
         city: contact.city || '',
         address: contact.address || '',
         phone: contact.phone || '',
@@ -978,6 +1101,8 @@ export default function Companies({ onVolver }) {
         alternateEmail: '',
         country: '',
         countryCode: '',
+        state: '',
+        stateCode: '',
         city: '',
         address: '',
         phone: '',
@@ -1008,6 +1133,8 @@ export default function Companies({ onVolver }) {
       alternateEmail: '',
       country: '',
       countryCode: '',
+      state: '',
+      stateCode: '',
       city: '',
       address: '',
       phone: '',
@@ -1216,18 +1343,26 @@ export default function Companies({ onVolver }) {
     }
   };
 
-  // Variables para country-state-city del formulario de contacto
+  // Variables para country-state-city del formulario de contacto adicional
   const statesForContact = contactForm.countryCode ? State.getStatesOfCountry(contactForm.countryCode) : [];
-  const citiesForContact = contactForm.stateCode 
-    ? City.getCitiesOfState(contactForm.countryCode, contactForm.stateCode)
-    : contactForm.countryCode 
-      ? City.getCitiesOfCountry(contactForm.countryCode)
-      : [];
+  const citiesForContact =
+    contactForm.countryCode && contactForm.stateCode
+      ? City.getCitiesOfState(contactForm.countryCode, contactForm.stateCode)
+      : contactForm.countryCode && statesForContact.length === 0
+        ? City.getCitiesOfCountry(contactForm.countryCode)
+        : [];
+
+  const ciudadRepLegalDeshabilitada =
+    !form.countryCode || (statesForForm.length > 0 && !form.stateCode);
+  const ciudadContactoDeshabilitada =
+    !contactForm.countryCode || (statesForContact.length > 0 && !contactForm.stateCode);
+  const ciudadSedeDeshabilitada =
+    !nuevaSede.countryCode || (statesForSede.length > 0 && !nuevaSede.stateCode);
 
   if (vista === 'form') {
     const puedeGuardarEntidad = (editing && canEEMP) || (!editing && canCEMP);
     return (
-      <div className="companies-content">
+      <div className="companies-content companies-entity-form-root">
         <div className="companies-header">
           <div className="configuracion-actions">
             <button className="btn-volver" onClick={cancelForm}>
@@ -1319,10 +1454,25 @@ export default function Companies({ onVolver }) {
                 ))}
               </select>
             </div>
-            {/* Logo (opcional) */}
+            {/* Logo: solo se sube a S3 tras Guardar exitoso (creación) */}
             <div className="form-group">
               <label className="form-label">Logo</label>
-              <input className="form-input" type="file" onChange={(e)=>{/* manejo posterior de upload */}} />
+              {!editing ? (
+                <>
+                  <input
+                    ref={refInputLogo}
+                    className="form-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({ ...p, logo: e.target.files?.[0] || null }))
+                    }
+                  />
+                  <span className="entidad-hint-compact">JPG/PNG/GIF/WEBP. Se sube al guardar la entidad nueva.</span>
+                </>
+              ) : (
+                <span className="entidad-hint-compact">El logo se actualiza con la acción específica de la entidad (si aplica).</span>
+              )}
             </div>
             {/* Sector MinE (SNIES) (obligatorio) */}
             <div className="form-group">
@@ -1342,8 +1492,9 @@ export default function Companies({ onVolver }) {
               <input type="checkbox" checked={form.authorizeLogoUsage} onChange={e=>setForm({ ...form, authorizeLogoUsage: e.target.checked })} />
             </div>
             <div className="form-separator-line" />
-            {/* Sector Económico / Códigos CIIU: hasta 3 (selección múltiple, 5 dígitos DANE) */}
-            <div className="form-group full-width" style={{ position: 'relative' }}>
+            {/* CIIU + Misión y visión en una misma fila (2 columnas) */}
+            <div className="entidad-ciiu-mision-row">
+            <div className="entidad-ciiu-col" style={{ position: 'relative' }}>
               <label className="form-label">Códigos CIIU (Sector Económico) * — hasta 3</label>
               {(form.ciiuCodes && form.ciiuCodes.length > 0) && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
@@ -1458,20 +1609,25 @@ export default function Companies({ onVolver }) {
                 </>
               )}
               {(!form.ciiuCodes || form.ciiuCodes.length === 0) && (
-                <span className="form-hint" style={{ fontSize: 12, color: '#6b7280' }}>Seleccione al menos un código CIIU (máximo 3).</span>
+                <span className="form-hint entidad-hint-compact">Seleccione al menos un código CIIU (máx. 3).</span>
               )}
             </div>
-            <div className="form-separator-line" />
-            {/* Misión y Visión */}
-            <div className="form-group full-width">
+            <div className="entidad-mision-col">
               <label className="form-label">Misión y Visión</label>
-              <textarea className="form-input" rows={3} placeholder="Misión y Visión" value={form.missionVision} onChange={e=>setForm({ ...form, missionVision: e.target.value })} />
+              <textarea
+                className="form-input entidad-textarea-mision"
+                rows={5}
+                placeholder="Misión y visión de la entidad"
+                value={form.missionVision}
+                onChange={e=>setForm({ ...form, missionVision: e.target.value })}
+              />
+            </div>
             </div>
             <div className="form-separator-line" />
 
-            {/* Tamaño de la compañía */}
+            <div className="entidad-fila-tam-arl-dominios">
             <div className="form-group">
-              <label className="form-label">Tamaño de la compañía *</label>
+              <label className="form-label">Tamaño compañía *</label>
               <select
                 className="form-input"
                 value={form.size}
@@ -1486,12 +1642,10 @@ export default function Companies({ onVolver }) {
                 ))}
               </select>
             </div>
-            {/* Opera como Agencia (switch) */}
-            <div className="form-group">
-              <label className="form-label label-plain">¿Opera como Agencia, bolsa de empleo o Head Hunter?</label>
+            <div className="form-group entidad-checkbox-inline">
+              <label className="form-label label-plain entidad-lbl-compact">¿Agencia / bolsa / Head Hunter?</label>
               <input type="checkbox" checked={form.operatesAsAgency} onChange={e=>setForm({ ...form, operatesAsAgency: e.target.checked })} />
             </div>
-            {/* ARL */}
             <div className="form-group">
               <label className="form-label">ARL</label>
               <select className="form-input" value={form.arl} onChange={e=>setForm({ ...form, arl: e.target.value })}>
@@ -1503,29 +1657,13 @@ export default function Companies({ onVolver }) {
                 ))}
               </select>
             </div>
-            <div className="form-separator-line" />
-
-            {/* Dominios permitidos para correos de contactos */}
-            <div className="form-group full-width">
-              <label className="form-label">Dominios permitidos para correos de contactos</label>
-              <p className="form-hint" style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
-                Los correos de los contactos (representante legal y adicionales) deberán pertenecer a uno de estos dominios.
-              </p>
+            <div className="form-group entidad-dominios-inline">
+              <label className="form-label">Dominios correo (contactos)</label>
+              <span className="entidad-hint-compact">Correos R. legal y contactos deben usar estos dominios.</span>
               {(form.domains && form.domains.length > 0) && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                <div className="entidad-domain-tags">
                   {form.domains.map((d, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        padding: '4px 10px',
-                        background: '#e5e7eb',
-                        borderRadius: 6,
-                        fontSize: 13
-                      }}
-                    >
+                    <span key={idx} className="entidad-domain-tag">
                       {d}
                       <button
                         type="button"
@@ -1534,19 +1672,16 @@ export default function Companies({ onVolver }) {
                           setForm({ ...form, domains: newDomains, domain: form.domains[0] === d ? (form.domains[1] || '') : form.domain });
                           validateEmailDomain(form.legalRepresentative?.email, newDomains);
                         }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#6b7280', fontSize: 16 }}
                         aria-label="Quitar dominio"
-                      >
-                        ×
-                      </button>
+                      >×</button>
                     </span>
                   ))}
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="entidad-domain-add-row">
                 <input
                   className="form-input"
-                  placeholder="Ej: empresa.com (sin @)"
+                  placeholder="empresa.com"
                   value={newDomainInput}
                   onChange={e => setNewDomainInput(e.target.value.replace(/@/g, '').trim())}
                   onKeyDown={e => {
@@ -1560,11 +1695,10 @@ export default function Companies({ onVolver }) {
                       }
                     }
                   }}
-                  style={{ flex: 1 }}
                 />
                 <button
                   type="button"
-                  className="btn-volver"
+                  className="entidad-btn-add-domain"
                   onClick={() => {
                     const val = newDomainInput.trim();
                     if (val && !(form.domains || []).includes(val)) {
@@ -1574,26 +1708,112 @@ export default function Companies({ onVolver }) {
                       validateEmailDomain(form.legalRepresentative?.email, arr);
                     }
                   }}
-                  style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}
-                >
-                  Agregar dominio
-                </button>
+                >Agregar</button>
               </div>
+            </div>
             </div>
             <div className="form-separator-line" />
 
-            {/* Documentos */}
+            {/* Documentos: PDF o imagen; solo S3 tras creación exitosa */}
             <div className="form-group">
               <label className="form-label">Doc. Acreditación Agencia</label>
-              <input className="form-input" type="file" />
+              {!editing ? (
+                <>
+                  <input
+                    ref={refInputAgencia}
+                    className="form-input"
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({
+                        ...p,
+                        agencyAccreditationDocument: e.target.files?.[0] || null,
+                      }))
+                    }
+                  />
+                  <span className="entidad-hint-compact">PDF o imagen. Se sube al guardar.</span>
+                </>
+              ) : hasStoredCompanyFile(editing.agencyAccreditationDocument) ? (
+                <div className="entidad-doc-enlace">
+                  <button
+                    type="button"
+                    className="btn-doc-ver"
+                    onClick={() => openCompanyDocument(editing._id, 'agencyAccreditationDocument')}
+                  >
+                    Ver / descargar
+                  </button>
+                  <span className="entidad-hint-compact">
+                    {String(editing.agencyAccreditationDocument).split('/').pop()}
+                  </span>
+                </div>
+              ) : (
+                <span className="entidad-hint-compact">Sin archivo</span>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label">Certificado Cámara de Comercio</label>
-              <input className="form-input" type="file" />
+              {!editing ? (
+                <>
+                  <input
+                    ref={refInputCamara}
+                    className="form-input"
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({
+                        ...p,
+                        chamberOfCommerceCertificate: e.target.files?.[0] || null,
+                      }))
+                    }
+                  />
+                  <span className="entidad-hint-compact">PDF o imagen. Se sube al guardar.</span>
+                </>
+              ) : hasStoredCompanyFile(editing.chamberOfCommerceCertificate) ? (
+                <div className="entidad-doc-enlace">
+                  <button
+                    type="button"
+                    className="btn-doc-ver"
+                    onClick={() => openCompanyDocument(editing._id, 'chamberOfCommerceCertificate')}
+                  >
+                    Ver / descargar
+                  </button>
+                  <span className="entidad-hint-compact">
+                    {String(editing.chamberOfCommerceCertificate).split('/').pop()}
+                  </span>
+                </div>
+              ) : (
+                <span className="entidad-hint-compact">Sin archivo</span>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label">RUT</label>
-              <input className="form-input" type="file" />
+              {!editing ? (
+                <>
+                  <input
+                    ref={refInputRut}
+                    className="form-input"
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({ ...p, rutDocument: e.target.files?.[0] || null }))
+                    }
+                  />
+                  <span className="entidad-hint-compact">PDF o imagen. Se sube al guardar.</span>
+                </>
+              ) : hasStoredCompanyFile(editing.rutDocument) ? (
+                <div className="entidad-doc-enlace">
+                  <button
+                    type="button"
+                    className="btn-doc-ver"
+                    onClick={() => openCompanyDocument(editing._id, 'rutDocument')}
+                  >
+                    Ver / descargar
+                  </button>
+                  <span className="entidad-hint-compact">{String(editing.rutDocument).split('/').pop()}</span>
+                </div>
+              ) : (
+                <span className="entidad-hint-compact">Sin archivo</span>
+              )}
             </div>
             {/* Convenio prácticas (switch) */}
             <div className="form-group">
@@ -1760,9 +1980,10 @@ export default function Companies({ onVolver }) {
                 className="form-input"
                 value={form.city}
                 onChange={e => setForm({ ...form, city: e.target.value })}
-                disabled={!form.countryCode}
+                disabled={ciudadRepLegalDeshabilitada}
+                title={ciudadRepLegalDeshabilitada && statesForForm.length > 0 ? 'Seleccione primero el estado o departamento' : ''}
               >
-                <option value="">Seleccionar</option>
+                <option value="">{ciudadRepLegalDeshabilitada && statesForForm.length > 0 ? 'Primero seleccione estado…' : 'Seleccionar'}</option>
                 {citiesForForm.map(city => (
                   <option key={city.name} value={city.name}>
                     {city.name}
@@ -1782,57 +2003,57 @@ export default function Companies({ onVolver }) {
           </div>
 
           {/* Sección SEDES */}
-          <div className="sedes-section">
-            <div className="sedes-header">
-              <div className="sedes-tab-container">
-                <div className="sedes-tab">SEDES</div>
-                <div className="sedes-red-line"></div>
+          <div className="sedes-section entidad-sedes-wrap">
+            <div className="entidad-sedes-toolbar">
+              <div className="entidad-sedes-title-wrap">
+                <span className="entidad-sedes-title">Sedes</span>
+                <div className="entidad-sedes-line" />
               </div>
-              <button type="button" className="btn-agregar-sede" onClick={openSedeForm}>
-                <FiPlus className="btn-icon-small" />
+              <button type="button" className="entidad-btn-agregar-sede" onClick={openSedeForm}>
+                <FiPlus size={18} strokeWidth={2.5} />
                 Agregar sede
               </button>
             </div>
 
             {showSedeForm && (
-              <div className="sede-form-container">
-                <div className="form-grid">
+              <div className="sede-form-container entidad-sede-form-wrap">
+                <div className="entidad-sede-grid">
                   <div className="form-group">
-                    <label>Nombre Sede: *</label>
-                    <input 
-                      placeholder="Nombre" 
+                    <label>Nombre *</label>
+                    <input className="form-input"
+                      placeholder="Nombre sede" 
                       value={nuevaSede.name} 
                       onChange={e => setNuevaSede({ ...nuevaSede, name: e.target.value })} 
                       required 
                     />
                   </div>
                   <div className="form-group">
-                    <label>Teléfono Sede:</label>
-                    <input 
-                      placeholder="Teléfono" 
+                    <label>Teléfono</label>
+                    <input className="form-input"
+                      placeholder="Tel." 
                       value={nuevaSede.phone} 
                       onChange={e => setNuevaSede({ ...nuevaSede, phone: e.target.value })} 
                     />
                   </div>
                   <div className="form-group">
-                    <label>Dirección Sede:</label>
-                    <input 
-                      placeholder="Dirección" 
+                    <label>Dirección</label>
+                    <input className="form-input"
+                      placeholder="Dir." 
                       value={nuevaSede.address} 
                       onChange={e => setNuevaSede({ ...nuevaSede, address: e.target.value })} 
                     />
                   </div>
                   <div className="form-group">
-                    <label>Dominio Sede:</label>
-                    <input 
-                      placeholder="@xxxxx.xxx" 
+                    <label>Dominio</label>
+                    <input className="form-input"
+                      placeholder="@dominio.com" 
                       value={nuevaSede.domain} 
                       onChange={e => setNuevaSede({ ...nuevaSede, domain: e.target.value })} 
                     />
                   </div>
                   <div className="form-group">
-                    <label>País Sede:</label>
-                    <select 
+                    <label>País</label>
+                    <select className="form-input"
                       value={nuevaSede.countryCode} 
                       onChange={e => {
                         const selectedCountry = countries.find(c => c.isoCode === e.target.value);
@@ -1856,8 +2077,8 @@ export default function Companies({ onVolver }) {
                   </div>
                   {statesForSede.length > 0 && (
                     <div className="form-group">
-                      <label>Estado/Provincia Sede:</label>
-                      <select 
+                      <label>Estado / Depto.</label>
+                      <select className="form-input"
                         value={nuevaSede.stateCode} 
                         onChange={e => {
                           const selectedState = statesForSede.find(s => s.isoCode === e.target.value);
@@ -1879,13 +2100,14 @@ export default function Companies({ onVolver }) {
                     </div>
                   )}
                   <div className="form-group">
-                    <label>Ciudad Sede:</label>
-                    <select 
+                    <label>Ciudad</label>
+                    <select className="form-input"
                       value={nuevaSede.city} 
                       onChange={e => setNuevaSede({ ...nuevaSede, city: e.target.value })}
-                      disabled={!nuevaSede.countryCode}
+                      disabled={ciudadSedeDeshabilitada}
+                      title={ciudadSedeDeshabilitada && statesForSede.length > 0 ? 'Seleccione primero el estado' : ''}
                     >
-                      <option value="">Seleccionar</option>
+                      <option value="">{ciudadSedeDeshabilitada && statesForSede.length > 0 ? 'Primero estado…' : 'Seleccionar'}</option>
                       {citiesForSede.map(city => (
                         <option key={city.name} value={city.name}>
                           {city.name}
@@ -2133,12 +2355,12 @@ export default function Companies({ onVolver }) {
                 )}
               </div>
             ) : (
-              <form className="contact-form entity-form-container" onSubmit={saveContact}>
-                <h3 className="section-title">DATOS PERSONALES</h3>
-                <div className="form-grid">
+              <form className="contact-form entity-form-container entidad-contacto-form-compact" onSubmit={saveContact}>
+                <h3 className="section-title entidad-contact-sec">Datos personales y ubicación</h3>
+                <div className="form-grid entidad-contact-grid">
                   <div className="form-group">
                     <label>Nombres <span className="required">*</span></label>
-                    <input
+                    <input className="form-input"
                       placeholder="Nombres"
                       value={contactForm.firstName}
                       onChange={e => setContactForm({ ...contactForm, firstName: e.target.value })}
@@ -2147,7 +2369,7 @@ export default function Companies({ onVolver }) {
                   </div>
                   <div className="form-group">
                     <label>Apellidos <span className="required">*</span></label>
-                    <input
+                    <input className="form-input"
                       placeholder="Apellidos"
                       value={contactForm.lastName}
                       onChange={e => setContactForm({ ...contactForm, lastName: e.target.value })}
@@ -2155,8 +2377,8 @@ export default function Companies({ onVolver }) {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Correo Alterno</label>
-                    <input
+                    <label>Correo alterno</label>
+                    <input className="form-input"
                       type="email"
                       placeholder="email@dominio.com"
                       value={contactForm.alternateEmail}
@@ -2165,7 +2387,7 @@ export default function Companies({ onVolver }) {
                   </div>
                   <div className="form-group">
                     <label>País</label>
-                    <select
+                    <select className="form-input"
                       value={contactForm.countryCode}
                       onChange={e => {
                         const selectedCountry = countries.find(c => c.isoCode === e.target.value);
@@ -2173,6 +2395,8 @@ export default function Companies({ onVolver }) {
                           ...contactForm,
                           countryCode: e.target.value,
                           country: selectedCountry?.name || '',
+                          stateCode: '',
+                          state: '',
                           city: ''
                         });
                       }}
@@ -2185,14 +2409,39 @@ export default function Companies({ onVolver }) {
                       ))}
                     </select>
                   </div>
+                  {statesForContact.length > 0 && (
+                    <div className="form-group">
+                      <label>Estado / Depto.</label>
+                      <select className="form-input"
+                        value={contactForm.stateCode}
+                        onChange={e => {
+                          const selectedState = statesForContact.find(s => s.isoCode === e.target.value);
+                          setContactForm({
+                            ...contactForm,
+                            stateCode: e.target.value,
+                            state: selectedState?.name || '',
+                            city: ''
+                          });
+                        }}
+                      >
+                        <option value="">Seleccionar</option>
+                        {statesForContact.map(state => (
+                          <option key={state.isoCode} value={state.isoCode}>
+                            {state.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="form-group">
                     <label>Ciudad</label>
-                    <select
+                    <select className="form-input"
                       value={contactForm.city}
                       onChange={e => setContactForm({ ...contactForm, city: e.target.value })}
-                      disabled={!contactForm.countryCode}
+                      disabled={ciudadContactoDeshabilitada}
+                      title={ciudadContactoDeshabilitada && statesForContact.length > 0 ? 'Seleccione primero el estado' : ''}
                     >
-                      <option value="">Seleccionar</option>
+                      <option value="">{ciudadContactoDeshabilitada && statesForContact.length > 0 ? 'Primero estado…' : 'Seleccionar'}</option>
                       {citiesForContact.map(city => (
                         <option key={city.name} value={city.name}>
                           {city.name}
@@ -2201,8 +2450,8 @@ export default function Companies({ onVolver }) {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Dirección Entidad <span className="required">*</span></label>
-                    <input
+                    <label>Dirección <span className="required">*</span></label>
+                    <input className="form-input"
                       placeholder="Dirección"
                       value={contactForm.address}
                       onChange={e => setContactForm({ ...contactForm, address: e.target.value })}
@@ -2210,37 +2459,37 @@ export default function Companies({ onVolver }) {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Teléfono Entidad <span className="required">*</span></label>
-                    <input
-                      placeholder="Numero telefónico"
+                    <label>Teléfono <span className="required">*</span></label>
+                    <input className="form-input"
+                      placeholder="Tel."
                       value={contactForm.phone}
                       onChange={e => setContactForm({ ...contactForm, phone: e.target.value })}
                       required
                     />
                   </div>
                   <div className="form-group">
-                    <label>Extensión Entidad</label>
-                    <input
-                      placeholder="Número de extensión"
+                    <label>Ext.</label>
+                    <input className="form-input"
+                      placeholder="Ext."
                       value={contactForm.extension}
                       onChange={e => setContactForm({ ...contactForm, extension: e.target.value })}
                     />
                   </div>
                   <div className="form-group">
-                    <label>Celular Entidad</label>
-                    <input
-                      placeholder="Número de celular"
+                    <label>Celular</label>
+                    <input className="form-input"
+                      placeholder="Cel."
                       value={contactForm.mobile}
                       onChange={e => setContactForm({ ...contactForm, mobile: e.target.value })}
                     />
                   </div>
                 </div>
 
-                <h3 className="section-title">IDENTIFICACIÓN</h3>
-                <div className="form-grid">
+                <h3 className="section-title entidad-contact-sec">Usuario e identificación</h3>
+                <div className="form-grid entidad-contact-grid">
                   <div className="form-group">
-                    <label>Usuario <span className="required">*</span></label>
-                    <input
+                    <label>Usuario (correo) <span className="required">*</span></label>
+                    <input className="form-input"
                       type="email"
                       placeholder={((form.domains?.length ? form.domains : editing?.domains) || [])[0] ? `Ej: contacto@${(form.domains?.length ? form.domains : editing?.domains)[0]}` : 'email@dominio.com'}
                       value={contactForm.userEmail}
@@ -2258,8 +2507,8 @@ export default function Companies({ onVolver }) {
                     )}
                   </div>
                   <div className="form-group">
-                    <label>Tipo Identificación</label>
-                    <select
+                    <label>Tipo ID</label>
+                    <select className="form-input"
                       value={contactForm.idType}
                       onChange={e => setContactForm({ ...contactForm, idType: e.target.value })}
                     >
@@ -2272,52 +2521,52 @@ export default function Companies({ onVolver }) {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Identificación</label>
-                    <input
-                      placeholder="Número de identificación"
+                    <label>Nº identificación</label>
+                    <input className="form-input"
+                      placeholder="Número"
                       value={contactForm.identification}
                       onChange={e => setContactForm({ ...contactForm, identification: e.target.value })}
                     />
                   </div>
                 </div>
 
-                <h3 className="section-title">DATOS DE ENTIDAD</h3>
-                <div className="form-grid">
+                <h3 className="section-title entidad-contact-sec">Cargo y permisos</h3>
+                <div className="form-grid entidad-contact-grid">
                   <div className="form-group">
                     <label>Dependencia</label>
-                    <input
-                      placeholder="Dependencia dentro de la empresa"
+                    <input className="form-input"
+                      placeholder="Dependencia"
                       value={contactForm.dependency}
                       onChange={e => setContactForm({ ...contactForm, dependency: e.target.value })}
                     />
                   </div>
                   <div className="form-group">
                     <label>Cargo <span className="required">*</span></label>
-                    <input
-                      placeholder="Cargo dentro de la empresa"
+                    <input className="form-input"
+                      placeholder="Cargo"
                       value={contactForm.position}
                       onChange={e => setContactForm({ ...contactForm, position: e.target.value })}
                       required
                     />
                   </div>
-                  <div className="form-group">
-                    <label className="label-plain">¿Es usuario principal?</label>
+                  <div className="form-group entidad-checkbox-inline">
+                    <label className="label-plain entidad-lbl-compact">Usuario principal</label>
                     <input
                       type="checkbox"
                       checked={contactForm.isPrincipal}
                       onChange={e => setContactForm({ ...contactForm, isPrincipal: e.target.checked })}
                     />
                   </div>
-                  <div className="form-group">
-                    <label className="label-plain">Es tutor de práctica académica</label>
+                  <div className="form-group entidad-checkbox-inline">
+                    <label className="label-plain entidad-lbl-compact">Tutor práctica</label>
                     <input
                       type="checkbox"
                       checked={contactForm.isPracticeTutor}
                       onChange={e => setContactForm({ ...contactForm, isPracticeTutor: e.target.checked })}
                     />
                   </div>
-                  <div className="form-group">
-                    <label className="label-plain">Acepto y autorizo el tratamiento de mis datos personales <span className="required">*</span></label>
+                  <div className="form-group entidad-checkbox-inline entidad-contact-tratamiento">
+                    <label className="label-plain entidad-lbl-compact">Acepto tratamiento de datos <span className="required">*</span></label>
                     <input
                       type="checkbox"
                       checked={contactForm.acceptsDataProcessing}

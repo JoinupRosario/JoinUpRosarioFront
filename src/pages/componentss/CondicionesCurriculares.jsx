@@ -346,7 +346,22 @@ export default function CondicionesCurriculares({ onVolver }) {
       setShowModal(false);
       loadReglas(pagination.page);
     } catch (e) {
-      Swal.fire('Error', e.response?.data?.message || 'No se pudo guardar', 'error');
+      const data = e.response?.data;
+      const isDuplicado =
+        e.response?.status === 409 || data?.code === 'DUPLICADO_CONDICION_CURRICULAR';
+      if (isDuplicado) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Regla duplicada',
+          html:
+            data?.message ||
+            'Ya existe una regla con la misma parametrización (sin contar el nombre). Cambie periodo, facultad, programas, condiciones, lógica o asignaturas requeridas.',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#3b82f6',
+        });
+      } else {
+        Swal.fire('Error', data?.message || 'No se pudo guardar', 'error');
+      }
     } finally { setSaving(false); }
   };
 

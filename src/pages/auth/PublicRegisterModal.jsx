@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,12 @@ async function postPublicRegister(payload) {
   return data;
 }
 
+/** Registro con archivos: solo se suben a S3 en el servidor después de crear la empresa */
+async function postPublicRegisterWithFiles(formData) {
+  const { data } = await axios.post(`${API}/companies/public-register`, formData);
+  return data;
+}
+
 function emptyContact() {
   return { firstName: '', lastName: '', email: '', phone: '', position: '', isPracticeTutor: false };
 }
@@ -55,6 +62,7 @@ function emptyContact() {
 const STEPS = ['Empresa', 'Representante Legal', 'Contactos Adicionales', 'Confirmación'];
 
 const LS_KEY = 'public_register_draft';
+const MIN_DOC_BYTES = 1024 * 1024; // Cámara de comercio y RUT: mínimo 1 MB (HU)
 
 const COMPANY_EMPTY = {
   legalName: '', commercialName: '', idType: 'NIT', nit: '',
@@ -100,7 +108,6 @@ export default function PublicRegisterModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
 
   // Listas paramétricas
   const [sectors, setSectors] = useState([]);
@@ -135,6 +142,13 @@ export default function PublicRegisterModal({ open, onClose }) {
   const [extraContacts, setExtraContacts] = useState([]);
   const [mainContactIndex, setMainContactIndex] = useState(0); // 0 = representante legal, 1 = primer adicional, etc.
   const [hp, setHp] = useState('');
+  /** Logo + 3 documentos: no se suben hasta enviar el registro exitoso (backend crea empresa y luego S3) */
+  const [pubFiles, setPubFiles] = useState({
+    logo: null,
+    chamberOfCommerceCertificate: null,
+    rutDocument: null,
+    agencyAccreditationDocument: null,
+  });
 
   // ── Cargar parámetros ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -282,99 +296,161 @@ export default function PublicRegisterModal({ open, onClose }) {
   const removeContact = (i) => setExtraContacts(p => p.filter((_, idx) => idx !== i));
   const updateContact = (i, field, val) => setExtraContacts(p => p.map((c, idx) => idx === i ? { ...c, [field]: val } : c));
 
-  // ── Validación estricta por paso ──────────────────────────────────────────
-  const validate = () => {
-    setErrorMsg('');
-
-    if (step === 0) {
-      if (!company.legalName.trim())
-        return setErrorMsg('La razón social es requerida.'), false;
-      if (!company.nit.trim())
-        return setErrorMsg('El NIT / número de identificación es requerido.'), false;
+  // ── Validación por paso (retorna mensaje o null) — errores solo con SweetAlert ──
+  const validationErrorForStep = (s) => {
+    if (s === 0) {
+      if (!company.commercialName.trim()) return 'El nombre comercial es requerido.';
+      if (!company.legalName.trim()) return 'La razón social es requerida.';
+      if (!company.nit.trim()) return 'El NIT / número de identificación es requerido.';
       if (company.idType === 'NIT') {
         const nitClean = company.nit.replace(/\D/g, '');
         if (nitClean.length !== 10)
-          return setErrorMsg('El NIT debe tener exactamente 10 dígitos (9 base + 1 dígito de verificación DIAN).'), false;
+          return 'El NIT debe tener exactamente 10 dígitos (9 base + 1 dígito de verificación DIAN).';
         if (!validarNitDian(nitClean))
-          return setErrorMsg(`El dígito de verificación del NIT no es válido según el algoritmo de la DIAN. Verifica que el NIT esté completo incluyendo el dígito de verificación.`), false;
+          return 'El dígito de verificación del NIT no es válido según el algoritmo de la DIAN. Verifica que el NIT esté completo incluyendo el dígito de verificación.';
       }
-      if (!company.sector)
-        return setErrorMsg('El sector es requerido.'), false;
-      if (!company.size)
-        return setErrorMsg('El tamaño de la organización es requerido.'), false;
-      if (!company.city.trim())
-        return setErrorMsg('La ciudad es requerida.'), false;
+      if (!company.sector) return 'El sector es requerido.';
+      if (!String(company.sectorMineSnies || '').trim()) return 'El sector MinE (SNIES) es requerido.';
+      if (!company.size) return 'El tamaño de la organización es requerido.';
+      if (!company.city.trim()) return 'La ciudad es requerida.';
+      if (!company.ciiuCodes || company.ciiuCodes.length < 1)
+        return 'Debe seleccionar al menos un código CIIU (sector económico).';
     }
-
-    if (step === 1) {
-      if (!rep.firstName.trim())
-        return setErrorMsg('El nombre del representante legal es requerido.'), false;
-      if (!rep.lastName.trim())
-        return setErrorMsg('El apellido del representante legal es requerido.'), false;
-      if (!rep.idNumber.trim())
-        return setErrorMsg('El número de identificación del representante es requerido.'), false;
-      if (!rep.email.trim())
-        return setErrorMsg('El correo del representante legal es requerido.'), false;
+    if (s === 1) {
+      if (!rep.firstName.trim()) return 'El nombre del representante legal es requerido.';
+      if (!rep.lastName.trim()) return 'El apellido del representante legal es requerido.';
+      if (!rep.idNumber.trim()) return 'El número de identificación del representante es requerido.';
+      if (!rep.email.trim()) return 'El correo del representante legal es requerido.';
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rep.email))
-        return setErrorMsg('El correo del representante legal no tiene un formato válido.'), false;
-      if (!rep.phone.trim())
-        return setErrorMsg('El teléfono del representante legal es requerido.'), false;
-      if (!rep.city.trim())
-        return setErrorMsg('La ciudad del representante legal es requerida.'), false;
+        return 'El correo del representante legal no tiene un formato válido.';
+      if (!rep.phone.trim()) return 'El teléfono del representante legal es requerido.';
+      if (!rep.city.trim()) return 'La ciudad del representante legal es requerida.';
       if (company.domains.length > 0 && !emailMatchesDomains(rep.email, company.domains))
-        return setErrorMsg(`El correo debe pertenecer a uno de los dominios corporativos: ${company.domains.map(d => '@' + d).join(', ')}`), false;
+        return `El correo debe pertenecer a uno de los dominios corporativos: ${company.domains.map((d) => '@' + d).join(', ')}`;
     }
-
-    if (step === 2) {
+    if (s === 2) {
       if (extraContacts.length < 1)
-        return setErrorMsg('Debe agregar al menos un contacto adicional (además del representante legal). Por ejemplo, la persona de RRHH que gestiona prácticas.'), false;
+        return 'Debe agregar al menos un contacto adicional (además del representante legal). Por ejemplo, la persona de RRHH que gestiona prácticas.';
       for (let i = 0; i < extraContacts.length; i++) {
         const ec = extraContacts[i];
         if (!ec.firstName.trim() || !ec.lastName.trim())
-          return setErrorMsg(`El contacto adicional ${i + 1} requiere nombre y apellido.`), false;
+          return `El contacto adicional ${i + 1} requiere nombre y apellido.`;
         if (!ec.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ec.email))
-          return setErrorMsg(`El correo del contacto adicional ${i + 1} no tiene un formato válido.`), false;
+          return `El correo del contacto adicional ${i + 1} no tiene un formato válido.`;
         if (company.domains.length > 0 && !emailMatchesDomains(ec.email, company.domains))
-          return setErrorMsg(`El correo del contacto adicional ${i + 1} (${ec.email}) debe pertenecer a uno de los dominios: ${company.domains.map(d => '@' + d).join(', ')}`), false;
+          return `El correo del contacto adicional ${i + 1} (${ec.email}) debe pertenecer a uno de los dominios: ${company.domains.map((d) => '@' + d).join(', ')}`;
       }
     }
-
-    return true;
+    return null;
   };
 
-  const next = () => { if (validate()) { setErrorMsg(''); setStep(s => s + 1); } };
-  const back = () => { setErrorMsg(''); setStep(s => s - 1); };
+  const validationErrorDocuments = () => {
+    if (!pubFiles.chamberOfCommerceCertificate)
+      return 'Debe adjuntar el certificado de cámara de comercio.';
+    if (!pubFiles.rutDocument) return 'Debe adjuntar el documento RUT.';
+    if (pubFiles.chamberOfCommerceCertificate.size < MIN_DOC_BYTES)
+      return 'El certificado de cámara de comercio debe pesar al menos 1 MB.';
+    if (pubFiles.rutDocument.size < MIN_DOC_BYTES)
+      return 'El documento RUT debe pesar al menos 1 MB.';
+    return null;
+  };
+
+  const validationErrorAllBeforeSubmit = () => {
+    for (let s = 0; s <= 2; s++) {
+      const err = validationErrorForStep(s);
+      if (err) return err;
+    }
+    return validationErrorDocuments();
+  };
+
+  const swalWarn = (text) =>
+    Swal.fire({
+      icon: 'warning',
+      title: 'Revisa los datos',
+      text,
+      confirmButtonText: 'Aceptar',
+      confirmButtonColor: '#c41e3a',
+    });
+
+  const swalErr = (title, text) =>
+    Swal.fire({
+      icon: 'error',
+      title,
+      text,
+      confirmButtonText: 'Aceptar',
+      confirmButtonColor: '#c41e3a',
+    });
+
+  const next = async () => {
+    const err = validationErrorForStep(step);
+    if (err) {
+      await swalWarn(err);
+      return;
+    }
+    setStep((s) => s + 1);
+  };
+  const back = () => setStep((s) => s - 1);
 
   // ── Envío ─────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!validate()) return;
+    const vErr = validationErrorAllBeforeSubmit();
+    if (vErr) {
+      await swalWarn(vErr);
+      return;
+    }
     setSubmitting(true);
-    setErrorMsg('');
     try {
       const { ciiuCodesLabels, ...companyRest } = company;
-      const payload = {
-        ...companyRest,
-        legalRepresentative: {
-          firstName: rep.firstName,
-          lastName: rep.lastName,
-          idType: rep.idType,
-          idNumber: rep.idNumber,
-          email: rep.email,
-          phone: rep.phone,
-        },
-        country: rep.country || company.country,
-        city: rep.city || company.city,
-        address: rep.address || company.address,
-        phone: rep.phone || company.phone,
-        extraContacts: extraContacts.filter(c => c.firstName && c.lastName && c.email),
-        mainContactIndex: mainContactIndex, // 0 = representante legal, 1 = primer adicional, etc.
-        _hp: hp,
+      const legalRepresentative = {
+        firstName: rep.firstName,
+        lastName: rep.lastName,
+        idType: rep.idType,
+        idNumber: rep.idNumber,
+        email: rep.email,
+        phone: rep.phone,
       };
-      const data = await postPublicRegister(payload);
-      if (data.success) { clearDraft(); setSuccess(true); }
-      else setErrorMsg(data.message || 'Error al enviar el registro.');
+      const extraContactsFiltered = extraContacts.filter(c => c.firstName && c.lastName && c.email);
+
+      const fd = new FormData();
+      fd.append('legalName', companyRest.legalName || '');
+      fd.append('commercialName', companyRest.commercialName || '');
+      fd.append('idType', companyRest.idType || 'NIT');
+      fd.append('nit', String(companyRest.nit || '').replace(/\s/g, ''));
+      fd.append('sector', companyRest.sector || '');
+      fd.append('sectorMineSnies', companyRest.sectorMineSnies || '');
+      fd.append('size', companyRest.size || '');
+      fd.append('arl', companyRest.arl || '');
+      fd.append('ciiuCodes', JSON.stringify(companyRest.ciiuCodes || []));
+      fd.append('address', (rep.address || companyRest.address || '').trim());
+      fd.append('city', (rep.city || companyRest.city || '').trim());
+      fd.append('country', rep.country || companyRest.country || 'Colombia');
+      fd.append('website', companyRest.website || '');
+      fd.append('description', companyRest.description || '');
+      fd.append('domains', JSON.stringify(companyRest.domains || []));
+      fd.append('legalRepresentative', JSON.stringify(legalRepresentative));
+      fd.append('extraContacts', JSON.stringify(extraContactsFiltered));
+      fd.append('phone', (rep.phone || companyRest.phone || '').trim());
+      fd.append('_hp', hp || '');
+      if (pubFiles.logo) fd.append('logo', pubFiles.logo);
+      if (pubFiles.chamberOfCommerceCertificate) fd.append('chamberOfCommerceCertificate', pubFiles.chamberOfCommerceCertificate);
+      if (pubFiles.rutDocument) fd.append('rutDocument', pubFiles.rutDocument);
+      if (pubFiles.agencyAccreditationDocument) fd.append('agencyAccreditationDocument', pubFiles.agencyAccreditationDocument);
+
+      const data = await postPublicRegisterWithFiles(fd);
+      if (data.success) {
+        clearDraft();
+        setSuccess(true);
+        setPubFiles({ logo: null, chamberOfCommerceCertificate: null, rutDocument: null, agencyAccreditationDocument: null });
+      } else {
+        await swalErr('No se pudo registrar', data.message || 'Error al enviar el registro.');
+      }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error al enviar el registro. Intenta de nuevo.');
+      const msg =
+        err.response?.data?.message ||
+        (typeof err.response?.data === 'string' ? err.response.data : null) ||
+        err.message ||
+        'Error al enviar el registro. Intenta de nuevo.';
+      await swalErr('No se pudo registrar', msg);
     } finally {
       setSubmitting(false);
     }
@@ -425,8 +501,6 @@ export default function PublicRegisterModal({ open, onClose }) {
 
           {!loading && !success && (
             <>
-              {errorMsg && <div style={styles.errorBox}>{errorMsg}</div>}
-
               {/* ── PASO 0: Datos de la empresa ─────────────────────────── */}
               {step === 0 && (
                 <div>
@@ -435,8 +509,8 @@ export default function PublicRegisterModal({ open, onClose }) {
                     <Field label="Razón Social *">
                       <input style={styles.input} value={company.legalName} onChange={e => setC('legalName', e.target.value)} placeholder="Nombre jurídico completo" />
                     </Field>
-                    <Field label="Nombre Comercial">
-                      <input style={styles.input} value={company.commercialName} onChange={e => setC('commercialName', e.target.value)} placeholder="Nombre comercial o de marca" />
+                    <Field label="Nombre Comercial *">
+                      <input style={styles.input} value={company.commercialName} onChange={e => setC('commercialName', e.target.value)} placeholder="Nombre comercial o de marca" required />
                     </Field>
                   </Row>
                   <Row>
@@ -465,8 +539,8 @@ export default function PublicRegisterModal({ open, onClose }) {
                     </Field>
                   </Row>
                   <Row>
-                    <Field label="Sector MinE (SNIES)">
-                      <select style={styles.input} value={company.sectorMineSnies} onChange={e => setC('sectorMineSnies', e.target.value)}>
+                    <Field label="Sector MinE (SNIES) *">
+                      <select style={styles.input} value={company.sectorMineSnies} onChange={e => setC('sectorMineSnies', e.target.value)} required>
                         <option value="">Selecciona...</option>
                         {sectorMineList.map(s => <option key={s._id || s.value} value={s.value || s._id}>{s.label || s.value}</option>)}
                       </select>
@@ -478,7 +552,7 @@ export default function PublicRegisterModal({ open, onClose }) {
                       </select>
                     </Field>
                   </Row>
-                  <Field label={`Sector Económico — Código CIIU (máx. 3)${company.ciiuCodes.length > 0 ? ` — ${company.ciiuCodes.length} seleccionado(s)` : ''}`}>
+                  <Field label={`Sector económico (CIIU) * — al menos 1, máx. 3${company.ciiuCodes.length > 0 ? ` — ${company.ciiuCodes.length} seleccionado(s)` : ''}`}>
                     <div style={{ position: 'relative' }}>
                       <input
                         style={{ ...styles.input, ...(company.ciiuCodes.length >= 3 ? { background: '#f9f9f9', color: '#aaa' } : {}) }}
@@ -751,22 +825,20 @@ export default function PublicRegisterModal({ open, onClose }) {
                   <div style={styles.summaryBox}>
                     <p style={{ fontWeight: 700, color: '#c41e3a', marginBottom: 8, marginTop: 0 }}>Empresa</p>
                     <SummaryRow label="Razón Social" value={company.legalName} />
-                    <SummaryRow label="Nombre Comercial" value={company.commercialName || company.legalName} />
+                    <SummaryRow label="Nombre Comercial" value={company.commercialName} />
                     <SummaryRow label="Tipo ID" value={company.idType} />
                     <SummaryRow label="NIT / Identificación" value={company.nit} />
                     <SummaryRow label="Sector" value={company.sector} />
                     <SummaryRow label="Sector MinE (SNIES)" value={company.sectorMineSnies} />
                     <SummaryRow label="Tamaño" value={company.size} />
                     <SummaryRow label="ARL" value={company.arl} />
-                    {company.ciiuCodes.length > 0 && (
-                      <SummaryRow
-                        label="Códigos CIIU"
-                        value={company.ciiuCodes.map((c, idx) => {
-                          const label = (company.ciiuCodesLabels && company.ciiuCodesLabels[idx]) ? company.ciiuCodesLabels[idx] : '';
-                          return label ? `${c} — ${label}` : c;
-                        }).join('; ')}
-                      />
-                    )}
+                    <SummaryRow
+                      label="Códigos CIIU"
+                      value={company.ciiuCodes.map((c, idx) => {
+                        const label = (company.ciiuCodesLabels && company.ciiuCodesLabels[idx]) ? company.ciiuCodesLabels[idx] : '';
+                        return label ? `${c} — ${label}` : c;
+                      }).join('; ')}
+                    />
                     <SummaryRow label="País" value={company.country} />
                     {company.state && <SummaryRow label="Departamento" value={company.state} />}
                     <SummaryRow label="Ciudad" value={company.city} />
@@ -794,6 +866,53 @@ export default function PublicRegisterModal({ open, onClose }) {
                           ? `${extraContacts[mainContactIndex - 1].firstName} ${extraContacts[mainContactIndex - 1].lastName} (${extraContacts[mainContactIndex - 1].email})`
                           : '—'}
                     />
+                  </div>
+                  <div style={{ ...styles.summaryBox, marginTop: 14, textAlign: 'left' }}>
+                    <p style={{ fontWeight: 700, color: '#c41e3a', marginBottom: 8, marginTop: 0 }}>Documentos</p>
+                    <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 10 }}>
+                      Cámara de comercio y RUT son obligatorios (cada archivo mínimo 1 MB). PDF o imagen.
+                    </p>
+                    <Row>
+                      <Field label="Certificado cámara de comercio * (mín. 1 MB)">
+                        <input
+                          type="file"
+                          accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                          style={styles.input}
+                          onChange={(e) =>
+                            setPubFiles((p) => ({ ...p, chamberOfCommerceCertificate: e.target.files?.[0] || null }))
+                          }
+                        />
+                      </Field>
+                      <Field label="RUT * (mín. 1 MB)">
+                        <input
+                          type="file"
+                          accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                          style={styles.input}
+                          onChange={(e) => setPubFiles((p) => ({ ...p, rutDocument: e.target.files?.[0] || null }))}
+                        />
+                      </Field>
+                    </Row>
+                    <p style={{ fontSize: 12, color: '#6b7280', margin: '12px 0 8px' }}>Opcionales</p>
+                    <Row>
+                      <Field label="Logo">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          style={styles.input}
+                          onChange={(e) => setPubFiles((p) => ({ ...p, logo: e.target.files?.[0] || null }))}
+                        />
+                      </Field>
+                      <Field label="Acreditación agencia">
+                        <input
+                          type="file"
+                          accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                          style={styles.input}
+                          onChange={(e) =>
+                            setPubFiles((p) => ({ ...p, agencyAccreditationDocument: e.target.files?.[0] || null }))
+                          }
+                        />
+                      </Field>
+                    </Row>
                   </div>
                   <div style={styles.infoBox}>
                     <strong>⚠️ Importante:</strong> Al enviar, tu entidad quedará en estado <em>Pendiente de aprobación</em>. La Coordinación de Empleabilidad e Inserción Laboral revisará tu información y te notificará al correo del contacto principal.

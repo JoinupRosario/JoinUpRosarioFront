@@ -1,3 +1,23 @@
+.entidad-doc-enlace {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.btn-doc-ver {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #c41e3a 0%, #8b1538 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.btn-doc-ver:hover {
+  filter: brightness(1.08);
+}
+
 .companies-content { flex: 1; background: white; overflow-y: auto; overflow-x: hidden; max-height: calc(100vh - 70px - 50px); }
 .companies-header { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; padding: 20px; }
 .configuracion-actions { display: flex; gap: 12px; flex-shrink: 0; flex-wrap: wrap; }
@@ -1021,4 +1041,536 @@
 
 .contact-actions .btn-secondary:hover {
   background: #4b5563;
+}
+
+/* =============================================================================
+   Formulario crear/editar ENTIDAD — estilos SOLO cuando .companies-entity-form-root
+   (no afecta listado de entidades ni otros módulos)
+   ============================================================================= */
+.companies-content.companies-entity-form-root {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.companies-content.companies-entity-form-root .companies-section {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px clamp(14px, 2.5vw, 28px) 36px;
+}
+
+.companies-content.companies-entity-form-root .companies-tabs {
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container {
+  max-width: none;
+  width: 100%;
+  margin-top: 0;
+  padding: clamp(22px, 2.5vw, 36px) clamp(18px, 3vw, 40px) 32px;
+  box-sizing: border-box;
+  border-radius: 14px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-section {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 22px clamp(16px, 2vw, 28px) 26px;
+  margin-bottom: 22px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 18px 0;
+  padding: 0 0 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+  border-left: none;
+  padding-left: 0;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-section-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 1.1em;
+  margin-right: 10px;
+  vertical-align: -0.15em;
+  background: #c41e3a;
+  border-radius: 2px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-grid-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 18px 22px;
+  align-items: start;
+  margin-bottom: 0;
+}
+
+@media (min-width: 900px) {
+  .companies-content.companies-entity-form-root .entity-form-container .form-grid-datos {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 899px) {
+  .companies-content.companies-entity-form-root .entity-form-container .form-grid-datos {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-separator-line {
+  margin: 20px 0 8px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .programs-section,
+.companies-content.companies-entity-form-root .entity-form-container .sedes-section {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px clamp(16px, 2vw, 28px) 24px;
+  margin-top: 22px;
+  border-top: none;
+}
+
+.companies-content.companies-entity-form-root .contacts-section {
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 0 24px;
+  box-sizing: border-box;
+}
+
+.companies-content.companies-entity-form-root .contact-form.entity-form-container {
+  max-width: none;
+  width: 100%;
+  margin-top: 16px;
+  padding: 24px clamp(16px, 2.5vw, 32px);
+  box-sizing: border-box;
+  border-radius: 12px;
+}
+
+.companies-content.companies-entity-form-root .contact-form.entity-form-container .form-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 16px 20px;
+}
+
+@media (min-width: 900px) {
+  .companies-content.companies-entity-form-root .contact-form.entity-form-container .form-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* —— Compactación general del formulario entidad —— */
+.companies-content.companies-entity-form-root .entity-form-container {
+  padding: 16px 20px 24px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-section {
+  padding: 12px 16px 16px;
+  margin-bottom: 12px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-section-title {
+  font-size: 13px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-grid-datos {
+  gap: 8px 14px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-group {
+  gap: 3px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-input {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container textarea.form-input {
+  min-height: 0;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .form-separator-line {
+  margin: 12px 0 4px;
+}
+
+.companies-content.companies-entity-form-root .entity-form-container .programs-section,
+.companies-content.companies-entity-form-root .entity-form-container .sedes-section {
+  padding: 14px 16px 18px;
+  margin-top: 14px;
+}
+
+/* CIIU + Misión en 2 columnas */
+.companies-content.companies-entity-form-root .entity-form-container .form-grid-datos > .entidad-ciiu-mision-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px 20px;
+  align-items: start;
+  margin: 4px 0 2px;
+}
+
+.companies-content.companies-entity-form-root .entidad-ciiu-col .form-input {
+  font-size: 12px;
+}
+
+.companies-content.companies-entity-form-root .entidad-textarea-mision {
+  width: 100%;
+  min-height: 120px;
+  max-height: 220px;
+  resize: vertical;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.companies-content.companies-entity-form-root .entidad-hint-compact {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+@media (max-width: 880px) {
+  .companies-content.companies-entity-form-root .entity-form-container .form-grid-datos > .entidad-ciiu-mision-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Toolbar Sedes + botón agregar */
+.companies-content.companies-entity-form-root .entidad-sedes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.companies-content.companies-entity-form-root .entidad-sedes-title-wrap {
+  flex: 1;
+  min-width: 160px;
+}
+
+.companies-content.companies-entity-form-root .entidad-sedes-title {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  padding: 6px 14px;
+  border-radius: 6px 6px 0 0;
+}
+
+.companies-content.companies-entity-form-root .entidad-sedes-line {
+  height: 3px;
+  background: linear-gradient(90deg, #c41e3a 0%, #c41e3a 55%, #e5e7eb 55%, #e5e7eb 100%);
+  border-radius: 0 2px 2px 0;
+  margin-top: 0;
+}
+
+.companies-content.companies-entity-form-root .entidad-btn-agregar-sede {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #c41e3a 0%, #9e1832 100%);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(196, 30, 58, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  white-space: nowrap;
+}
+
+.companies-content.companies-entity-form-root .entidad-btn-agregar-sede:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(196, 30, 58, 0.45);
+  filter: brightness(1.05);
+}
+
+.companies-content.companies-entity-form-root .entidad-btn-agregar-sede:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(196, 30, 58, 0.3);
+}
+
+.companies-content.companies-entity-form-root .entidad-sedes-wrap .sedes-empty {
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 12px;
+}
+
+/* Fila: tamaño + agencia + ARL + dominios */
+.companies-content.companies-entity-form-root .form-grid-datos > .entidad-fila-tam-arl-dominios {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(100px, 0.85fr) minmax(110px, 0.95fr) minmax(100px, 0.85fr) minmax(200px, 1.6fr);
+  gap: 8px 12px;
+  align-items: start;
+}
+
+.companies-content.companies-entity-form-root .entidad-checkbox-inline {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.companies-content.companies-entity-form-root .entidad-checkbox-inline .entidad-lbl-compact {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px !important;
+  line-height: 1.25;
+  margin: 0 !important;
+}
+
+.companies-content.companies-entity-form-root .entidad-dominios-inline {
+  min-width: 0;
+}
+
+.companies-content.companies-entity-form-root .entidad-dominios-inline .entidad-hint-compact {
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.companies-content.companies-entity-form-root .entidad-domain-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.companies-content.companies-entity-form-root .entidad-domain-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  font-size: 11px;
+  max-width: 100%;
+}
+
+.companies-content.companies-entity-form-root .entidad-domain-tag button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.companies-content.companies-entity-form-root .entidad-domain-add-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.companies-content.companies-entity-form-root .entidad-domain-add-row .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.companies-content.companies-entity-form-root .entidad-btn-add-domain {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #374151;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.companies-content.companies-entity-form-root .entidad-btn-add-domain:hover {
+  background: #1f2937;
+}
+
+@media (max-width: 1100px) {
+  .companies-content.companies-entity-form-root .entidad-fila-tam-arl-dominios {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .companies-content.companies-entity-form-root .entidad-dominios-inline {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .companies-content.companies-entity-form-root .entidad-fila-tam-arl-dominios {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sedes: 4 columnas compactas */
+.companies-content.companies-entity-form-root .entidad-sede-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px 10px;
+  align-items: start;
+}
+
+.companies-content.companies-entity-form-root .entidad-sede-form-wrap {
+  padding: 10px 12px 12px;
+  margin-top: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.companies-content.companies-entity-form-root .entidad-sede-form-wrap .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.companies-content.companies-entity-form-root .entidad-sede-form-wrap .form-group label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.companies-content.companies-entity-form-root .entidad-sede-form-wrap .form-input {
+  min-height: 32px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.companies-content.companies-entity-form-root .entidad-sede-form-wrap .sede-form-actions {
+  margin-top: 10px;
+  padding-top: 8px;
+  gap: 8px;
+}
+
+.companies-content.companies-entity-form-root .entidad-sede-form-wrap .btn-guardar-sede,
+.companies-content.companies-entity-form-root .entidad-sede-form-wrap .btn-cancelar-sede {
+  padding: 7px 14px;
+  font-size: 12px;
+}
+
+@media (max-width: 1000px) {
+  .companies-content.companies-entity-form-root .entidad-sede-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .companies-content.companies-entity-form-root .entidad-sede-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Contacto adicional: ultra compacto, 4 columnas */
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact {
+  padding: 12px 14px 14px !important;
+  margin-top: 8px;
+}
+
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .entidad-contact-sec {
+  font-size: 11px !important;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #374151;
+  margin: 6px 0 6px !important;
+  padding: 0 0 6px !important;
+  border-bottom: 1px solid #e5e7eb;
+  background: transparent !important;
+  clip-path: none !important;
+}
+
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .entidad-contact-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 6px 10px !important;
+  margin-bottom: 4px !important;
+}
+
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .entidad-contact-grid .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  grid-template-columns: unset !important;
+}
+
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .entidad-contact-grid .form-group label {
+  font-size: 10px !important;
+  font-weight: 600;
+  color: #4b5563;
+  background: transparent !important;
+  padding: 0 !important;
+  text-transform: none;
+}
+
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .form-input {
+  min-height: 30px !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  border-radius: 6px;
+}
+
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .entidad-contact-tratamiento {
+  grid-column: span 2;
+}
+
+@media (max-width: 1024px) {
+  .companies-content.companies-entity-form-root .entidad-contacto-form-compact .entidad-contact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .companies-content.companies-entity-form-root .entidad-contacto-form-compact .entidad-contact-tratamiento {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .companies-content.companies-entity-form-root .entidad-contacto-form-compact .entidad-contact-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .form-actions {
+  margin-top: 10px;
+  padding-top: 8px;
+  gap: 8px;
+}
+
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .form-actions .btn-volver,
+.companies-content.companies-entity-form-root .entidad-contacto-form-compact .form-actions .btn-guardar {
+  padding: 7px 16px;
+  font-size: 12px;
 }

@@ -125,7 +125,6 @@ export default function Oportunidades({ onVolver }) {
     ciudad: '',
     jornadaOrdinariaSemanal: '',
     dedicacion: '',
-    jornadaSemanalPractica: '',
     fechaInicioPractica: '',
     fechaFinPractica: '',
     horario: '',
@@ -187,6 +186,8 @@ export default function Oportunidades({ onVolver }) {
   const [opportunityMinExpiryDays, setOpportunityMinExpiryDays] = useState(5); // mínimo días para fecha vencimiento (regla de negocio)
   const [practiceStartDaysAfterExpiry, setPracticeStartDaysAfterExpiry] = useState(0); // fecha inicio práctica: mínimo X días después de vencimiento
   const [practiceEndDaysAfterStart, setPracticeEndDaysAfterStart] = useState(1); // fecha fin práctica: mínimo X días después de inicio
+  const [maxJornadaOrdinariaSemanal, setMaxJornadaOrdinariaSemanal] = useState(44);
+  const [minApoyoEconomicoCOP, setMinApoyoEconomicoCOP] = useState(1750905);
   // ── Edición en detalle MTM ─────────────────────────────────────────────────
   const [isMtmEditing, setIsMtmEditing] = useState(false);
   const [mtmEditData, setMtmEditData] = useState(null);
@@ -328,11 +329,16 @@ export default function Oportunidades({ onVolver }) {
       api.get('/parameters/code/PRACTICE_START_DAYS_AFTER_EXPIRY').then(r => r.data?.value).catch(() => null),
       api.get('/parameters/code/PRACTICE_END_DAYS_AFTER_START').then(r => r.data?.value).catch(() => null),
       api.get('/parameters/code/PRACTICE_NO_STUDENTS_MESSAGE').then(r => r.data?.value).catch(() => null),
-    ]).then(([v1, v2, v3, v4]) => {
+      api.get('/parameters/code/PRACTICE_MAX_JORNADA_ORDINARIA_SEMANAL').then(r => r.data?.value).catch(() => null),
+      api.get('/parameters/code/PRACTICE_MIN_APOYO_ECONOMICO_COP').then(r => r.data?.value).catch(() => null),
+    ]).then(([v1, v2, v3, v4, v5, v6]) => {
       if (typeof v1 === 'number' && v1 >= 1) setOpportunityMinExpiryDays(v1);
       if (typeof v2 === 'number' && v2 >= 0) setPracticeStartDaysAfterExpiry(v2);
       if (typeof v3 === 'number' && v3 >= 0) setPracticeEndDaysAfterStart(v3);
       if (typeof v4 === 'string' && v4.trim()) setNoStudentsMessageFormacion(v4.trim());
+      if (typeof v5 === 'number' && v5 >= 1 && v5 <= 48) setMaxJornadaOrdinariaSemanal(v5);
+      const apMin = typeof v6 === 'number' ? v6 : parseInt(String(v6 ?? '').replace(/\D/g, ''), 10);
+      if (Number.isFinite(apMin) && apMin >= 500000 && apMin <= 50000000) setMinApoyoEconomicoCOP(apMin);
     });
   }, []);
 
@@ -347,6 +353,29 @@ export default function Oportunidades({ onVolver }) {
     const d = new Date(isoDateStr);
     d.setDate(d.getDate() + (daysToAdd || 0));
     return d.toISOString().slice(0, 10);
+  };
+
+  /** Valor numérico mayor al máximo configurado en reglas de negocio (feedback inmediato en el campo). */
+  const jornadaExcedeMaximo = (valorRaw) => {
+    if (valorRaw === '' || valorRaw == null) return false;
+    const n = Number(String(valorRaw).trim());
+    if (!Number.isFinite(n) || Number.isNaN(n)) return false;
+    return n > maxJornadaOrdinariaSemanal;
+  };
+
+  const estiloInputJornadaInvalida = {
+    borderColor: '#dc2626',
+    backgroundColor: '#fff8f8',
+    boxShadow: '0 0 0 2px rgba(220, 38, 38, 0.2)',
+  };
+
+  /** Con auxilio activo: vacío o monto &lt; mínimo legal/configurado (mismo feedback visual que jornada). */
+  const apoyoMenorAlMinimoLegal = (auxilioActivo, apoyoRaw) => {
+    if (!auxilioActivo) return false;
+    const digits = String(apoyoRaw ?? '').replace(/\D/g, '');
+    if (!digits) return true;
+    const n = parseInt(digits, 10);
+    return !Number.isFinite(n) || n < minApoyoEconomicoCOP;
   };
 
   // Función para cargar datos dinámicos desde Item
@@ -907,6 +936,16 @@ export default function Oportunidades({ onVolver }) {
 
   // Función para agregar programa de formación académica
   const handleAddProgram = () => {
+    if (!formData.periodo) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Periodo requerido',
+        text: 'Seleccione primero el periodo de la práctica para agregar formación académica.',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#c41e3a'
+      });
+      return;
+    }
     if (!newProgramLevel || !newProgramName) {
       Swal.fire({
         icon: 'warning',
@@ -1032,12 +1071,40 @@ export default function Oportunidades({ onVolver }) {
         return;
       }
 
+      if (oportunidadSeleccionada?.tipo === 'practica' && editFormData.jornadaOrdinariaSemanal !== '' && editFormData.jornadaOrdinariaSemanal != null) {
+        const jo = parseInt(editFormData.jornadaOrdinariaSemanal, 10);
+        if (!Number.isNaN(jo) && jo > maxJornadaOrdinariaSemanal) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Jornada ordinaria semanal',
+            text: `No puede superar ${maxJornadaOrdinariaSemanal} horas semanales (regla de negocio).`,
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#c41e3a'
+          });
+          return;
+        }
+      }
+
+      if (oportunidadSeleccionada?.tipo === 'practica' && editFormData.auxilioEconomico) {
+        const ap = parseInt(String(editFormData.apoyoEconomico || '').replace(/\D/g, ''), 10);
+        if (!Number.isFinite(ap) || ap < minApoyoEconomicoCOP) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Apoyo económico',
+            text: `Con auxilio económico activo, el monto debe ser al menos $${minApoyoEconomicoCOP.toLocaleString('es-CO')} COP (regla de negocio).`,
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#c41e3a'
+          });
+          return;
+        }
+      }
+
       // Preparar datos para enviar
       const opportunityData = {
         nombreCargo: editFormData.nombreCargo,
         auxilioEconomico: editFormData.auxilioEconomico,
         requiereConfidencialidad: editFormData.requiereConfidencialidad,
-        apoyoEconomico: editFormData.apoyoEconomico ? parseInt(editFormData.apoyoEconomico) : null,
+        apoyoEconomico: editFormData.apoyoEconomico ? parseInt(String(editFormData.apoyoEconomico).replace(/\D/g, ''), 10) : null,
         tipoVinculacion: editFormData.tipoVinculacion || null,
         periodo: editFormData.periodo || null,
         vacantes: editFormData.vacantes ? parseInt(editFormData.vacantes) : null,
@@ -1046,7 +1113,6 @@ export default function Oportunidades({ onVolver }) {
         ciudad: editFormData.ciudad || null,
         jornadaOrdinariaSemanal: editFormData.jornadaOrdinariaSemanal ? parseInt(editFormData.jornadaOrdinariaSemanal) : null,
         dedicacion: editFormData.dedicacion || null,
-        jornadaSemanalPractica: editFormData.jornadaSemanalPractica ? parseInt(editFormData.jornadaSemanalPractica) : null,
         fechaInicioPractica: editFormData.fechaInicioPractica || null,
         fechaFinPractica: editFormData.fechaFinPractica || null,
         horario: editFormData.horario || null,
@@ -1204,7 +1270,7 @@ export default function Oportunidades({ onVolver }) {
         setMtmAsignaturas([]); setMtmProgramas([]);
         setMtmAsigSearch(''); setMtmProgramaSearch('');
         setMtmProfesorResponsable(''); setMtmProfesorDisplay(''); setMtmProfesorSearch('');
-        setFormData({ nombreCargo: '', auxilioEconomico: false, requiereConfidencialidad: false, apoyoEconomico: '', tipoVinculacion: '', periodo: '', vacantes: '', fechaVencimiento: '', pais: '', ciudad: '', jornadaOrdinariaSemanal: '', dedicacion: '', jornadaSemanalPractica: '', fechaInicioPractica: '', fechaFinPractica: '', horario: '', areaDesempeno: '', enlacesFormatoEspecificos: '', primerDocumento: null, primerDocumentoNombre: '', primerDocumentoRequerido: false, segundoDocumento: null, segundoDocumentoNombre: '', tercerDocumento: null, tercerDocumentoNombre: '', salarioEmocional: [], promedioMinimoRequerido: '', formacionAcademica: [], idiomas: [], funciones: '', requisitos: '' });
+        setFormData({ nombreCargo: '', auxilioEconomico: false, requiereConfidencialidad: false, apoyoEconomico: '', tipoVinculacion: '', periodo: '', vacantes: '', fechaVencimiento: '', pais: '', ciudad: '', jornadaOrdinariaSemanal: '', dedicacion: '', fechaInicioPractica: '', fechaFinPractica: '', horario: '', areaDesempeno: '', enlacesFormatoEspecificos: '', primerDocumento: null, primerDocumentoNombre: '', primerDocumentoRequerido: false, segundoDocumento: null, segundoDocumentoNombre: '', tercerDocumento: null, tercerDocumentoNombre: '', salarioEmocional: [], promedioMinimoRequerido: '', formacionAcademica: [], idiomas: [], funciones: '', requisitos: '' });
         setTipoOportunidad(null);
         setSelectedCompany(null);
         await loadOportunidades();
@@ -1235,6 +1301,32 @@ export default function Oportunidades({ onVolver }) {
         return;
       }
 
+      const joCreate = parseInt(formData.jornadaOrdinariaSemanal, 10);
+      if (formData.jornadaOrdinariaSemanal !== '' && formData.jornadaOrdinariaSemanal != null && !Number.isNaN(joCreate) && joCreate > maxJornadaOrdinariaSemanal) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Jornada ordinaria semanal',
+          text: `No puede superar ${maxJornadaOrdinariaSemanal} horas semanales (regla de negocio).`,
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#c41e3a'
+        });
+        return;
+      }
+
+      if (tipoOportunidad === 'practica' && formData.auxilioEconomico) {
+        const ap = parseInt(String(formData.apoyoEconomico || '').replace(/\D/g, ''), 10);
+        if (!Number.isFinite(ap) || ap < minApoyoEconomicoCOP) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Apoyo económico',
+            text: `Con auxilio económico activo, el monto debe ser al menos $${minApoyoEconomicoCOP.toLocaleString('es-CO')} COP (regla de negocio).`,
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#c41e3a'
+          });
+          return;
+        }
+      }
+
       // Preparar datos para enviar
       const opportunityData = {
         tipo: tipoOportunidad,
@@ -1242,7 +1334,7 @@ export default function Oportunidades({ onVolver }) {
         nombreCargo: formData.nombreCargo,
         auxilioEconomico: formData.auxilioEconomico,
         requiereConfidencialidad: formData.requiereConfidencialidad,
-        apoyoEconomico: formData.apoyoEconomico ? parseInt(formData.apoyoEconomico) : null,
+        apoyoEconomico: formData.apoyoEconomico ? parseInt(String(formData.apoyoEconomico).replace(/\D/g, ''), 10) : null,
         tipoVinculacion: formData.tipoVinculacion || null,
         periodo: formData.periodo || null,
         vacantes: formData.vacantes ? parseInt(formData.vacantes) : null,
@@ -1251,7 +1343,6 @@ export default function Oportunidades({ onVolver }) {
         ciudad: formData.ciudad || null,
         jornadaOrdinariaSemanal: formData.jornadaOrdinariaSemanal ? parseInt(formData.jornadaOrdinariaSemanal) : null,
         dedicacion: formData.dedicacion || null,
-        jornadaSemanalPractica: formData.jornadaSemanalPractica ? parseInt(formData.jornadaSemanalPractica) : null,
         fechaInicioPractica: formData.fechaInicioPractica || null,
         fechaFinPractica: formData.fechaFinPractica || null,
         horario: formData.horario || null,
@@ -1353,7 +1444,6 @@ export default function Oportunidades({ onVolver }) {
         ciudad: '',
         jornadaOrdinariaSemanal: '',
         dedicacion: '',
-        jornadaSemanalPractica: '',
         fechaInicioPractica: '',
         fechaFinPractica: '',
         horario: '',
@@ -1414,7 +1504,6 @@ export default function Oportunidades({ onVolver }) {
                     formData.ciudad ||
                     formData.jornadaOrdinariaSemanal ||
                     formData.dedicacion ||
-                    formData.jornadaSemanalPractica ||
                     formData.fechaInicioPractica ||
                     formData.fechaFinPractica ||
                     formData.horario ||
@@ -1467,7 +1556,6 @@ export default function Oportunidades({ onVolver }) {
       ciudad: '',
       jornadaOrdinariaSemanal: '',
       dedicacion: '',
-      jornadaSemanalPractica: '',
       fechaInicioPractica: '',
       fechaFinPractica: '',
       horario: '',
@@ -1726,7 +1814,6 @@ export default function Oportunidades({ onVolver }) {
       ciudad: (opp.ciudad && typeof opp.ciudad === 'object' && opp.ciudad._id) ? opp.ciudad._id : (opp.ciudad || ''),
       jornadaOrdinariaSemanal: opp.jornadaOrdinariaSemanal ? opp.jornadaOrdinariaSemanal.toString() : '',
       dedicacion: (opp.dedicacion && typeof opp.dedicacion === 'object' && opp.dedicacion._id) ? opp.dedicacion._id : (opp.dedicacion || ''),
-      jornadaSemanalPractica: opp.jornadaSemanalPractica ? opp.jornadaSemanalPractica.toString() : '',
       fechaInicioPractica: opp.fechaInicioPractica ? new Date(opp.fechaInicioPractica).toISOString().split('T')[0] : '',
       fechaFinPractica: opp.fechaFinPractica ? new Date(opp.fechaFinPractica).toISOString().split('T')[0] : '',
       horario: opp.horario || '',
@@ -2281,7 +2368,7 @@ export default function Oportunidades({ onVolver }) {
                         <span className="info-icon">i</span>
                         <div className="tooltip-content">
                           <strong>Información</strong>
-                          <p>El apoyo económico debe ser superior o igual al salario mínimo vigente. El formato se aplicará automáticamente con separador de miles</p>
+                          <p>Mínimo configurado en reglas de negocio: <strong>${minApoyoEconomicoCOP.toLocaleString('es-CO')}</strong> COP. El formato usa separador de miles.</p>
                         </div>
                       </div>
                     </label>
@@ -2293,8 +2380,15 @@ export default function Oportunidades({ onVolver }) {
                         onChange={handleFormChange}
                         className="form-input currency-input"
                         placeholder="Ingrese el monto"
+                        style={apoyoMenorAlMinimoLegal(formData.auxilioEconomico, formData.apoyoEconomico) ? estiloInputJornadaInvalida : undefined}
+                        aria-invalid={apoyoMenorAlMinimoLegal(formData.auxilioEconomico, formData.apoyoEconomico)}
                       />
                     </div>
+                    {apoyoMenorAlMinimoLegal(formData.auxilioEconomico, formData.apoyoEconomico) && (
+                      <p className="form-error-text" style={{ color: '#dc2626', fontSize: 13, marginTop: 6 }}>
+                        {`Debe ser al menos $${minApoyoEconomicoCOP.toLocaleString('es-CO')} COP (regla de negocio).`}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -2428,7 +2522,7 @@ export default function Oportunidades({ onVolver }) {
                       <div className="tooltip-content">
                         <strong>Información</strong>
                         <p>Es el total de horas semanales que según los reglamentos de la empresa/entidad deben cumplir los empleados.</p>
-                        <p>En Colombia, no puede exceder 48 horas semanales ni 8 diarias.</p>
+                        <p>Máximo permitido: {maxJornadaOrdinariaSemanal} h/semana (regla de negocio).</p>
                       </div>
                     </div>
                   </label>
@@ -2439,9 +2533,16 @@ export default function Oportunidades({ onVolver }) {
                     onChange={handleFormChange}
                     className="form-input"
                     min="0"
-                    max="48"
-                    placeholder="Horas semanales"
+                    max={maxJornadaOrdinariaSemanal}
+                    placeholder={`Máx. ${maxJornadaOrdinariaSemanal} h`}
+                    style={jornadaExcedeMaximo(formData.jornadaOrdinariaSemanal) ? estiloInputJornadaInvalida : undefined}
+                    aria-invalid={jornadaExcedeMaximo(formData.jornadaOrdinariaSemanal)}
                   />
+                  {jornadaExcedeMaximo(formData.jornadaOrdinariaSemanal) && (
+                    <span style={{ color: '#b91c1c', fontSize: 12, marginTop: 6, display: 'block', fontWeight: 600 }}>
+                      Supera el máximo de {maxJornadaOrdinariaSemanal} horas semanales.
+                    </span>
+                  )}
                 </div>
 
                 {/* Dedicación */}
@@ -2460,29 +2561,6 @@ export default function Oportunidades({ onVolver }) {
                       </option>
                     ))}
                   </select>
-                </div>
-
-                {/* Jornada Semanal de la Práctica */}
-                <div className="form-field-group">
-                  <label className="form-label">
-                    Jornada semanal de la práctica
-                    <div className="info-tooltip-wrapper">
-                      <span className="info-icon">i</span>
-                      <div className="tooltip-content">
-                        <strong>Información</strong>
-                        <p>Este campo debe seguir los parámetros de la Resolución 3546 de 2018 y representará la jornada semanal que cumplirá el practicante o practicantes seleccionados. Cuando la dedicación es por horas indique la dedicación promedio semanal en horas</p>
-                      </div>
-                    </div>
-                  </label>
-                  <input
-                    type="number"
-                    name="jornadaSemanalPractica"
-                    value={formData.jornadaSemanalPractica}
-                    onChange={handleFormChange}
-                    className="form-input"
-                    min="0"
-                    placeholder="Horas semanales"
-                  />
                 </div>
 
                 {/* Fecha inicio práctica */}
@@ -2753,16 +2831,34 @@ export default function Oportunidades({ onVolver }) {
                       <button 
                         type="button" 
                         className="programs-add" 
-                        onClick={() => setShowProgramsModal(true)} 
-                        title="Añadir programa"
+                        onClick={() => {
+                          if (!formData.periodo) {
+                            Swal.fire({
+                              icon: 'info',
+                              title: 'Seleccione un periodo',
+                              text: 'Primero elija el periodo de la práctica; así solo podrá agregar programas con condición curricular activa para ese periodo.',
+                              confirmButtonText: 'Entendido',
+                              confirmButtonColor: '#c41e3a'
+                            });
+                            return;
+                          }
+                          setShowProgramsModal(true);
+                        }} 
+                        title={formData.periodo ? 'Añadir programa' : 'Seleccione periodo primero'}
+                        style={!formData.periodo ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                       >
                         <FiPlus />
                       </button>
                     </div>
+                    {!formData.periodo && (
+                      <p style={{ margin: '6px 0 0 0', fontSize: 12, color: '#92400e', background: '#fffbeb', padding: '8px 10px', borderRadius: 6, border: '1px solid #fde68a' }}>
+                        Seleccione el <strong>periodo</strong> arriba para poder agregar programas.
+                      </p>
+                    )}
                     {(!formData.formacionAcademica || formData.formacionAcademica.length === 0) ? (
                       <div className="programs-empty">
                         <FiX style={{ marginRight: '4px', display: 'inline-block' }} />
-                        No hay programas configurados.
+                        {formData.periodo ? 'No hay programas configurados.' : 'Elija periodo para agregar programas.'}
                       </div>
                     ) : (
                       <ul className="programs-list">
@@ -3553,8 +3649,15 @@ export default function Oportunidades({ onVolver }) {
                       onChange={handleEditFormChange}
                       className="form-input currency-input"
                       placeholder="Ingrese el monto"
+                      style={apoyoMenorAlMinimoLegal(editFormData.auxilioEconomico, editFormData.apoyoEconomico) ? estiloInputJornadaInvalida : undefined}
+                      aria-invalid={apoyoMenorAlMinimoLegal(editFormData.auxilioEconomico, editFormData.apoyoEconomico)}
                     />
                   </div>
+                  {apoyoMenorAlMinimoLegal(editFormData.auxilioEconomico, editFormData.apoyoEconomico) && (
+                    <p className="form-error-text" style={{ color: '#dc2626', fontSize: 13, marginTop: 6 }}>
+                      {`Debe ser al menos $${minApoyoEconomicoCOP.toLocaleString('es-CO')} COP (regla de negocio).`}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -3684,6 +3787,7 @@ export default function Oportunidades({ onVolver }) {
                 <label className="form-label-with-icon">
                   <FiClock className="label-icon" />
                   Jornada ordinaria semanal
+                  <span className="form-hint-inline" style={{ fontWeight: 400, marginLeft: 6 }}>(máx. {maxJornadaOrdinariaSemanal} h)</span>
                 </label>
                 <input
                   type="number"
@@ -3692,9 +3796,16 @@ export default function Oportunidades({ onVolver }) {
                   onChange={handleEditFormChange}
                   className="form-input"
                   min="0"
-                  max="48"
-                  placeholder="Horas semanales"
+                  max={maxJornadaOrdinariaSemanal}
+                  placeholder={`Máx. ${maxJornadaOrdinariaSemanal} h`}
+                  style={jornadaExcedeMaximo(editFormData.jornadaOrdinariaSemanal) ? estiloInputJornadaInvalida : undefined}
+                  aria-invalid={jornadaExcedeMaximo(editFormData.jornadaOrdinariaSemanal)}
                 />
+                {jornadaExcedeMaximo(editFormData.jornadaOrdinariaSemanal) && (
+                  <span style={{ color: '#b91c1c', fontSize: 12, marginTop: 6, display: 'block', fontWeight: 600 }}>
+                    Supera el máximo de {maxJornadaOrdinariaSemanal} horas semanales.
+                  </span>
+                )}
               </div>
 
               {/* Dedicación */}
@@ -3713,22 +3824,6 @@ export default function Oportunidades({ onVolver }) {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* Jornada Semanal de la Práctica */}
-              <div className="form-field-group">
-                <label className="form-label">
-                  Jornada semanal de la práctica
-                </label>
-                <input
-                  type="number"
-                  name="jornadaSemanalPractica"
-                  value={editFormData.jornadaSemanalPractica}
-                  onChange={handleEditFormChange}
-                  className="form-input"
-                  min="0"
-                  placeholder="Horas semanales"
-                />
               </div>
 
               {/* Fecha inicio práctica */}
@@ -3860,16 +3955,34 @@ export default function Oportunidades({ onVolver }) {
                     <button 
                       type="button" 
                       className="programs-add" 
-                      onClick={() => setEditShowProgramsModal(true)} 
-                      title="Añadir programa"
+                      onClick={() => {
+                        if (!editFormData.periodo) {
+                          Swal.fire({
+                            icon: 'info',
+                            title: 'Seleccione un periodo',
+                            text: 'Primero elija el periodo de la práctica para agregar programas según la condición curricular.',
+                            confirmButtonText: 'Entendido',
+                            confirmButtonColor: '#c41e3a'
+                          });
+                          return;
+                        }
+                        setEditShowProgramsModal(true);
+                      }} 
+                      title={editFormData.periodo ? 'Añadir programa' : 'Seleccione periodo primero'}
+                      style={!editFormData.periodo ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                     >
                       <FiPlus />
                     </button>
                   </div>
+                  {!editFormData.periodo && (
+                    <p style={{ margin: '6px 0 0 0', fontSize: 12, color: '#92400e', background: '#fffbeb', padding: '8px 10px', borderRadius: 6, border: '1px solid #fde68a' }}>
+                      Seleccione el <strong>periodo</strong> para poder agregar programas.
+                    </p>
+                  )}
                   {(!editFormData.formacionAcademica || editFormData.formacionAcademica.length === 0) ? (
                     <div className="programs-empty">
                       <FiX style={{ marginRight: '4px', display: 'inline-block' }} />
-                      No hay programas configurados.
+                      {editFormData.periodo ? 'No hay programas configurados.' : 'Elija periodo para agregar programas.'}
                     </div>
                   ) : (
                     <ul className="programs-list">
@@ -4116,6 +4229,16 @@ export default function Oportunidades({ onVolver }) {
   };
 
   const handleEditAddProgram = () => {
+    if (!editFormData.periodo) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Periodo requerido',
+        text: 'Seleccione primero el periodo de la práctica para agregar formación académica.',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#c41e3a'
+      });
+      return;
+    }
     if (!editNewProgramLevel || !editNewProgramName) {
       Swal.fire({
         icon: 'warning',
@@ -5038,7 +5161,6 @@ export default function Oportunidades({ onVolver }) {
         ciudad: opp.ciudad || '',
         jornadaOrdinariaSemanal: opp.jornadaOrdinariaSemanal ? opp.jornadaOrdinariaSemanal.toString() : '',
         dedicacion: opp.dedicacion || '',
-        jornadaSemanalPractica: opp.jornadaSemanalPractica ? opp.jornadaSemanalPractica.toString() : '',
         fechaInicioPractica: opp.fechaInicioPractica ? new Date(opp.fechaInicioPractica).toISOString().split('T')[0] : '',
         fechaFinPractica: opp.fechaFinPractica ? new Date(opp.fechaFinPractica).toISOString().split('T')[0] : '',
         horario: opp.horario || '',
@@ -5309,7 +5431,7 @@ export default function Oportunidades({ onVolver }) {
                       <span className="info-icon">i</span>
                       <div className="tooltip-content">
                         <strong>Información</strong>
-                        <p>El apoyo económico debe ser superior o igual al salario mínimo vigente. El formato se aplicará automáticamente con separador de miles</p>
+                        <p>Mínimo en reglas de negocio: <strong>${minApoyoEconomicoCOP.toLocaleString('es-CO')}</strong> COP.</p>
                       </div>
                     </div>
                   </label>
@@ -5323,8 +5445,15 @@ export default function Oportunidades({ onVolver }) {
                       placeholder="Ingrese el monto"
                       disabled={!isEditingDetail}
                       readOnly={!isEditingDetail}
+                      style={isEditingDetail && apoyoMenorAlMinimoLegal(editFormData.auxilioEconomico, editFormData.apoyoEconomico) ? estiloInputJornadaInvalida : undefined}
+                      aria-invalid={isEditingDetail && apoyoMenorAlMinimoLegal(editFormData.auxilioEconomico, editFormData.apoyoEconomico)}
                     />
                   </div>
+                  {isEditingDetail && apoyoMenorAlMinimoLegal(editFormData.auxilioEconomico, editFormData.apoyoEconomico) && (
+                    <p className="form-error-text" style={{ color: '#dc2626', fontSize: 13, marginTop: 6 }}>
+                      {`Debe ser al menos $${minApoyoEconomicoCOP.toLocaleString('es-CO')} COP (regla de negocio).`}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -5466,7 +5595,7 @@ export default function Oportunidades({ onVolver }) {
                     <div className="tooltip-content">
                       <strong>Información</strong>
                       <p>Es el total de horas semanales que según los reglamentos de la empresa/entidad deben cumplir los empleados.</p>
-                      <p>En Colombia, no puede exceder 48 horas semanales ni 8 diarias.</p>
+                      <p>Máximo permitido: {maxJornadaOrdinariaSemanal} h/semana (regla de negocio).</p>
                     </div>
                   </div>
                 </label>
@@ -5477,11 +5606,18 @@ export default function Oportunidades({ onVolver }) {
                   onChange={handleEditFormChange}
                   className="form-input"
                   min="0"
-                  max="48"
-                  placeholder="Horas semanales"
+                  max={maxJornadaOrdinariaSemanal}
+                  placeholder={`Máx. ${maxJornadaOrdinariaSemanal} h`}
                   disabled={!isEditingDetail}
                   readOnly={!isEditingDetail}
+                  style={jornadaExcedeMaximo(editFormData.jornadaOrdinariaSemanal) ? estiloInputJornadaInvalida : undefined}
+                  aria-invalid={jornadaExcedeMaximo(editFormData.jornadaOrdinariaSemanal)}
                 />
+                {jornadaExcedeMaximo(editFormData.jornadaOrdinariaSemanal) && (
+                  <span style={{ color: '#b91c1c', fontSize: 12, marginTop: 6, display: 'block', fontWeight: 600 }}>
+                    Supera el máximo de {maxJornadaOrdinariaSemanal} horas semanales.
+                  </span>
+                )}
               </div>
 
               {/* Dedicación */}
@@ -5501,31 +5637,6 @@ export default function Oportunidades({ onVolver }) {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* Jornada Semanal de la Práctica */}
-              <div className="form-field-group">
-                <label className="form-label">
-                  Jornada semanal de la práctica
-                  <div className="info-tooltip-wrapper">
-                    <span className="info-icon">i</span>
-                    <div className="tooltip-content">
-                      <strong>Información</strong>
-                      <p>Este campo debe seguir los parámetros de la Resolución 3546 de 2018 y representará la jornada semanal que cumplirá el practicante o practicantes seleccionados. Cuando la dedicación es por horas indique la dedicación promedio semanal en horas</p>
-                    </div>
-                  </div>
-                </label>
-                <input
-                  type="number"
-                  name="jornadaSemanalPractica"
-                  value={editFormData.jornadaSemanalPractica}
-                  onChange={handleEditFormChange}
-                  className="form-input"
-                  min="0"
-                  placeholder="Horas semanales"
-                  disabled={!isEditingDetail}
-                  readOnly={!isEditingDetail}
-                />
               </div>
 
               {/* Fecha inicio práctica */}
@@ -5724,17 +5835,35 @@ export default function Oportunidades({ onVolver }) {
                       <button 
                         type="button" 
                         className="programs-add" 
-                        onClick={() => setEditShowProgramsModal(true)} 
-                        title="Añadir programa"
+                        onClick={() => {
+                          if (!editFormData.periodo) {
+                            Swal.fire({
+                              icon: 'info',
+                              title: 'Seleccione un periodo',
+                              text: 'Primero elija el periodo de la práctica para agregar programas según la condición curricular.',
+                              confirmButtonText: 'Entendido',
+                              confirmButtonColor: '#c41e3a'
+                            });
+                            return;
+                          }
+                          setEditShowProgramsModal(true);
+                        }} 
+                        title={editFormData.periodo ? 'Añadir programa' : 'Seleccione periodo primero'}
+                        style={!editFormData.periodo ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                       >
                         <FiPlus />
                       </button>
                     )}
                   </div>
+                  {isEditingDetail && !editFormData.periodo && (
+                    <p style={{ margin: '6px 0 0 0', fontSize: 12, color: '#92400e', background: '#fffbeb', padding: '8px 10px', borderRadius: 6, border: '1px solid #fde68a' }}>
+                      Seleccione el <strong>periodo</strong> para poder agregar programas.
+                    </p>
+                  )}
                   {(!editFormData.formacionAcademica || editFormData.formacionAcademica.length === 0) ? (
                     <div className="programs-empty">
                       <FiX style={{ marginRight: '4px', display: 'inline-block' }} />
-                      No hay programas configurados.
+                      {editFormData.periodo || !isEditingDetail ? 'No hay programas configurados.' : 'Elija periodo para agregar programas.'}
                     </div>
                   ) : (
                     <ul className="programs-list">
