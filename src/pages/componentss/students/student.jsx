@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FiSearch,
   FiRefreshCw,
@@ -42,6 +43,7 @@ const createAlert = (icon, title, text, confirmButtonText = 'Aceptar') =>
   Swal.fire({ icon, title, text, confirmButtonText, confirmButtonColor: '#c41e3a', background: '#fff', color: '#333' });
 
 const Student = ({ onVolver }) => {
+  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -815,12 +817,14 @@ const Student = ({ onVolver }) => {
                 <th>CUMPLE CONDICIONES</th>
                 <th>ESTADO FINAL</th>
                 <th>ACTUALIZACIÓN</th>
+                <th>PERFIL</th>
               </tr>
             </thead>
             <tbody>
               {students.map((s) => {
                 const estadoClass = (s.estadoCurricular || '').toLowerCase().replace('_', '-');
                 const estadoFinalClass = (s.estadoFinal || '').toLowerCase().replace('_', '-');
+                const perfilId = s.perfilPostulanteId || s.postulant?._id;
                 return (
                   <tr key={s._id}>
                     <td>{s.identificacion || '-'}</td>
@@ -845,6 +849,19 @@ const Student = ({ onVolver }) => {
                       </span>
                     </td>
                     <td>{formatDate(s.updatedAt)}</td>
+                    <td>
+                      {perfilId ? (
+                        <button
+                          type="button"
+                          className="student-link-perfil"
+                          onClick={() => navigate(`/dashboard/postulantes/${perfilId}`)}
+                        >
+                          Ver perfil
+                        </button>
+                      ) : (
+                        <span className="student-no-perfil" title="Aún no tiene ficha de postulante en el sistema">—</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

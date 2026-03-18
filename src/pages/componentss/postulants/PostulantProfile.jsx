@@ -13,9 +13,6 @@ import {
   FiPhone,
   FiMail,
   FiLinkedin,
-  FiTwitter,
-  FiGlobe,
-  FiInstagram,
   FiHelpCircle,
   FiX,
   FiCheck,
@@ -60,17 +57,6 @@ const createAlert = (icon, title, text, confirmButtonText = 'Aceptar') => {
   });
 };
 
-/** Años de experiencia: número entero. Si el valor está en meses (12–960), se convierte a años; si está en rango 0–80 se muestra tal cual; el resto "—". */
-const formatYearsExperience = (value) => {
-  if (value == null || value === '') return '—';
-  const num = Number(value);
-  if (!Number.isFinite(num) || num < 0) return '—';
-  const rounded = Math.round(num);
-  if (rounded >= 0 && rounded <= 80) return String(rounded);
-  if (rounded >= 12 && rounded <= 960) return String(Math.round(rounded / 12));
-  return '—';
-};
-
 /** Texto de la Política de Tratamiento de Datos Personales (modal). */
 const POLITICA_TRATAMIENTO_DATOS = `Política de Tratamiento de Datos Personales
 
@@ -89,16 +75,6 @@ DERECHO A HABEAS DATA
 Usted tiene derecho a conocer, actualizar, incluir y rectificar sus datos personales, también podrá solicitar la supresión o revocar la autorización otorgada para su tratamiento. En caso de un reclamo o consulta relativa a sus datos personales, puede realizarla ingresando la petición en la opción "solicitudes" de la página web de la Universidad, remitiendo la solicitud al correo electrónico habeasdata@urosario.edu.co, o dejando su petición en el buzón físico ubicado en el Edificio Santafé Carrera 6 N° 12 C - 13 Bogotá D.C. en el horario de atención de lunes a viernes 7:00 a. m. a 7:00 p. m. y los sábados de 8:00 a. m. a 1:00 p. m.
 
 Si desea mayor información sobre el tratamiento de sus datos personales, consulte nuestra Política de Tratamiento de Datos personales en www.urosario.edu.co`;
-
-/** Calcula los meses entre start y end (inclusive: mes de inicio y mes de fin cuentan). */
-const monthsBetween = (start, end) => {
-  if (!start || !end) return 0;
-  const s = new Date(start);
-  const e = new Date(end);
-  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return 0;
-  const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) + 1;
-  return Math.max(0, months);
-};
 
 /** Créditos por semestre estándar para calcular SSC (semestres según créditos aprobados). */
 const CREDITOS_POR_SEMESTRE = 18;
@@ -162,7 +138,7 @@ function isSeccionHojaVidaCompletada(profileData, postulant, sectionKey) {
     case 'logros':
       return has(pp?.awards);
     case 'referencias':
-      return has(pp?.references);
+      return true;
     default:
       return false;
   }
@@ -191,61 +167,6 @@ const getSscSemestersFromCredits = (profileData) => {
   const approved = Number(approvedStr);
   if (!Number.isFinite(approved) || approved < 0) return null;
   return Math.ceil(approved / CREDITOS_POR_SEMESTRE);
-};
-
-/** Rangos de años (umbral en años): 0-2, 2-4, 4-6, 6-10, 10+. */
-const EXPERIENCE_RANGES = [
-  { maxYears: 2, label: '0-2 años' },
-  { maxYears: 4, label: '2-4 años' },
-  { maxYears: 6, label: '4-6 años' },
-  { maxYears: 10, label: '6-10 años' },
-  { maxYears: Infinity, label: '10+ años' },
-];
-
-/**
- * Calcula el rango de años de experiencia solo con Experiencias Laborales (JOB_EXP).
- * Primero se suman los meses de cada experiencia (fechas inicio/fin), luego total meses → años → rango.
- */
-const getExperienceRangeFromWorkExperiences = (workExperiences) => {
-  if (!workExperiences?.length) return null;
-  const laborales = workExperiences.filter((w) => (w.experienceType || 'JOB_EXP') === 'JOB_EXP');
-  if (!laborales.length) return null;
-  const today = new Date();
-  let totalMonths = 0;
-  for (const w of laborales) {
-    const start = w.startDate ? new Date(w.startDate) : null;
-    const end = w.noEndDate ? today : (w.endDate ? new Date(w.endDate) : null);
-    if (start) totalMonths += monthsBetween(start, end || today);
-  }
-  const totalYears = totalMonths / 12;
-  for (const r of EXPERIENCE_RANGES) {
-    if (totalYears < r.maxYears) return r.label;
-  }
-  return EXPERIENCE_RANGES[EXPERIENCE_RANGES.length - 1].label;
-};
-
-/** Convierte meses (totalTimeExperience) a rango de años para mostrar (ej: "0 a 2", "2 a 4"). */
-const getExperienceRangeFromMonths = (totalMonths) => {
-  if (totalMonths == null || totalMonths === '') return null;
-  const num = Number(totalMonths);
-  if (!Number.isFinite(num) || num < 0) return null;
-  const totalYears = num / 12;
-  for (const r of EXPERIENCE_RANGES) {
-    if (totalYears < r.maxYears) return r.label;
-  }
-  return EXPERIENCE_RANGES[EXPERIENCE_RANGES.length - 1].label;
-};
-
-/** Valor a mostrar en "Años de experiencia": rango desde experiencias, años del perfil o meses del perfil; si no hay nada, texto por defecto. */
-const getDisplayYearsExperience = (profileData) => {
-  const fromWork = getExperienceRangeFromWorkExperiences(profileData?.workExperiences);
-  if (fromWork) return fromWork;
-  const years = profileData?.postulantProfile?.yearsExperience;
-  const formattedYears = formatYearsExperience(years);
-  if (formattedYears !== '—') return formattedYears.includes('año') ? formattedYears : formattedYears + ' años';
-  const fromMonths = getExperienceRangeFromMonths(profileData?.postulantProfile?.totalTimeExperience);
-  if (fromMonths) return fromMonths;
-  return '0 a 2 años';
 };
 
 const PostulantProfile = ({ onVolver }) => {
@@ -342,6 +263,8 @@ const PostulantProfile = ({ onVolver }) => {
   });
   /** Opciones del select Institución (items con listId L_UNIVERSITIES) */
   const [institutionOptions, setInstitutionOptions] = useState([]);
+  /** Países para formación Rosario finalizada */
+  const [graduateCountryOptions, setGraduateCountryOptions] = useState([]);
   /** Modal agregar área de interés */
   const [interestAreaModalOpen, setInterestAreaModalOpen] = useState(false);
   const [interestAreaFormData, setInterestAreaFormData] = useState({ area: '' });
@@ -820,6 +743,14 @@ const PostulantProfile = ({ onVolver }) => {
     }
   }, [programasEnCursoModalOpen, programasFinalizadosModalOpen]);
 
+  useEffect(() => {
+    if (!programasFinalizadosModalOpen) return;
+    api
+      .get('/locations/countries', { params: { limit: 600 } })
+      .then((r) => setGraduateCountryOptions(Array.isArray(r.data?.data) ? r.data.data : r.data || []))
+      .catch(() => setGraduateCountryOptions([]));
+  }, [programasFinalizadosModalOpen]);
+
   /** Cargar áreas de interés (listId L_INTEREST_AREA) para el modal, ordenadas A-Z por value */
   const fetchAreaOptions = useCallback(async () => {
     try {
@@ -1149,6 +1080,10 @@ const PostulantProfile = ({ onVolver }) => {
     if (!postulant?._id || !currentBaseProfileId) return;
     if (!programasFinalizadosFormData.programa) {
       showError('Campo requerido', 'Seleccione un programa');
+      return;
+    }
+    if (!programasFinalizadosFormData.pais) {
+      showError('Campo requerido', 'Seleccione el país');
       return;
     }
     try {
@@ -2106,7 +2041,8 @@ const PostulantProfile = ({ onVolver }) => {
     }));
   }, []);
 
-  // Completitud: una sola lista con todas las variables (datos personales + perfil + académica). Porcentaje = completados / total.
+  // Completitud alineada con backend: 8 datos visibles + código estudiante + áreas + competencias + idiomas (12).
+  // La parte académica (créditos, etc.) no baja el % del círculo; se muestra aparte como recomendación.
   const completenessBySection = useMemo(() => {
     const empty = { scoreDatos: 0, scorePerfil: 0, scoreAcademica: 0, overall: 0, missingDatos: [], missingPerfil: [], missingAcademica: [] };
     if (!postulant) return empty;
@@ -2114,13 +2050,9 @@ const PostulantProfile = ({ onVolver }) => {
     const fieldsDatos = [
       { key: 'typeOfIdentification', label: 'Tipo de documento' },
       { key: 'gender', label: 'Género' },
-      { key: 'dateBirth', label: 'Fecha de nacimiento' },
       { key: 'phone', label: 'Teléfono' },
       { key: 'address', label: 'Dirección' },
-      { key: 'alternateEmail', label: 'Correo alternativo' },
       { key: 'countryBirthId', label: 'País de nacimiento' },
-      { key: 'stateBirthId', label: 'Departamento de nacimiento' },
-      { key: 'cityBirthId', label: 'Ciudad de nacimiento' },
       { key: 'countryResidenceId', label: 'País de residencia' },
       { key: 'stateResidenceId', label: 'Departamento de residencia' },
       { key: 'cityResidenceId', label: 'Ciudad de residencia' },
@@ -2141,11 +2073,10 @@ const PostulantProfile = ({ onVolver }) => {
 
     const pp = profileData?.postulantProfile;
     const itemsPerfil = [
-      { ok: pp?.studentCode != null && String(pp.studentCode).trim() !== '', label: 'Código de estudiante (studentCode)' },
+      { ok: pp?.studentCode != null && String(pp.studentCode).trim() !== '', label: 'Código de estudiante' },
       { ok: (profileData?.interestAreas?.length ?? 0) > 0, label: 'Al menos un área de interés' },
-      { ok: (profileData?.skills?.length ?? 0) > 0, label: 'Al menos una habilidad' },
+      { ok: (profileData?.skills?.length ?? 0) > 0, label: 'Al menos una competencia' },
       { ok: (profileData?.languages?.length ?? 0) > 0, label: 'Al menos un idioma' },
-      { ok: (profileData?.references?.length ?? 0) > 0, label: 'Al menos una referencia' },
     ];
     const missingPerfil = profileData ? itemsPerfil.filter((i) => !i.ok).map((i) => i.label) : [];
     const scorePerfil = profileData && itemsPerfil.length ? Math.round(itemsPerfil.filter((i) => i.ok).length / itemsPerfil.length * 100) : 0;
@@ -2163,10 +2094,9 @@ const PostulantProfile = ({ onVolver }) => {
     const missingAcademica = profileData ? itemsAcademica.filter((i) => !i.ok).map((i) => i.label) : [];
     const scoreAcademica = profileData && itemsAcademica.length ? Math.round(itemsAcademica.filter((i) => i.ok).length / itemsAcademica.length * 100) : 0;
 
-    // Un solo porcentaje: total de ítems completados / total de ítems (todas las variables)
-    const allItems = [...itemsDatos, ...(profileData ? itemsPerfil : []), ...(profileData ? itemsAcademica : [])];
-    const completed = allItems.filter((i) => i.ok).length;
-    const total = allItems.length;
+    const allMain = [...itemsDatos, ...(profileData ? itemsPerfil : [])];
+    const completed = allMain.filter((i) => i.ok).length;
+    const total = allMain.length;
     const overall = total ? Math.min(100, Math.round((completed / total) * 100)) : scoreDatos;
 
     return {
@@ -2180,10 +2110,16 @@ const PostulantProfile = ({ onVolver }) => {
     };
   }, [postulant, profileData]);
 
-  // Completitud mostrada en el círculo: todas las variables (datos + perfil + referencias + académica). Si no hay profileData, solo datos personales.
+  // Círculo: mismo % que persiste el backend tras cargar profile-data (12 ítems).
   const calculateCompleteness = useCallback(() => {
+    const apiPct = profileData?.profileCompleteness?.percentage;
+    if (apiPct != null && Number.isFinite(Number(apiPct))) return Math.min(100, Math.round(Number(apiPct)));
+    const stored = postulant?.filling_percentage;
+    if (!profileData && stored != null && Number.isFinite(Number(stored))) {
+      return Math.min(100, Math.round(Number(stored)));
+    }
     return completenessBySection.overall;
-  }, [completenessBySection.overall]);
+  }, [profileData?.profileCompleteness?.percentage, profileData, postulant?.filling_percentage, completenessBySection.overall]);
 
   // Formatear fecha
   const formatDate = (date) => {
@@ -2248,16 +2184,25 @@ const PostulantProfile = ({ onVolver }) => {
 
   const openQueHaceFaltaModal = () => {
     const { missingDatos, missingPerfil, missingAcademica } = completenessBySection;
-    const hasMissing = missingDatos.length > 0 || missingPerfil.length > 0 || missingAcademica.length > 0;
-    if (!hasMissing) {
+    const apiMissing = profileData?.profileCompleteness?.missingLabels;
+    const apiPct = profileData?.profileCompleteness?.percentage;
+    const mainFromApi = Array.isArray(apiMissing) && apiMissing.length > 0;
+    const mainList = mainFromApi
+      ? apiMissing
+      : [...missingDatos, ...missingPerfil];
+    const hasAcademicGap = missingAcademica.length > 0;
+    const mainComplete = apiPct === 100 || (!mainFromApi && mainList.length === 0);
+
+    if (mainComplete && !hasAcademicGap) {
       Swal.fire({
         icon: 'success',
         title: 'Perfil completo',
-        text: 'No falta información por completar en datos personales, perfil e información académica.',
+        text: 'Tiene completos los datos para la hoja de vida. La información académica registrada también está al día.',
         confirmButtonColor: '#c41e3a',
       });
       return;
     }
+
     const section = (title, items) => {
       if (!items.length) return '';
       const rows = items.map((label, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(label)}</td></tr>`).join('');
@@ -2267,17 +2212,23 @@ const PostulantProfile = ({ onVolver }) => {
           <tbody>${rows}</tbody>
         </table>`;
     };
-    let html = [
-      section('Datos personales', missingDatos),
-      section('Perfil (datos generales del perfil)', missingPerfil),
-      section('Información académica', missingAcademica),
-    ].filter(Boolean).join('');
-    if (!profileData && html) {
-      html += '<p style="margin-top:0.75rem; font-size:0.9em; color:#666;">Si abre las pestañas <strong>Perfil y experiencia</strong> e <strong>Información académica</strong>, se evaluará también qué falta en esas secciones.</p>';
+
+    let html = '';
+    if (!mainComplete && mainList.length > 0) {
+      html += section('Para la hoja de vida (obligatorio)', mainList);
+    } else if (mainComplete) {
+      html += '<p class="mb-2" style="color:#1a7f37;"><strong>Datos para hoja de vida: completos.</strong></p>';
+    }
+    if (hasAcademicGap) {
+      html += section('Información académica (recomendado)', missingAcademica);
+      html += '<p style="font-size:0.88em; color:#666; margin-top:0.5rem;">Estos ítems no afectan el porcentaje del perfil ni la generación de la hoja de vida, pero son útiles para prácticas y registro.</p>';
+    }
+    if (!profileData && !mainFromApi) {
+      html += '<p style="margin-top:0.75rem; font-size:0.9em; color:#666;">Abra <strong>Perfil y experiencia</strong> para ver el detalle de áreas, competencias e idiomas.</p>';
     }
     Swal.fire({
-      title: '¿Qué hace falta para completar su perfil?',
-      html: html || '<p>No hay datos cargados. Abra las pestañas Perfil y experiencia e Información académica para ver el detalle.</p>',
+      title: '¿Qué hace falta?',
+      html: html || '<p>Cargue el perfil para ver el detalle.</p>',
       confirmButtonText: 'Entendido',
       confirmButtonColor: '#c41e3a',
       width: '520px',
@@ -2582,44 +2533,6 @@ const PostulantProfile = ({ onVolver }) => {
                 <span className="contact-text">{postulant.linkedin_url || '-'}</span>
               )}
             </div>
-            <div className="contact-item">
-              <div className="contact-icon-wrapper">
-                <FiTwitter className="contact-icon" />
-              </div>
-              {isEditing ? (
-                <>
-                  <input 
-                    type="text" 
-                    className="contact-input" 
-                    value={editedData.twitter_url || ''} 
-                    onChange={(e) => handleInputChange('twitter_url', e.target.value)}
-                    placeholder="Twitter"
-                  />
-                  <FiEdit className="contact-edit-icon" />
-                </>
-              ) : (
-                <span className="contact-text">{postulant.twitter_url || '-'}</span>
-              )}
-            </div>
-            <div className="contact-item">
-              <div className="contact-icon-wrapper">
-                <FiInstagram className="contact-icon" />
-              </div>
-              {isEditing ? (
-                <>
-                  <input 
-                    type="text" 
-                    className="contact-input" 
-                    value={editedData.instagram_url || ''} 
-                    onChange={(e) => handleInputChange('instagram_url', e.target.value)}
-                    placeholder="Instagram"
-                  />
-                  <FiEdit className="contact-edit-icon" />
-                </>
-              ) : (
-                <span className="contact-text">{postulant.instagram_url || '-'}</span>
-              )}
-            </div>
               </div>
             </div>
           </div>
@@ -2709,26 +2622,6 @@ const PostulantProfile = ({ onVolver }) => {
                   </div>
                 )}
               </div>
-              <div className="profile-data-field">
-                <label className="profile-field-label">
-                  <span className="field-label-separator">|</span>
-                  Fecha de nacimiento
-                  {isEditing && <FiEdit className="field-edit-icon" />}
-                </label>
-                {isEditing ? (
-                  <div className="profile-field-input-wrapper">
-                    <input 
-                      type="date" 
-                      className="profile-field-input" 
-                      value={editedData.date_nac_postulant || ''}
-                      onChange={(e) => handleInputChange('date_nac_postulant', e.target.value)}
-                      placeholder="DD/MM/YYYY"
-                    />
-                  </div>
-                ) : (
-                  <div className="profile-field-value">{formatDate(postulant.date_nac_postulant)}</div>
-                )}
-              </div>
             </div>
         </div>
 
@@ -2755,48 +2648,6 @@ const PostulantProfile = ({ onVolver }) => {
                   </div>
                 ) : (
                   <div className="profile-field-value">{postulant.nac_country?.name || '-'}</div>
-                )}
-              </div>
-              <div className="profile-data-field">
-                <label className="profile-field-label">
-                  <span className="field-label-separator">|</span>
-                  Departamento de nacimiento
-                  {isEditing && <FiEdit className="field-edit-icon" />}
-                </label>
-                {isEditing ? (
-                  <div className="profile-field-input-wrapper">
-                    <select 
-                      className="profile-field-input profile-field-select" 
-                      value={editedData.nac_department || ''}
-                      onChange={(e) => handleInputChange('nac_department', e.target.value)}
-                    >
-                      <option value="">Seleccionar</option>
-                      {postulant.nac_department && <option value={postulant.nac_department._id}>{postulant.nac_department.name}</option>}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="profile-field-value">{postulant.nac_department?.name || '-'}</div>
-                )}
-              </div>
-              <div className="profile-data-field">
-                <label className="profile-field-label">
-                  <span className="field-label-separator">|</span>
-                  Ciudad de nacimiento
-                  {isEditing && <FiEdit className="field-edit-icon" />}
-                </label>
-                {isEditing ? (
-                  <div className="profile-field-input-wrapper">
-                    <select 
-                      className="profile-field-input profile-field-select" 
-                      value={editedData.nac_city || ''}
-                      onChange={(e) => handleInputChange('nac_city', e.target.value)}
-                    >
-                      <option value="">Seleccionar</option>
-                      {postulant.nac_city && <option value={postulant.nac_city._id}>{postulant.nac_city.name}</option>}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="profile-field-value">{postulant.nac_city?.name || '-'}</div>
                 )}
               </div>
               <div className="profile-data-field">
@@ -2880,26 +2731,6 @@ const PostulantProfile = ({ onVolver }) => {
                   </div>
                 ) : (
                   <div className="profile-field-value">{postulant.residence_city?.name || '-'}</div>
-                )}
-              </div>
-              <div className="profile-data-field">
-                <label className="profile-field-label">
-                  <span className="field-label-separator">|</span>
-                  Página Web
-                  {isEditing && <FiEdit className="field-edit-icon" />}
-                </label>
-                {isEditing ? (
-                  <div className="profile-field-input-wrapper">
-                    <input 
-                      type="text" 
-                      className="profile-field-input" 
-                      value={editedData.website_url || ''} 
-                      onChange={(e) => handleInputChange('website_url', e.target.value)}
-                      placeholder="http://www.example.com"
-                    />
-                  </div>
-                ) : (
-                  <div className="profile-field-value">{postulant.website_url || '-'}</div>
                 )}
               </div>
             </div>
@@ -3147,12 +2978,9 @@ const PostulantProfile = ({ onVolver }) => {
                       <thead>
                         <tr>
                           <th>Programa</th>
-                          <th>Título</th>
-                          <th>Fecha de finalización</th>
-                          <th>Universidad</th>
+                          <th>Título formación académica</th>
+                          <th>Fecha de obtención de título</th>
                           <th>País</th>
-                          <th>Departamento</th>
-                          <th>Ciudad</th>
                           <th>Acciones</th>
                         </tr>
                       </thead>
@@ -3164,10 +2992,7 @@ const PostulantProfile = ({ onVolver }) => {
                               <td>{gp.programId?.name || gp.programId?.code || '—'}</td>
                               <td>{gp.title || '—'}</td>
                               <td>{gp.endDate ? formatDate(gp.endDate) : '—'}</td>
-                              <td>{gp.university?.value || gp.university?.description || gp.anotherUniversity || '—'}</td>
                               <td>{gp.countryId?.name ?? '—'}</td>
-                              <td>{gp.stateId?.name ?? '—'}</td>
-                              <td>{gp.cityId?.name ?? '—'}</td>
                               <td>
                                 {isEditing && (
                                   <div className="academic-row-actions" ref={isOptionsOpen ? academicOptionsAnchorRef : undefined}>
@@ -3387,67 +3212,6 @@ const PostulantProfile = ({ onVolver }) => {
               )}
             </div>
 
-            {/* 2. Campos fijos */}
-            <div className="perfil-campos-fijos">
-              <h3 className="perfil-seccion-titulo">Datos del perfil</h3>
-              <div className="perfil-campos-fijos-grid">
-                <div className="perfil-block perfil-block-inline">
-                  <h4 className="perfil-block-title">Independiente</h4>
-                  {isEditing ? (
-                    <div className="perfil-switch-row">
-                      <button type="button" role="switch" aria-checked={profileEditFields.independent} className={`form-modal-toggle ${profileEditFields.independent ? 'on' : ''}`} onClick={() => handleProfileFieldChange('independent', !profileEditFields.independent)}><span className="form-modal-toggle-thumb" /></button>
-                    </div>
-                  ) : (
-                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.independent ? 'sino-si' : 'sino-no'}`}>{profileData?.postulantProfile?.independent ? 'Sí' : 'No'}</span>
-                  )}
-                </div>
-                <div className="perfil-block perfil-block-inline">
-                  <h4 className="perfil-block-title">Empleado</h4>
-                  {isEditing ? (
-                    <div className="perfil-switch-row">
-                      <button type="button" role="switch" aria-checked={profileEditFields.employee} className={`form-modal-toggle ${profileEditFields.employee ? 'on' : ''}`} onClick={() => handleProfileFieldChange('employee', !profileEditFields.employee)}><span className="form-modal-toggle-thumb" /></button>
-                    </div>
-                  ) : (
-                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.employee ? 'sino-si' : 'sino-no'}`}>{profileData?.postulantProfile?.employee ? 'Sí' : 'No'}</span>
-                  )}
-                </div>
-                <div className="perfil-block perfil-block-inline">
-                  <h4 className="perfil-block-title">¿Discapacidad?</h4>
-                  {isEditing ? (
-                    <div className="perfil-switch-row">
-                      <button type="button" role="switch" aria-checked={profileEditFields.conditionDiscapacity} className={`form-modal-toggle ${profileEditFields.conditionDiscapacity ? 'on' : ''}`} onClick={() => handleProfileFieldChange('conditionDiscapacity', !profileEditFields.conditionDiscapacity)}><span className="form-modal-toggle-thumb" /></button>
-                    </div>
-                  ) : (
-                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.conditionDiscapacity ? 'sino-si' : 'sino-no'}`}>{profileData?.postulantProfile?.conditionDiscapacity ? 'Sí' : 'No'}</span>
-                  )}
-                </div>
-                <div className="perfil-block perfil-block-inline">
-                  <h4 className="perfil-block-title">¿Tiene empresa?</h4>
-                  {isEditing ? (
-                    <div className="perfil-switch-row">
-                      <button type="button" role="switch" aria-checked={profileEditFields.haveBusiness} className={`form-modal-toggle ${profileEditFields.haveBusiness ? 'on' : ''}`} onClick={() => handleProfileFieldChange('haveBusiness', !profileEditFields.haveBusiness)}><span className="form-modal-toggle-thumb" /></button>
-                    </div>
-                  ) : (
-                    <span className={`perfil-sino-badge ${profileData?.postulantProfile?.haveBusiness ? 'sino-si' : 'sino-no'}`}>{profileData?.postulantProfile?.haveBusiness ? 'Sí' : 'No'}</span>
-                  )}
-                </div>
-                <div className="perfil-block perfil-block-inline">
-                  <h4 className="perfil-block-title">Años de experiencia</h4>
-                  <div className="perfil-field-value">{getDisplayYearsExperience(profileData)}</div>
-                </div>
-                <div className="perfil-block perfil-block-inline">
-                  <h4 className="perfil-block-title">Tiempo total experiencia (meses)</h4>
-                  {isEditing ? (
-                    <div className="profile-field-input-wrapper">
-                      <input type="number" min={0} step={0.1} className="profile-field-input" value={profileEditFields.totalTimeExperience} onChange={e => handleProfileFieldChange('totalTimeExperience', e.target.value)} placeholder="0" />
-                    </div>
-                  ) : (
-                    <div className="perfil-field-value">{profileData?.postulantProfile?.totalTimeExperience != null ? String(profileData.postulantProfile.totalTimeExperience) : '0.0'}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* 3. Texto perfil profesional */}
             {(() => {
               const displayText = profileData?.selectedProfileVersion?.profileText ?? profileData?.postulantProfile?.profileText;
@@ -3542,15 +3306,15 @@ const PostulantProfile = ({ onVolver }) => {
               </div>
             </div>
 
-            {/* 5. Habilidades técnicas */}
+            {/* 5. Habilidades digitales */}
             <div className="perfil-block">
               <div className="section-title-row">
-                <h4 className="perfil-block-title">Habilidades técnicas y de software</h4>
+                <h4 className="perfil-block-title">Habilidades digitales</h4>
                 {isEditing && <FiEdit className="field-edit-icon" style={{ marginLeft: '8px' }} />}
               </div>
               {isEditing ? (
                 <>
-                  <textarea className="form-control perfil-skills-textarea" value={profileEditFields.skillsTechnicalSoftware} onChange={e => handleProfileFieldChange('skillsTechnicalSoftware', e.target.value.slice(0, 512))} placeholder="Escriba sus habilidades técnicas y de software" rows={3} maxLength={512} />
+                  <textarea className="form-control perfil-skills-textarea" value={profileEditFields.skillsTechnicalSoftware} onChange={e => handleProfileFieldChange('skillsTechnicalSoftware', e.target.value.slice(0, 512))} placeholder="Escriba sus habilidades digitales" rows={3} maxLength={512} />
                   <div className="perfil-field-char-count">Caracteres restantes: {512 - (profileEditFields.skillsTechnicalSoftware || '').length}</div>
                 </>
               ) : (
@@ -3558,9 +3322,9 @@ const PostulantProfile = ({ onVolver }) => {
               )}
             </div>
 
-            {/* 6. Experiencia, logros y referencias */}
+            {/* 6. Experiencia y logros */}
             <div className="perfil-experiencia-block">
-              <h3 className="perfil-experiencia-block-title">Experiencia, logros y referencias de este perfil</h3>
+              <h3 className="perfil-experiencia-block-title">Experiencia y logros de este perfil</h3>
               <section className="exp-section">
                 <div className="section-title-row">
                   <h3 className="exp-section-title">Experiencias Laborales</h3>
@@ -3817,70 +3581,6 @@ const PostulantProfile = ({ onVolver }) => {
                 </div>
               </section>
 
-              <section className="exp-section">
-                <div className="section-title-row">
-                  <h3 className="exp-section-title">Referencias</h3>
-                  {isEditing && (
-                    <span className="section-actions">
-                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingReferenceId(null); setReferenceFormData({ firstname: '', lastname: '', occupation: '', phone: '' }); setReferenceModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                    </span>
-                  )}
-                </div>
-                <div className="exp-table-wrap">
-                  <table className="exp-table">
-                    <thead>
-                      <tr>
-                        <th>Nombre</th>
-                        <th>Apellido</th>
-                        <th>Ocupación</th>
-                        <th>Teléfono</th>
-                        {isEditing && <th>Acciones</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(profileDataBelongsToCurrentProfile && profileData?.references?.length > 0) ? (
-                        profileData.references.map((r) => {
-                          const isOptionsOpen = refsOptionsId === r._id;
-                          return (
-                            <tr key={r._id}>
-                              <td>{r.firstname || '—'}</td>
-                              <td>{r.lastname || '—'}</td>
-                              <td>{r.occupation || '—'}</td>
-                              <td>{r.phone || '—'}</td>
-                              {isEditing && (
-                                <td>
-                                  <div className="academic-row-actions" ref={refsOptionsId === r._id ? expOptionsAnchorRef : undefined}>
-                                    <button type="button" className="perfil-opciones-btn" onClick={() => setRefsOptionsId(isOptionsOpen ? null : r._id)} title="Opciones">Opciones <FiMoreVertical /></button>
-                                    {isOptionsOpen && (
-                                      <>
-                                        <div className="perfil-opciones-backdrop" onClick={() => setRefsOptionsId(null)} />
-                                        <div
-                                          className={`perfil-opciones-menu perfil-opciones-menu--fixed${expOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
-                                          style={expOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...expOptionsMenuFixed } : undefined}
-                                        >
-                                          <button type="button" onClick={() => {
-                                            setRefsOptionsId(null);
-                                            setEditingReferenceId(r._id);
-                                            setReferenceFormData({ firstname: r.firstname || '', lastname: r.lastname || '', occupation: r.occupation || '', phone: r.phone || '' });
-                                            setReferenceModalOpen(true);
-                                          }}>Editar</button>
-                                          <button type="button" onClick={() => handleDeleteReference(r._id)}>Eliminar</button>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        <tr><td colSpan={isEditing ? 5 : 4} className="exp-table-empty">No hay referencias registradas.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
             </div>
 
             {/* 7. Documentos — al final para facilitar subir/descargar */}
@@ -3938,7 +3638,7 @@ const PostulantProfile = ({ onVolver }) => {
                 {profileData?.postulantProfile && profileData.postulantProfile.perfilCompleto === false && (
                   <div className="perfil-hv-incomplete-alert" role="alert">
                     <FiHelpCircle className="perfil-hv-incomplete-alert-icon" />
-                    <span>Para generar la hoja de vida debe completar: datos personales, áreas de interés, competencias, idiomas y al menos una referencia. No se exigen experiencia laboral, logros ni otras experiencias.</span>
+                    <span>Para generar la hoja de vida debe completar: datos personales, áreas de interés, competencias e idiomas. No se exigen experiencia laboral, logros ni otras experiencias.</span>
                   </div>
                 )}
                 <p className="perfil-block-desc">Puede generar hasta 5 archivos de Hoja de Vida, según los diferentes perfiles que tenga. El tamaño máximo de cada archivo es de 5Mb.</p>
@@ -4117,31 +3817,21 @@ const PostulantProfile = ({ onVolver }) => {
                 <label htmlFor="pf-fecha">Fecha de obtención de título</label>
               </div>
               <div className="form-floating mb-3">
-                <select id="pf-institucion" value={programasFinalizadosFormData.institucion} onChange={e => setProgramasFinalizadosFormData(prev => ({ ...prev, institucion: e.target.value }))} className="form-select">
-                  <option value="">Seleccione</option>
-                  {institutionOptions.map((item) => (
-                    <option key={item._id} value={item._id}>{item.value || item.description || item._id}</option>
+                <select
+                  id="pf-pais"
+                  className="form-select"
+                  value={programasFinalizadosFormData.pais || ''}
+                  onChange={(e) => setProgramasFinalizadosFormData((prev) => ({ ...prev, pais: e.target.value }))}
+                >
+                  <option value="">Seleccione país</option>
+                  {graduateCountryOptions.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name || c._id}
+                    </option>
                   ))}
                 </select>
-                <label htmlFor="pf-institucion">Institución</label>
+                <label htmlFor="pf-pais">País</label>
               </div>
-              <LocationSelectCascade
-                idPrefix="pf"
-                value={{
-                  countryId: programasFinalizadosFormData.pais,
-                  stateId: programasFinalizadosFormData.departamento,
-                  cityId: programasFinalizadosFormData.ciudad,
-                }}
-                onChange={({ countryId, stateId, cityId }) =>
-                  setProgramasFinalizadosFormData(prev => ({
-                    ...prev,
-                    pais: countryId,
-                    departamento: stateId,
-                    ciudad: cityId,
-                  }))
-                }
-                onError={showError}
-              />
             </div>
             <div className="form-modal-footer">
               <button type="button" className="form-modal-btn-cancel" onClick={() => { setProgramasFinalizadosModalOpen(false); setEditingGraduateId(null); }}>Descartar</button>

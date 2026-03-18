@@ -9,6 +9,7 @@ import {
   FiChevronDown,
   FiUpload,
   FiExternalLink,
+  FiSearch,
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { Modal, Button, Form, Accordion } from 'react-bootstrap';
@@ -58,7 +59,13 @@ export default function DocumentosLegalizacionPractica({ onVolver }) {
   const canCFDL = hasPermission('CFDL');
 
   const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
   const [rows, setRows] = useState([]);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
+  const [listSearch, setListSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
   const [practiceTypes, setPracticeTypes] = useState([]);
   const [documentTypes, setDocumentTypes] = useState([]);
   const [programFaculties, setProgramFaculties] = useState([]);
@@ -78,41 +85,109 @@ export default function DocumentosLegalizacionPractica({ onVolver }) {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [metaRes, listRes] = await Promise.all([
-        api.get('/document-practice-definitions/meta').catch(() => ({ data: {} })),
-        api.get('/document-practice-definitions').catch(() => ({ data: { data: [] } })),
-      ]);
-      const ptList = metaRes.data?.practiceTypeListId || 'L_PRACTICE_TYPE';
-      const extList = metaRes.data?.extensionsListId || 'L_EXTENSIONS';
-      setMeta({ practiceTypeListId: ptList, extensionsListId: extList });
-      setRows(listRes.data?.data || []);
+  const fetchDefinitionsPage = useCallback(
+    async (pageNum, searchTerm) => {
+      const { data } = await api.get('/document-practice-definitions', {
+        params: {
+          page: pageNum,
+          limit: PAGE_SIZE,
+          ...(searchTerm?.trim() ? { search: searchTerm.trim() } : {}),
+        },
+      });
+      setRows(data?.data || []);
+      const pg = data?.pagination;
+      if (pg) {
+        setPagination({
+          page: pg.page ?? pageNum,
+          limit: pg.limit ?? PAGE_SIZE,
+          total: pg.total ?? 0,
+          totalPages: pg.totalPages ?? 1,
+        });
+        if (pg.page && pg.page !== pageNum) setPage(pg.page);
+      }
+    },
+    [PAGE_SIZE]
+  );
 
-      const [pt, dt, pf, extItems] = await Promise.all([
-        api.get(`/locations/items/${encodeURIComponent(ptList)}`, { params: { limit: 200 } }).catch(() => ({ data: [] })),
-        api.get(`/locations/items/${encodeURIComponent(DOCUMENT_TYPE_LIST_ID)}`, { params: { limit: 500 } }).catch(() => ({ data: [] })),
-        api.get('/program-faculties', { params: { limit: 2000, page: 1, status: 'ACTIVE' } }).catch(() => ({ data: { data: [] } })),
-        api.get(`/locations/items/${encodeURIComponent(extList)}`, { params: { limit: 200 } }).catch(() => ({ data: [] })),
-      ]);
-      setPracticeTypes(pt.data?.data || []);
-      setDocumentTypes(dt.data?.data || []);
-      setExtensionItemsCatalog(extItems.data?.data || []);
-      const pfl = pf.data?.data || [];
-      setProgramFaculties(
-        [...pfl].sort((a, b) => pfLabelSort(a).localeCompare(pfLabelSort(b), 'es'))
-      );
+  const loadCatalogs = useCallback(async () => {
+    const metaRes = await api.get('/document-practice-definitions/meta').catch(() => ({ data: {} }));
+    const ptList = metaRes.data?.practiceTypeListId || 'L_PRACTICE_TYPE';
+    const extList = metaRes.data?.extensionsListId || 'L_EXTENSIONS';
+    setMeta({ practiceTypeListId: ptList, extensionsListId: extList });
+
+    const [pt, dt, pf, extItems] = await Promise.all([
+      api.get(`/locations/items/${encodeURIComponent(ptList)}`, { params: { limit: 200 } }).catch(() => ({ data: [] })),
+      api.get(`/locations/items/${encodeURIComponent(DOCUMENT_TYPE_LIST_ID)}`, { params: { limit: 500 } }).catch(() => ({ data: [] })),
+      api.get('/program-faculties', { params: { limit: 2000, page: 1, status: 'ACTIVE' } }).catch(() => ({ data: { data: [] } })),
+      api.get(`/locations/items/${encodeURIComponent(extList)}`, { params: { limit: 200 } }).catch(() => ({ data: [] })),
+    ]);
+    setPracticeTypes(pt.data?.data || []);
+    setDocumentTypes(dt.data?.data || []);
+    setExtensionItemsCatalog(extItems.data?.data || []);
+    const pfl = pf.data?.data || [];
+    setProgramFaculties(
+      [...pfl].sort((a, b) => pfLabelSort(a).localeCompare(pfLabelSort(b), 'es'))
+    );
+  }, []);
+
+  const reloadDefinitionsOnly = useCallback(async () => {
+    setListLoading(true);
+    try {
+      await fetchDefinitionsPage(page, listSearch);
     } catch (e) {
       Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || e.message });
     } finally {
-      setLoading(false);
+      setListLoading(false);
     }
-  }, []);
+  }, [fetchDefinitionsPage, page, listSearch]);
 
   useEffect(() => {
-    if (canCFDL) loadAll();
-  }, [canCFDL, loadAll]);
+    if (!canCFDL) return;
+    let cancelled = false;
+    setLoading(true);
+    loadCatalogs()
+      .catch((e) => {
+        if (!cancelled) {
+          Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || e.message });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canCFDL, loadCatalogs]);
+
+  useEffect(() => {
+    if (!canCFDL) return;
+    let cancelled = false;
+    setListLoading(true);
+    fetchDefinitionsPage(page, listSearch)
+      .catch((e) => {
+        if (!cancelled) {
+          Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || e.message });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canCFDL, page, listSearch, fetchDefinitionsPage]);
+
+  const handleSearchSubmit = (e) => {
+    e?.preventDefault();
+    setListSearch(searchInput.trim());
+    setPage(1);
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    setListSearch('');
+    setPage(1);
+  };
 
   /** Registros migrados: solo extensionCodes; intentar casar con catálogo L_EXTENSIONS al abrir edición */
   useEffect(() => {
@@ -282,7 +357,7 @@ export default function DocumentosLegalizacionPractica({ onVolver }) {
       }
       Swal.fire({ icon: 'success', title: editingId ? 'Actualizado' : 'Creado', timer: 1600, showConfirmButton: false });
       closeDocModal();
-      loadAll();
+      reloadDefinitionsOnly();
     } catch (e) {
       Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || e.message });
     } finally {
@@ -305,7 +380,7 @@ export default function DocumentosLegalizacionPractica({ onVolver }) {
     try {
       await api.delete(`/document-practice-definitions/${row._id}`);
       Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1400, showConfirmButton: false });
-      loadAll();
+      reloadDefinitionsOnly();
     } catch (e) {
       Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || e.message });
     }
@@ -384,48 +459,115 @@ export default function DocumentosLegalizacionPractica({ onVolver }) {
         {loading ? (
           <div className="loading-container">
             <div className="loading-spinner"></div>
-            <p>Cargando documentos…</p>
+            <p>Cargando…</p>
           </div>
         ) : (
-          <div className="users-table-container">
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th>Nombre del documento</th>
-                  <th>Tipo de documento</th>
-                  <th>Tipo de práctica</th>
-                  <th>Enlazado al seguimiento</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 && (
+          <>
+            <form className="dlp-list-toolbar" onSubmit={handleSearchSubmit}>
+              <div className="dlp-search-wrap">
+                <FiSearch className="dlp-search-icon" aria-hidden />
+                <input
+                  type="search"
+                  className="dlp-search-input"
+                  placeholder="Buscar por nombre, tipo de documento o tipo de práctica…"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  aria-label="Buscar documentos"
+                />
+              </div>
+              <button type="submit" className="btn-guardar dlp-btn-buscar">
+                Buscar
+              </button>
+              {listSearch ? (
+                <button type="button" className="btn-volver dlp-btn-limpiar" onClick={clearSearch}>
+                  Limpiar
+                </button>
+              ) : null}
+            </form>
+            {listSearch ? (
+              <p className="dlp-search-hint text-muted small mb-2">
+                Búsqueda en todos los registros; resultados paginados abajo.
+              </p>
+            ) : null}
+
+            <div className={`users-table-container ${listLoading ? 'dlp-table-loading' : ''}`}>
+              {listLoading && (
+                <div className="dlp-table-overlay" aria-busy="true">
+                  <div className="loading-spinner loading-spinner--sm" />
+                </div>
+              )}
+              <table className="users-table">
+                <thead>
                   <tr>
-                    <td colSpan={5} className="dlp-empty">
-                      No hay documentos de legalización definidos.
-                    </td>
+                    <th>Nombre del documento</th>
+                    <th>Tipo de documento</th>
+                    <th>Tipo de práctica</th>
+                    <th>Enlazado al seguimiento</th>
+                    <th>Acciones</th>
                   </tr>
-                )}
-                {rows.map((row) => (
-                  <tr key={row._id}>
-                    <td>{row.documentName}</td>
-                    <td>{row.documentTypeItem?.value || '—'}</td>
-                    <td>{row.practiceTypeItem?.value || '—'}</td>
-                    <td>{row.showFormTracing ? 'Sí' : 'No'}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="dlp-btn-opciones"
-                        onClick={(e) => openOptions(e, row._id)}
-                      >
-                        Opciones <FiChevronDown />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && !listLoading && (
+                    <tr>
+                      <td colSpan={5} className="dlp-empty">
+                        {listSearch
+                          ? 'No hay coincidencias con la búsqueda.'
+                          : 'No hay documentos de legalización definidos.'}
+                      </td>
+                    </tr>
+                  )}
+                  {rows.map((row) => (
+                    <tr key={row._id}>
+                      <td>{row.documentName}</td>
+                      <td>{row.documentTypeItem?.value || '—'}</td>
+                      <td>{row.practiceTypeItem?.value || '—'}</td>
+                      <td>{row.showFormTracing ? 'Sí' : 'No'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="dlp-btn-opciones"
+                          onClick={(e) => openOptions(e, row._id)}
+                        >
+                          Opciones <FiChevronDown />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {pagination.total > 0 && (
+              <div className="dlp-pagination">
+                <span className="dlp-pagination-info">
+                  Mostrando {(pagination.page - 1) * pagination.limit + 1}–
+                  {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
+                  {listSearch ? ' (filtrado)' : ''}
+                </span>
+                <div className="dlp-pagination-btns">
+                  <button
+                    type="button"
+                    className="btn-volver"
+                    disabled={pagination.page <= 1 || listLoading}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Anterior
+                  </button>
+                  <span className="dlp-pagination-page">
+                    Página {pagination.page} de {pagination.totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-volver"
+                    disabled={pagination.page >= pagination.totalPages || listLoading}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -438,7 +580,7 @@ export default function DocumentosLegalizacionPractica({ onVolver }) {
             onClick={(e) => e.stopPropagation()}
           >
             {(() => {
-              const row = rows.find((r) => r._id === openMenuId);
+              const row = rows.find((r) => String(r._id) === String(openMenuId));
               if (!row) return null;
               return (
                 <>

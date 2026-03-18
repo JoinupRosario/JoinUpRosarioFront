@@ -236,6 +236,23 @@
   white-space: nowrap;
 }
 
+.student-link-perfil {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #c41e3a;
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+  font-weight: 500;
+}
+.student-link-perfil:hover {
+  color: #a01730;
+}
+.student-no-perfil {
+  color: #9ca3af;
+}
+
 .student-table td {
   padding: 12px 10px;
   border-bottom: 1px solid #e5e7eb;
