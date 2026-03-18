@@ -18,7 +18,10 @@ import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Roles = ({ onVolver }) => {
-  const { refreshPermissions } = useAuth();
+  const { refreshPermissions, hasPermission } = useAuth();
+  const canCrearRol = hasPermission('AMRO') || hasPermission('CRO');
+  const canEditarRol = hasPermission('AMRO') || hasPermission('EDRO');
+  const canCambiarEstadoRol = hasPermission('AMRO') || hasPermission('CEDRO');
   const [vistaActual, setVistaActual] = useState('buscar');
   const [roles, setRoles] = useState([]);
   const [permisos, setPermisos] = useState([]);
@@ -266,6 +269,7 @@ const Roles = ({ onVolver }) => {
     acc[permiso.modulo].push(permiso);
     return acc;
   }, {});
+
   const seleccionarTodosModulo = (modulo) => {
     const permisosModulo = permisosPorModulo[modulo];
     const nuevosPermisos = { ...permisosSeleccionados };
@@ -326,17 +330,19 @@ const Roles = ({ onVolver }) => {
                 <FiArrowLeft className="btn-icon" />
                 Volver
               </button>
-              <button
-                className="btn-guardar"
-                onClick={() => {
-                  setFormData({ nombre: '', estado: true });
-                  setSelectedRol(null);
-                  setVistaActual('crear');
-                }}
-              >
-                <FiPlus className="btn-icon" />
-                Crear Rol
-              </button>
+              {canCrearRol && (
+                <button
+                  className="btn-guardar"
+                  onClick={() => {
+                    setFormData({ nombre: '', estado: true });
+                    setSelectedRol(null);
+                    setVistaActual('crear');
+                  }}
+                >
+                  <FiPlus className="btn-icon" />
+                  Crear Rol
+                </button>
+              )}
             </div>
             <h2 className="roles-page-title">Gestión de Roles</h2>
           </div>
@@ -389,14 +395,16 @@ const Roles = ({ onVolver }) => {
                   </span>
                 </div>
                 <div className="role-actions">
-                  <button
-                    className="btn-action btn-permisos"
-                    onClick={() => abrirGestionPermisos(rol)}
-                    title="Asociar permisos"
-                  >
-                    <FiKey className="btn-icon" />
-                    Asociar Permisos
-                  </button>
+                  {canEditarRol && (
+                    <button
+                      className="btn-action btn-permisos"
+                      onClick={() => abrirGestionPermisos(rol)}
+                      title="Asociar permisos"
+                    >
+                      <FiKey className="btn-icon" />
+                      Asociar Permisos
+                    </button>
+                  )}
 
                   <button
                     className="btn-action btn-outline"
@@ -416,30 +424,34 @@ const Roles = ({ onVolver }) => {
                     Reglas Oportunidad
                   </button>
 
-                  <button
-                    className="btn-action btn-outline"
-                    onClick={() => {
-                      setFormData({
-                        nombre: rol.nombre,
-                        estado: rol.estado
-                      });
-                      setSelectedRol(rol);
-                      setVistaActual('crear');
-                    }}
-                    title="Editar rol"
-                  >
-                    <FiEdit className="btn-icon" />
-                    Editar
-                  </button>
+                  {canEditarRol && (
+                    <button
+                      className="btn-action btn-outline"
+                      onClick={() => {
+                        setFormData({
+                          nombre: rol.nombre,
+                          estado: rol.estado
+                        });
+                        setSelectedRol(rol);
+                        setVistaActual('crear');
+                      }}
+                      title="Editar rol"
+                    >
+                      <FiEdit className="btn-icon" />
+                      Editar
+                    </button>
+                  )}
 
-                  <button
-                    className={`btn-action ${rol.estado ? 'btn-warning' : 'btn-success'}`}
-                    onClick={() => toggleEstadoRol(rol._id, !rol.estado)}
-                    title={rol.estado ? 'Desactivar rol' : 'Activar rol'}
-                  >
-                    {rol.estado ? <FiX className="btn-icon" /> : <FiCheck className="btn-icon" />}
-                    {rol.estado ? 'Desactivar' : 'Activar'}
-                  </button>
+                  {canCambiarEstadoRol && (
+                    <button
+                      className={`btn-action ${rol.estado ? 'btn-warning' : 'btn-success'}`}
+                      onClick={() => toggleEstadoRol(rol._id, !rol.estado)}
+                      title={rol.estado ? 'Desactivar rol' : 'Activar rol'}
+                    >
+                      {rol.estado ? <FiX className="btn-icon" /> : <FiCheck className="btn-icon" />}
+                      {rol.estado ? 'Desactivar' : 'Activar'}
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -458,10 +470,12 @@ const Roles = ({ onVolver }) => {
             <FiArrowLeft className="btn-icon" />
             Volver
           </button>
-          <button className="btn-guardar" onClick={handleCrearRol}>
-            <FiCheck className="btn-icon" />
-            {selectedRol ? 'Actualizar Rol' : 'Crear Rol'}
-          </button>
+          {(selectedRol ? canEditarRol : canCrearRol) && (
+            <button className="btn-guardar" onClick={handleCrearRol}>
+              <FiCheck className="btn-icon" />
+              {selectedRol ? 'Actualizar Rol' : 'Crear Rol'}
+            </button>
+          )}
         </div>
 
         <div className="role-form-container">
@@ -512,7 +526,11 @@ const Roles = ({ onVolver }) => {
 
   // Renderizar vista de Asociar Permisos (Actualizada según el diseño)
   const renderAsociarPermisos = () => {
-    const modulos = Object.keys(permisosPorModulo);
+    const modulos = Object.keys(permisosPorModulo).sort((a, b) => {
+      if (a === 'DASHBOARD') return -1;
+      if (b === 'DASHBOARD') return 1;
+      return (a || '').localeCompare(b || '');
+    });
     const tabActivo = moduloActivo || modulos[0];
     const permisosDelTab = permisosPorModulo[tabActivo] || [];
     const totalSeleccionados = Object.values(permisosSeleccionados).filter(Boolean).length;
@@ -526,9 +544,11 @@ const Roles = ({ onVolver }) => {
               <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
                 <FiArrowLeft className="btn-icon" /> Volver
               </button>
-              <button className="btn-guardar" onClick={guardarPermisos}>
-                <FiCheck className="btn-icon" /> Guardar Permisos
-              </button>
+              {canEditarRol && (
+                <button className="btn-guardar" onClick={guardarPermisos}>
+                  <FiCheck className="btn-icon" /> Guardar Permisos
+                </button>
+              )}
             </div>
             <h2 className="roles-page-title">{selectedRol?.nombre}</h2>
           </div>

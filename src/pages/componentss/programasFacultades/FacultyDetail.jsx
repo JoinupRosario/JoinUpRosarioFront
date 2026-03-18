@@ -3,6 +3,7 @@ import { FiArrowLeft, FiEdit, FiCheck, FiX, FiSearch } from 'react-icons/fi';
 import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import '../../styles/ProgramasYFacultades.css';
 
 /** Oculta visualmente el campo Sede en detalle de facultad; sucursalId se mantiene en datos. */
@@ -26,6 +27,9 @@ const INITIAL_EDITED = {
 
 export default function FacultyDetail({ onVolver }) {
   const location = useLocation();
+  const { hasPermission } = useAuth();
+  const canEditarFacultad = hasPermission('CFPP') || hasPermission('CEFAC');
+
   const facultyId = (() => {
     const m = location.pathname.match(/\/facultad\/([^/]+)$/);
     return m ? m[1] : null;
@@ -241,7 +245,7 @@ export default function FacultyDetail({ onVolver }) {
       <div className="pyf-section">
         <div className="pyf-detail-header">
           <div className="configuracion-actions">
-            {isEditing ? (
+            {canEditarFacultad && (isEditing ? (
               <>
                 <button
                   type="button"
@@ -280,7 +284,7 @@ export default function FacultyDetail({ onVolver }) {
                 <FiEdit className="btn-icon" />
                 Editar
               </button>
-            )}
+            ))}
             <button type="button" className="btn-volver" onClick={onVolver}>
               <FiArrowLeft className="btn-icon" />
               Volver

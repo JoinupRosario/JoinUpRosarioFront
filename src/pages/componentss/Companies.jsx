@@ -16,6 +16,7 @@ export default function Companies({ onVolver }) {
   const canLEMP = hasPermission('LEMP');
   const canCEMP = hasPermission('CEMP');
   const canEEMP = hasPermission('EEMP');
+  const canAIEO = hasPermission('AIEO');
   const canCCON = hasPermission('CCON');
   const canECON = hasPermission('ECON');
   const canCCEC = hasPermission('CCEC');
@@ -2539,7 +2540,7 @@ export default function Companies({ onVolver }) {
                 <th>Teléfono</th>
                 <th>Contacto</th>
                 <th>País</th>
-                <th>Estado</th>
+              <th>Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -2567,15 +2568,21 @@ export default function Companies({ onVolver }) {
                     <td>{c.contact?.name || '-'}</td>
                     <td>{c.country || '-'}</td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <select 
-                        value={c.status || 'pending_approval'} 
-                        onChange={(e) => handleStatusChange(c, e.target.value, e)}
-                        className="status-select"
-                      >
-                        <option value="pending_approval">Pendiente de Aprobación</option>
-                        <option value="active">Activa</option>
-                        <option value="inactive">Inactiva</option>
-                      </select>
+                      {canAIEO ? (
+                        <select 
+                          value={c.status || 'pending_approval'} 
+                          onChange={(e) => handleStatusChange(c, e.target.value, e)}
+                          className="status-select"
+                        >
+                          <option value="pending_approval">Pendiente de Aprobación</option>
+                          <option value="active">Activa</option>
+                          <option value="inactive">Inactiva</option>
+                        </select>
+                      ) : (
+                        <span className={`status-text ${c.status === 'active' ? 'active' : c.status === 'inactive' ? 'inactive' : ''}`}>
+                          {getStatusLabel(c.status || 'pending_approval')}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))

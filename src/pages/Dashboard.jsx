@@ -44,6 +44,7 @@ import Periodos from './componentss/periodos/Periodos';
 import ConfiguracionAsignaturas from './componentss/ConfiguracionAsignaturas';
 import CondicionesCurriculares from './componentss/CondicionesCurriculares';
 import ParametrizacionDocumentos from './componentss/parametrizacionDocumentos/ParametrizacionDocumentos';
+import DocumentosLegalizacionPractica from './componentss/documentosLegalizacionPractica/DocumentosLegalizacionPractica';
 import ReglasNegocio from './componentss/ReglasNegocio';
 import NotificacionMonitorias from './componentss/notificaciones/notificacionMonitorias/NotificacionMonitorias';
 import NotificacionPracticas from './componentss/notificaciones/notificacionPracticas/NotificacionPracticas';
@@ -106,11 +107,29 @@ export default function Dashboard() {
   const hasEMIP = hasPermission('EMIP');
   // Módulos administrativos (menú y redirección por URL)
   const hasAMRO = hasPermission('AMRO');  // Roles
+  const hasLRO = hasPermission('LRO');   // Listar roles
+  const hasCRO = hasPermission('CRO');   // Crear rol
+  const hasEDRO = hasPermission('EDRO'); // Editar rol y permisos
+  const hasCEDRO = hasPermission('CEDRO'); // Activar/desactivar rol
+  const hasRolesAccess = hasAMRO || hasLRO || hasCRO || hasEDRO || hasCEDRO;
   const hasAMUS = hasPermission('AMUS'); // Usuarios
   const hasAMRE = hasPermission('AMRE'); // Reportes
   const hasAMSU = hasPermission('AMSU'); // Sucursales
   const hasAMCO = hasPermission('AMCO'); // Configuración
   const hasAAME = hasPermission('AAME'); // Entidades / Empresas
+  const hasAMOP = hasPermission('AMOP'); // Oportunidades
+  const hasAMPR = hasPermission('AMPR'); // Estudiantes habilitados / Legalizaciones prácticas
+  const hasCLPA = hasPermission('CLPA') || hasPermission('VTLP'); // Legalizaciones de prácticas
+  const hasAMMO = hasPermission('AMMO') || hasPermission('LLMO'); // Legalizaciones de monitorías
+  // Permisos por gráfica/estadística del Dashboard (cada una visible solo con su permiso)
+  const hasDASH_EST = hasPermission('DASH_EST');   // Total Estudiantes
+  const hasDASH_PRA = hasPermission('DASH_PRA');   // Prácticas Activas
+  const hasDASH_OPO = hasPermission('DASH_OPO');   // Oportunidades Disponibles
+  const hasDASH_EMP = hasPermission('DASH_EMP');   // Empresas Registradas
+  const hasDASH_POS = hasPermission('DASH_POS');   // Postulaciones por Mes
+  const hasDASH_EDP = hasPermission('DASH_EDP');   // Estado de Prácticas
+  const hasDASH_TEN = hasPermission('DASH_TEN');   // Tendencia de Postulaciones
+  const hasCFAPER = hasPermission('CFAPER');       // Configuración personal
 
   // ID del postulante del usuario estudiante (para enlace "Mi perfil")
   const [postulantIdMe, setPostulantIdMe] = useState(null);
@@ -158,6 +177,7 @@ export default function Dashboard() {
     '/dashboard/asignaturas': 'asignaturas',
     '/dashboard/condiciones-curriculares': 'condiciones-curriculares',
     '/dashboard/configuracion-documentos': 'configuracion-documentos',
+    '/dashboard/documentos-legalizacion-practica': 'documentos-legalizacion-practica',
     '/dashboard/reglas-negocio': 'reglas-negocio',
     '/dashboard/plantillas-notificacion-monitoria': 'plantillas-monitoria',
     '/dashboard/plantillas-notificacion-practicas': 'plantillas-practicas'
@@ -189,6 +209,7 @@ export default function Dashboard() {
     'asignaturas': '/dashboard/asignaturas',
     'condiciones-curriculares': '/dashboard/condiciones-curriculares',
     'configuracion-documentos': '/dashboard/configuracion-documentos',
+    'documentos-legalizacion-practica': '/dashboard/documentos-legalizacion-practica',
     'reglas-negocio': '/dashboard/reglas-negocio',
     'plantillas-monitoria': '/dashboard/plantillas-notificacion-monitoria',
     'plantillas-practicas': '/dashboard/plantillas-notificacion-practicas'
@@ -224,6 +245,9 @@ export default function Dashboard() {
     }
     if (path === '/dashboard/configuracion-documentos') {
       return 'configuracion-documentos';
+    }
+    if (path === '/dashboard/documentos-legalizacion-practica') {
+      return 'documentos-legalizacion-practica';
     }
     if (path === '/dashboard/reglas-negocio') {
       return 'reglas-negocio';
@@ -269,25 +293,53 @@ export default function Dashboard() {
     }
   }, [isEstudiante, hasAMPO, hasVPPO, hasEMIP, vistaActual, navigate]);
 
-  // Sin permiso al módulo: redirigir si entró por URL a Roles, Usuarios, Reportes, Sucursales, Configuración, Entidades
-  const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones'];
+  // Sin permiso al módulo: redirigir si entró por URL
+  const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'documentos-legalizacion-practica', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones'];
+  const configViewPermisos = {
+    'programas-facultades': ['CFPP'], 'program-detail': ['CFPP'], 'faculty-detail': ['CFPP'],
+    'periodos': ['AMGP', 'EPMO', 'GPPR', 'GPMO'],
+    'asignaturas': ['CFASIG'],
+    'condiciones-curriculares': ['CFCC'],
+    'configuracion-documentos': ['CFDL'],
+    'documentos-legalizacion-practica': ['CFDL'],
+    'reglas-negocio': ['CFOP', 'CFOA'],
+    'plantillas-monitoria': ['CFNM'],
+    'plantillas-practicas': ['CFNP'],
+    'ubicaciones': ['AMLS', 'GPAR']
+  };
   useEffect(() => {
+    if (vistaActual === 'configuracion-personal' && !hasCFAPER) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
     if (isEstudiante) return;
     const sinPermiso = {
-      'roles': !hasAMRO,
+      'roles': !hasRolesAccess,
       'usuarios': !hasAMUS,
       'reportes': !hasAMRE,
       'sucursales': !hasAMSU,
-      'entidades': !hasAAME
+      'entidades': !hasAAME,
+      'oportunidades': !hasAMOP,
+      'estudiantes': !hasAMPR,
+      'legalizaciones': !hasCLPA,
+      'monitorias': !hasAMMO
     };
     if (sinPermiso[vistaActual]) {
       navigate('/dashboard', { replace: true });
       return;
     }
-    if (configViews.includes(vistaActual) && !hasAMCO) {
+    if (vistaActual === 'configuracion' && !hasAMCO) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+    if (configViewPermisos[vistaActual]) {
+      const permisosRequeridos = configViewPermisos[vistaActual];
+      const tieneAlguno = permisosRequeridos.some((p) => hasPermission(p));
+      if (!tieneAlguno) navigate('/dashboard/configuracion', { replace: true });
+    } else if (configViews.includes(vistaActual) && vistaActual !== 'configuracion' && !hasAMCO) {
       navigate('/dashboard', { replace: true });
     }
-  }, [isEstudiante, hasAMRO, hasAMUS, hasAMRE, hasAMSU, hasAMCO, hasAAME, vistaActual, navigate]);
+  }, [isEstudiante, hasCFAPER, hasRolesAccess, hasAMUS, hasAMRE, hasAMSU, hasAMCO, hasAAME, hasAMOP, hasAMPR, hasCLPA, hasAMMO, vistaActual, navigate, hasPermission]);
 
   // Esperar a que termine la verificación de autenticación antes de renderizar
   if (authLoading) {
@@ -328,8 +380,9 @@ export default function Dashboard() {
     }
   });
 
-  // Cargar datos del dashboard (stats reales desde MongoDB)
+  // Cargar datos del dashboard (stats) para usuarios no estudiantes
   useEffect(() => {
+    if (isEstudiante) return;
     const loadDashboardData = async () => {
       setLoading(true);
       let apiStats = { totalStudents: 0, availableOpportunities: 0, registeredCompanies: 0 };
@@ -360,7 +413,7 @@ export default function Dashboard() {
     };
 
     loadDashboardData();
-  }, []);
+  }, [isEstudiante]);
 
   const menuItemsAdmin = [
     { text: 'Usuarios', Icon: FiUsers, vista: 'usuarios' },
@@ -390,16 +443,19 @@ export default function Dashboard() {
   ];
 
   // Ocultar ítems del menú según permiso de acceso al módulo
-  const menuItems = isEstudiante
-    ? menuItemsEstudiante
-    : menuItemsAdmin.filter((item) => {
+  const menuItems = (isEstudiante ? menuItemsEstudiante : menuItemsAdmin).filter((item) => {
+        if (item.vista === 'configuracion-personal') return hasCFAPER;
         if (item.vista === 'postulants') return hasAMPO;
-        if (item.vista === 'roles') return hasAMRO;
+        if (item.vista === 'roles') return hasRolesAccess;
         if (item.vista === 'usuarios') return hasAMUS;
         if (item.vista === 'reportes') return hasAMRE;
         if (item.vista === 'sucursales') return hasAMSU;
         if (item.vista === 'configuracion') return hasAMCO;
         if (item.vista === 'entidades') return hasAAME;
+        if (item.vista === 'oportunidades') return hasAMOP;
+        if (item.vista === 'estudiantes') return hasAMPR;
+        if (item.vista === 'legalizaciones') return hasCLPA;
+        if (item.vista === 'monitorias') return hasAMMO;
         return true;
       });
 
@@ -473,6 +529,7 @@ export default function Dashboard() {
             'periodos':                 'Gestión de Períodos',
             'asignaturas':              'Configuración de Asignaturas',
             'configuracion-documentos': 'Parametrización de Documentos',
+            'documentos-legalizacion-practica': 'Documentos legalización práctica',
             'reglas-negocio':           'Reglas de negocio',
             'programas-facultades':     'Programas y Facultades',
             'faculty-detail':           'Detalle de Facultad',
@@ -506,6 +563,7 @@ export default function Dashboard() {
                 'periodos':                 'Gestión de Períodos',
                 'asignaturas':              'Configuración de Asignaturas',
                 'configuracion-documentos': 'Parametrización de Documentos',
+                'documentos-legalizacion-practica': 'Documentos legalización práctica',
                 'reglas-negocio':           'Reglas de negocio',
                 'programas-facultades':     'Programas y Facultades',
                 'faculty-detail':           'Detalle de Facultad',
@@ -581,73 +639,85 @@ export default function Dashboard() {
               <HomeEstudiante />
             ) : (
               <>
-            {/* Welcome Section */}
             <div className="dashboard-welcome">
               <h2>Bienvenido/a, {user?.name}</h2>
               <p>Aquí tienes un resumen de la actividad del sistema de gestión de prácticas</p>
             </div>
 
             <div className="dashboard-stats">
-              <StatCard
-                title="Total Estudiantes"
-                value={dashboardData.stats.totalStudents.toLocaleString()}
-                change="+12%"
-                changeType="positive"
-                icon={FiUsers}
-                color="primary"
-                loading={loading}
-              />
-              <StatCard
-                title="Prácticas Activas"
-                value={dashboardData.stats.activePractices}
-                change="+5%"
-                changeType="positive"
-                icon={FiCheckCircle}
-                color="success"
-                loading={loading}
-              />
-              <StatCard
-                title="Oportunidades Disponibles"
-                value={dashboardData.stats.availableOpportunities}
-                change="-2%"
-                changeType="negative"
-                icon={HiOutlineChartPie}
-                color="warning"
-                loading={loading}
-              />
-              <StatCard
-                title="Empresas Registradas"
-                value={dashboardData.stats.registeredCompanies}
-                change="+8%"
-                changeType="positive"
-                icon={HiOutlineOfficeBuilding}
-                color="info"
-                loading={loading}
-              />
+              {hasDASH_EST && (
+                <StatCard
+                  title="Total Estudiantes"
+                  value={dashboardData.stats.totalStudents.toLocaleString()}
+                  change="+12%"
+                  changeType="positive"
+                  icon={FiUsers}
+                  color="primary"
+                  loading={loading}
+                />
+              )}
+              {hasDASH_PRA && (
+                <StatCard
+                  title="Prácticas Activas"
+                  value={dashboardData.stats.activePractices}
+                  change="+5%"
+                  changeType="positive"
+                  icon={FiCheckCircle}
+                  color="success"
+                  loading={loading}
+                />
+              )}
+              {hasDASH_OPO && (
+                <StatCard
+                  title="Oportunidades Disponibles"
+                  value={dashboardData.stats.availableOpportunities}
+                  change="-2%"
+                  changeType="negative"
+                  icon={HiOutlineChartPie}
+                  color="warning"
+                  loading={loading}
+                />
+              )}
+              {hasDASH_EMP && (
+                <StatCard
+                  title="Empresas Registradas"
+                  value={dashboardData.stats.registeredCompanies}
+                  change="+8%"
+                  changeType="positive"
+                  icon={HiOutlineOfficeBuilding}
+                  color="info"
+                  loading={loading}
+                />
+              )}
             </div>
-
             <div className="dashboard-charts">
-              <SimpleChart
-                title="Postulaciones por Mes"
-                data={dashboardData.charts.applicationsByMonth}
-                type="bar"
-                height={250}
-                loading={loading}
-              />
-              <SimpleChart
-                title="Estado de Prácticas"
-                data={dashboardData.charts.practiceStatus}
-                type="pie"
-                height={250}
-                loading={loading}
-              />
-              <SimpleChart
-                title="Tendencia de Postulaciones"
-                data={dashboardData.charts.applicationTrends}
-                type="line"
-                height={250}
-                loading={loading}
-              />
+              {hasDASH_POS && (
+                <SimpleChart
+                  title="Postulaciones por Mes"
+                  data={dashboardData.charts.applicationsByMonth}
+                  type="bar"
+                  height={250}
+                  loading={loading}
+                />
+              )}
+              {hasDASH_EDP && (
+                <SimpleChart
+                  title="Estado de Prácticas"
+                  data={dashboardData.charts.practiceStatus}
+                  type="pie"
+                  height={250}
+                  loading={loading}
+                />
+              )}
+              {hasDASH_TEN && (
+                <SimpleChart
+                  title="Tendencia de Postulaciones"
+                  data={dashboardData.charts.applicationTrends}
+                  type="line"
+                  height={250}
+                  loading={loading}
+                />
+              )}
             </div>
               </>
             )}
@@ -721,9 +791,16 @@ export default function Dashboard() {
           </div>
         )}
         {vistaActual === 'configuracion-personal' && (
-          isEstudiante
-            ? <ConfiguracionEstudiante onVolver={handleVolver} />
-            : <ConfiguracionPersonal onVolver={handleVolver} />
+          hasCFAPER
+            ? (isEstudiante
+                ? <ConfiguracionEstudiante onVolver={handleVolver} />
+                : <ConfiguracionPersonal onVolver={handleVolver} />)
+            : (
+                <div className="dashboard-content" style={{ padding: '2rem' }}>
+                  <p>No tiene permiso para acceder a Configuración personal.</p>
+                  <button type="button" className="btn btn-primary" onClick={() => setVistaActual('dashboard')}>Volver al inicio</button>
+                </div>
+              )
         )}
         {vistaActual === 'configuracion' && (
           <Configuracion onVolver={handleVolver} />
@@ -783,6 +860,9 @@ export default function Dashboard() {
         )}
         {vistaActual === 'configuracion-documentos' && (
           <ParametrizacionDocumentos onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'documentos-legalizacion-practica' && (
+          <DocumentosLegalizacionPractica onVolver={() => navigate('/dashboard/configuracion')} />
         )}
         {vistaActual === 'reglas-negocio' && (
           <ReglasNegocio onVolver={() => navigate('/dashboard/configuracion')} />

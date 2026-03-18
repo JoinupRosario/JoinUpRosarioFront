@@ -581,6 +581,71 @@
   border-radius: 20px;
 }
 
+/* Submódulos como desplegables (ej. Programas y facultades dentro de Configuración) */
+.permiso-submodulo-block {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.permiso-submodulo-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.permiso-submodulo-trigger:hover {
+  background: #e5e7eb;
+}
+
+.permiso-submodulo-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #6b7280;
+}
+
+.permiso-submodulo-label {
+  flex: 1;
+}
+
+.permiso-submodulo-badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.permiso-submodulo-list {
+  padding: 8px 12px 12px 32px;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+}
+
+.permiso-tab-row--indent {
+  margin-bottom: 2px;
+}
+
+.permiso-tab-row--indent:last-child {
+  border-bottom: none;
+}
+
 .permisos-global-actions {
   display: flex;
   justify-content: center;

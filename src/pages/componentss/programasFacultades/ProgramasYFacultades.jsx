@@ -8,6 +8,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import '../../styles/ProgramasYFacultades.css';
 
 const FACULTIES_LIMIT_OPTIONS = [10, 25, 50, 100];
@@ -43,6 +44,14 @@ const wireSyncTabs = (popup) => {
 
 export default function ProgramasYFacultades({ onVolver }) {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const hasPermission = auth?.hasPermission ?? (() => false);
+  // Botones "Actualizar info": solo con permiso específico (no con CFPP)
+  const canSyncProgramas = !!hasPermission('CFSYNP');
+  const canSyncFacultades = !!hasPermission('CFSYNF');
+  const canTogglePrograma = !!hasPermission('CFPP') || !!hasPermission('CEPRO');
+  const canToggleFacultad = !!hasPermission('CFPP') || !!hasPermission('CEFAC');
+
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') === 'facultades' ? 'facultades' : 'programas';
   const estadoFromUrl = searchParams.get('estado');
@@ -490,10 +499,12 @@ export default function ProgramasYFacultades({ onVolver }) {
         <div className="users-header">
           <div className="configuracion-actions">
             <button type="button" className="btn-volver" onClick={onVolver}><FiArrowLeft className="btn-icon" /> Volver</button>
-            {tab === 'programas' && (
-            <button type="button" className="pyf-btn pyf-btn-sync" onClick={handleSyncProgramas} disabled={syncing}><FiSave className="pyf-btn-icon" /> Actualizar Info Programas (Universitas)</button>
+            {tab === 'programas' && canSyncProgramas && (
+              <button type="button" className="pyf-btn pyf-btn-sync" onClick={handleSyncProgramas} disabled={syncing}><FiSave className="pyf-btn-icon" /> Actualizar Info Programas (Universitas)</button>
             )}
-            {tab === 'facultades' && <button type="button" className="pyf-btn pyf-btn-sync" onClick={handleSyncFacultades} disabled={syncing}><FiSave className="pyf-btn-icon" /> Actualizar Info Facultades (Universitas)</button>}
+            {tab === 'facultades' && canSyncFacultades && (
+              <button type="button" className="pyf-btn pyf-btn-sync" onClick={handleSyncFacultades} disabled={syncing}><FiSave className="pyf-btn-icon" /> Actualizar Info Facultades (Universitas)</button>
+            )}
             
           </div>
         </div>
@@ -540,17 +551,17 @@ export default function ProgramasYFacultades({ onVolver }) {
                         </td>
                         <td>{prog.labelLevel ?? prog.level ?? '-'}</td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          {(() => {
-                            return (
-                              <div className="switch-container">
-                                <label className="switch">
-                                  <input type="checkbox" checked={isActive} onChange={() => handleToggleProgram(prog, isActive)} disabled={updatingId === prog._id} />
-                                  <span className="slider" />
-                                </label>
-                                <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>{isActive ? 'Activo' : 'Inactivo'}</span>
-                              </div>
-                            );
-                          })()}
+                          {canTogglePrograma ? (
+                            <div className="switch-container">
+                              <label className="switch">
+                                <input type="checkbox" checked={isActive} onChange={() => handleToggleProgram(prog, isActive)} disabled={updatingId === prog._id} />
+                                <span className="slider" />
+                              </label>
+                              <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>{isActive ? 'Activo' : 'Inactivo'}</span>
+                            </div>
+                          ) : (
+                            <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>{isActive ? 'Activo' : 'Inactivo'}</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -616,13 +627,17 @@ export default function ProgramasYFacultades({ onVolver }) {
                           )}
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <div className="switch-container">
-                            <label className="switch">
-                              <input type="checkbox" checked={isActive} onChange={() => handleToggleFaculty(f, isActive)} disabled={updatingId === f._id} />
-                              <span className="slider" />
-                            </label>
+                          {canToggleFacultad ? (
+                            <div className="switch-container">
+                              <label className="switch">
+                                <input type="checkbox" checked={isActive} onChange={() => handleToggleFaculty(f, isActive)} disabled={updatingId === f._id} />
+                                <span className="slider" />
+                              </label>
+                              <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>{isActive ? 'Activo' : 'Inactivo'}</span>
+                            </div>
+                          ) : (
                             <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>{isActive ? 'Activo' : 'Inactivo'}</span>
-                          </div>
+                          )}
                         </td>
                       </tr>
                     );

@@ -40,6 +40,9 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Parametrización de documentos') {
       navigate('/dashboard/configuracion-documentos');
     }
+    if (opcion.text === 'Documentos para legalizar práctica académica') {
+      navigate('/dashboard/documentos-legalizacion-practica');
+    }
     if (opcion.text === 'Configurar reglas de negocio') {
       navigate('/dashboard/reglas-negocio');
     }
@@ -51,92 +54,26 @@ export default function Configuracion({ onVolver }) {
     }
   };
   const opcionesConfiguracion = [
-    { 
-      text: 'Facultades y Programas', 
-      icon: FiFileText,
-      descripcion: 'Gestionar facultades y programas académicos'
-    },
-    { 
-      text: 'Configuración de alertas', 
-      icon: FiBell,
-      descripcion: 'Configurar alertas del sistema'
-    },
-    { 
-      text: 'Reglas por oportunidad para postulantes', 
-      icon: FiSettings,
-      descripcion: 'Definir reglas para postulantes'
-    },
-    { 
-      text: 'Reglas por oportunidad para administradores', 
-      icon: FiSettings,
-      descripcion: 'Definir reglas para administradores'
-    },
-    { 
-      text: 'Condiciones Curriculares para Práctica', 
-      icon: FiSettings,
-      descripcion: 'Configurar condiciones curriculares'
-    },
-    { 
-      text: 'Plantillas de notificaciones', 
-      icon: FiMail,
-      descripcion: 'Gestionar plantillas de notificaciones'
-    },
-    { 
-      text: 'Plantillas de notificaciones de monitorías', 
-      icon: FiMail,
-      descripcion: 'Plantillas para notificaciones de monitorías'
-    },
-    { 
-      text: 'Plantillas de notificaciones de Prácticas', 
-      icon: FiMail,
-      descripcion: 'Plantillas para notificaciones de prácticas'
-    },
-    { 
-      text: 'Gestión de periodos para prácticas', 
-      icon: FiClock,
-      descripcion: 'Parametrización de período académico para prácticas (RQ 4.3)'
-    },
-    { 
-      text: 'Gestión de periodos para monitorías', 
-      icon: FiClock,
-      descripcion: 'Parametrización de período académico para monitorías (RQ 4.2.1): período, rango de fechas sistema académico, estado'
-    },
-    { 
-      text: 'Gestión de estados para prácticas académicas', 
-      icon: FiRefreshCw,
-      descripcion: 'Gestionar estados de prácticas'
-    },
-    { 
-      text: 'Documentos para legalizar práctica académica', 
-      icon: FiFileText,
-      descripcion: 'Documentos requeridos para legalización'
-    },
-    { 
-      text: 'Documentos para legalizar monitorías', 
-      icon: FiFileText,
-      descripcion: 'Documentos requeridos para legalización de monitorías'
-    },
-    { 
-      text: 'Gestión de Parámetros', 
-      icon: FiMapPin,
-      descripcion: 'Gestionar tipos de documento, niveles de estudio, dedicación, ARLs y otros parámetros del sistema'
-    },
-    { 
-      text: 'Configurar reglas de negocio', 
-      icon: FiSettings,
-      descripcion: 'Tiempo mínimo de vencimiento de oportunidades (días desde apertura) y otras reglas'
-    },
-    {
-      text: 'Configuración Asignaturas',
-      icon: FiBook,
-      descripcion: 'Cargar y gestionar asignaturas ofertadas desde el servidor SFTP (ASIGNATURAS_OFERTADAS_UXXI)'
-    },
-    {
-      text: 'Parametrización de documentos',
-      icon: FiFileText,
-      descripcion: 'Configurar formatos y tipos de documentos (hoja de vida y otros que se requieran)'
-    }
+    { text: 'Facultades y Programas', icon: FiFileText, descripcion: 'Gestionar facultades y programas académicos', permiso: 'CFPP' },
+    { text: 'Configuración de alertas', icon: FiBell, descripcion: 'Configurar alertas del sistema', permiso: 'CFAL' },
+    { text: 'Reglas por oportunidad para postulantes', icon: FiSettings, descripcion: 'Definir reglas para postulantes', permiso: 'CFOP' },
+    { text: 'Reglas por oportunidad para administradores', icon: FiSettings, descripcion: 'Definir reglas para administradores', permiso: 'CFOA' },
+    { text: 'Condiciones Curriculares para Práctica', icon: FiSettings, descripcion: 'Configurar condiciones curriculares', permiso: 'CFCC' },
+    { text: 'Plantillas de notificaciones', icon: FiMail, descripcion: 'Gestionar plantillas de notificaciones', permiso: 'CFNG' },
+    { text: 'Plantillas de notificaciones de monitorías', icon: FiMail, descripcion: 'Plantillas para notificaciones de monitorías', permiso: 'CFNM' },
+    { text: 'Plantillas de notificaciones de Prácticas', icon: FiMail, descripcion: 'Plantillas para notificaciones de prácticas', permiso: 'CFNP' },
+    { text: 'Gestión de periodos para prácticas', icon: FiClock, descripcion: 'Parametrización de período académico para prácticas (RQ 4.3)', permiso: 'GPPR' },
+    { text: 'Gestión de periodos para monitorías', icon: FiClock, descripcion: 'Parametrización de período académico para monitorías (RQ 4.2.1)', permiso: 'GPMO' },
+    { text: 'Gestión de estados para prácticas académicas', icon: FiRefreshCw, descripcion: 'Gestionar estados de prácticas', permiso: 'GEPA' },
+    { text: 'Documentos para legalizar práctica académica', icon: FiFileText, descripcion: 'Documentos requeridos para legalización', permiso: 'CFDL' },
+    { text: 'Documentos para legalizar monitorías', icon: FiFileText, descripcion: 'Documentos requeridos para legalización de monitorías', permiso: 'CFDL' },
+    { text: 'Gestión de Parámetros', icon: FiMapPin, descripcion: 'Gestionar tipos de documento, niveles de estudio, dedicación, ARLs y otros parámetros del sistema', permiso: 'GPAR' },
+    { text: 'Configurar reglas de negocio', icon: FiSettings, descripcion: 'Tiempo mínimo de vencimiento de oportunidades (días desde apertura) y otras reglas', permiso: 'CFOP' },
+    { text: 'Configuración Asignaturas', icon: FiBook, descripcion: 'Cargar y gestionar asignaturas ofertadas desde el servidor SFTP (ASIGNATURAS_OFERTADAS_UXXI)', permiso: 'CFASIG' },
+    { text: 'Parametrización de documentos', icon: FiFileText, descripcion: 'Configurar formatos y tipos de documentos (hoja de vida y otros que se requieran)', permiso: 'CFDL' }
   ];
+
+  const opcionesClickables = ['Gestión de Parámetros', 'Configurar reglas de negocio', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Documentos para legalizar práctica académica', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas'];
 
   if (!canAMCO) {
     return (
@@ -166,26 +103,28 @@ export default function Configuracion({ onVolver }) {
         </div>
 
         <div className="configuracion-list">
-          {opcionesConfiguracion.map((opcion, index) => {
-            const IconComponent = opcion.icon;
-            const isClickable = ['Gestión de Parámetros', 'Configurar reglas de negocio', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas'].includes(opcion.text);
-            return (
-              <div 
-                key={index} 
-                className={`configuracion-item ${isClickable ? 'clickable' : ''}`}
-                onClick={() => isClickable && handleOptionClick(opcion)}
-                style={isClickable ? { cursor: 'pointer' } : {}}
-              >
-                <div className="configuracion-icon">
-                  <IconComponent />
+          {opcionesConfiguracion
+            .filter((opcion) => opcion.permiso && hasPermission(opcion.permiso))
+            .map((opcion, index) => {
+              const IconComponent = opcion.icon;
+              const isClickable = opcionesClickables.includes(opcion.text);
+              return (
+                <div
+                  key={index}
+                  className={`configuracion-item ${isClickable ? 'clickable' : ''}`}
+                  onClick={() => isClickable && handleOptionClick(opcion)}
+                  style={isClickable ? { cursor: 'pointer' } : {}}
+                >
+                  <div className="configuracion-icon">
+                    <IconComponent />
+                  </div>
+                  <div className="configuracion-info">
+                    <h4 className="configuracion-title">{opcion.text}</h4>
+                    <p className="configuracion-descripcion">{opcion.descripcion}</p>
+                  </div>
                 </div>
-                <div className="configuracion-info">
-                  <h4 className="configuracion-title">{opcion.text}</h4>
-                  <p className="configuracion-descripcion">{opcion.descripcion}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { FiArrowLeft, FiEdit, FiCheck, FiX, FiPlus } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import '../../styles/ProgramasYFacultades.css';
 
 const INITIAL_EDITED = { code: '', name: '', level: '', status: '' };
@@ -33,6 +34,9 @@ function parseDDMMYYYY(str) {
 export default function ProgramDetail({ onVolver }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasPermission } = useAuth();
+  const canEditarPrograma = hasPermission('CFPP') || hasPermission('CEPRO');
+
   const programId = (() => {
     const m = location.pathname.match(/\/programa\/([^/]+)$/);
     return m ? m[1] : null;
@@ -286,7 +290,7 @@ export default function ProgramDetail({ onVolver }) {
       <div className="pyf-section">
         <div className="pyf-detail-header">
           <div className="configuracion-actions">
-            {isEditing ? (
+            {canEditarPrograma && (isEditing ? (
               <>
                 <button
                   type="button"
@@ -325,7 +329,7 @@ export default function ProgramDetail({ onVolver }) {
                 <FiEdit className="btn-icon" />
                 Editar
               </button>
-            )}
+            ))}
             <button type="button" className="btn-volver" onClick={onVolver}>
               <FiArrowLeft className="btn-icon" />
               Volver
@@ -543,20 +547,26 @@ export default function ProgramDetail({ onVolver }) {
                       <td>{pf.registroCalificado ?? pf.official_registration ?? '-'}</td>
                       <td>{pf.fechaRegistroCalificado ?? (pf.official_registration_date ? new Date(pf.official_registration_date).toLocaleDateString() : '-')}</td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <div className="switch-container">
-                          <label className="switch">
-                            <input
-                              type="checkbox"
-                              checked={isActive}
-                              onChange={() => handleToggleProgramFaculty(pf, isActive)}
-                              disabled={updatingPfId === pf._id}
-                            />
-                            <span className="slider" />
-                          </label>
+                        {canEditarPrograma ? (
+                          <div className="switch-container">
+                            <label className="switch">
+                              <input
+                                type="checkbox"
+                                checked={isActive}
+                                onChange={() => handleToggleProgramFaculty(pf, isActive)}
+                                disabled={updatingPfId === pf._id}
+                              />
+                              <span className="slider" />
+                            </label>
+                            <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>
+                              {isActive ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </div>
+                        ) : (
                           <span className={`status-text ${isActive ? 'active' : 'inactive'}`}>
                             {isActive ? 'Activo' : 'Inactivo'}
                           </span>
-                        </div>
+                        )}
                       </td>
                     </tr>
                   );
