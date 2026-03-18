@@ -456,8 +456,9 @@ export default function Dashboard() {
         if (item.vista === 'entidades') return hasAAME;
         if (item.vista === 'oportunidades') return hasAMOP;
         if (item.vista === 'estudiantes') return hasAMPR;
-        if (item.vista === 'legalizaciones') return hasCLPA;
-        if (item.vista === 'monitorias') return hasAMMO;
+        // Módulo estudiante: siempre ver legalizaciones (no filtrar por permisos de admin)
+        if (item.vista === 'legalizaciones') return isEstudiante || hasCLPA;
+        if (item.vista === 'monitorias') return isEstudiante || hasAMMO;
         return true;
       });
 
