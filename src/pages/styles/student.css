@@ -748,6 +748,31 @@
   to { transform: rotate(360deg); }
 }
 
+.historial-filtro-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+.historial-filtro-input {
+  flex: 1;
+  max-width: 280px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.historial-table-wrap {
+  max-height: 60vh;
+  overflow: auto;
+}
+.historial-table-wrap .uxxi-prev-table { min-width: 880px; }
+.historial-empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 24px;
+}
+
 /* ── Modal Preview / Confirmación ──────────────────────────────────────────── */
 .uxxi-modal--preview {
   max-width: 900px;

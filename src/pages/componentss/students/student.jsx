@@ -4,9 +4,7 @@ import {
   FiSearch,
   FiRefreshCw,
   FiDownload,
-  FiFileText,
   FiActivity,
-  FiEdit,
   FiAlertCircle,
   FiX,
   FiUploadCloud,
@@ -90,6 +88,11 @@ const Student = ({ onVolver }) => {
   const [confirmando, setConfirmando]              = useState(false);
   const [creandoUsuarios, setCreandoUsuarios]      = useState(false);
   const [savingEstadoFinalId, setSavingEstadoFinalId] = useState(null);
+  const [showHistorialModal, setShowHistorialModal] = useState(false);
+  const [historialData, setHistorialData] = useState([]);
+  const [loadingHistorial, setLoadingHistorial] = useState(false);
+  const [historialFiltroDoc, setHistorialFiltroDoc] = useState('');
+  const [historialFilterInput, setHistorialFilterInput] = useState('');
 
   // Helpers de alertas — deben ir ANTES de cualquier callback que los use
   const showFuncionalidadEnDesarrollo = useCallback((fn) =>
@@ -148,6 +151,25 @@ const Student = ({ onVolver }) => {
   useEffect(() => {
     loadStudents(page, tabEstado, searchDebounced);
   }, [page, tabEstado, searchDebounced, loadStudents]);
+
+  const loadHistorial = useCallback(async () => {
+    setLoadingHistorial(true);
+    try {
+      const params = { limit: 300 };
+      if (historialFiltroDoc && historialFiltroDoc.trim()) params.identificacion = historialFiltroDoc.trim();
+      const { data } = await api.get('/estudiantes-habilitados/historial-estados', { params });
+      setHistorialData(data.data || []);
+    } catch (e) {
+      showError('Error', e.response?.data?.message || 'No se pudo cargar el historial');
+      setHistorialData([]);
+    } finally {
+      setLoadingHistorial(false);
+    }
+  }, [historialFiltroDoc, showError]);
+
+  useEffect(() => {
+    if (showHistorialModal) loadHistorial();
+  }, [showHistorialModal, loadHistorial]);
 
   // Cargar datos para los filtros del modal
   const loadModalParams = useCallback(async () => {
@@ -560,6 +582,85 @@ const Student = ({ onVolver }) => {
         </div>
       )}
 
+      {/* Modal Historial de estados */}
+      {showHistorialModal && (
+        <div className="uxxi-modal-overlay uxxi-modal-overlay--preview" onClick={() => setShowHistorialModal(false)}>
+          <div className="uxxi-modal uxxi-modal--preview" onClick={e => e.stopPropagation()} style={{ maxWidth: 920 }}>
+            <div className="uxxi-modal-header">
+              <div className="uxxi-modal-header-left">
+                <FiActivity className="uxxi-modal-icon" />
+                <div>
+                  <h3 className="uxxi-modal-title">Historial de estados</h3>
+                  <p className="uxxi-modal-subtitle">Trazabilidad de cambios de estado final (cargue y cambios manuales)</p>
+                </div>
+              </div>
+              <button className="uxxi-modal-close" onClick={() => setShowHistorialModal(false)}><FiX /></button>
+            </div>
+            <div className="uxxi-modal-body">
+              <div className="historial-filtro-row">
+                <input
+                  type="text"
+                  placeholder="Filtrar por documento..."
+                  value={historialFilterInput}
+                  onChange={e => setHistorialFilterInput(e.target.value)}
+                  className="historial-filtro-input"
+                />
+                <button type="button" className="uxxi-btn-secondary" onClick={() => setHistorialFiltroDoc(historialFilterInput)}>
+                  Filtrar
+                </button>
+              </div>
+              {loadingHistorial ? (
+                <div className="uxxi-preview-loading">
+                  <FiLoader className="uxxi-preview-spinner" style={{ animation: 'spin 0.8s linear infinite' }} />
+                  <span>Cargando historial...</span>
+                </div>
+              ) : (
+                <div className="historial-table-wrap">
+                  <table className="student-table uxxi-prev-table">
+                    <thead>
+                      <tr>
+                        <th>FECHA</th>
+                        <th>CÓDIGO</th>
+                        <th>ESTUDIANTE</th>
+                        <th>PROGRAMA / PERÍODO</th>
+                        <th>ESTADO ANTERIOR</th>
+                        <th>ESTADO NUEVO</th>
+                        <th>TIPO</th>
+                        <th>QUIÉN</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historialData.length === 0 ? (
+                        <tr><td colSpan={8} className="historial-empty">No hay registros de historial</td></tr>
+                      ) : (
+                        historialData.map((h, i) => {
+                          const eh = h.estudianteHabilitado || {};
+                          return (
+                            <tr key={h._id || i}>
+                              <td className="uxxi-prev-mono">{new Date(h.createdAt).toLocaleString('es-CO')}</td>
+                              <td className="uxxi-prev-mono">{eh.identificacion || '—'}</td>
+                              <td>{[eh.nombres, eh.apellidos].filter(Boolean).join(' ') || '—'}</td>
+                              <td className="uxxi-prev-mono">{eh.codigoPrograma || '—'} {eh.codigoPeriodo ? ` · ${eh.codigoPeriodo}` : ''}</td>
+                              <td><span className={h.estadoAnterior ? `status-badge status-badge--${(h.estadoAnterior || '').toLowerCase().replace('_', '-')}` : ''}>{(h.estadoAnterior || '—').replace('_', ' ')}</span></td>
+                              <td><span className={`status-badge status-badge--${(h.estadoNuevo || '').toLowerCase().replace('_', '-')}`}>{(h.estadoNuevo || '').replace('_', ' ')}</span></td>
+                              <td>{h.tipo === 'cargue' ? 'Cargue UXXI' : 'Cambio manual'}</td>
+                              <td>{h.cambiadoPor || '—'}</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="uxxi-modal-footer">
+              <button type="button" className="uxxi-btn-cancel" onClick={() => setShowHistorialModal(false)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Cargar UXXI */}
       {showUxxiModal && (
         <div className="uxxi-modal-overlay" onClick={() => setShowUxxiModal(false)}>
@@ -843,20 +944,11 @@ const Student = ({ onVolver }) => {
           <FiUploadCloud className="btn-icon" />
           Cargar estudiantes UXXI
         </button>
-        <button className="btn-action btn-outline" onClick={() => showFuncionalidadEnDesarrollo('Buscar estudiantes')}>
-          <FiSearch className="btn-icon" /> Buscar estudiantes
-        </button>
-        <button className="btn-action btn-outline" onClick={() => showFuncionalidadEnDesarrollo('Cambiar estado')}>
-          <FiEdit className="btn-icon" /> Cambiar estado
-        </button>
         <button className="btn-action btn-outline" onClick={() => showFuncionalidadEnDesarrollo('Exportar')}>
           <FiDownload className="btn-icon" /> Exportar
         </button>
-        <button className="btn-action btn-outline" onClick={() => showFuncionalidadEnDesarrollo('Historial de estados')}>
+        <button className="btn-action btn-outline" onClick={() => { setShowHistorialModal(true); setHistorialFiltroDoc(''); setHistorialFilterInput(''); }}>
           <FiActivity className="btn-icon" /> Historial de estados
-        </button>
-        <button className="btn-action btn-outline" onClick={() => showFuncionalidadEnDesarrollo('Prácticas legalizadas')}>
-          <FiFileText className="btn-icon" /> Prácticas legalizadas
         </button>
       </div>
 
