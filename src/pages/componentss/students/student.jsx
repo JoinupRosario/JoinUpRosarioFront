@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiSearch,
@@ -16,6 +16,7 @@ import {
   FiUsers,
   FiLoader,
   FiUserPlus,
+  FiBook,
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -68,7 +69,7 @@ const Student = ({ onVolver }) => {
   const [filtros, setFiltros] = useState({
     sede: '',
     nivel: '',
-    programa: '',
+    programasSeleccionados: [],
     periodo: '',
     tipoPractica: '',
     estado: '',
@@ -76,8 +77,6 @@ const Student = ({ onVolver }) => {
 
   // Buscador de programa dentro del modal
   const [progSearch, setProgSearch] = useState('');
-  const [progDropOpen, setProgDropOpen] = useState(false);
-  const progRef = useRef(null);
 
   // Reglas curriculares aplicables
   const [reglasAplicables, setReglasAplicables] = useState([]);
@@ -135,27 +134,33 @@ const Student = ({ onVolver }) => {
     setLoadingParams(true);
     setLoadParamsError(null);
     try {
-      const [sedesRes, programasRes, periodosRes, itemsRes] = await Promise.all([
+      const [pfReglasRes, sedesRes, programasRes, periodosRes, itemsRes] = await Promise.all([
+        api.get('/condiciones-curriculares/program-faculty-en-reglas-activas').catch(e => {
+          console.error('[pf-reglas]', e);
+          return { data: { programFacultyIds: [] } };
+        }),
         api.get('/sucursales', { params: { limit: 200 } }).catch(e => { console.error('[sedes]', e); return { data: [] }; }),
         api.get('/program-faculties', { params: { activo: 'SI', limit: 500, status: 'ACTIVE' } }).catch(e => { console.error('[programas]', e); return { data: [] }; }),
         api.get('/periodos', { params: { estado: 'Activo', limit: 100, tipo: 'practica' } }).catch(e => { console.error('[periodos]', e); return { data: [] }; }),
         api.get('/locations/items/L_PRACTICE_TYPE', { params: { limit: 100 } }).catch(e => { console.error('[tipos]', e); return { data: [] }; }),
       ]);
 
+      const pfEnReglas = new Set((pfReglasRes.data?.programFacultyIds || []).map(String));
+
       // Sedes: campo "nombre"
       const sedesData = sedesRes.data?.data || sedesRes.data || [];
       setSedes(Array.isArray(sedesData) ? sedesData : []);
 
-      // Programas activos con activo=SI
+      // Solo programas (program_faculty) que están en alguna condición curricular activa
       const progRaw = programasRes.data?.data || programasRes.data || [];
-      const progData = (Array.isArray(progRaw) ? progRaw : []).filter(pf => pf.activo === 'SI');
+      const progData = (Array.isArray(progRaw) ? progRaw : [])
+        .filter(pf => pf.activo === 'SI' && pf.status === 'ACTIVE' && pfEnReglas.has(String(pf._id)));
       setProgramas(progData);
 
-      // Niveles únicos: solo nombres completos (>3 chars), normalizados para deduplicar acentos, solo de programas activos
+      // Niveles = niveles de esos programas (misma lógica que antes: labelLevel / level > 3 chars)
       const nivelesRaw = progData
-        .filter(pf => pf.status === 'ACTIVE')
         .map(pf => (pf.programId?.labelLevel || pf.programId?.level || '').trim())
-        .filter(n => n.length > 3); // descarta siglas como DO, MA, PR, ES
+        .filter(n => n.length > 3);
       const nivelesUnicos = [...new Map(nivelesRaw.map(n => [normalize(n), n])).values()].sort();
       setNiveles(nivelesUnicos);
 
@@ -176,7 +181,7 @@ const Student = ({ onVolver }) => {
 
   const openUxxiModal = () => {
     setShowUxxiModal(true);
-    setFiltros({ sede: '', nivel: '', programa: '', periodo: '', tipoPractica: '', estado: '' });
+    setFiltros({ sede: '', nivel: '', programasSeleccionados: [], periodo: '', tipoPractica: '', estado: '' });
     setProgSearch('');
     setReglasAplicables([]);
     setReglasBuscadas(false);
@@ -188,7 +193,7 @@ const Student = ({ onVolver }) => {
   const handleBuscarYCargar = useCallback(async () => {
     const camposFaltantes = [
       !HIDE_SUCURSALES_UI && !filtros.sede && 'Sede',
-      !filtros.programa     && 'Programa',
+      (!filtros.programasSeleccionados || filtros.programasSeleccionados.length === 0) && 'Al menos un programa',
       !filtros.periodo      && 'Periodo académico',
       !filtros.tipoPractica && 'Tipo de práctica',
     ].filter(Boolean);
@@ -199,23 +204,30 @@ const Student = ({ onVolver }) => {
       );
       return;
     }
-    const programaObj  = programas.find(p => p._id === filtros.programa);
-    const periodoObj   = periodos.find(p => p._id === filtros.periodo);
-    const codigoPrograma = programaObj?.code || '';
+    const periodoObj = periodos.find(p => p._id === filtros.periodo);
+    const programasPayload = (filtros.programasSeleccionados || [])
+      .map((id) => {
+        const pf = programas.find((p) => String(p._id) === String(id));
+        return pf ? { programaFacultadId: pf._id, codigoPrograma: (pf.code || '').trim() } : null;
+      })
+      .filter((p) => p && p.codigoPrograma);
+
+    if (programasPayload.length === 0) {
+      createAlert('warning', 'Programas', 'Los programas seleccionados deben tener código UXXI válido.');
+      return;
+    }
 
     setShowPreviewModal(true);
     setLoadingPreview(true);
     setPreviewData(null);
     try {
-      // Timeout extendido: SFTP + N llamadas OSB pueden tardar varios minutos
       const { data } = await api.post('/estudiantes-habilitados/preview-uxxi', {
-        programaFacultadId: filtros.programa,
-        codigoPrograma,
-        periodoId:          filtros.periodo,
-        codigoPeriodo:      periodoObj?.codigo || '',
-        tipoPracticaId:     filtros.tipoPractica || null,
-        sedeId:             filtros.sede || null,
-      }, { timeout: 300000 }); // 5 minutos
+        programasSeleccionados: programasPayload,
+        periodoId: filtros.periodo,
+        codigoPeriodo: periodoObj?.codigo || '',
+        tipoPracticaId: filtros.tipoPractica || null,
+        sedeId: filtros.sede || null,
+      }, { timeout: 600000 });
       setPreviewData(data);
     } catch (e) {
       const msg = e.code === 'ECONNABORTED'
@@ -230,15 +242,12 @@ const Student = ({ onVolver }) => {
   // Confirmar cargue → guarda en BD
   const handleConfirmarCargue = useCallback(async () => {
     if (!previewData?.estudiantes?.length) return;
-    const programaObj = programas.find(p => p._id === filtros.programa);
-    const periodoObj  = periodos.find(p => p._id === filtros.periodo);
+    const periodoObj = periodos.find((p) => p._id === filtros.periodo);
     setConfirmando(true);
     try {
       const { data } = await api.post('/estudiantes-habilitados/confirmar-cargue', {
-        estudiantes:        previewData.estudiantes,
-        programaFacultadId: filtros.programa,
-        codigoPrograma:     programaObj?.code || '',
-        periodoId:          filtros.periodo,
+        estudiantes: previewData.estudiantes,
+        periodoId: filtros.periodo,
         codigoPeriodo:      periodoObj?.codigo || '',
         tipoPracticaId:     filtros.tipoPractica || null,
         sedeId:             filtros.sede || null,
@@ -298,7 +307,8 @@ const Student = ({ onVolver }) => {
   // Auto-buscar reglas cuando cambian periodo o programa
   useEffect(() => {
     if (!showUxxiModal) return;
-    if (!filtros.periodo || !filtros.programa) {
+    const progSel = filtros.programasSeleccionados || [];
+    if (!filtros.periodo || progSel.length === 0) {
       setReglasAplicables([]);
       setReglasBuscadas(false);
       return;
@@ -313,10 +323,11 @@ const Student = ({ onVolver }) => {
         });
         if (cancelled) return;
         const todasReglas = data.data || [];
-        const filtradas = todasReglas.filter(r => {
+        const setSel = new Set(progSel.map(String));
+        const filtradas = todasReglas.filter((r) => {
           const progs = r.programas || [];
           if (progs.length === 0) return true;
-          return progs.some(p => (p?._id || p) === filtros.programa);
+          return progs.some((p) => setSel.has(String(p?._id || p)));
         });
         setReglasAplicables(filtradas);
       } catch (e) {
@@ -327,16 +338,7 @@ const Student = ({ onVolver }) => {
     };
     fetchReglas();
     return () => { cancelled = true; };
-  }, [filtros.periodo, filtros.programa, showUxxiModal]);
-
-  // Cerrar dropdown de programa al hacer click fuera
-  useEffect(() => {
-    const handler = (e) => {
-      if (progRef.current && !progRef.current.contains(e.target)) setProgDropOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [filtros.periodo, filtros.programasSeleccionados, showUxxiModal]);
 
   // Programas filtrados por búsqueda y nivel
   const programasFiltrados = programas.filter(pf => {
@@ -348,8 +350,15 @@ const Student = ({ onVolver }) => {
     return matchNivel && matchSearch;
   });
 
-  const programaSeleccionado = programas.find(pf => pf._id === filtros.programa);
-
+  const idsSeleccionados = new Set((filtros.programasSeleccionados || []).map(String));
+  const toggleProgramaUxxi = (pfId, checked) => {
+    const id = String(pfId);
+    setFiltros((f) => {
+      const cur = f.programasSeleccionados || [];
+      if (checked) return { ...f, programasSeleccionados: [...new Set([...cur, id])] };
+      return { ...f, programasSeleccionados: cur.filter((x) => String(x) !== id) };
+    });
+  };
 
   const formatDate = (date) => {
     if (!date) return '-';
@@ -383,7 +392,7 @@ const Student = ({ onVolver }) => {
                 <div className="uxxi-preview-spinner" />
                 <div>
                   <p className="uxxi-preview-loading-title">Procesando estudiantes...</p>
-                  <p className="uxxi-preview-loading-sub">Descargando archivo SFTP, consultando OSB y evaluando reglas curriculares. Esto puede tardar unos minutos.</p>
+                  <p className="uxxi-preview-loading-sub">Una sola descarga del archivo UXXI (SFTP); luego se consulta OSB y reglas por cada estudiante. Con muchos registros puede tardar varios minutos.</p>
                 </div>
               </div>
             )}
@@ -421,6 +430,12 @@ const Student = ({ onVolver }) => {
 
                 {previewData.mensaje && (
                   <div className="uxxi-preview-msg"><FiInfo /> {previewData.mensaje}</div>
+                )}
+                {Array.isArray(previewData.resumenPorPrograma) && previewData.resumenPorPrograma.length > 1 && (
+                  <div className="uxxi-preview-msg" style={{ marginTop: 8 }}>
+                    <strong>Por programa:</strong>{' '}
+                    {previewData.resumenPorPrograma.map((r) => `${r.codigoPrograma}: ${r.total}`).join(' · ')}
+                  </div>
                 )}
 
                 {/* Tabla de estudiantes */}
@@ -460,11 +475,19 @@ const Student = ({ onVolver }) => {
                                 ? <span className="uxxi-prev-osb-error" title={est.errorOSB}>Error OSB</span>
                                 : est.reglasEvaluadas?.length === 0
                                   ? <span className="uxxi-prev-sin-reglas">Sin reglas</span>
-                                  : est.reglasEvaluadas.map((r, ri) => (
-                                      <span key={ri} className={`uxxi-prev-regla-pill ${r.cumple ? 'cumple' : 'no-cumple'}`} title={r.reglaNombre}>
-                                        {r.cumple ? '✓' : '✗'} {r.reglaNombre}
-                                      </span>
-                                    ))
+                                  : est.reglasEvaluadas.map((r, ri) => {
+                                      const tipAsig = (r.detalleAsignaturas || [])
+                                        .map((d) => `${d.etiqueta}: ${d.motivo}`)
+                                        .join('\n');
+                                      const tip = [r.reglaNombre, (r.detalle || []).join('; '), tipAsig]
+                                        .filter(Boolean)
+                                        .join('\n');
+                                      return (
+                                        <span key={ri} className={`uxxi-prev-regla-pill ${r.cumple ? 'cumple' : 'no-cumple'}`} title={tip || r.reglaNombre}>
+                                          {r.cumple ? '✓' : '✗'} {r.reglaNombre}
+                                        </span>
+                                      );
+                                    })
                               }
                             </td>
                           </tr>
@@ -520,7 +543,7 @@ const Student = ({ onVolver }) => {
       {/* Modal Cargar UXXI */}
       {showUxxiModal && (
         <div className="uxxi-modal-overlay" onClick={() => setShowUxxiModal(false)}>
-          <div className="uxxi-modal" onClick={e => e.stopPropagation()}>
+          <div className="uxxi-modal uxxi-modal--large" onClick={e => e.stopPropagation()}>
             <div className="uxxi-modal-header">
               <div className="uxxi-modal-header-left">
                 <FiUploadCloud className="uxxi-modal-icon" />
@@ -563,52 +586,67 @@ const Student = ({ onVolver }) => {
                   {/* Nivel */}
                   <div className="uxxi-field">
                     <label className="uxxi-label">Nivel</label>
-                    <select className="uxxi-select" value={filtros.nivel} onChange={e => setFiltros(f => ({ ...f, nivel: e.target.value, programa: '' }))}>
+                    <select className="uxxi-select" value={filtros.nivel} onChange={e => setFiltros(f => ({ ...f, nivel: e.target.value, programasSeleccionados: [] }))}>
                       <option value="">— Seleccione un nivel —</option>
                       {niveles.map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
-                    {niveles.length === 0 && <span className="uxxi-field-hint">Sin niveles disponibles</span>}
+                    {niveles.length === 0 && (
+                      <span className="uxxi-field-hint">
+                        No hay programas con condición curricular activa. Configure reglas en Condiciones curriculares (programas o facultad completa).
+                      </span>
+                    )}
                   </div>
 
-                  {/* Programa – buscador custom */}
-                  <div className="uxxi-field uxxi-field--full" ref={progRef}>
-                    <label className="uxxi-label">Programa</label>
-                    <div className="uxxi-prog-wrapper">
-                      <input
-                        className="uxxi-prog-input"
-                        placeholder={programaSeleccionado
-                          ? `${programaSeleccionado.code} — ${programaSeleccionado.programId?.name || ''}`
-                          : 'Buscar por código o nombre...'}
-                        value={progSearch}
-                        onChange={e => { setProgSearch(e.target.value); setProgDropOpen(true); setFiltros(f => ({ ...f, programa: '' })); }}
-                        onFocus={() => setProgDropOpen(true)}
-                      />
-                      <FiChevronDown className="uxxi-prog-chevron" />
-                      {progDropOpen && (
-                        <div className="uxxi-prog-dropdown">
-                          <div
-                            className="uxxi-prog-option uxxi-prog-option--empty-val"
-                            onClick={() => { setFiltros(f => ({ ...f, programa: '' })); setProgSearch(''); setProgDropOpen(false); }}
-                          >
-                            Todos los programas
-                          </div>
-                          {programasFiltrados.length === 0 ? (
-                            <div className="uxxi-prog-empty">Sin resultados</div>
-                          ) : programasFiltrados.map(pf => (
-                            <div
-                              key={pf._id}
-                              className={`uxxi-prog-option ${filtros.programa === pf._id ? 'uxxi-prog-option--selected' : ''}`}
-                              onClick={() => {
-                                setFiltros(f => ({ ...f, programa: pf._id }));
-                                setProgSearch('');
-                                setProgDropOpen(false);
-                              }}
-                            >
-                              <span className="uxxi-prog-code">{pf.code}</span>
-                              <span className="uxxi-prog-name">{pf.programId?.name || '—'}</span>
-                            </div>
-                          ))}
-                        </div>
+                  {/* Programas (uno o más) */}
+                  <div className="uxxi-field uxxi-field--full">
+                    <label className="uxxi-label">Programas <span style={{ fontWeight: 400, color: '#9ca3af' }}>(marca uno o más)</span></label>
+                    <input
+                      className="uxxi-prog-input"
+                      placeholder="Filtrar por código o nombre..."
+                      value={progSearch}
+                      onChange={(e) => setProgSearch(e.target.value)}
+                    />
+                    <div className="uxxi-prog-multi-toolbar">
+                      <span className="uxxi-prog-multi-count">
+                        <strong>{filtros.programasSeleccionados?.length || 0}</strong> programa(s) seleccionado(s)
+                      </span>
+                      <button
+                        type="button"
+                        className="uxxi-prog-multi-btn"
+                        onClick={() =>
+                          setFiltros((f) => ({
+                            ...f,
+                            programasSeleccionados: [
+                              ...new Set([...(f.programasSeleccionados || []), ...programasFiltrados.map((p) => String(p._id))]),
+                            ],
+                          }))
+                        }
+                      >
+                        Marcar listados
+                      </button>
+                      <button
+                        type="button"
+                        className="uxxi-prog-multi-btn"
+                        onClick={() => setFiltros((f) => ({ ...f, programasSeleccionados: [] }))}
+                      >
+                        Quitar todos
+                      </button>
+                    </div>
+                    <div className="uxxi-prog-multi-list">
+                      {programasFiltrados.length === 0 ? (
+                        <div className="uxxi-prog-empty" style={{ padding: 16 }}>Sin programas con este filtro. Ajuste nivel o búsqueda.</div>
+                      ) : (
+                        programasFiltrados.map((pf) => (
+                          <label key={pf._id} className="uxxi-prog-multi-row">
+                            <input
+                              type="checkbox"
+                              checked={idsSeleccionados.has(String(pf._id))}
+                              onChange={(e) => toggleProgramaUxxi(pf._id, e.target.checked)}
+                            />
+                            <span className="uxxi-prog-code">{pf.code}</span>
+                            <span className="uxxi-prog-name">{pf.programId?.name || '—'}</span>
+                          </label>
+                        ))
                       )}
                     </div>
                   </div>
@@ -689,7 +727,7 @@ const Student = ({ onVolver }) => {
                                 (r.programas || []).map((p, i) => {
                                   const code = p?.code || '';
                                   const name = p?.programId?.name || p?.name || '';
-                                  const isSelected = (p?._id || p) === filtros.programa;
+                                  const isSelected = idsSeleccionados.has(String(p?._id || p));
                                   return (
                                     <span
                                       key={p?._id || i}
@@ -710,6 +748,50 @@ const Student = ({ onVolver }) => {
                                     {c.variable} {c.operador} {c.valor}
                                   </span>
                                 ))}
+                              </div>
+                            )}
+
+                            {(r.asignaturasRequeridas || []).length > 0 ? (
+                              <div className="uxxi-regla-asignaturas">
+                                <div className="uxxi-regla-asignaturas-head">
+                                  <FiBook className="uxxi-regla-asignaturas-icon" />
+                                  <span>
+                                    <strong>Sí incluye regla de asignatura</strong> —{' '}
+                                    {(r.asignaturasRequeridas || []).length} requisito
+                                    {(r.asignaturasRequeridas || []).length !== 1 ? 's' : ''}:
+                                  </span>
+                                </div>
+                                <div className="uxxi-regla-asignaturas-list">
+                                  {(r.asignaturasRequeridas || []).map((ar, ai) => {
+                                    const asig = ar?.asignatura;
+                                    const cod = typeof asig === 'object' && asig
+                                      ? String(asig.codAsignatura || asig.codigo || asig.idAsignatura || '').trim()
+                                      : '';
+                                    const nom = typeof asig === 'object' && asig
+                                      ? String(asig.nombreAsignatura || asig.nombre || '').trim()
+                                      : '';
+                                    const tipo = ar?.tipo === 'aprobada' ? 'Aprobada' : 'Matriculada';
+                                    return (
+                                      <div key={ai} className="uxxi-regla-asig-item">
+                                        <div className="uxxi-regla-asig-row">
+                                          <span className="uxxi-regla-asig-label">Código</span>
+                                          <span className="uxxi-regla-asig-val uxxi-regla-asig-val--cod">{cod || '—'}</span>
+                                        </div>
+                                        <div className="uxxi-regla-asig-row">
+                                          <span className="uxxi-regla-asig-label">Nombre</span>
+                                          <span className="uxxi-regla-asig-val">{nom || '— (sin nombre en catálogo)'}</span>
+                                        </div>
+                                        <div className="uxxi-regla-asig-tipo">
+                                          Debe estar: <strong>{tipo}</strong>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="uxxi-regla-no-asignaturas">
+                                No incluye regla de asignatura (solo condiciones académicas como créditos, promedio, etc.)
                               </div>
                             )}
                           </div>
