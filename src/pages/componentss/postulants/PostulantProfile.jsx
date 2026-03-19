@@ -1908,6 +1908,7 @@ const PostulantProfile = ({ onVolver }) => {
       setEditedData({
         mobile_number: postulant.mobile_number || '',
         phone_number: postulant.phone_number || '',
+        alternateEmail: postulant.alternateEmail ?? '',
         linkedin_url: postulant.linkedin_url || '',
         twitter_url: postulant.twitter_url || '',
         instagram_url: postulant.instagram_url || '',
@@ -2155,7 +2156,9 @@ const PostulantProfile = ({ onVolver }) => {
 
   const completeness = calculateCompleteness();
   const fullName = postulant.user?.name || 'Sin nombre';
-  const email = postulant.user?.email || '-';
+  // Arriba: correo institucional (postulant profile → academicUser). Contacto: correo personal (postulant.alternateEmail)
+  const emailInstitucional = profileData?.postulantProfile?.academicUser ?? postulant?.user?.email ?? '-';
+  const emailPersonal = postulant?.alternateEmail ?? '';
 
   const handleConsentSwitch = async (field, newValue) => {
     if (!postulant?._id) return;
@@ -2376,7 +2379,7 @@ const PostulantProfile = ({ onVolver }) => {
               <h2 className="profile-name">{fullName.toUpperCase()}</h2>
               <div className="profile-email">
                 <FiMail className="email-icon" />
-                <span>{email}</span>
+                <span>{emailInstitucional}</span>
               </div>
               {postulant.profileCount != null && (
                 <div className="profile-summary-meta">
@@ -2500,14 +2503,14 @@ const PostulantProfile = ({ onVolver }) => {
                   <input 
                     type="text" 
                     className="contact-input" 
-                    value={email} 
-                    readOnly
-                    placeholder="Email"
+                    value={editedData.alternateEmail !== undefined ? editedData.alternateEmail : emailPersonal}
+                    onChange={(e) => handleInputChange('alternateEmail', e.target.value)}
+                    placeholder="Correo personal"
                   />
                   <FiEdit className="contact-edit-icon" />
                 </>
               ) : (
-                <span className="contact-text">{email}</span>
+                <span className="contact-text">{emailPersonal || '-'}</span>
               )}
             </div>
             </div>

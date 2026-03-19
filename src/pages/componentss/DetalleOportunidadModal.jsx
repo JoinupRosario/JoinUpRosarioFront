@@ -38,11 +38,11 @@ function getSalarioEmocionalLabel(item) {
   return SALARIO_EMOCIONAL_LABELS[item] || item || '—';
 }
 
-/** Convierte ref Item (objeto con value/description) o string a texto para mostrar */
+/** Convierte ref Item (objeto con value/description) o string a texto para mostrar. Prioriza value (etiqueta corta). */
 function getItemRefLabel(item) {
   if (item == null) return '—';
   if (typeof item === 'object' && (item.value != null || item.description != null)) {
-    return item.description || item.value || '—';
+    return item.value || item.description || '—';
   }
   return String(item);
 }
@@ -109,7 +109,7 @@ export default function DetalleOportunidadModal({ detalle, loading, onClose, onA
                 <dt>Salario</dt>
                 <dd>{formatCurrency(detalle.apoyoEconomico)}</dd>
                 <dt>Tipo de vinculación</dt>
-                <dd>{detalle.tipoVinculacion ?? '—'}</dd>
+                <dd>{getItemRefLabel(detalle.tipoVinculacion)}</dd>
                 <dt>Periodo</dt>
                 <dd>{getPeriodoLabel(detalle.periodo)}</dd>
                 <dt>Vacantes</dt>
