@@ -2368,178 +2368,106 @@ const PostulantProfile = ({ onVolver }) => {
         {/* Pestaña Datos personales: un solo bloque para evitar errores de DOM (removeChild) al cambiar de pestaña */}
         {activeTab === 'datos-personales' && (
           <div className="profile-tab-content datos-personales-tab">
-        <div className="postulant-profile-summary">
-          <div className="profile-summary-left">
-            <div className="profile-info">
-              <h2 className="profile-name">{fullName.toUpperCase()}</h2>
-              <div className="profile-email">
-                <FiMail className="email-icon" />
-                <span>{emailInstitucional}</span>
-              </div>
-              {postulant.profileCount != null && (
-                <div className="profile-summary-meta">
-                  <FiFileText className="email-icon" style={{ marginRight: 6 }} />
-                  <span>Perfiles: {postulant.profileCount}/{postulant.maxProfilesAllowed ?? 5}</span>
+            {/* Fila 1: mitad = nombre + email + autorizaciones + %; otra mitad = Contacto 2x2 */}
+            <div className="datos-personales-row datos-personales-row-1">
+              <div className="datos-personales-col datos-personales-col-summary">
+                <div className="profile-info">
+                  <h2 className="profile-name">{fullName.toUpperCase()}</h2>
+                  <div className="profile-email">
+                    <FiMail className="email-icon" />
+                    <span>{emailInstitucional}</span>
+                  </div>
+                  {postulant.profileCount != null && (
+                    <div className="profile-summary-meta">
+                      <FiFileText className="email-icon" style={{ marginRight: 6 }} />
+                      <span>Perfiles: {postulant.profileCount}/{postulant.maxProfilesAllowed ?? 5}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+                <div className="datos-personales-summary-footer">
+                  <div className="profile-consents profile-consents-compact">
+                    <div className="consent-item">
+                      <span>Permito el envío de hoja de vida a empresas</span>
+                      <label className="switch switch-sm">
+                        <input
+                          type="checkbox"
+                          checked={postulant.full_profile || false}
+                          onChange={(e) => handleConsentSwitch('full_profile', e.target.checked)}
+                        />
+                        <span className="slider"></span>
+                      </label>
+                    </div>
+                    <div className="consent-item">
+                      <span>
+                        <button type="button" className="link-politica-datos" onClick={openPoliticaDatosModal}>
+                          Autorizo el tratamiento de mis datos personales
+                        </button>
+                      </span>
+                      <label className="switch switch-sm">
+                        <input
+                          type="checkbox"
+                          checked={postulant.acept_terms || false}
+                          onChange={(e) => handleConsentSwitch('acept_terms', e.target.checked)}
+                        />
+                        <span className="slider"></span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="profile-completeness profile-completeness-sm">
+                    <div className="completeness-circle">
+                      <svg className="completeness-svg" viewBox="0 0 36 36">
+                        <path className="completeness-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path className="completeness-progress" strokeDasharray={`${completeness}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                      </svg>
+                      <span className="completeness-percent">{completeness}%</span>
+                    </div>
+                    <div className="completeness-info">
+                      <button type="button" className="link-completar-perfil" onClick={openQueHaceFaltaModal}>
+                        ¿Qué hace falta para completar su perfil?
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="datos-personales-col">
+                <div className="profile-section profile-section-contact profile-section-contact-grid">
+                  <h3 className="profile-section-title">Contacto y redes sociales</h3>
+                  <div className="profile-contact-grid-2x2">
+                    <div className="contact-item">
+                      <div className="contact-icon-wrapper"><FiPhone className="contact-icon" /></div>
+                      {isEditing ? (
+                        <><input type="text" className="contact-input" value={editedData.mobile_number || ''} onChange={(e) => handleInputChange('mobile_number', e.target.value)} placeholder="Número móvil" /><FiEdit className="contact-edit-icon" /></>
+                      ) : (<span className="contact-text">{postulant.mobile_number || '-'}</span>)}
+                    </div>
+                    <div className="contact-item">
+                      <div className="contact-icon-wrapper"><FiPhone className="contact-icon" /></div>
+                      {isEditing ? (
+                        <><input type="text" className="contact-input" value={editedData.phone_number || ''} onChange={(e) => handleInputChange('phone_number', e.target.value)} placeholder="Teléfono fijo" /><FiEdit className="contact-edit-icon" /></>
+                      ) : (<span className="contact-text">{postulant.phone_number || '-'}</span>)}
+                    </div>
+                    <div className="contact-item">
+                      <div className="contact-icon-wrapper"><FiMail className="contact-icon" /></div>
+                      {isEditing ? (
+                        <><input type="text" className="contact-input" value={editedData.alternateEmail !== undefined ? editedData.alternateEmail : emailPersonal} onChange={(e) => handleInputChange('alternateEmail', e.target.value)} placeholder="Correo personal" /><FiEdit className="contact-edit-icon" /></>
+                      ) : (<span className="contact-text">{emailPersonal || '-'}</span>)}
+                    </div>
+                    <div className="contact-item">
+                      <div className="contact-icon-wrapper"><FiLinkedin className="contact-icon" /></div>
+                      {isEditing ? (
+                        <><input type="text" className="contact-input" value={editedData.linkedin_url || ''} onChange={(e) => handleInputChange('linkedin_url', e.target.value)} placeholder="LinkedIn" /><FiEdit className="contact-edit-icon" /></>
+                      ) : (<span className="contact-text">{postulant.linkedin_url || '-'}</span>)}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="profile-summary-right">
-            <div className="profile-consents">
-              <div className="consent-item">
-                <span>Permito el envío de hoja de vida <br/> a empresas</span>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={postulant.full_profile || false}
-                    onChange={(e) => handleConsentSwitch('full_profile', e.target.checked)}
-                  />
-                  <span className="slider"></span>
-                </label>
-              </div>
-              <div className="consent-item">
-                <span>
-                  <button type="button" className="link-politica-datos" onClick={openPoliticaDatosModal}>
-                    Autorizo el tratamiento de mis datos personales
-                  </button>
-                </span>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={postulant.acept_terms || false}
-                    onChange={(e) => handleConsentSwitch('acept_terms', e.target.checked)}
-                  />
-                  <span className="slider"></span>
-                </label>
-              </div>
-            </div>
-          </div>
-          <div>
-          <div className="profile-completeness">
-              <div className="completeness-circle">
-                <svg className="completeness-svg" viewBox="0 0 36 36">
-                  <path
-                    className="completeness-bg"
-                    d="M18 2.0845
-                      a 15.9155 15.9155 0 0 1 0 31.831
-                      a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="completeness-progress"
-                    strokeDasharray={`${completeness}, 100`}
-                    d="M18 2.0845
-                      a 15.9155 15.9155 0 0 1 0 31.831
-                      a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <span className="completeness-percent">{completeness}%</span>
-              </div>
-              <div className="completeness-info">
-                <button type="button" className="link-completar-perfil" onClick={openQueHaceFaltaModal}>
-                  ¿Qué hace falta para <br/> completar su perfil?
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Separador */}
-        <div className="profile-separator"></div>
-
-        {/* Sección: Contacto y redes sociales */}
-        <div className="profile-section profile-section-contact">
-          <h3 className="profile-section-title">Contacto y redes sociales</h3>
-          <div className="profile-contact-row">
-            <div className="profile-contact-info">
-              <div className="contact-item">
-              <div className="contact-icon-wrapper">
-                <FiPhone className="contact-icon" />
-              </div>
-              {isEditing ? (
-                <>
-                  <input 
-                    type="text" 
-                    className="contact-input" 
-                    value={editedData.mobile_number || ''} 
-                    onChange={(e) => handleInputChange('mobile_number', e.target.value)}
-                    placeholder="Número móvil"
-                  />
-                  <FiEdit className="contact-edit-icon" />
-                </>
-              ) : (
-                <span className="contact-text">{postulant.mobile_number || '-'}</span>
-              )}
-            </div>
-            <div className="contact-item">
-              <div className="contact-icon-wrapper">
-                <FiPhone className="contact-icon" />
-              </div>
-              {isEditing ? (
-                <>
-                  <input 
-                    type="text" 
-                    className="contact-input" 
-                    value={editedData.phone_number || ''} 
-                    onChange={(e) => handleInputChange('phone_number', e.target.value)}
-                    placeholder="Teléfono fijo"
-                  />
-                  <FiEdit className="contact-edit-icon" />
-                </>
-              ) : (
-                <span className="contact-text">{postulant.phone_number || '-'}</span>
-              )}
-            </div>
-            <div className="contact-item">
-              <div className="contact-icon-wrapper">
-                <FiMail className="contact-icon" />
-              </div>
-              {isEditing ? (
-                <>
-                  <input 
-                    type="text" 
-                    className="contact-input" 
-                    value={editedData.alternateEmail !== undefined ? editedData.alternateEmail : emailPersonal}
-                    onChange={(e) => handleInputChange('alternateEmail', e.target.value)}
-                    placeholder="Correo personal"
-                  />
-                  <FiEdit className="contact-edit-icon" />
-                </>
-              ) : (
-                <span className="contact-text">{emailPersonal || '-'}</span>
-              )}
-            </div>
-            </div>
-            <div className="profile-contact-group profile-contact-networks">
-           
-              <div className="profile-contact-info">
-                <div className="contact-item">
-                  <div className="contact-icon-wrapper">
-                    <FiLinkedin className="contact-icon" />
-              </div>
-              {isEditing ? (
-                <>
-                  <input 
-                    type="text" 
-                    className="contact-input" 
-                    value={editedData.linkedin_url || ''} 
-                    onChange={(e) => handleInputChange('linkedin_url', e.target.value)}
-                    placeholder="LinkedIn"
-                  />
-                  <FiEdit className="contact-edit-icon" />
-                </>
-              ) : (
-                <span className="contact-text">{postulant.linkedin_url || '-'}</span>
-              )}
-            </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sección: Identificación */}
-        <div className="profile-section profile-section-identification">
-          <h3 className="profile-section-title">Identificación</h3>
-            <div className="profile-data-grid">
+            {/* Fila 2: mitad = Identificación (2 arriba, 1 abajo centro); mitad = Ubicación */}
+            <div className="datos-personales-row datos-personales-row-2">
+              <div className="datos-personales-col">
+                <div className="profile-section profile-section-identification">
+                  <h3 className="profile-section-title">Identificación</h3>
+                  <div className="profile-data-grid profile-data-grid-identificacion">
               <div className="profile-data-field">
                 <label className="profile-field-label">
                   <span className="field-label-separator">|</span>
@@ -2591,7 +2519,7 @@ const PostulantProfile = ({ onVolver }) => {
                   </div>
                 )}
               </div>
-              <div className="profile-data-field">
+              <div className="profile-data-field profile-data-field-center">
                 <label className="profile-field-label">
                   <span className="field-label-separator">|</span>
                   Sexo
@@ -2620,12 +2548,12 @@ const PostulantProfile = ({ onVolver }) => {
                   </div>
                 )}
               </div>
-            </div>
-        </div>
-
-        {/* Sección: Ubicación y datos adicionales */}
-        <div className="profile-section profile-section-ubicacion">
-          <h3 className="profile-section-title">Ubicación y datos adicionales</h3>
+                  </div>
+                </div>
+              </div>
+              <div className="datos-personales-col">
+                <div className="profile-section profile-section-ubicacion">
+                  <h3 className="profile-section-title">Ubicación y datos adicionales</h3>
             <div className="profile-data-grid">
               <div className="profile-data-field">
                 <label className="profile-field-label">
@@ -2732,7 +2660,9 @@ const PostulantProfile = ({ onVolver }) => {
                 )}
               </div>
             </div>
-        </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
