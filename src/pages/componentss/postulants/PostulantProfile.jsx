@@ -247,7 +247,7 @@ const PostulantProfile = ({ onVolver }) => {
   const [editingGraduateId, setEditingGraduateId] = useState(null);
   const [programasFinalizadosModalOpen, setProgramasFinalizadosModalOpen] = useState(false);
   const [programasFinalizadosFormData, setProgramasFinalizadosFormData] = useState({
-    programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', pais: '', departamento: '', ciudad: '',
+    programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', departamento: '', ciudad: '',
   });
   const [savingAcademic, setSavingAcademic] = useState(false);
   /** Id del programa finalizado cuyo menú Opciones está abierto (Rosario - Finalizada). */
@@ -1082,10 +1082,6 @@ const PostulantProfile = ({ onVolver }) => {
       showError('Campo requerido', 'Seleccione un programa');
       return;
     }
-    if (!programasFinalizadosFormData.pais) {
-      showError('Campo requerido', 'Seleccione el país');
-      return;
-    }
     try {
       setSavingAcademic(true);
       const body = {
@@ -1093,7 +1089,6 @@ const PostulantProfile = ({ onVolver }) => {
         title: programasFinalizadosFormData.tituloFormacion || undefined,
         endDate: programasFinalizadosFormData.fechaObtencion || undefined,
         university: programasFinalizadosFormData.institucion || undefined,
-        countryId: programasFinalizadosFormData.pais || undefined,
         stateId: programasFinalizadosFormData.departamento || undefined,
         cityId: programasFinalizadosFormData.ciudad || undefined,
       };
@@ -1106,7 +1101,7 @@ const PostulantProfile = ({ onVolver }) => {
       }
       setProgramasFinalizadosModalOpen(false);
       setEditingGraduateId(null);
-      setProgramasFinalizadosFormData({ programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', pais: '', departamento: '', ciudad: '' });
+      setProgramasFinalizadosFormData({ programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', departamento: '', ciudad: '' });
       loadProfileDataForProfile(postulant._id, currentBaseProfileId);
     } catch (err) {
       console.error(err);
@@ -2969,7 +2964,7 @@ const PostulantProfile = ({ onVolver }) => {
                 <h3 className="academic-section-title">Formación académica Rosario - Finalizada</h3>
                 {isEditing && (
                   <span className="section-actions">
-                    <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingGraduateId(null); setProgramasFinalizadosFormData({ programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', pais: '', departamento: '', ciudad: '' }); setProgramasFinalizadosModalOpen(true); }} title="Agregar"><FiPlus /></button>
+                    <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingGraduateId(null); setProgramasFinalizadosFormData({ programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', departamento: '', ciudad: '' }); setProgramasFinalizadosModalOpen(true); }} title="Agregar"><FiPlus /></button>
                   </span>
                 )}
               </div>
@@ -2983,7 +2978,6 @@ const PostulantProfile = ({ onVolver }) => {
                           <th>Programa</th>
                           <th>Título formación académica</th>
                           <th>Fecha de obtención de título</th>
-                          <th>País</th>
                           <th>Acciones</th>
                         </tr>
                       </thead>
@@ -2995,7 +2989,6 @@ const PostulantProfile = ({ onVolver }) => {
                               <td>{gp.programId?.name || gp.programId?.code || '—'}</td>
                               <td>{gp.title || '—'}</td>
                               <td>{gp.endDate ? formatDate(gp.endDate) : '—'}</td>
-                              <td>{gp.countryId?.name ?? '—'}</td>
                               <td>
                                 {isEditing && (
                                   <div className="academic-row-actions" ref={isOptionsOpen ? academicOptionsAnchorRef : undefined}>
@@ -3022,7 +3015,6 @@ const PostulantProfile = ({ onVolver }) => {
                                               tituloFormacion: gp.title || '',
                                               fechaObtencion: gp.endDate ? (typeof gp.endDate === 'string' ? gp.endDate.slice(0, 10) : new Date(gp.endDate).toISOString().slice(0, 10)) : '',
                                               institucion: gp.university?._id || gp.university || '',
-                                              pais: gp.countryId?._id || gp.countryId || '',
                                               departamento: gp.stateId?._id || gp.stateId || '',
                                               ciudad: gp.cityId?._id || gp.cityId || '',
                                             });
@@ -3818,22 +3810,6 @@ const PostulantProfile = ({ onVolver }) => {
                   className="form-control"
                 />
                 <label htmlFor="pf-fecha">Fecha de obtención de título</label>
-              </div>
-              <div className="form-floating mb-3">
-                <select
-                  id="pf-pais"
-                  className="form-select"
-                  value={programasFinalizadosFormData.pais || ''}
-                  onChange={(e) => setProgramasFinalizadosFormData((prev) => ({ ...prev, pais: e.target.value }))}
-                >
-                  <option value="">Seleccione país</option>
-                  {graduateCountryOptions.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.name || c._id}
-                    </option>
-                  ))}
-                </select>
-                <label htmlFor="pf-pais">País</label>
               </div>
             </div>
             <div className="form-modal-footer">
