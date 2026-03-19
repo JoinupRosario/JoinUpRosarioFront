@@ -2334,7 +2334,7 @@ const PostulantProfile = ({ onVolver }) => {
         {isAdministrativo && (
           <button
             className="btn-volver"
-            onClick={() => navigate('/dashboard/postulants')}
+            onClick={() => (onVolver ? onVolver() : navigate('/dashboard/postulants'))}
             title="Volver"
           >
             <FiArrowLeft className="btn-icon" />

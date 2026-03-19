@@ -89,11 +89,31 @@ const Student = ({ onVolver }) => {
   const [previewData, setPreviewData]              = useState(null);
   const [confirmando, setConfirmando]              = useState(false);
   const [creandoUsuarios, setCreandoUsuarios]      = useState(false);
+  const [savingEstadoFinalId, setSavingEstadoFinalId] = useState(null);
 
   // Helpers de alertas — deben ir ANTES de cualquier callback que los use
   const showFuncionalidadEnDesarrollo = useCallback((fn) =>
     createAlert('info', 'Funcionalidad en Desarrollo', `"${fn}" estará disponible próximamente.`), []);
   const showError = useCallback((title, text) => createAlert('error', title, text), []);
+
+  const handleEstadoFinalChange = useCallback(
+    async (studentId, nuevoEstado) => {
+      setSavingEstadoFinalId(studentId);
+      try {
+        await api.patch(`/estudiantes-habilitados/${studentId}/estado-final`, {
+          estadoFinal: nuevoEstado,
+        });
+        setStudents((prev) =>
+          prev.map((s) => (s._id === studentId ? { ...s, estadoFinal: nuevoEstado } : s))
+        );
+      } catch (e) {
+        showError('Error', e.response?.data?.message || 'No se pudo actualizar el estado final');
+      } finally {
+        setSavingEstadoFinalId(null);
+      }
+    },
+    [showError]
+  );
 
   // Cargar estudiantes habilitados desde BD (paginado y filtrado por estado/búsqueda)
   const loadStudents = useCallback(async (pageNum = 1, estadoFilter = '', search = '') => {
@@ -102,7 +122,7 @@ const Student = ({ onVolver }) => {
       const params = {
         page: pageNum,
         limit: PAGE_SIZE,
-        ...(estadoFilter && { estadoCurricular: estadoFilter }),
+        ...(estadoFilter && { estadoFinal: estadoFilter }),
         ...(search && search.trim() && { search: search.trim() }),
       };
       const { data } = await api.get('/estudiantes-habilitados', { params });
@@ -415,16 +435,16 @@ const Student = ({ onVolver }) => {
                     <span className="uxxi-preview-stat-lbl">Total</span>
                   </div>
                   <div className="uxxi-preview-stat uxxi-preview-stat--auth">
-                    <span className="uxxi-preview-stat-num">{previewData.autorizados}</span>
-                    <span className="uxxi-preview-stat-lbl">Autorizados</span>
+                    <span className="uxxi-preview-stat-num">{previewData.cumplenCondiciones ?? previewData.autorizados}</span>
+                    <span className="uxxi-preview-stat-lbl">Cumplen condiciones (en revisión)</span>
                   </div>
                   <div className="uxxi-preview-stat uxxi-preview-stat--noauth">
                     <span className="uxxi-preview-stat-num">{previewData.noAutorizados}</span>
-                    <span className="uxxi-preview-stat-lbl">No autorizados</span>
+                    <span className="uxxi-preview-stat-lbl">No cumplen condiciones</span>
                   </div>
                   <div className="uxxi-preview-stat uxxi-preview-stat--rev">
-                    <span className="uxxi-preview-stat-num">{previewData.enRevision}</span>
-                    <span className="uxxi-preview-stat-lbl">En revisión</span>
+                    <span className="uxxi-preview-stat-num">{previewData.enRevisionOtros ?? 0}</span>
+                    <span className="uxxi-preview-stat-lbl">En revisión (sin reglas / otros)</span>
                   </div>
                 </div>
 
@@ -905,7 +925,6 @@ const Student = ({ onVolver }) => {
             <tbody>
               {students.map((s) => {
                 const estadoClass = (s.estadoCurricular || '').toLowerCase().replace('_', '-');
-                const estadoFinalClass = (s.estadoFinal || '').toLowerCase().replace('_', '-');
                 const perfilId = s.perfilPostulanteId || s.postulant?._id;
                 return (
                   <tr key={s._id}>
@@ -925,10 +944,27 @@ const Student = ({ onVolver }) => {
                         {(s.estadoCurricular || '-').replace('_', ' ')}
                       </span>
                     </td>
-                    <td>
-                      <span className={`status-badge status-badge--${estadoFinalClass}`}>
-                        {(s.estadoFinal || '-').replace('_', ' ')}
-                      </span>
+                    <td className="student-td-estado-final">
+                      <div className="student-estado-final-wrap">
+                        {s.estadoFinal === 'EXCLUIDO' ? (
+                          <span className="status-badge status-badge--excluido">Excluido</span>
+                        ) : (
+                          <select
+                            className="student-select-estado-final"
+                            aria-label={`Estado final ${s.identificacion}`}
+                            value={s.estadoFinal || 'EN_REVISION'}
+                            disabled={savingEstadoFinalId === s._id}
+                            onChange={(e) => handleEstadoFinalChange(s._id, e.target.value)}
+                          >
+                            <option value="EN_REVISION">En revisión</option>
+                            <option value="AUTORIZADO">Autorizado</option>
+                            <option value="NO_AUTORIZADO">No autorizado</option>
+                          </select>
+                        )}
+                        {savingEstadoFinalId === s._id && (
+                          <FiLoader className="student-select-estado-final-spinner" aria-hidden />
+                        )}
+                      </div>
                     </td>
                     <td>{formatDate(s.updatedAt)}</td>
                     <td>
@@ -936,7 +972,7 @@ const Student = ({ onVolver }) => {
                         <button
                           type="button"
                           className="student-link-perfil"
-                          onClick={() => navigate(`/dashboard/postulantes/${perfilId}`)}
+                          onClick={() => navigate(`/dashboard/postulantes/${perfilId}`, { state: { from: '/dashboard/estudiantes' } })}
                         >
                           Ver perfil
                         </button>

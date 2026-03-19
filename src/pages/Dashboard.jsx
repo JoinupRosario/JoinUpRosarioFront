@@ -840,7 +840,13 @@ export default function Dashboard() {
           <PostulantDocumentLog onVolver={() => navigate('/dashboard/postulants')} />
         )}
         {vistaActual === 'postulant-profile' && (
-          <PostulantProfile onVolver={handleVolver} />
+          <PostulantProfile
+            onVolver={
+              location.state?.from
+                ? () => navigate(location.state.from)
+                : () => navigate('/dashboard/postulants')
+            }
+          />
         )}
         {vistaActual === 'estudiantes' && (
           <Student onVolver={handleVolver} />
