@@ -43,6 +43,9 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Documentos para legalizar práctica académica') {
       navigate('/dashboard/documentos-legalizacion-practica');
     }
+    if (opcion.text === 'Documentos para legalizar monitorías') {
+      navigate('/dashboard/documentos-legalizacion-monitoria');
+    }
     if (opcion.text === 'Configurar reglas de negocio') {
       navigate('/dashboard/reglas-negocio');
     }
@@ -73,7 +76,7 @@ export default function Configuracion({ onVolver }) {
     { text: 'Parametrización de documentos', icon: FiFileText, descripcion: 'Configurar formatos y tipos de documentos (hoja de vida y otros que se requieran)', permiso: 'CFDL' }
   ];
 
-  const opcionesClickables = ['Gestión de Parámetros', 'Configurar reglas de negocio', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Documentos para legalizar práctica académica', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas'];
+  const opcionesClickables = ['Gestión de Parámetros', 'Configurar reglas de negocio', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Documentos para legalizar práctica académica', 'Documentos para legalizar monitorías', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas'];
 
   if (!canAMCO) {
     return (

@@ -19,6 +19,18 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // FormData: no fijar Content-Type (axios/browser añaden multipart + boundary).
+    // Si dejamos application/json por defecto, multer no recibe archivos y no sube a S3.
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      const h = config.headers;
+      if (h?.delete) {
+        h.delete('Content-Type');
+        h.delete('content-type');
+      } else if (h) {
+        delete h['Content-Type'];
+        delete h['content-type'];
+      }
+    }
     return config;
   },
   (error) => {

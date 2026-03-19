@@ -45,6 +45,7 @@ import ConfiguracionAsignaturas from './componentss/ConfiguracionAsignaturas';
 import CondicionesCurriculares from './componentss/CondicionesCurriculares';
 import ParametrizacionDocumentos from './componentss/parametrizacionDocumentos/ParametrizacionDocumentos';
 import DocumentosLegalizacionPractica from './componentss/documentosLegalizacionPractica/DocumentosLegalizacionPractica';
+import DocumentosLegalizacionMonitoria from './componentss/documentosLegalizacionMonitoria/DocumentosLegalizacionMonitoria';
 import ReglasNegocio from './componentss/ReglasNegocio';
 import NotificacionMonitorias from './componentss/notificaciones/notificacionMonitorias/NotificacionMonitorias';
 import NotificacionPracticas from './componentss/notificaciones/notificacionPracticas/NotificacionPracticas';
@@ -179,6 +180,7 @@ export default function Dashboard() {
     '/dashboard/condiciones-curriculares': 'condiciones-curriculares',
     '/dashboard/configuracion-documentos': 'configuracion-documentos',
     '/dashboard/documentos-legalizacion-practica': 'documentos-legalizacion-practica',
+    '/dashboard/documentos-legalizacion-monitoria': 'documentos-legalizacion-monitoria',
     '/dashboard/reglas-negocio': 'reglas-negocio',
     '/dashboard/plantillas-notificacion-monitoria': 'plantillas-monitoria',
     '/dashboard/plantillas-notificacion-practicas': 'plantillas-practicas'
@@ -211,6 +213,7 @@ export default function Dashboard() {
     'condiciones-curriculares': '/dashboard/condiciones-curriculares',
     'configuracion-documentos': '/dashboard/configuracion-documentos',
     'documentos-legalizacion-practica': '/dashboard/documentos-legalizacion-practica',
+    'documentos-legalizacion-monitoria': '/dashboard/documentos-legalizacion-monitoria',
     'reglas-negocio': '/dashboard/reglas-negocio',
     'plantillas-monitoria': '/dashboard/plantillas-notificacion-monitoria',
     'plantillas-practicas': '/dashboard/plantillas-notificacion-practicas'
@@ -249,6 +252,9 @@ export default function Dashboard() {
     }
     if (path === '/dashboard/documentos-legalizacion-practica') {
       return 'documentos-legalizacion-practica';
+    }
+    if (path === '/dashboard/documentos-legalizacion-monitoria') {
+      return 'documentos-legalizacion-monitoria';
     }
     if (path === '/dashboard/reglas-negocio') {
       return 'reglas-negocio';
@@ -296,7 +302,7 @@ export default function Dashboard() {
   }, [isEstudiante, hasAMPO, hasVPPO, hasEMIP, vistaActual, navigate]);
 
   // Sin permiso al módulo: redirigir si entró por URL
-  const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'documentos-legalizacion-practica', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones'];
+  const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'documentos-legalizacion-practica', 'documentos-legalizacion-monitoria', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones'];
   const configViewPermisos = {
     'programas-facultades': ['CFPP'], 'program-detail': ['CFPP'], 'faculty-detail': ['CFPP'],
     'periodos': ['AMGP', 'EPMO', 'GPPR', 'GPMO'],
@@ -304,6 +310,7 @@ export default function Dashboard() {
     'condiciones-curriculares': ['CFCC'],
     'configuracion-documentos': ['CFDL'],
     'documentos-legalizacion-practica': ['CFDL'],
+    'documentos-legalizacion-monitoria': ['CFDL'],
     'reglas-negocio': ['CFOP', 'CFOA'],
     'plantillas-monitoria': ['CFNM'],
     'plantillas-practicas': ['CFNP'],
@@ -534,6 +541,7 @@ export default function Dashboard() {
             'asignaturas':              'Configuración de Asignaturas',
             'configuracion-documentos': 'Parametrización de Documentos',
             'documentos-legalizacion-practica': 'Documentos legalización práctica',
+            'documentos-legalizacion-monitoria': 'Documentos legalización monitoría',
             'reglas-negocio':           'Reglas de negocio',
             'programas-facultades':     'Programas y Facultades',
             'faculty-detail':           'Detalle de Facultad',
@@ -569,6 +577,7 @@ export default function Dashboard() {
                 'asignaturas':              'Configuración de Asignaturas',
                 'configuracion-documentos': 'Parametrización de Documentos',
                 'documentos-legalizacion-practica': 'Documentos legalización práctica',
+                'documentos-legalizacion-monitoria': 'Documentos legalización monitoría',
                 'reglas-negocio':           'Reglas de negocio',
                 'programas-facultades':     'Programas y Facultades',
                 'faculty-detail':           'Detalle de Facultad',
@@ -877,6 +886,9 @@ export default function Dashboard() {
         )}
         {vistaActual === 'documentos-legalizacion-practica' && (
           <DocumentosLegalizacionPractica onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'documentos-legalizacion-monitoria' && (
+          <DocumentosLegalizacionMonitoria onVolver={() => navigate('/dashboard/configuracion')} />
         )}
         {vistaActual === 'reglas-negocio' && (
           <ReglasNegocio onVolver={() => navigate('/dashboard/configuracion')} />
