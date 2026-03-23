@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import '../styles/Oportunidades.css';
+import './SeguimientosEstudianteMTM.css';
 
 const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/;
 function isValidPostulacionId(id) {
@@ -333,7 +334,9 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
   }
 
   return (
-    <div className={`dashboard-content legalizacion-mtm ${compact ? 'seguimientos-mtm--compact' : 'legalizacion-mtm--full'}`}>
+    <div
+      className={`dashboard-content legalizacion-mtm ${compact ? 'seguimientos-mtm--compact' : 'legalizacion-mtm--full segmtm-estudiante'}`}
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -361,9 +364,9 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
       )}
 
       {!isAdmin && (
-      <form onSubmit={handleSubmit} className="seguimientos-mtm-form" style={{ marginBottom: 24, padding: 16, background: '#f9fafb', borderRadius: 8 }}>
-        <h4 style={{ marginTop: 0 }}>{editingId ? 'Editar seguimiento' : 'Nuevo seguimiento'}</h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
+      <form onSubmit={handleSubmit} className="seguimientos-mtm-form segmtm-est__form">
+        <h4>{editingId ? 'Editar seguimiento' : 'Nuevo seguimiento'}</h4>
+        <div className="segmtm-est__form-grid">
           {actividadesPlan.length > 0 ? (
             <>
               <label className="legalizacion-mtm__label-block">
@@ -449,7 +452,7 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
             />
           </label>
         </div>
-        <label className="legalizacion-mtm__label-block" style={{ marginBottom: 12 }}>
+        <label className="legalizacion-mtm__label-block segmtm-est__field-comments">
           <span className="legalizacion-mtm__label">Comentarios</span>
           <textarea
             className="legalizacion-mtm__input"
@@ -459,7 +462,7 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
             rows={2}
           />
         </label>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="segmtm-est__form-actions">
           <button type="submit" className="btn-guardar" disabled={saving}>
             {saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Registrar'}
           </button>
@@ -470,9 +473,9 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
       </form>
       )}
 
-      <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-          <h3 className="legalizacion-mtm__section-title" style={{ margin: 0 }}>Registros</h3>
+      <section className={compact ? undefined : 'segmtm-est__registros'}>
+        <div className="segmtm-est__registros-header">
+          <h3 className="legalizacion-mtm__section-title">Registros</h3>
           {isAdmin && pendientesIds.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
@@ -493,23 +496,24 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
           )}
         </div>
         {list.length === 0 ? (
-          <p style={{ color: '#6b7280' }}>
+          <p className={compact ? undefined : 'segmtm-est__empty'} style={compact ? { color: '#6b7280' } : undefined}>
             {isAdmin
               ? 'No hay seguimientos registrados por el estudiante.'
               : 'No hay seguimientos. Registre una actividad arriba.'}
           </p>
         ) : (
-          <div className="seguimientos-mtm-list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className={`seguimientos-mtm-list ${compact ? '' : 'segmtm-est__list'}`} style={compact ? { display: 'flex', flexDirection: 'column', gap: 8 } : undefined}>
             {list.map((seg) => {
               const canEdit = seg.estado === 'pendiente_revision';
               const estadoLabel = ESTADO_LABEL[seg.estado] || seg.estado;
               return (
                 <div
                   key={seg._id}
+                  className={compact ? undefined : 'segmtm-est__card'}
                   style={{
                     border: '1px solid #e5e7eb',
                     borderRadius: 8,
-                    padding: 12,
+                    padding: compact ? 12 : undefined,
                     background: '#fff',
                     borderLeft: seg.estado === 'aprobado' ? '4px solid #16a34a' : seg.estado === 'rechazado' ? '4px solid #dc2626' : '4px solid #f59e0b',
                   }}

@@ -1,0 +1,376 @@
+/**
+ * Revisión admin legalización MTM — estilos exclusivos (prefijo admrevmtm).
+ * No reutilizar en otras pantallas.
+ */
+
+/*
+ * El .dashboard-content global usa min-height: 100% y estira todo el main: deja un “bloque gris” vacío
+ * debajo del contenido. Aquí solo ocupamos el alto real del contenido.
+ */
+.dashboard-content.admrevmtm {
+  min-height: auto !important;
+}
+
+/* Espacio razonable para scroll hasta debajo del footer fijo (sin agujero enorme) */
+.admrevmtm.legalizacion-mtm--full {
+  padding-bottom: 2.5rem !important;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.admrevmtm .legalizacion-mtm__body {
+  padding-bottom: 2rem;
+  overflow: visible;
+}
+
+/* Tarjetas de datos: textos largos (cuenta bancaria, direcciones) sin recortar */
+.admrevmtm .legalizacion-mtm__section {
+  overflow: visible;
+  min-width: 0;
+}
+
+.admrevmtm .legalizacion-mtm__panels {
+  align-items: start;
+}
+
+.admrevmtm .legalizacion-mtm__grid dd {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .admrevmtm .legalizacion-mtm__grid {
+    grid-template-columns: 1fr;
+    gap: 0.15rem 0;
+  }
+
+  .admrevmtm .legalizacion-mtm__grid dt {
+    margin-top: 0.65rem;
+  }
+
+  .admrevmtm .legalizacion-mtm__grid dt:first-child {
+    margin-top: 0;
+  }
+}
+
+/* —— Pestaña Documentos —— */
+.admrevmtm__docs-section.legalizacion-mtm__section--docs {
+  max-width: 100%;
+  overflow: visible;
+}
+
+.admrevmtm__docs-hint {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.admrevmtm__docs-toolbar {
+  margin-bottom: 1.25rem;
+}
+
+.admrevmtm__btn-dl-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admrevmtm__btn-dl-all:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.admrevmtm__btn-dl-all:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Grid de tarjetas: máximo 2 columnas para que no queden “mocho” */
+.admrevmtm__docs-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  .admrevmtm__docs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+.admrevmtm-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.admrevmtm-doc__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admrevmtm-doc__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.35;
+  padding-right: 0.5rem;
+}
+
+.admrevmtm-doc__badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.admrevmtm-doc__badge--ok {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.admrevmtm-doc__badge--pendiente {
+  color: #6b7280;
+  background: #f3f4f6;
+}
+
+.admrevmtm-doc__badge--warn {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.admrevmtm-doc__badge--err {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.admrevmtm-doc__obs {
+  margin: 0;
+  padding: 10px 16px 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.admrevmtm-doc__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admrevmtm-doc__link {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #c41e3a;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admrevmtm-doc__link:hover {
+  color: #8b1538;
+}
+
+.admrevmtm-doc__btn {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admrevmtm-doc__btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.admrevmtm-doc__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admrevmtm-doc__btn--approve {
+  background: #c41e3a;
+  border-color: #c41e3a;
+  color: #fff;
+}
+
+.admrevmtm-doc__btn--approve:hover:not(:disabled) {
+  background: #a01830;
+  border-color: #a01830;
+}
+
+/* Bloque rechazo: separado y ancho completo */
+.admrevmtm-doc__reject {
+  padding: 14px 16px 16px;
+  background: #fafafa;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admrevmtm-doc__reject-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admrevmtm-doc__reject-input {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.admrevmtm-doc__reject-input:focus {
+  outline: none;
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.12);
+}
+
+.admrevmtm-doc__reject-btn {
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #991b1b;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admrevmtm-doc__reject-btn:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+.admrevmtm-doc__reject-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admrevmtm-doc__motivo {
+  margin: 0;
+  padding: 12px 16px 16px;
+  font-size: 13px;
+  color: #b91c1c;
+  background: #fff;
+  line-height: 1.45;
+}
+
+.admrevmtm-doc__file {
+  margin: 0;
+  padding: 8px 16px 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Botón Aprobar legalización: sin estilos :disabled en .btn-guardar global, se veía siempre “activo” */
+.admrevmtm .legalizacion-mtm__topbar-actions .btn-guardar.admrevmtm__btn-aprobar:disabled,
+.admrevmtm .legalizacion-mtm__topbar-actions .btn-guardar.admrevmtm__btn-aprobar[disabled] {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background: #9ca3af !important;
+  background-image: none !important;
+  color: #f9fafb !important;
+  border: 1px solid #d1d5db !important;
+  transform: none !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+
+.admrevmtm .legalizacion-mtm__topbar-actions .btn-guardar.admrevmtm__btn-aprobar:disabled:hover,
+.admrevmtm .legalizacion-mtm__topbar-actions .btn-guardar.admrevmtm__btn-aprobar[disabled]:hover {
+  background: #9ca3af !important;
+  background-image: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Reporte de asistencia por monitoría (Datos generales) */
+.admrevmtm .admrevmtm__btn-reporte-asistencia {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  min-height: 42px;
+  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 2px solid #c41e3a;
+  background: #fff;
+  color: #c41e3a;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admrevmtm .admrevmtm__btn-reporte-asistencia:hover:not(:disabled) {
+  background: #fff5f5;
+}
+
+.admrevmtm .admrevmtm__btn-reporte-asistencia:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

@@ -1,0 +1,116 @@
+/**
+ * Seguimientos MTM — vista estudiante (pantalla completa desde dashboard).
+ * Prefijo segmtm-est__ — no usar fuera de SeguimientosMTM con .segmtm-estudiante.
+ */
+
+.dashboard-content.segmtm-estudiante.legalizacion-mtm--full {
+  min-height: auto !important;
+  padding-bottom: 5.5rem !important;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.segmtm-estudiante .legalizacion-mtm__topbar {
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Formulario nuevo seguimiento */
+.segmtm-est__form {
+  margin-bottom: 1.75rem;
+  padding: 1.35rem 1.5rem;
+  background: #ffffff;
+  border: 1px solid #e8e4e6;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(17, 24, 39, 0.06);
+}
+
+.segmtm-est__form h4 {
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding-bottom: 0.55rem;
+  border-bottom: 2px solid #f3e8eb;
+}
+
+.segmtm-est__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.segmtm-est__form .legalizacion-mtm__input,
+.segmtm-est__form .legalizacion-mtm__label-block textarea {
+  border-radius: 8px;
+}
+
+.segmtm-est__form .legalizacion-mtm__label-block textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.segmtm-est__field-comments {
+  margin-bottom: 12px;
+}
+
+.segmtm-est__form-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Bloque registros */
+.segmtm-est__registros {
+  padding-bottom: 2.5rem;
+  margin-bottom: 0;
+}
+
+.segmtm-est__registros-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.segmtm-est__registros-header .legalizacion-mtm__section-title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #1f2937;
+}
+
+.segmtm-est__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.segmtm-est__card {
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(17, 24, 39, 0.06);
+}
+
+.segmtm-est__empty {
+  color: #6b7280;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0.5rem 0 1rem 0;
+}
+
+@media (max-width: 640px) {
+  .dashboard-content.segmtm-estudiante.legalizacion-mtm--full {
+    padding-bottom: 6rem !important;
+  }
+
+  .segmtm-est__form {
+    padding: 1.1rem 1.15rem;
+  }
+}

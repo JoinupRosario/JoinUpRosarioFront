@@ -1,0 +1,175 @@
+/**
+ * Plan de trabajo MTM — vista estudiante.
+ * Prefijo planmtm-estudiante / planmtm-est__ (solo esta pantalla).
+ */
+
+.dashboard-content.planmtm-estudiante.legalizacion-mtm--full {
+  min-height: auto !important;
+  padding-bottom: 5.5rem !important;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.planmtm-estudiante .legalizacion-mtm__topbar {
+  margin-bottom: 0.25rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.planmtm-estudiante .legalizacion-mtm__body {
+  padding-bottom: 2.5rem;
+  overflow: visible;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* Aviso “cree el plan” — más legible que dashboard-welcome genérico */
+.planmtm-est__banner {
+  margin: 0 0 1.25rem 0;
+  padding: 1rem 1.35rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff5f5 0%, #fce8ec 100%);
+  border: 1px solid #f0c4cb;
+  color: #7f1d1d;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  box-shadow: 0 2px 8px rgba(196, 30, 58, 0.08);
+}
+
+.planmtm-est__banner p {
+  margin: 0;
+}
+
+/* Bloques de contenido */
+.planmtm-estudiante .legalizacion-mtm__section {
+  overflow: visible;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #e8e4e6;
+  border-radius: 12px;
+  padding: 1.35rem 1.5rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 2px 12px rgba(17, 24, 39, 0.06);
+}
+
+.planmtm-estudiante .legalizacion-mtm__section-title {
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid #f3e8eb;
+  color: #1f2937;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.planmtm-estudiante .legalizacion-mtm__grid {
+  gap: 0.35rem 1.25rem;
+}
+
+.planmtm-estudiante .legalizacion-mtm__grid dt {
+  color: #6b7280;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.planmtm-estudiante .legalizacion-mtm__grid dd {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  line-height: 1.45;
+  color: #111827;
+}
+
+.planmtm-estudiante .legalizacion-mtm__hint {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+/* Textareas del plan */
+.planmtm-estudiante .legalizacion-mtm__section .form-textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 88px;
+}
+
+.planmtm-estudiante .legalizacion-mtm__section .form-textarea:focus {
+  outline: none;
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.12);
+}
+
+.planmtm-estudiante .legalizacion-mtm__section .form-textarea:disabled {
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+/* Tabla actividades */
+.planmtm-est__actividades-table-wrap {
+  overflow-x: auto;
+  margin-top: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.planmtm-estudiante .planmtm-est__actividades-table {
+  min-width: 620px;
+  width: 100%;
+  margin: 0;
+  background: #fff;
+}
+
+.planmtm-estudiante .planmtm-est__actividades-table th {
+  background: #f3f4f6;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #4b5563;
+}
+
+.planmtm-estudiante .planmtm-est__actividades-table td {
+  vertical-align: middle;
+}
+
+.planmtm-estudiante .planmtm-est__actividades-table .form-input {
+  border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.planmtm-est__actividades-actions {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Mensaje final plan aprobado */
+.planmtm-est__footer-msg {
+  margin-top: 1rem !important;
+  margin-bottom: 0.5rem !important;
+  padding: 0.9rem 1.1rem;
+  border-radius: 10px;
+}
+
+@media (max-width: 640px) {
+  .dashboard-content.planmtm-estudiante.legalizacion-mtm--full {
+    padding-bottom: 6rem !important;
+  }
+
+  .planmtm-estudiante .legalizacion-mtm__section {
+    padding: 1rem 1.1rem;
+  }
+
+  .planmtm-estudiante .legalizacion-mtm__topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

@@ -646,7 +646,9 @@ export default function Dashboard() {
       {menuOpen && <div className="menu-overlay" onClick={toggleMenu}></div>}
 
       {/* Main Content */}
-      <main className="dashboard-main">
+      <main
+        className={`dashboard-main${vistaActual === 'mis-aplicaciones' ? ' dashboard-main--mis-aplicaciones' : ''}${vistaActual === 'monitorias' ? ' dashboard-main--monitorias-list' : ''}${vistaActual === 'monitorias-revision' ? ' dashboard-main--monitorias-revision' : ''}`}
+      >
         {vistaActual === 'dashboard' && (
           <div className="dashboard-content">
             {isEstudiante ? (

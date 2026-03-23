@@ -330,6 +330,34 @@
   background-color: #f8fafc; /* Mismo fondo que dashboard-content para que no se vea franja gris */
 }
 
+/*
+ * Mis aplicaciones: el footer es position:fixed y el main ocupaba hasta el borde inferior del viewport,
+ * por eso la última fila quedaba detrás. Acotamos la altura útil solo en esta vista.
+ */
+.dashboard-main.dashboard-main--mis-aplicaciones {
+  /* Header ~logo 65px + padding; footer fixed ~80px (50px + padding) + margen */
+  max-height: calc(100dvh - 92px - 88px);
+  padding-bottom: 1.5rem;
+  box-sizing: border-box;
+  scroll-padding-bottom: 1rem;
+}
+
+/* Legalizaciones monitorías (listado): espacio extra al final para que paginación no quede bajo el footer fijo */
+.dashboard-main.dashboard-main--monitorias-list {
+  max-height: calc(100dvh - 92px - 88px);
+  padding-bottom: 5.5rem;
+  box-sizing: border-box;
+  scroll-padding-bottom: 5rem;
+}
+
+/* Revisión admin MTM: sin max-height del listado; el contenido define altura (evita franja gris vacía abajo) */
+.dashboard-main.dashboard-main--monitorias-revision {
+  max-height: none !important;
+  padding-bottom: 5rem;
+  box-sizing: border-box;
+  scroll-padding-bottom: 4rem;
+}
+
 /* Dashboard Content */
 .dashboard-content {
   padding: 30px;
@@ -526,6 +554,22 @@
   .dashboard-main {
     padding: 20px 15px;
     height: calc(100vh - 60px - 50px);
+  }
+
+  .dashboard-main.dashboard-main--mis-aplicaciones {
+    max-height: calc(100dvh - 64px - 88px);
+    padding-bottom: 1.25rem;
+  }
+
+  .dashboard-main.dashboard-main--monitorias-list {
+    max-height: calc(100dvh - 64px - 88px);
+    padding-bottom: 4.5rem;
+    scroll-padding-bottom: 4rem;
+  }
+
+  .dashboard-main.dashboard-main--monitorias-revision {
+    padding-bottom: 4.5rem;
+    scroll-padding-bottom: 3.5rem;
   }
 
   .welcome-section h2 {

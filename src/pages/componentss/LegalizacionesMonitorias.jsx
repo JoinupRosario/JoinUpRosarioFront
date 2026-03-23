@@ -6,6 +6,31 @@ import Swal from 'sweetalert2';
 import api from '../../services/api';
 import '../styles/Oportunidades.css';
 
+function badgeClassPorCodigoLegalizacion(codigo) {
+  if (codigo == null) return 'legaliz-mtm-badge legaliz-mtm-badge--pendiente';
+  const map = {
+    borrador: 'legaliz-mtm-badge legaliz-mtm-badge--borrador',
+    en_revision: 'legaliz-mtm-badge legaliz-mtm-badge--revision',
+    aprobada: 'legaliz-mtm-badge legaliz-mtm-badge--aprobada',
+    rechazada: 'legaliz-mtm-badge legaliz-mtm-badge--rechazada',
+    en_ajuste: 'legaliz-mtm-badge legaliz-mtm-badge--ajuste',
+  };
+  return map[codigo] || 'legaliz-mtm-badge legaliz-mtm-badge--pendiente';
+}
+
+/** Texto corto en la celda; el API envía descripción larga en title. */
+function etiquetaCortaLegalizacion(codigo, etiquetaLarga) {
+  if (codigo == null) return 'Pendiente de iniciar';
+  const cortas = {
+    borrador: 'Borrador',
+    en_revision: 'En revisión',
+    aprobada: 'Aprobada',
+    rechazada: 'Rechazada',
+    en_ajuste: 'En ajuste',
+  };
+  return cortas[codigo] || etiquetaLarga || '—';
+}
+
 export default function LegalizacionesMonitorias() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -28,15 +53,52 @@ export default function LegalizacionesMonitorias() {
     navigate(`/dashboard/monitorias/plan/${row._id}`);
   };
 
-  const legalizacionAprobada = (row) => row?.estadoLegalizacion === 'Aprobada';
+  const legalizacionAprobada = (row) =>
+    row?.estadoLegalizacionCodigo === 'aprobada' || row?.estadoLegalizacion === 'Aprobada';
   const planAprobado = (row) => row?.planAprobado === true;
+
+  const ejecutarAccion = (row, accion) => {
+    if (!accion || !row?._id) return;
+    if (accion === 'detalle') {
+      verDetalle(row);
+      return;
+    }
+    if (accion === 'plan') {
+      if (!legalizacionAprobada(row)) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Plan de trabajo',
+          text: 'Disponible cuando la legalización esté aprobada por coordinación.',
+          confirmButtonColor: '#c41e3a',
+        });
+        return;
+      }
+      verPlanTrabajo(row);
+      return;
+    }
+    if (accion === 'seguimientos') {
+      if (!planAprobado(row)) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Seguimientos',
+          text: 'Disponible cuando el plan de trabajo esté aprobado por el profesor o responsable.',
+          confirmButtonColor: '#c41e3a',
+        });
+        return;
+      }
+      navigate(`/dashboard/monitorias/seguimientos/${row._id}`);
+    }
+  };
 
   const exportarExcel = () => {
     if (!data.length) {
       Swal.fire({ icon: 'warning', title: 'Sin datos', text: 'No hay legalizaciones para exportar.', confirmButtonColor: '#c41e3a' });
       return;
     }
-    const headers = ['Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Código monitoría', 'Nombre monitoría', 'Periodo', 'Coordinador', 'Estado', 'Finalizado por monitor'];
+    const headers = [
+      'Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Código monitoría', 'Nombre monitoría', 'Periodo', 'Coordinador',
+      'Estado legalización', 'Postulación', 'Finalizado por monitor',
+    ];
     const rows = data.map((row) => [
       row.numeroIdentidad ?? '',
       row.nombre ?? '',
@@ -46,7 +108,8 @@ export default function LegalizacionesMonitorias() {
       row.nombreMonitoria ?? '',
       row.periodo ?? '',
       row.coordinador ?? '',
-      row.estado ?? '',
+      row.estadoLegalizacion ?? '',
+      row.estadoPostulacion ?? row.estado ?? '',
       row.finalizadoPorMonitor ?? '',
     ]);
     const wb = XLSX.utils.book_new();
@@ -86,8 +149,8 @@ export default function LegalizacionesMonitorias() {
           </p>
         </div>
       ) : (
-        <div className="oportunidades-section" style={{ overflowX: 'auto' }}>
-          <table className="postulants-table" style={{ minWidth: '900px' }}>
+        <div className="oportunidades-section legaliz-mtm-table-wrap">
+          <table className="legaliz-mtm-table">
             <thead>
               <tr>
                 <th>Nº identidad</th>
@@ -98,55 +161,55 @@ export default function LegalizacionesMonitorias() {
                 <th>Nombre monitoría</th>
                 <th>Periodo</th>
                 <th>Coordinador</th>
-                <th>Estado</th>
+                <th>Estado legalización</th>
                 <th>Finalizado por monitor</th>
-                <th>Acciones</th>
+                <th className="legaliz-mtm-th-acciones">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {data.map((row) => (
                 <tr key={row._id}>
-                  <td>{row.numeroIdentidad ?? '—'}</td>
+                  <td className="legaliz-mtm-mono">{row.numeroIdentidad ?? '—'}</td>
                   <td>{row.nombre ?? '—'}</td>
                   <td>{row.apellido ?? '—'}</td>
                   <td>{row.programa ?? '—'}</td>
-                  <td>{row.codigoMonitoria ?? '—'}</td>
-                  <td>{row.nombreMonitoria ?? '—'}</td>
+                  <td className="legaliz-mtm-mono legaliz-mtm-codigo">{row.codigoMonitoria ?? '—'}</td>
+                  <td className="legaliz-mtm-nombre-cargo">{row.nombreMonitoria ?? '—'}</td>
                   <td>{row.periodo ?? '—'}</td>
                   <td>{row.coordinador ?? '—'}</td>
-                  <td>{row.estado ?? '—'}</td>
+                  <td>
+                    <span
+                      className={badgeClassPorCodigoLegalizacion(row.estadoLegalizacionCodigo)}
+                      title={row.estadoLegalizacion ?? etiquetaCortaLegalizacion(row.estadoLegalizacionCodigo)}
+                    >
+                      {etiquetaCortaLegalizacion(row.estadoLegalizacionCodigo, row.estadoLegalizacion)}
+                    </span>
+                  </td>
                   <td>{row.finalizadoPorMonitor ?? '—'}</td>
                   <td>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        style={{ fontSize: '12px', padding: '4px 8px' }}
-                        onClick={() => verDetalle(row)}
-                        title="Abrir detalle y cargar documentos"
+                    <div className="legaliz-mtm-actions">
+                      <select
+                        className="legaliz-mtm-actions-select"
+                        aria-label="Elegir acción"
+                        defaultValue=""
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const el = e.target;
+                          ejecutarAccion(row, v);
+                          requestAnimationFrame(() => {
+                            el.value = '';
+                          });
+                        }}
                       >
-                        Detalle de la oportunidad
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        style={{ fontSize: '12px', padding: '4px 8px' }}
-                        onClick={() => verPlanTrabajo(row)}
-                        disabled={!legalizacionAprobada(row)}
-                        title={legalizacionAprobada(row) ? 'Crear o editar plan de trabajo' : 'Disponible cuando la legalización esté aprobada'}
-                      >
-                        Plan de trabajo
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        style={{ fontSize: '12px', padding: '4px 8px' }}
-                        onClick={() => navigate(`/dashboard/monitorias/seguimientos/${row._id}`)}
-                        disabled={!planAprobado(row)}
-                        title={planAprobado(row) ? 'Ver y gestionar seguimientos' : 'Disponible cuando el plan de trabajo esté aprobado por el profesor'}
-                      >
-                        Seguimientos
-                      </button>
+                        <option value="">Acciones…</option>
+                        <option value="detalle">Detalle de la oportunidad</option>
+                        <option value="plan" disabled={!legalizacionAprobada(row)}>
+                          Plan de trabajo
+                        </option>
+                        <option value="seguimientos" disabled={!planAprobado(row)}>
+                          Seguimientos
+                        </option>
+                      </select>
                     </div>
                   </td>
                 </tr>

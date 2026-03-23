@@ -3,13 +3,33 @@ import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
-import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
 import '../styles/Oportunidades.css';
+import './DetalleLegalizacionEstudiante.css';
 
 const LIST_IDS = { EPS: 'L_EPS', BANCO: 'L_BANCO' };
 const TIPO_CUENTA_OPCIONES = [{ value: 'Ahorros', label: 'Ahorros' }, { value: 'Corriente', label: 'Corriente' }];
 const MAX_FILE_MB = 5;
-const DOC_TIPO_API = { certificadoEps: 'certificado_eps', certificacionBancaria: 'certificacion_bancaria', rut: 'rut' };
+
+function defIdStr(def) {
+  return def?._id != null ? String(def._id) : '';
+}
+
+/** Atributo accept del input file según extensiones configuradas en la definición. */
+function acceptAttrForDefMon(def) {
+  const codes = (def?.extensionCodes || [])
+    .map((s) => String(s || '').replace(/^\./, '').trim().toLowerCase())
+    .filter(Boolean);
+  if (!codes.length) return '.pdf,application/pdf';
+  const dots = codes.map((c) => `.${c}`).join(',');
+  const mimes = [];
+  if (codes.some((c) => c === 'pdf')) mimes.push('application/pdf');
+  if (codes.some((c) => c === 'jpg' || c === 'jpeg')) mimes.push('image/jpeg');
+  if (codes.some((c) => c === 'png')) mimes.push('image/png');
+  if (codes.some((c) => c === 'webp')) mimes.push('image/webp');
+  if (codes.some((c) => c === 'doc')) mimes.push('application/msword');
+  if (codes.some((c) => c === 'docx')) mimes.push('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  return [dots, ...mimes].filter(Boolean).join(',');
+}
 
 export default function DetalleLegalizacionMTM({ onVolver }) {
   const location = useLocation();
@@ -20,20 +40,21 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
   const [oportunidad, setOportunidad] = useState(null);
   const [estudiante, setEstudiante] = useState(null);
   const [listas, setListas] = useState({ eps: [], banco: [] });
-  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(null);
   const [remitiendo, setRemitiendo] = useState(false);
   const [form, setForm] = useState({ eps: '', tipoCuentaValor: '', banco: '', numeroCuenta: '' });
   const [error, setError] = useState(null);
   const [tabActiva, setTabActiva] = useState('datos');
-  const [previewPdf, setPreviewPdf] = useState({ open: false, url: null, title: '' });
   const [deletingDoc, setDeletingDoc] = useState(null);
   const [asistenciaLink, setAsistenciaLink] = useState('');
+  const [planAprobado, setPlanAprobado] = useState(false);
+  const [definicionesDocumentos, setDefinicionesDocumentos] = useState([]);
 
   useEffect(() => {
     if (!postulacionId) return;
     setLoading(true);
     setError(null);
+    setAsistenciaLink('');
     Promise.all([
       api.get(`/oportunidades-mtm/legalizaciones/${postulacionId}`),
       api.get('/locations/items/' + LIST_IDS.EPS + '?limit=200').catch(() => ({ data: [] })),
@@ -43,6 +64,10 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
         const leg = legRes.data?.legalizacion;
         const opp = legRes.data?.oportunidad;
         const est = legRes.data?.estudiante;
+        const pa = legRes.data?.planAprobado === true;
+        setPlanAprobado(pa);
+        if (!pa) setAsistenciaLink('');
+        setDefinicionesDocumentos(Array.isArray(legRes.data?.definicionesDocumentos) ? legRes.data.definicionesDocumentos : []);
         setLegalizacion(leg);
         setOportunidad(opp);
         setEstudiante(est);
@@ -63,64 +88,40 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
       .finally(() => setLoading(false));
   }, [postulacionId]);
 
-  const handleSave = () => {
-    setSaving(true);
+  const guardarDatosBancarios = () =>
     api.put(`/oportunidades-mtm/legalizaciones/${postulacionId}`, {
       eps: form.eps || null,
       tipoCuentaValor: form.tipoCuentaValor || null,
       banco: form.banco || null,
       numeroCuenta: form.numeroCuenta?.trim() || null,
-    })
-      .then((r) => {
-        setLegalizacion(r.data?.legalizacion);
-        Swal.fire({
-          icon: 'success',
-          title: 'Guardado',
-          text: 'Los datos se guardaron correctamente.',
-          confirmButtonColor: '#c41e3a',
-        });
-      })
-      .catch((e) => {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: e.response?.data?.message || 'No se pudo guardar.',
-          confirmButtonColor: '#c41e3a',
-        });
-      })
-      .finally(() => setSaving(false));
-  };
+    });
 
-  const handleFile = (tipo, e) => {
+  const handleFile = (definitionId, e) => {
     const file = e.target?.files?.[0];
     if (!file) return;
     if (file.size > MAX_FILE_MB * 1024 * 1024) {
       alert(`El archivo no puede superar ${MAX_FILE_MB} MB`);
       return;
     }
-    if (file.type !== 'application/pdf') {
-      alert('Solo se permiten archivos PDF');
-      return;
-    }
-    setUploading(tipo);
+    setUploading(definitionId);
     const fd = new FormData();
-    fd.append('tipo', tipo);
+    fd.append('definitionId', definitionId);
     fd.append('file', file);
     api.post(`/oportunidades-mtm/legalizaciones/${postulacionId}/documentos`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
       .then((r) => setLegalizacion(r.data?.legalizacion))
-      .catch((e) => alert(e.response?.data?.message || 'Error al subir'))
-      .finally(() => { setUploading(null); e.target.value = ''; });
+      .catch((err) => alert(err.response?.data?.message || 'Error al subir'))
+      .finally(() => { setUploading(null); if (e?.target) e.target.value = ''; });
   };
 
   const handleRemitir = async () => {
     const { isConfirmed } = await Swal.fire({
       icon: 'question',
       title: 'Enviar a revisión',
-      text: '¿Remitir la legalización a revisión? No podrá editarla después.',
+      html: 'Se guardarán sus datos bancarios (EPS, banco, cuenta) y luego se enviará la legalización a revisión. <strong>No podrá editarla después.</strong>',
       showCancelButton: true,
-      confirmButtonText: 'Sí, remitir',
+      confirmButtonText: 'Sí, guardar y enviar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#c41e3a',
       cancelButtonColor: '#6b7280',
@@ -128,83 +129,54 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
     });
     if (!isConfirmed) return;
     setRemitiendo(true);
-    api.post(`/oportunidades-mtm/legalizaciones/${postulacionId}/remitir-revision`)
-      .then((r) => {
-        setLegalizacion(r.data?.legalizacion);
-        Swal.fire({
-          icon: 'success',
-          title: 'Enviado a revisión',
-          text: 'La legalización fue remitida correctamente.',
-          confirmButtonColor: '#c41e3a',
-        });
-      })
-      .catch((e) => {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: e.response?.data?.message || 'No se pudo remitir a revisión.',
-          confirmButtonColor: '#c41e3a',
-        });
-      })
-      .finally(() => setRemitiendo(false));
+    try {
+      const putRes = await guardarDatosBancarios();
+      setLegalizacion(putRes.data?.legalizacion);
+      const remRes = await api.post(`/oportunidades-mtm/legalizaciones/${postulacionId}/remitir-revision`);
+      setLegalizacion(remRes.data?.legalizacion);
+      Swal.fire({
+        icon: 'success',
+        title: 'Enviado a revisión',
+        text: 'Los datos se guardaron y la legalización fue remitida correctamente.',
+        confirmButtonColor: '#c41e3a',
+      });
+    } catch (e) {
+      const msg = e.response?.data?.message || e.message || 'No se pudo completar el envío.';
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: msg,
+        confirmButtonColor: '#c41e3a',
+      });
+    } finally {
+      setRemitiendo(false);
+    }
   };
 
   const isBorrador = legalizacion?.estado === 'borrador';
   const enAjuste = legalizacion?.estado === 'en_ajuste';
   const puedeEditar = isBorrador || enAjuste;
   const docs = legalizacion?.documentos || {};
-  const todosDocumentosCargados = !!(docs.certificadoEps?.key && docs.certificacionBancaria?.key && docs.rut?.key);
+  const obligatorias = definicionesDocumentos.filter((d) => d.documentMandatory);
+  const algunArchivoSubido = definicionesDocumentos.some((d) => docs[defIdStr(d)]?.key);
+  const todosDocumentosCargados =
+    definicionesDocumentos.length > 0 &&
+    obligatorias.every((d) => docs[defIdStr(d)]?.key) &&
+    (obligatorias.length > 0 || algunArchivoSubido);
   const datosCompletos = !!(form.eps && form.tipoCuentaValor && form.banco && form.numeroCuenta?.trim());
   const puedeEnviarRevision = puedeEditar && todosDocumentosCargados && datosCompletos;
-  const docPuedeSubir = (docField) => {
-    if (!puedeEditar) return false;
+  const docPuedeSubir = (def) => {
+    const id = defIdStr(def);
+    if (!id || !puedeEditar) return false;
     if (enAjuste) {
-      const doc = docs[docField];
+      const doc = docs[id];
       return doc?.estadoDocumento === 'rechazado' || !doc?.key;
     }
     return true;
   };
 
-  const handleVerPdf = async (docField, fileName) => {
-    const tipo = DOC_TIPO_API[docField];
-    if (!tipo) return;
-    try {
-      const { data } = await api.get(`/oportunidades-mtm/legalizaciones/${postulacionId}/documentos/${tipo}/url`);
-      if (data?.url) setPreviewPdf({ open: true, url: data.url, title: fileName || 'Vista previa' });
-      else Swal.fire({ icon: 'warning', title: 'No disponible', text: 'No se pudo cargar el documento.', confirmButtonColor: '#c41e3a' });
-    } catch (e) {
-      Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo abrir el documento.', confirmButtonColor: '#c41e3a' });
-    }
-  };
-
-  const descargarCedulaPerfil = (postulantId, cedulaAttachment) => {
-    if (!postulantId || !cedulaAttachment?._id) return;
-    api
-      .get(`/postulants/${postulantId}/attachments/${cedulaAttachment._id}/download`, { responseType: 'blob' })
-      .then((res) => {
-        const url = window.URL.createObjectURL(res.data);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = cedulaAttachment.name || 'cedula.pdf';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      })
-      .catch((e) => {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: e.response?.data?.message || 'No se pudo descargar el documento.',
-          confirmButtonColor: '#c41e3a',
-        });
-      });
-  };
-
-  const handleEliminarDoc = async (docField) => {
-    const tipo = DOC_TIPO_API[docField];
-    if (!tipo) return;
+  const handleEliminarDoc = async (definitionId) => {
+    if (!definitionId) return;
     const { isConfirmed } = await Swal.fire({
       icon: 'warning',
       title: 'Eliminar documento',
@@ -216,8 +188,8 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
       cancelButtonColor: '#6b7280',
     });
     if (!isConfirmed) return;
-    setDeletingDoc(tipo);
-    api.delete(`/oportunidades-mtm/legalizaciones/${postulacionId}/documentos/${tipo}`)
+    setDeletingDoc(definitionId);
+    api.delete(`/oportunidades-mtm/legalizaciones/${postulacionId}/documentos/${definitionId}`)
       .then((r) => {
         setLegalizacion(r.data?.legalizacion);
         Swal.fire({ icon: 'success', title: 'Eliminado', text: 'El documento fue eliminado correctamente.', confirmButtonColor: '#c41e3a' });
@@ -297,7 +269,7 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
   }
 
   return (
-    <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full">
+    <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full legmtm-estudiante">
       <header className="legalizacion-mtm__topbar">
         <div className="legalizacion-mtm__topbar-left">
           <button type="button" className="legalizacion-mtm__back" onClick={onVolver}>
@@ -309,20 +281,16 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
           <div className="legalizacion-mtm__topbar-actions">
             <button
               type="button"
-              className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
-              onClick={handleSave}
-              disabled={saving || !puedeEditar}
-            >
-              {saving ? 'Guardando...' : 'Guardar'}
-            </button>
-            <button
-              type="button"
               className="legalizacion-mtm__btn legalizacion-mtm__btn--primary"
               onClick={handleRemitir}
               disabled={remitiendo || !puedeEnviarRevision}
-              title={!puedeEnviarRevision ? 'Complete datos generales y cargue los tres documentos para poder enviar a revisión' : ''}
+              title={
+                !puedeEnviarRevision
+                  ? 'Complete EPS, banco, tipo y número de cuenta, y cargue todos los documentos obligatorios. Al enviar se guardará todo y pasará a revisión.'
+                  : 'Guarda los datos bancarios y envía la legalización a revisión en un solo paso.'
+              }
             >
-              {remitiendo ? 'Enviando...' : enAjuste ? 'Volver a enviar a revisión' : 'Enviar a revisión'}
+              {remitiendo ? 'Guardando y enviando...' : enAjuste ? 'Volver a enviar a revisión' : 'Enviar a revisión'}
             </button>
           </div>
         )}
@@ -371,22 +339,7 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
                 <dt>Identificación</dt>
                 <dd>{estudiante?.identificacion ?? '—'}</dd>
                 <dt>Cédula de ciudadanía</dt>
-                <dd>
-                  {estudiante?.cedulaAttachment ? (
-                    <span>
-                      Precargado del perfil.{' '}
-                      <button
-                        type="button"
-                        className="legalizacion-mtm__doc-preview-btn"
-                        onClick={() => descargarCedulaPerfil(estudiante.postulantId, estudiante.cedulaAttachment)}
-                      >
-                        Ver / Descargar
-                      </button>
-                    </span>
-                  ) : (
-                    '—'
-                  )}
-                </dd>
+                <dd>{estudiante?.cedulaAttachment ? 'Precargado desde su perfil (documento de soporte tipo Cédula).' : '—'}</dd>
                 <dt>Celular</dt>
                 <dd>{estudiante?.celular ?? '—'}</dd>
                 <dt>Dirección</dt>
@@ -440,17 +393,26 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
                 <dt>Asignaturas</dt>
                 <dd>{oportunidad?.asignaturas?.length ? oportunidad.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ') : '—'}</dd>
               </dl>
-              <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" className="btn-secondary" onClick={handleObtenerLinkAsistencia}>
-                  Obtener / Copiar link de asistencia
-                </button>
-                <button type="button" className="btn-secondary" onClick={handleExportarReporteAsistencia}>
-                  Exportar reporte de asistencia
-                </button>
-              </div>
-              {asistenciaLink && (
-                <p style={{ marginTop: 10, fontSize: 12, color: '#6b7280', wordBreak: 'break-all' }}>
-                  Link de asistencia: {asistenciaLink}
+              {planAprobado ? (
+                <>
+                  <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button" className="btn-secondary" onClick={handleObtenerLinkAsistencia}>
+                      Obtener / Copiar link de asistencia
+                    </button>
+                    <button type="button" className="btn-secondary" onClick={handleExportarReporteAsistencia}>
+                      Exportar reporte de asistencia
+                    </button>
+                  </div>
+                  {asistenciaLink && (
+                    <p style={{ marginTop: 10, fontSize: 12, color: '#6b7280', wordBreak: 'break-all' }}>
+                      Link de asistencia: {asistenciaLink}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="legalizacion-mtm__hint" style={{ marginTop: 14, marginBottom: 0 }}>
+                  El link de asistencia y el reporte estarán disponibles cuando su <strong>plan de trabajo</strong> haya sido{' '}
+                  <strong>aprobado</strong> por el profesor o responsable de la monitoría.
                 </p>
               )}
             </section>
@@ -458,7 +420,8 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
             <section className="legalizacion-mtm__section">
               <h3 className="legalizacion-mtm__section-title">Datos bancarios</h3>
               <p className="legalizacion-mtm__hint">
-                EPS, tipo de cuenta, banco y número de cuenta.
+                EPS, tipo de cuenta, banco y número de cuenta. Estos datos se <strong>guardan automáticamente</strong> al pulsar{' '}
+                <strong>Enviar a revisión</strong> (junto con el envío a coordinación).
               </p>
               <div className="legalizacion-mtm__form">
                 <label className="legalizacion-mtm__field">
@@ -521,71 +484,77 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
 
         {tabActiva === 'documentos' && (
           <section className="legalizacion-mtm__section legalizacion-mtm__section--docs">
-            <h3 className="legalizacion-mtm__section-title">Documentos (PDF, máx. {MAX_FILE_MB} MB)</h3>
+            <h3 className="legalizacion-mtm__section-title">Documentos (máx. {MAX_FILE_MB} MB)</h3>
             <p className="legalizacion-mtm__hint">
               {enAjuste
                 ? 'Los documentos rechazados deben ser reemplazados. Suba de nuevo el archivo y vuelva a enviar a revisión.'
-                : 'Certificado EPS, Certificación bancaria y RUT. Debe cargar los tres para poder enviar a revisión.'}
+                : 'Los documentos listados son los definidos por la universidad en configuración. Debe cargar todos los marcados como obligatorios para enviar a revisión.'}
             </p>
-            <div className="legalizacion-mtm__docs-list">
-              {[
-                { field: 'certificadoEps', label: 'Certificado EPS', api: 'certificado_eps' },
-                { field: 'certificacionBancaria', label: 'Certificación bancaria', api: 'certificacion_bancaria' },
-                { field: 'rut', label: 'RUT', api: 'rut' },
-              ].map(({ field, label, api }) => {
-                const doc = docs[field];
-                const estadoDoc = doc?.estadoDocumento;
-                const rechazado = estadoDoc === 'rechazado';
-                const puedeSubir = docPuedeSubir(field);
-                return (
-                  <div key={field} className="legalizacion-mtm__doc-item">
-                    <span className="legalizacion-mtm__doc-name">{label}</span>
-                    {rechazado && doc?.motivoRechazo && (
-                      <p style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}><strong>Rechazado:</strong> {doc.motivoRechazo}</p>
-                    )}
-                    {estadoDoc === 'aprobado' && <span style={{ fontSize: 12, color: '#16a34a', marginLeft: 8 }}>Aprobado</span>}
-                    <label className="legalizacion-mtm__doc-file-wrap">
-                      <input
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        disabled={!puedeSubir || uploading}
-                        onChange={(e) => handleFile(api, e)}
-                        className="legalizacion-mtm__file-input"
-                      />
-                      <span className="legalizacion-mtm__file-label">{rechazado ? 'Reemplazar archivo' : 'Seleccionar archivo'}</span>
-                    </label>
-                    {doc?.originalName && (
-                      <div className="legalizacion-mtm__doc-actions">
-                        <button type="button" className="legalizacion-mtm__doc-ok legalizacion-mtm__doc-preview-btn" onClick={() => handleVerPdf(field === 'certificadoEps' ? 'certificadoEps' : field === 'certificacionBancaria' ? 'certificacionBancaria' : 'rut', doc.originalName)}>
-                          ✓ {doc.originalName} — Ver
-                        </button>
-                        {puedeSubir && (
-                          <button type="button" className="legalizacion-mtm__doc-delete" onClick={() => handleEliminarDoc(field === 'certificadoEps' ? 'certificadoEps' : field === 'certificacionBancaria' ? 'certificacionBancaria' : 'rut')} disabled={deletingDoc === api}>
-                            {deletingDoc === api ? 'Eliminando...' : 'Eliminar'}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {uploading === api && <span className="legalizacion-mtm__doc-loading">Cargando...</span>}
-                  </div>
-                );
-              })}
-            </div>
-            {puedeEditar && !puedeEnviarRevision && (
+            {definicionesDocumentos.length === 0 ? (
+              <p className="legalizacion-mtm__hint" style={{ color: '#b45309' }}>
+                Aún no hay documentos configurados para legalización de monitoría. Contacte a coordinación.
+              </p>
+            ) : (
+              <div className="legalizacion-mtm__docs-list">
+                {definicionesDocumentos.map((def) => {
+                  const id = defIdStr(def);
+                  const doc = docs[id];
+                  const estadoDoc = doc?.estadoDocumento;
+                  const rechazado = estadoDoc === 'rechazado';
+                  const puedeSubir = docPuedeSubir(def);
+                  const label = def.documentName || def.documentTypeItem?.value || 'Documento';
+                  const obs = def.documentObservation?.trim();
+                  const extHint = (def.extensionCodes || []).length
+                    ? `Extensiones: ${def.extensionCodes.join(', ')}`
+                    : 'Solo PDF';
+                  return (
+                    <div key={id} className="legalizacion-mtm__doc-item">
+                      <span className="legalizacion-mtm__doc-name">
+                        {label}
+                        {def.documentMandatory ? <span style={{ color: '#c41e3a', fontWeight: 700 }}> *</span> : null}
+                        <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 400, marginLeft: 6 }}>({extHint})</span>
+                      </span>
+                      {obs ? <p style={{ fontSize: 12, color: '#4b5563', marginTop: 4 }}>{obs}</p> : null}
+                      {rechazado && doc?.motivoRechazo && (
+                        <p style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}><strong>Rechazado:</strong> {doc.motivoRechazo}</p>
+                      )}
+                      {estadoDoc === 'aprobado' && <span style={{ fontSize: 12, color: '#16a34a', marginLeft: 8 }}>Aprobado</span>}
+                      <label className="legalizacion-mtm__doc-file-wrap">
+                        <input
+                          type="file"
+                          accept={acceptAttrForDefMon(def)}
+                          disabled={!puedeSubir || !!uploading}
+                          onChange={(e) => handleFile(id, e)}
+                          className="legalizacion-mtm__file-input"
+                        />
+                        <span className="legalizacion-mtm__file-label">{rechazado ? 'Reemplazar archivo' : 'Seleccionar archivo'}</span>
+                      </label>
+                      {doc?.originalName && (
+                        <div className="legalizacion-mtm__doc-actions">
+                          <span className="legmtm-est__doc-filename" title={doc.originalName}>
+                            ✓ {doc.originalName}
+                          </span>
+                          {puedeSubir && (
+                            <button type="button" className="legalizacion-mtm__doc-delete" onClick={() => handleEliminarDoc(id)} disabled={deletingDoc === id}>
+                              {deletingDoc === id ? 'Eliminando...' : 'Eliminar'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {uploading === id && <span className="legalizacion-mtm__doc-loading">Cargando...</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {puedeEditar && !puedeEnviarRevision && definicionesDocumentos.length > 0 && (
               <p className="legalizacion-mtm__remitir-hint">
-                Para enviar a revisión debe guardar los datos generales y cargar los tres documentos.
+                Complete los datos bancarios en <strong>Datos generales</strong> y cargue todos los documentos obligatorios (*). Luego use <strong>Enviar a revisión</strong> para guardar y enviar en un solo paso.
               </p>
             )}
           </section>
         )}
       </div>
-
-      <PdfPreviewModal
-        open={previewPdf.open}
-        onClose={() => setPreviewPdf({ open: false, url: null, title: '' })}
-        title={previewPdf.title}
-        url={previewPdf.url}
-      />
     </div>
   );
 }

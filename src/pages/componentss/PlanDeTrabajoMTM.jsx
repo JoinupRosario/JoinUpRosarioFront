@@ -4,6 +4,7 @@ import Swal from 'sweetalert2';
 import api from '../../services/api';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
 import '../styles/Oportunidades.css';
+import './PlanDeTrabajoEstudiante.css';
 
 const ESTADO_LABEL = {
   borrador: 'Borrador',
@@ -238,7 +239,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
   const datos = plan ? plan : datosPrecargados;
 
   return (
-    <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full plan-trabajo-mtm-vista" style={{ paddingBottom: 200 }}>
+    <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full plan-trabajo-mtm-vista planmtm-estudiante">
       <header className="legalizacion-mtm__topbar">
         <div className="legalizacion-mtm__topbar-left">
           <button type="button" className="legalizacion-mtm__back" onClick={onVolver}>← Volver</button>
@@ -280,7 +281,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
       )}
 
       {!yaExiste && datosPrecargados && (
-        <div className="dashboard-welcome" style={{ marginBottom: 16 }}>
+        <div className="planmtm-est__banner" role="status">
           <p>La legalización está aprobada. Cree el plan de trabajo para diligenciar justificación, objetivos y actividades.</p>
         </div>
       )}
@@ -340,8 +341,8 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
               <section className="legalizacion-mtm__section">
                 <h3 className="legalizacion-mtm__section-title">Actividades</h3>
                 <p className="legalizacion-mtm__hint">Fecha, tema y estrategias/metodologías por actividad.</p>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="postulants-table" style={{ minWidth: 600 }}>
+                <div className="planmtm-est__actividades-table-wrap">
+                  <table className="postulants-table planmtm-est__actividades-table">
                     <thead>
                       <tr>
                         <th>Fecha</th>
@@ -395,13 +396,13 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                     </tbody>
                   </table>
                 </div>
-                {puedeEditar && (
-                  <button type="button" className="btn-secondary" style={{ marginTop: 8 }} onClick={addActividad}>
-                    + Agregar actividad
-                  </button>
-                )}
-                {/* Espaciador para que el footer no tape el botón Agregar actividad */}
-                <div className="plan-trabajo-espacio-footer" style={{ minHeight: 180, display: 'block' }} aria-hidden="true" />
+                <div className="planmtm-est__actividades-actions">
+                  {puedeEditar && (
+                    <button type="button" className="btn-secondary" onClick={addActividad}>
+                      + Agregar actividad
+                    </button>
+                  )}
+                </div>
               </section>
             </>
           )}
@@ -409,7 +410,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
       )}
 
       {plan?.estado === 'aprobado' && (
-        <div className="legalizacion-mtm__estado legalizacion-mtm__estado--ok" style={{ marginTop: 16 }}>
+        <div className="legalizacion-mtm__estado legalizacion-mtm__estado--ok planmtm-est__footer-msg">
           Plan aprobado. Puede acceder a seguimientos desde el listado de legalizaciones.
         </div>
       )}

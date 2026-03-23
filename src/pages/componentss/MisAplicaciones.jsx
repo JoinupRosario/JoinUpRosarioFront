@@ -140,8 +140,8 @@ export default function MisAplicaciones() {
           </p>
         </div>
       ) : (
-        <div className="oportunidades-section" style={{ overflowX: 'auto' }}>
-          <table className="postulants-table" style={{ minWidth: '800px' }}>
+        <div className="oportunidades-section mis-aplicaciones-table-wrap">
+          <table className="postulants-table mis-aplicaciones-table" style={{ minWidth: '800px' }}>
             <thead>
               <tr>
                 <th>Cargo</th>

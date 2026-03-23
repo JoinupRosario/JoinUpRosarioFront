@@ -1,0 +1,196 @@
+/**
+ * Formulario público de asistencia MTM (HU010).
+ * Prefijo asm-public__ — solo AsistenciaMTMPublic.jsx
+ */
+
+/* Permite scroll vertical en móviles / vistas con footer fijo del navegador */
+body.asm-public-body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  min-height: 100%;
+}
+
+body.asm-public-body #root {
+  min-height: auto;
+  display: block;
+}
+
+.asm-public {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.5rem 1.15rem calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  background: linear-gradient(165deg, #fdf8f9 0%, #f1f5f9 38%, #e8ecf1 100%);
+}
+
+.asm-public__inner {
+  max-width: 540px;
+  margin: 0 auto;
+  padding-bottom: 1rem;
+}
+
+.asm-public__brand {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c41e3a;
+  margin-bottom: 0.35rem;
+}
+
+/* Anula el h1 global de index.css (3.2em) en esta pantalla */
+.asm-public__title {
+  margin: 0 0 1.25rem 0 !important;
+  font-size: 1.5rem !important;
+  line-height: 1.25 !important;
+  font-weight: 700 !important;
+  color: #111827 !important;
+}
+
+.asm-public__card {
+  background: #ffffff;
+  border: 1px solid #e8e4e6;
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 20px rgba(17, 24, 39, 0.07);
+}
+
+.asm-public__card--info {
+  border-left: 4px solid #c41e3a;
+}
+
+.asm-public__dl {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem 0.75rem;
+}
+
+.asm-public__row {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) 1fr;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  align-items: start;
+}
+
+@media (max-width: 420px) {
+  .asm-public__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.asm-public__dt {
+  margin: 0;
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.asm-public__dd {
+  margin: 0;
+  color: #111827;
+  word-break: break-word;
+}
+
+.asm-public__form {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.35rem 1.25rem 1.5rem;
+  box-shadow: 0 4px 20px rgba(17, 24, 39, 0.06);
+}
+
+.asm-public__field {
+  display: block;
+  margin-bottom: 1.1rem;
+}
+
+.asm-public__field:last-of-type {
+  margin-bottom: 1.35rem;
+}
+
+.asm-public__label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.asm-public__req {
+  color: #c41e3a;
+  font-weight: 700;
+}
+
+.asm-public__input,
+.asm-public__select {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.asm-public__input:focus,
+.asm-public__select:focus {
+  outline: none;
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.15);
+}
+
+.asm-public__submit {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  background: linear-gradient(135deg, #c41e3a 0%, #8b1538 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(196, 30, 58, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+
+.asm-public__submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(196, 30, 58, 0.4);
+}
+
+.asm-public__submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.asm-public__loading,
+.asm-public__error-wrap {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  background: linear-gradient(165deg, #fdf8f9 0%, #f1f5f9 100%);
+}
+
+.asm-public__error {
+  text-align: center;
+  color: #b91c1c;
+  font-weight: 500;
+  max-width: 360px;
+}

@@ -1,67 +1,90 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiDownload } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
-import '../styles/Oportunidades.css';
+import './AdminLegalizacionMonitorias.css';
 
 const ESTADO_LABEL = {
-  borrador: 'Pendiente',
+  borrador: 'Pendiente de envío',
   en_revision: 'En revisión',
   aprobada: 'Legalizada',
   rechazada: 'Anulada',
   en_ajuste: 'En ajuste',
 };
 
+function buildListParams({ filtroEstado, filtroPeriodo, filtroPrograma, busqueda, page, limit }) {
+  const params = { page, limit };
+  if (filtroEstado) params.estado = filtroEstado;
+  if (filtroPeriodo) params.periodo = filtroPeriodo.trim();
+  if (filtroPrograma) params.programa = filtroPrograma;
+  const q = (busqueda || '').trim();
+  if (q) params.search = q;
+  return params;
+}
+
 export default function AdminLegalizacionMonitorias() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [programasMeta, setProgramasMeta] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroPeriodo, setFiltroPeriodo] = useState('');
+  const [busquedaInput, setBusquedaInput] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [filtroPrograma, setFiltroPrograma] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const prevBusquedaRef = useRef(busqueda);
 
   useEffect(() => {
-    const params = {};
-    if (filtroEstado) params.estado = filtroEstado;
-    if (filtroPeriodo) params.periodo = filtroPeriodo;
-    api.get('/oportunidades-mtm/legalizaciones-admin', { params })
+    const t = setTimeout(() => setBusqueda(busquedaInput.trim()), 400);
+    return () => clearTimeout(t);
+  }, [busquedaInput]);
+
+  useEffect(() => {
+    if (prevBusquedaRef.current !== busqueda) {
+      prevBusquedaRef.current = busqueda;
+      setPage(1);
+    }
+  }, [busqueda]);
+
+  const fetchList = useCallback(() => {
+    setLoading(true);
+    const params = buildListParams({
+      filtroEstado,
+      filtroPeriodo,
+      filtroPrograma,
+      busqueda,
+      page,
+      limit,
+    });
+    api
+      .get('/oportunidades-mtm/legalizaciones-admin', { params })
       .then((r) => {
         setData(r.data?.data ?? []);
         setTotal(r.data?.total ?? 0);
+        setTotalPages(Math.max(1, r.data?.totalPages ?? 1));
+        if (Array.isArray(r.data?.programas)) setProgramasMeta(r.data.programas);
       })
-      .catch(() => setData([]))
+      .catch(() => {
+        setData([]);
+        setTotal(0);
+        setTotalPages(1);
+      })
       .finally(() => setLoading(false));
-  }, [filtroEstado, filtroPeriodo]);
+  }, [filtroEstado, filtroPeriodo, filtroPrograma, busqueda, page, limit]);
 
-  const programasUnicos = useMemo(() => {
-    const set = new Set();
-    data.forEach((row) => { if (row.programa) set.add(row.programa); });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [data]);
+  useEffect(() => {
+    fetchList();
+  }, [fetchList]);
 
-  const datosFiltrados = useMemo(() => {
-    let list = data;
-    const q = (busqueda || '').trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (row) =>
-          (row.nombre ?? '').toLowerCase().includes(q) ||
-          (row.apellido ?? '').toLowerCase().includes(q) ||
-          (row.numeroIdentidad ?? '').toLowerCase().includes(q) ||
-          (row.programa ?? '').toLowerCase().includes(q) ||
-          (row.nombreMTM ?? '').toLowerCase().includes(q) ||
-          (row.coordinador ?? '').toLowerCase().includes(q)
-      );
-    }
-    if (filtroPrograma) {
-      list = list.filter((row) => row.programa === filtroPrograma);
-    }
-    return list;
-  }, [data, busqueda, filtroPrograma]);
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const verRevision = (row) => {
     const id = row.postulacionId ?? row._id;
@@ -72,115 +95,84 @@ export default function AdminLegalizacionMonitorias() {
   const limpiarFiltros = () => {
     setFiltroEstado('');
     setFiltroPeriodo('');
+    setBusquedaInput('');
     setBusqueda('');
     setFiltroPrograma('');
+    setPage(1);
   };
 
-  const hayFiltrosActivos = filtroEstado || filtroPeriodo || busqueda || filtroPrograma;
+  const hayFiltrosActivos = filtroEstado || filtroPeriodo || busquedaInput || filtroPrograma;
 
-  const exportarReporteAsistencia = () => {
-    const params = {};
-    if (filtroEstado) params.estado = filtroEstado;
-    if (filtroPeriodo) params.periodo = filtroPeriodo;
-    params.limit = 5000;
-    api.get('/oportunidades-mtm/legalizaciones-admin/reporte-asistencia', { params })
+  const exportarExcel = () => {
+    const params = buildListParams({
+      filtroEstado,
+      filtroPeriodo,
+      filtroPrograma,
+      busqueda,
+      page: 1,
+      limit: 5000,
+    });
+    api
+      .get('/oportunidades-mtm/legalizaciones-admin', { params })
       .then((r) => {
         const list = r.data?.data ?? [];
         if (!list.length) {
-          Swal.fire({ icon: 'warning', title: 'Sin datos', text: 'No hay registros de asistencia para exportar con los filtros actuales.', confirmButtonColor: '#c41e3a' });
+          Swal.fire({ icon: 'warning', title: 'Sin datos', text: 'No hay registros para exportar.', confirmButtonColor: '#c41e3a' });
           return;
         }
-        const headers = [
-          'Código monitoría', 'Nombre y apellido monitor', 'Identificación monitor', 'Correo monitor',
-          'Nombre y apellido coordinador', 'Periodo académico', 'Nombre actividad',
-          'Nombres estudiante', 'Apellidos estudiante', 'Identificación estudiante', 'Programa estudiante', 'Fecha diligenciamiento',
-        ];
+        const headers = ['Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Código MTM', 'Nombre MTM', 'Periodo', 'Coordinador', 'Estado alumno', 'Estado MTM'];
         const rows = list.map((row) => [
-          row.codigoMonitoria ?? '',
-          row.nombreApellidoMonitor ?? '',
-          row.identificacionMonitor ?? '',
-          row.correoMonitor ?? '',
-          row.nombreApellidoCoordinador ?? '',
-          row.periodoAcademico ?? '',
-          row.nombreActividad ?? '',
-          row.nombresEstudiante ?? '',
-          row.apellidosEstudiante ?? '',
-          row.identificacionEstudiante ?? '',
-          row.programaEstudiante ?? '',
-          row.fechaDiligenciamiento ? new Date(row.fechaDiligenciamiento).toLocaleString('es-CO') : '',
+          row.numeroIdentidad ?? '',
+          row.nombre ?? '',
+          row.apellido ?? '',
+          row.programa ?? '',
+          row.codigoMTM ?? '',
+          row.nombreMTM ?? '',
+          row.periodo ?? '',
+          row.coordinador ?? '',
+          row.estadoAlumnoMTM ?? '',
+          ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '',
         ]);
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-        XLSX.utils.book_append_sheet(wb, ws, 'Asistencia MTM');
-        XLSX.writeFile(wb, `reporte_asistencia_mtm_${new Date().toISOString().slice(0, 10)}.xlsx`);
-        Swal.fire({ icon: 'success', title: 'Exportado', text: `Se exportaron ${list.length} registro(s) de asistencia.`, confirmButtonColor: '#c41e3a', timer: 2000, timerProgressBar: true });
+        XLSX.utils.book_append_sheet(wb, ws, 'Legalizaciones');
+        XLSX.writeFile(wb, `legalizaciones_mtm_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        Swal.fire({ icon: 'success', title: 'Exportado', text: `Se exportaron ${list.length} registro(s) a Excel.`, confirmButtonColor: '#c41e3a', timer: 2000, timerProgressBar: true });
       })
-      .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo generar el reporte.', confirmButtonColor: '#c41e3a' }));
+      .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo exportar.', confirmButtonColor: '#c41e3a' }));
   };
 
-  const exportarExcel = () => {
-    const list = datosFiltrados.length ? datosFiltrados : data;
-    if (!list.length) {
-      Swal.fire({ icon: 'warning', title: 'Sin datos', text: 'No hay registros para exportar.', confirmButtonColor: '#c41e3a' });
-      return;
-    }
-    const headers = ['Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Código MTM', 'Nombre MTM', 'Periodo', 'Coordinador', 'Estado alumno', 'Estado MTM'];
-    const rows = list.map((row) => [
-      row.numeroIdentidad ?? '',
-      row.nombre ?? '',
-      row.apellido ?? '',
-      row.programa ?? '',
-      row.codigoMTM ?? '',
-      row.nombreMTM ?? '',
-      row.periodo ?? '',
-      row.coordinador ?? '',
-      row.estadoAlumnoMTM ?? '',
-      ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '',
-    ]);
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    XLSX.utils.book_append_sheet(wb, ws, 'Legalizaciones');
-    XLSX.writeFile(wb, `legalizaciones_mtm_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    Swal.fire({ icon: 'success', title: 'Exportado', text: `Se exportaron ${list.length} registro(s) a Excel.`, confirmButtonColor: '#c41e3a', timer: 2000, timerProgressBar: true });
-  };
+  const inicio = total === 0 ? 0 : (page - 1) * limit + 1;
+  const fin = Math.min(page * limit, total);
 
   return (
-    <div className="dashboard-content legalizaciones-monitorias-content">
-      <div className="dashboard-welcome" style={{ marginBottom: '1.25rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <div className="dashboard-content admlegmtm">
+      <header className="admlegmtm__hero">
         <div>
           <h2>Legalización de monitorías</h2>
-          <p style={{ marginBottom: 0 }}>
+          <p>
             Listado de MTM en proceso de legalización. Seleccione una fila para revisar datos, documentos y aprobar o rechazar.
           </p>
         </div>
-        <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="btn-guardar" onClick={exportarExcel} disabled={loading || (data.length === 0 && datosFiltrados.length === 0)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <FiDownload /> Exportar a Excel
-          </button>
-          <button type="button" className="btn-secondary" onClick={exportarReporteAsistencia} disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <FiDownload /> Reporte de asistencia
+        <div className="admlegmtm__hero-actions">
+          <button type="button" className="admlegmtm__btn admlegmtm__btn--primary" onClick={exportarExcel} disabled={loading || total === 0}>
+            <FiDownload aria-hidden /> Exportar a Excel
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="legalizaciones-filtros" style={{
-        background: '#f8fafc',
-        border: '1px solid #e2e8f0',
-        borderRadius: 12,
-        padding: '1rem 1.25rem',
-        marginBottom: '1.25rem',
-      }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Filtros
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', alignItems: 'end' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Estado</span>
+      <section className="admlegmtm__filters" aria-label="Filtros del listado">
+        <div className="admlegmtm__filters-title">Filtros</div>
+        <div className="admlegmtm__filters-grid">
+          <label className="admlegmtm__field">
+            <span className="admlegmtm__label">Estado</span>
             <select
               value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
-              className="form-input"
-              style={{ width: '100%', minHeight: 38 }}
+              onChange={(e) => {
+                setFiltroEstado(e.target.value);
+                setPage(1);
+              }}
+              className="admlegmtm__control"
             >
               <option value="">Todos los estados</option>
               {Object.entries(ESTADO_LABEL).map(([k, v]) => (
@@ -188,116 +180,153 @@ export default function AdminLegalizacionMonitorias() {
               ))}
             </select>
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Periodo</span>
+          <label className="admlegmtm__field">
+            <span className="admlegmtm__label">Periodo</span>
             <input
               type="text"
               value={filtroPeriodo}
-              onChange={(e) => setFiltroPeriodo(e.target.value)}
+              onChange={(e) => {
+                setFiltroPeriodo(e.target.value);
+                setPage(1);
+              }}
               placeholder="Ej. 2025-1"
-              className="form-input"
-              style={{ width: '100%', minHeight: 38 }}
+              className="admlegmtm__control"
             />
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Programa</span>
+          <label className="admlegmtm__field">
+            <span className="admlegmtm__label">Programa</span>
             <select
               value={filtroPrograma}
-              onChange={(e) => setFiltroPrograma(e.target.value)}
-              className="form-input"
-              style={{ width: '100%', minHeight: 38 }}
+              onChange={(e) => {
+                setFiltroPrograma(e.target.value);
+                setPage(1);
+              }}
+              className="admlegmtm__control"
             >
               <option value="">Todos los programas</option>
-              {programasUnicos.map((p) => (
+              {programasMeta.map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Buscar</span>
+          <label className="admlegmtm__field">
+            <span className="admlegmtm__label">Buscar</span>
             <input
               type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              value={busquedaInput}
+              onChange={(e) => setBusquedaInput(e.target.value)}
               placeholder="Nombre, apellido, identidad, MTM..."
-              className="form-input"
-              style={{ width: '100%', minHeight: 38 }}
+              className="admlegmtm__control"
             />
           </label>
           {hayFiltrosActivos && (
-            <button type="button" className="btn-secondary" style={{ minHeight: 38, alignSelf: 'end' }} onClick={limpiarFiltros}>
+            <button type="button" className="admlegmtm__btn admlegmtm__btn--ghost" onClick={limpiarFiltros}>
               Limpiar filtros
             </button>
           )}
         </div>
-      </div>
+      </section>
 
       {loading ? (
-        <div className="loading-container">
-          <div className="loading-spinner" />
+        <div className="admlegmtm__loading">
+          <div className="admlegmtm__spinner" aria-hidden />
           <p>Cargando...</p>
         </div>
-      ) : data.length === 0 ? (
-        <div className="empty-state">
+      ) : total === 0 ? (
+        <div className="admlegmtm__empty">
           <p>No hay legalizaciones que coincidan con los filtros.</p>
         </div>
-      ) : datosFiltrados.length === 0 ? (
-        <div className="empty-state">
-          <p>No hay resultados con los filtros aplicados. Pruebe cambiar búsqueda o programa.</p>
-        </div>
       ) : (
-        <div className="oportunidades-section" style={{ overflowX: 'auto' }}>
-          <table className="postulants-table" style={{ minWidth: '1000px' }}>
-            <thead>
-              <tr>
-                <th>Nº identidad</th>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>Programa</th>
-                <th>Código MTM</th>
-                <th>Nombre MTM</th>
-                <th>Periodo</th>
-                <th>Coordinador</th>
-                <th>Estado alumno</th>
-                <th>Estado MTM</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {datosFiltrados.map((row) => (
-                <tr key={row._id || row.postulacionId}>
-                  <td>{row.numeroIdentidad ?? '—'}</td>
-                  <td>{row.nombre ?? '—'}</td>
-                  <td>{row.apellido ?? '—'}</td>
-                  <td>{row.programa ?? '—'}</td>
-                  <td>{row.codigoMTM ?? '—'}</td>
-                  <td>{row.nombreMTM ?? '—'}</td>
-                  <td>{row.periodo ?? '—'}</td>
-                  <td>{row.coordinador ?? '—'}</td>
-                  <td>{row.estadoAlumnoMTM ?? '—'}</td>
-                  <td>{ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '—'}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{ fontSize: '12px', padding: '4px 8px' }}
-                      onClick={() => verRevision(row)}
-                      title="Revisar datos y documentos"
-                    >
-                      Revisar legalización
-                    </button>
-                  </td>
+        <div className="admlegmtm__list">
+          <div className="admlegmtm__tableScroll">
+            <table className="admlegmtm__table">
+              <thead>
+                <tr>
+                  <th scope="col">Nº identidad</th>
+                  <th scope="col">Nombre</th>
+                  <th scope="col">Apellido</th>
+                  <th scope="col">Programa</th>
+                  <th scope="col">Código MTM</th>
+                  <th scope="col">Nombre MTM</th>
+                  <th scope="col">Periodo</th>
+                  <th scope="col">Coordinador</th>
+                  <th scope="col">Estado alumno</th>
+                  <th scope="col">Estado MTM</th>
+                  <th scope="col">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {(total > 0 || datosFiltrados.length > 0) && (
-            <p style={{ marginTop: '8px', fontSize: '13px', color: '#6b7280' }}>
-              {datosFiltrados.length === total
-                ? `Total: ${total} legalización(es)`
-                : `Mostrando ${datosFiltrados.length} de ${total} legalización(es)`}
+              </thead>
+              <tbody>
+                {data.map((row) => (
+                  <tr key={String(row._id || row.postulacionId)}>
+                    <td>{row.numeroIdentidad ?? '—'}</td>
+                    <td>{row.nombre ?? '—'}</td>
+                    <td>{row.apellido ?? '—'}</td>
+                    <td>{row.programa ?? '—'}</td>
+                    <td>{row.codigoMTM ?? '—'}</td>
+                    <td>{row.nombreMTM ?? '—'}</td>
+                    <td>{row.periodo ?? '—'}</td>
+                    <td>{row.coordinador ?? '—'}</td>
+                    <td>{row.estadoAlumnoMTM ?? '—'}</td>
+                    <td>{ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '—'}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="admlegmtm__btn admlegmtm__btn--row"
+                        onClick={() => verRevision(row)}
+                        title="Revisar datos y documentos"
+                      >
+                        Revisar legalización
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="admlegmtm__pager" role="navigation" aria-label="Paginación del listado">
+            <p className="admlegmtm__pager-summary">
+              Mostrando {inicio}–{fin} de {total} legalización(es)
             </p>
-          )}
+            <div className="admlegmtm__pager-row">
+              <label className="admlegmtm__pager-size">
+                <span>Por página</span>
+                <select
+                  className="admlegmtm__pager-select"
+                  value={String(limit)}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  aria-label="Registros por página"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="admlegmtm__btn admlegmtm__btn--pager"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Anterior
+              </button>
+              <span className="admlegmtm__pager-meta">
+                Página {page} de {totalPages}
+              </span>
+              <button
+                type="button"
+                className="admlegmtm__btn admlegmtm__btn--pager"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

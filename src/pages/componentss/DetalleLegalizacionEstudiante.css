@@ -1,0 +1,70 @@
+/**
+ * Estilos exclusivos: Detalle legalización MTM (vista estudiante).
+ * Prefijo legmtm-estudiante / legmtm-est__ — no reutilizar en otras pantallas.
+ */
+
+/* Evita que el main global deje un bloque vacío y el footer tape el contenido */
+.dashboard-content.legmtm-estudiante.legalizacion-mtm--full {
+  min-height: auto !important;
+  padding-bottom: 4.5rem !important;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.legmtm-estudiante .legalizacion-mtm__body {
+  padding-bottom: 3rem;
+  overflow: visible;
+}
+
+.legmtm-estudiante .legalizacion-mtm__panels {
+  align-items: start;
+}
+
+.legmtm-estudiante .legalizacion-mtm__section {
+  overflow: visible;
+  min-width: 0;
+}
+
+.legmtm-estudiante .legalizacion-mtm__grid dd {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.legmtm-estudiante .legalizacion-mtm__section--docs {
+  padding-bottom: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.legmtm-estudiante .legalizacion-mtm__docs-list {
+  padding-bottom: 1.25rem;
+  margin-bottom: 0;
+}
+
+.legmtm-estudiante .legalizacion-mtm__doc-item {
+  overflow: visible;
+}
+
+/* Archivo cargado: texto plano (sin botón Ver) */
+.legmtm-est__doc-filename {
+  display: inline-block;
+  font-size: 13px;
+  color: #1f2937;
+  font-weight: 500;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.legmtm-estudiante .legalizacion-mtm__doc-actions {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .dashboard-content.legmtm-estudiante.legalizacion-mtm--full {
+    padding-bottom: 5rem !important;
+  }
+}

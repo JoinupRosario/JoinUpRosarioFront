@@ -32,6 +32,9 @@ import LocationSelectCascade from '../../../components/common/LocationSelectCasc
 import ProgramAllSelect from '../../../components/common/ProgramAllSelect';
 import '../../styles/PostulantProfile.css';
 
+/** Etiqueta fija en BD cuando el tipo es "Cédula" (buscar este valor en otros flujos). */
+export const DOCUMENT_LABEL_SUPPORT_CEDULA = 'Cédula';
+
 // Escapar HTML para insertar en modales de forma segura
 const escapeHtml = (s) => {
   if (s == null) return '';
@@ -210,6 +213,13 @@ const PostulantProfile = ({ onVolver }) => {
   const generatingHvRef = useRef(false);
   /** Id del adjunto que se está descargando (para mostrar "Descargando..." en la lista de HVs). */
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState(null);
+  /** Modal: subir otro documento de soporte con nombre asociado (ej. Cédula). */
+  const [supportDocModalOpen, setSupportDocModalOpen] = useState(false);
+  /** 'cedula' | 'other' — si es 'other', se usa supportDocOtherLabel como documentLabel. */
+  const [supportDocKind, setSupportDocKind] = useState('cedula');
+  const [supportDocOtherLabel, setSupportDocOtherLabel] = useState('');
+  const [supportDocFile, setSupportDocFile] = useState(null);
+  const [supportDocUploading, setSupportDocUploading] = useState(false);
   /** Modal Carta de presentación: solo Empresa y Ciudad. */
   const [cartaPresentacionModalOpen, setCartaPresentacionModalOpen] = useState(false);
   const [cartaDestinatarioEmpresa, setCartaDestinatarioEmpresa] = useState('');
@@ -1661,6 +1671,58 @@ const PostulantProfile = ({ onVolver }) => {
       showError('Error', err.response?.data?.message || 'No se pudo eliminar el documento.');
     }
   }, [postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
+
+  const openSupportDocModal = useCallback(() => {
+    if (!postulant?._id || !currentBaseProfileId) {
+      showError('Perfil', 'No hay un perfil seleccionado para adjuntar documentos.');
+      return;
+    }
+    const n = (profileData?.profileSupports?.length ?? 0);
+    if (n >= 5) {
+      showError('Límite alcanzado', 'Solo puede cargar hasta 5 documentos de soporte.');
+      return;
+    }
+    setSupportDocKind('cedula');
+    setSupportDocOtherLabel('');
+    setSupportDocFile(null);
+    setSupportDocModalOpen(true);
+  }, [postulant?._id, currentBaseProfileId, profileData?.profileSupports?.length, showError]);
+
+  const submitSupportDoc = useCallback(async () => {
+    const label =
+      supportDocKind === 'cedula'
+        ? DOCUMENT_LABEL_SUPPORT_CEDULA
+        : (supportDocOtherLabel || '').trim();
+    if (supportDocKind === 'other' && label.length < 2) {
+      showError('Campo requerido', 'Especifique qué documento es (mínimo 2 caracteres).');
+      return;
+    }
+    if (!supportDocFile) {
+      showError('Archivo', 'Seleccione un archivo.');
+      return;
+    }
+    if (!postulant?._id || !currentBaseProfileId) return;
+    setSupportDocUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', supportDocFile);
+      fd.append('documentLabel', label);
+      await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/supports`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      createAlert('success', 'Documento cargado', 'El documento se guardó con la etiqueta indicada.');
+      setSupportDocModalOpen(false);
+      setSupportDocKind('cedula');
+      setSupportDocOtherLabel('');
+      setSupportDocFile(null);
+      loadProfileDataForProfile(postulant._id, currentBaseProfileId);
+    } catch (err) {
+      console.error(err);
+      showError('Error', err.response?.data?.message || 'No se pudo subir el documento.');
+    } finally {
+      setSupportDocUploading(false);
+    }
+  }, [supportDocKind, supportDocOtherLabel, supportDocFile, postulant?._id, currentBaseProfileId, showError, loadProfileDataForProfile]);
 
   const loadPostulant = useCallback(async (id) => {
     if (!id) {
@@ -3516,7 +3578,7 @@ const PostulantProfile = ({ onVolver }) => {
                   <h4 className="perfil-block-title">Otros documentos de soporte</h4>
                   {isEditing && (
                     <span className="section-actions">
-                      <button type="button" className="section-action-btn section-action-add-only" onClick={() => showFuncionalidadEnDesarrollo('Otros documentos de soporte')} title="Agregar"><FiPlus /></button>
+                      <button type="button" className="section-action-btn section-action-add-only" onClick={openSupportDocModal} title="Agregar documento de soporte"><FiPlus /></button>
                     </span>
                   )}
                 </div>
@@ -3525,13 +3587,20 @@ const PostulantProfile = ({ onVolver }) => {
                   <ul className="perfil-doc-list">
                     {profileData.profileSupports.map((item) => {
                       const att = item.attachmentId;
-                      const name = att?.name || 'Documento';
+                      const etiqueta = (item.documentLabel && String(item.documentLabel).trim()) || '';
+                      const titulo = etiqueta || att?.name || 'Documento';
+                      const nombreArchivo = att?.name || '';
                       return (
-                        <li key={item._id} className="perfil-doc-item">
+                        <li key={item._id} className="perfil-doc-item perfil-doc-item--support">
                           <span className="perfil-doc-icon"><FiFile /></span>
-                          <button type="button" className="perfil-doc-link" onClick={() => handleDownloadAttachment(att?._id, name)} title="Descargar">
-                            {name}
-                          </button>
+                          <div className="perfil-doc-item-text">
+                            <button type="button" className="perfil-doc-link perfil-doc-link--stack" onClick={() => handleDownloadAttachment(att?._id, nombreArchivo || titulo)} title="Descargar">
+                              <span className="perfil-doc-primary">{titulo}</span>
+                              {etiqueta && nombreArchivo && nombreArchivo !== titulo ? (
+                                <span className="perfil-doc-secondary">{nombreArchivo}</span>
+                              ) : null}
+                            </button>
+                          </div>
                           <button type="button" className="perfil-tag-item-delete perfil-doc-delete" onClick={() => handleDeleteProfileSupport(item._id)} title="Eliminar documento" aria-label="Eliminar"><FiTrash2 /></button>
                         </li>
                       );
@@ -3970,6 +4039,117 @@ const PostulantProfile = ({ onVolver }) => {
                 disabled={generatingHv}
               >
                 {generatingHv ? 'Generando…' : 'Generar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: documento de soporte + etiqueta (ej. Cédula de ciudadanía) */}
+      {supportDocModalOpen && (
+        <div
+          className="form-modal-overlay"
+          onClick={() => {
+            if (!supportDocUploading) {
+              setSupportDocModalOpen(false);
+              setSupportDocKind('cedula');
+              setSupportDocOtherLabel('');
+              setSupportDocFile(null);
+            }
+          }}
+        >
+          <div className="form-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="form-modal-header">
+              <h3 className="form-modal-title">Agregar documento de soporte</h3>
+              <button
+                type="button"
+                className="form-modal-close"
+                onClick={() => {
+                  if (!supportDocUploading) {
+                    setSupportDocModalOpen(false);
+                    setSupportDocKind('cedula');
+                    setSupportDocOtherLabel('');
+                    setSupportDocFile(null);
+                  }
+                }}
+                aria-label="Cerrar"
+              >
+                <FiX />
+              </button>
+            </div>
+            <div className="form-modal-body">
+              <div className="form-floating mb-3">
+                <select
+                  id="support-doc-type"
+                  className="form-control"
+                  value={supportDocKind}
+                  onChange={(e) => setSupportDocKind(e.target.value)}
+                  disabled={supportDocUploading}
+                >
+                  <option value="cedula">Cédula</option>
+                  <option value="other">Otro</option>
+                </select>
+                <label htmlFor="support-doc-type">
+                  Tipo de documento <span className="text-danger">*</span>
+                </label>
+              </div>
+              {supportDocKind === 'other' && (
+                <div className="form-floating mb-3">
+                  <input
+                    type="text"
+                    id="support-doc-other-label"
+                    className="form-control"
+                    placeholder=" "
+                    value={supportDocOtherLabel}
+                    onChange={(e) => setSupportDocOtherLabel(e.target.value)}
+                    maxLength={200}
+                    disabled={supportDocUploading}
+                  />
+                  <label htmlFor="support-doc-other-label">
+                    Especifique cuál es <span className="text-danger">*</span>
+                  </label>
+                </div>
+              )}
+              <div className="mb-3">
+                <label htmlFor="support-doc-file" className="form-label">
+                  Archivo <span className="text-danger">*</span>
+                </label>
+                <input
+                  id="support-doc-file"
+                  type="file"
+                  className="form-control"
+                  accept=".doc,.docx,.xls,.xlsx,.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                  disabled={supportDocUploading}
+                  onChange={(e) => setSupportDocFile(e.target.files?.[0] ?? null)}
+                />
+                <p className="form-modal-hint text-muted small mt-2 mb-0">
+                  Máx. 5 archivos en total por perfil. Cada archivo hasta 5 MB. Extensiones: .doc, .docx, .xls, .xlsx, .pdf, .jpg, .jpeg, .png.
+                </p>
+              </div>
+            </div>
+            <div className="form-modal-footer">
+              <button
+                type="button"
+                className="form-modal-btn-cancel"
+                onClick={() => {
+                  if (!supportDocUploading) {
+                    setSupportDocModalOpen(false);
+                    setSupportDocKind('cedula');
+                    setSupportDocOtherLabel('');
+                    setSupportDocFile(null);
+                  }
+                }}
+                disabled={supportDocUploading}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="form-modal-btn-save"
+                onClick={submitSupportDoc}
+                disabled={supportDocUploading}
+              >
+                {supportDocUploading ? 'Subiendo…' : 'Subir'}
               </button>
             </div>
           </div>

@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
 import SeguimientosMTM from './SeguimientosMTM';
 import '../styles/Oportunidades.css';
+import './AdminDetalleLegalizacionMTM.css';
 
-const DOC_FIELDS = [
-  { key: 'certificadoEps', label: 'Certificado afiliación EPS', tipo: 'certificado_eps' },
-  { key: 'certificacionBancaria', label: 'Certificación bancaria', tipo: 'certificacion_bancaria' },
-  { key: 'rut', label: 'RUT', tipo: 'rut' },
-];
+function defIdStr(d) {
+  return d?._id != null ? String(d._id) : '';
+}
 
 export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   const location = useLocation();
@@ -32,6 +32,8 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   const [aprobandoPlan, setAprobandoPlan] = useState(false);
   const [rechazandoPlan, setRechazandoPlan] = useState(false);
   const [planPreview, setPlanPreview] = useState({ open: false, url: null, title: '' });
+  const [definicionesDocumentos, setDefinicionesDocumentos] = useState([]);
+  const [exportandoReporteAsistencia, setExportandoReporteAsistencia] = useState(false);
 
   useEffect(() => {
     if (!postulacionId) return;
@@ -42,6 +44,7 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
         setLegalizacion(r.data?.legalizacion);
         setOportunidad(r.data?.oportunidad);
         setEstudiante(r.data?.estudiante);
+        setDefinicionesDocumentos(Array.isArray(r.data?.definicionesDocumentos) ? r.data.definicionesDocumentos : []);
       })
       .catch((err) => setError(err.response?.data?.message || 'Error al cargar'))
       .finally(() => setLoading(false));
@@ -59,6 +62,85 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
       .finally(() => setLoadingPlan(false));
   }, [postulacionId, legalizacion?.estado]);
 
+  /** Link de asistencia y pestaña Seguimientos solo si ya existe plan de trabajo (como la pestaña Plan tras legalizar). */
+  const planTrabajoCreado = Boolean(planTrabajo);
+
+  useEffect(() => {
+    if (tabActiva === 'seguimientos' && !planTrabajoCreado) setTabActiva('datos');
+  }, [tabActiva, planTrabajoCreado]);
+
+  const exportarReporteAsistenciaEstaMonitoria = () => {
+    if (!postulacionId) return;
+    setExportandoReporteAsistencia(true);
+    api
+      .get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/reporte-asistencia`)
+      .then((r) => {
+        const list = r.data?.data ?? [];
+        if (!list.length) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Sin datos',
+            text: 'No hay registros de asistencia para esta monitoría.',
+            confirmButtonColor: '#c41e3a',
+          });
+          return;
+        }
+        const headers = [
+          'Código monitoría',
+          'Nombre y apellido monitor',
+          'Identificación monitor',
+          'Correo monitor',
+          'Nombre y apellido coordinador',
+          'Periodo académico',
+          'Nombre actividad',
+          'Nombres estudiante',
+          'Apellidos estudiante',
+          'Identificación estudiante',
+          'Programa estudiante',
+          'Fecha diligenciamiento',
+        ];
+        const rows = list.map((row) => [
+          row.codigoMonitoria ?? '',
+          row.nombreApellidoMonitor ?? '',
+          row.identificacionMonitor ?? '',
+          row.correoMonitor ?? '',
+          row.nombreApellidoCoordinador ?? '',
+          row.periodoAcademico ?? '',
+          row.nombreActividad ?? '',
+          row.nombresEstudiante ?? '',
+          row.apellidosEstudiante ?? '',
+          row.identificacionEstudiante ?? '',
+          row.programaEstudiante ?? '',
+          row.fechaDiligenciamiento ? new Date(row.fechaDiligenciamiento).toLocaleString('es-CO') : '',
+        ]);
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Asistencia MTM');
+        const slug = String(oportunidad?.nombreCargo || 'mtm')
+          .replace(/[\\/:*?"<>|]/g, '_')
+          .slice(0, 48);
+        const fecha = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `reporte_asistencia_${slug}_${fecha}.xlsx`);
+        Swal.fire({
+          icon: 'success',
+          title: 'Exportado',
+          text: `Se exportaron ${list.length} registro(s) de asistencia de esta monitoría.`,
+          confirmButtonColor: '#c41e3a',
+          timer: 2200,
+          timerProgressBar: true,
+        });
+      })
+      .catch((e) =>
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: e.response?.data?.message || 'No se pudo generar el reporte.',
+          confirmButtonColor: '#c41e3a',
+        }),
+      )
+      .finally(() => setExportandoReporteAsistencia(false));
+  };
+
   const descargarCedulaPerfil = (postulantId, cedulaAttachment) => {
     if (!postulantId || !cedulaAttachment?._id) return;
     api.get(`/postulants/${postulantId}/attachments/${cedulaAttachment._id}/download`, { responseType: 'blob' })
@@ -66,7 +148,9 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
         const url = window.URL.createObjectURL(res.data);
         const a = document.createElement('a');
         a.href = url;
-        a.download = (cedulaAttachment.name || 'cedula').replace(/[^a-zA-Z0-9._-]/g, '_') + '.pdf';
+        const safe = (cedulaAttachment.name || 'cedula').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const hasExt = /\.[a-zA-Z0-9]{2,8}$/.test(safe);
+        a.download = hasExt ? safe : `${safe}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -75,9 +159,9 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
       .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo descargar.', confirmButtonColor: '#c41e3a' }));
   };
 
-  const getDocUrl = async (tipo, fileName) => {
+  const getDocUrl = async (definitionId, fileName) => {
     try {
-      const { data } = await api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/documentos/${tipo}/url`);
+      const { data } = await api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/documentos/${definitionId}/url`);
       if (data?.url) setPreviewPdf({ open: true, url: data.url, title: fileName || 'Documento' });
       else Swal.fire({ icon: 'warning', title: 'No disponible', text: 'No se pudo cargar el documento.', confirmButtonColor: '#c41e3a' });
     } catch (e) {
@@ -85,13 +169,13 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
     }
   };
 
-  const downloadDoc = async (tipo, fileName) => {
+  const downloadDoc = async (definitionId, fileName) => {
     try {
-      const res = await api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/documentos/${tipo}/descarga`, { responseType: 'blob' });
+      const res = await api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/documentos/${definitionId}/descarga`, { responseType: 'blob' });
       const blob = res.data;
       if (!blob || blob.size === 0) throw new Error('Archivo vacío');
       const blobUrl = URL.createObjectURL(blob);
-      const name = (fileName || `${tipo}.pdf`).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const name = (fileName || 'documento.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
       const a = document.createElement('a');
       a.href = blobUrl;
       a.download = name;
@@ -108,9 +192,9 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
     }
   };
 
-  const setEstadoDoc = (tipo, estadoDocumento, motivoRechazo = '') => {
-    setSavingDoc(tipo);
-    api.patch(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/documentos/${tipo}`, {
+  const setEstadoDoc = (definitionId, estadoDocumento, motivoRechazo = '') => {
+    setSavingDoc(definitionId);
+    api.patch(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/documentos/${definitionId}`, {
       estadoDocumento,
       motivoRechazo: estadoDocumento === 'rechazado' ? motivoRechazo : undefined,
     })
@@ -119,25 +203,43 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
       .finally(() => setSavingDoc(null));
   };
 
-  const handleRechazarDoc = (tipo, docLabel) => {
-    const motivo = rechazoMotivoDoc[tipo]?.trim();
+  const handleRechazarDoc = (definitionId, docLabel) => {
+    const motivo = rechazoMotivoDoc[definitionId]?.trim();
     if (!motivo) {
       Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Indique el motivo de rechazo del documento.', confirmButtonColor: '#c41e3a' });
       return;
     }
-    setEstadoDoc(tipo, 'rechazado', motivo);
-    setRechazoMotivoDoc((prev) => ({ ...prev, [tipo]: '' }));
+    setEstadoDoc(definitionId, 'rechazado', motivo);
+    setRechazoMotivoDoc((prev) => ({ ...prev, [definitionId]: '' }));
   };
 
   const aprobarLegalizacion = () => {
-    const docs = legalizacion?.documentos || {};
-    const algunRechazado = DOC_FIELDS.some((f) => docs[f.key]?.estadoDocumento === 'rechazado');
-    const algunPendiente = DOC_FIELDS.some((f) => docs[f.key]?.key && (!docs[f.key].estadoDocumento || docs[f.key].estadoDocumento === 'pendiente'));
+    const docsLocal = legalizacion?.documentos || {};
+    const faltaObligatorioSinArchivo = definicionesDocumentos.some((d) => {
+      if (!d.documentMandatory) return false;
+      const doc = docsLocal[defIdStr(d)];
+      return !doc?.key;
+    });
+    if (faltaObligatorioSinArchivo) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Documentos incompletos',
+        text: 'Aún faltan documentos obligatorios por cargar. El estudiante debe adjuntarlos antes de aprobar.',
+        confirmButtonColor: '#c41e3a',
+      });
+      return;
+    }
+    const algunRechazado = definicionesDocumentos.some((d) => docsLocal[defIdStr(d)]?.estadoDocumento === 'rechazado');
+    const algunPendiente = definicionesDocumentos.some((d) => {
+      const doc = docsLocal[defIdStr(d)];
+      if (!doc?.key) return false;
+      return !doc.estadoDocumento || doc.estadoDocumento === 'pendiente';
+    });
     if (algunRechazado || algunPendiente) {
       Swal.fire({
         icon: 'warning',
         title: 'Revisión incompleta',
-        text: algunRechazado ? 'Hay documentos rechazados. Solicite ajustes al estudiante.' : 'Debe aprobar o rechazar todos los documentos antes de aprobar la legalización.',
+        text: algunRechazado ? 'Hay documentos rechazados. Solicite ajustes al estudiante.' : 'Debe aprobar o rechazar todos los documentos cargados antes de aprobar la legalización.',
         confirmButtonColor: '#c41e3a',
       });
       return;
@@ -280,8 +382,33 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
   const legalizacionAprobada = legalizacion?.estado === 'aprobada';
   const planEnRevision = planTrabajo?.estado === 'enviado_revision';
   const docs = legalizacion?.documentos || {};
-  const todosAprobados = DOC_FIELDS.every((f) => docs[f.key]?.key && docs[f.key]?.estadoDocumento === 'aprobado');
-  const ningunoRechazado = !DOC_FIELDS.some((f) => docs[f.key]?.estadoDocumento === 'rechazado');
+  const rawDocumentosMap = legalizacion?.documentos;
+  const definicionesConArchivo = useMemo(() => {
+    const dmap = rawDocumentosMap || {};
+    return definicionesDocumentos.filter((d) => Boolean(dmap[defIdStr(d)]?.key));
+  }, [definicionesDocumentos, rawDocumentosMap]);
+  /** Cada archivo cargado debe tener decisión explícita: aprobado o rechazado (no pendiente ni sin estado). */
+  const documentosCargadosTodosRevisados =
+    definicionesConArchivo.length > 0 &&
+    definicionesConArchivo.every((d) => {
+      const id = defIdStr(d);
+      const e = docs[id]?.estadoDocumento;
+      return e === 'aprobado' || e === 'rechazado';
+    });
+  /** Solo se legaliza si todos los documentos subidos quedaron aprobados. */
+  const todosAprobados =
+    definicionesConArchivo.length > 0 &&
+    definicionesConArchivo.every((d) => {
+      const id = defIdStr(d);
+      const doc = docs[id];
+      return doc?.key && doc.estadoDocumento === 'aprobado';
+    });
+  const ningunoRechazado = !definicionesConArchivo.some((d) => {
+    const id = defIdStr(d);
+    return docs[id]?.estadoDocumento === 'rechazado';
+  });
+  const puedeAprobarLegalizacionUi =
+    documentosCargadosTodosRevisados && todosAprobados && ningunoRechazado;
 
   if (error || (!loading && !legalizacion)) {
     return (
@@ -295,7 +422,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
   }
 
   return (
-    <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full">
+    <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full admrevmtm">
       <header className="legalizacion-mtm__topbar">
         <div className="legalizacion-mtm__topbar-left">
           <button type="button" className="legalizacion-mtm__back" onClick={onVolver}>← Volver</button>
@@ -310,7 +437,22 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
           {enRevision && (
             <>
               <button className="btn-secondary" onClick={rechazarLegalizacion} disabled={rechazando}>Rechazar</button>
-              <button className="btn-guardar" onClick={aprobarLegalizacion} disabled={aprobando || !todosAprobados || !ningunoRechazado}>
+              <button
+                type="button"
+                className="btn-guardar admrevmtm__btn-aprobar"
+                onClick={aprobarLegalizacion}
+                disabled={aprobando || !puedeAprobarLegalizacionUi}
+                aria-disabled={aprobando || !puedeAprobarLegalizacionUi}
+                title={
+                  !documentosCargadosTodosRevisados && definicionesConArchivo.length > 0
+                    ? 'Apruebe o rechace cada documento cargado antes de legalizar'
+                    : definicionesConArchivo.length === 0
+                      ? 'No hay documentos cargados para revisar'
+                      : !todosAprobados || !ningunoRechazado
+                        ? 'Solo puede aprobar si todos los documentos quedaron aprobados'
+                        : undefined
+                }
+              >
                 {aprobando ? 'Aprobando...' : 'Aprobar legalización'}
               </button>
             </>
@@ -346,13 +488,15 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                 Plan de trabajo
               </button>
             )}
-            <button
-              type="button"
-              className={`legalizacion-mtm__tab ${tabActiva === 'seguimientos' ? 'legalizacion-mtm__tab--active' : ''}`}
-              onClick={() => setTabActiva('seguimientos')}
-            >
-              Seguimientos
-            </button>
+            {planTrabajoCreado && (
+              <button
+                type="button"
+                className={`legalizacion-mtm__tab ${tabActiva === 'seguimientos' ? 'legalizacion-mtm__tab--active' : ''}`}
+                onClick={() => setTabActiva('seguimientos')}
+              >
+                Seguimientos
+              </button>
+            )}
           </div>
 
           <div className="legalizacion-mtm__body">
@@ -366,13 +510,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                     <dt>Correo alterno</dt><dd>{estudiante?.correoAlterno ?? '—'}</dd>
                     <dt>Identificación</dt><dd>{estudiante?.identificacion ?? '—'}</dd>
                     <dt>Cédula de ciudadanía</dt>
-                    <dd>
-                      {estudiante?.cedulaAttachment ? (
-                        <button type="button" className="legalizacion-mtm__doc-preview-btn" onClick={() => descargarCedulaPerfil(estudiante.postulantId, estudiante.cedulaAttachment)}>
-                          Ver / Descargar
-                        </button>
-                      ) : '—'}
-                    </dd>
+                    <dd>{estudiante?.cedulaAttachment ? 'Cargada en perfil' : '—'}</dd>
                     <dt>Celular</dt><dd>{estudiante?.celular ?? '—'}</dd>
                     <dt>Dirección</dt><dd>{estudiante?.direccion ?? '—'}</dd>
                     <dt>Zona de residencia</dt><dd>{estudiante?.zonaResidencia ?? '—'}</dd>
@@ -390,7 +528,12 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                   <dl className="legalizacion-mtm__grid">
                     <dt>Nombre MTM</dt><dd>{oportunidad?.nombreCargo ?? '—'}</dd>
                     <dt>Periodo</dt><dd>{oportunidad?.periodo?.codigo ?? '—'}</dd>
-                    <dt>Coordinador</dt><dd>{oportunidad?.profesorResponsable ? [oportunidad.profesorResponsable.nombres, oportunidad.profesorResponsable.apellidos].filter(Boolean).join(' ') : '—'}</dd>
+                    <dt>Coordinador</dt>
+                    <dd>
+                      {oportunidad?.profesorResponsable
+                        ? [oportunidad.profesorResponsable.nombres, oportunidad.profesorResponsable.apellidos].filter(Boolean).join(' ')
+                        : (oportunidad?.nombreProfesor && String(oportunidad.nombreProfesor).trim()) || '—'}
+                    </dd>
                     <dt>Correo coordinador</dt><dd>{oportunidad?.profesorResponsable?.user?.email ?? '—'}</dd>
                     <dt>Categoría</dt><dd>{oportunidad?.categoria?.value ?? oportunidad?.categoria?.description ?? '—'}</dd>
                     <dt>Número de horas a la semana</dt><dd>{oportunidad?.dedicacionHoras?.value ?? oportunidad?.dedicacionHoras?.description ?? '—'}</dd>
@@ -401,38 +544,50 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                     <dt>Asignaturas</dt><dd>{oportunidad?.asignaturas?.length ? oportunidad.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ') : '—'}</dd>
                   </dl>
                 </section>
-                <section className="legalizacion-mtm__section">
-                  <h3 className="legalizacion-mtm__section-title">Link de asistencia</h3>
-                  <p className="legalizacion-mtm__hint">Un único link por MTM para todo el semestre. Compártalo con los estudiantes para que registren su asistencia a los espacios.</p>
-                  <button
-                    type="button"
-                    className="btn-guardar"
-                    onClick={() => {
-                      api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/link-asistencia`)
-                        .then((r) => {
-                          const urlToCopy = r.data?.link;
-                          if (!urlToCopy) return;
-                          navigator.clipboard.writeText(urlToCopy).then(() => {
-                            Swal.fire({ icon: 'success', title: 'Link copiado', text: 'El link de asistencia se copió al portapapeles.', confirmButtonColor: '#c41e3a' });
-                          }).catch(() => Swal.fire({ icon: 'info', title: 'Link de asistencia', text: urlToCopy, confirmButtonColor: '#c41e3a' }));
-                        })
-                        .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo obtener el link.', confirmButtonColor: '#c41e3a' }));
-                    }}
-                  >
-                    Obtener / Copiar link de asistencia
-                  </button>
-                </section>
+                {planTrabajoCreado && (
+                  <section className="legalizacion-mtm__section">
+                    <h3 className="legalizacion-mtm__section-title">Link de asistencia</h3>
+                    <p className="legalizacion-mtm__hint">Un único link por MTM para todo el semestre. Compártalo con los estudiantes para que registren su asistencia a los espacios.</p>
+                    <button
+                      type="button"
+                      className="btn-guardar"
+                      onClick={() => {
+                        api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/link-asistencia`)
+                          .then((r) => {
+                            const urlToCopy = r.data?.link;
+                            if (!urlToCopy) return;
+                            navigator.clipboard.writeText(urlToCopy).then(() => {
+                              Swal.fire({ icon: 'success', title: 'Link copiado', text: 'El link de asistencia se copió al portapapeles.', confirmButtonColor: '#c41e3a' });
+                            }).catch(() => Swal.fire({ icon: 'info', title: 'Link de asistencia', text: urlToCopy, confirmButtonColor: '#c41e3a' }));
+                          })
+                          .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo obtener el link.', confirmButtonColor: '#c41e3a' }));
+                      }}
+                    >
+                      Obtener / Copiar link de asistencia
+                    </button>
+                    <button
+                      type="button"
+                      className="admrevmtm__btn-reporte-asistencia"
+                      onClick={exportarReporteAsistenciaEstaMonitoria}
+                      disabled={exportandoReporteAsistencia}
+                    >
+                      {exportandoReporteAsistencia ? 'Generando…' : 'Exportar reporte de asistencia (Excel)'}
+                    </button>
+                  </section>
+                )}
               </div>
             )}
 
             {tabActiva === 'documentos' && (
-              <section className="legalizacion-mtm__section legalizacion-mtm__section--docs">
+              <section className="legalizacion-mtm__section legalizacion-mtm__section--docs admrevmtm__docs-section">
                 <h3 className="legalizacion-mtm__section-title">Documentos cargados</h3>
-                <p className="legalizacion-mtm__hint">Descargue, revise y apruebe o rechace cada documento. Todos deben estar aprobados para poder aprobar la legalización.</p>
-                <div style={{ marginBottom: 12 }}>
+                <p className="admrevmtm__docs-hint">
+                  Solo aparecen los documentos que el estudiante adjuntó. Revíselos, apruebe o rechace con motivo. Los obligatorios deben estar aprobados para legalizar.
+                </p>
+                <div className="admrevmtm__docs-toolbar">
                   <button
                     type="button"
-                    className="btn-secondary"
+                    className="admrevmtm__btn-dl-all"
                     onClick={async () => {
                       let count = 0;
                       if (estudiante?.cedulaAttachment?.name) {
@@ -440,13 +595,13 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                         count++;
                         await new Promise((r) => setTimeout(r, 350));
                       }
-                      const tipos = DOC_FIELDS.filter((f) => docs[f.key]?.key);
-                      for (let i = 0; i < tipos.length; i++) {
-                        const { tipo, key } = tipos[i];
-                        const doc = docs[key];
-                        await downloadDoc(tipo, doc?.originalName || `${key}.pdf`);
+                      for (let i = 0; i < definicionesConArchivo.length; i++) {
+                        const d = definicionesConArchivo[i];
+                        const id = defIdStr(d);
+                        const doc = docs[id];
+                        await downloadDoc(id, doc?.originalName || `${id}.pdf`);
                         count++;
-                        if (i < tipos.length - 1) await new Promise((r) => setTimeout(r, 350));
+                        if (i < definicionesConArchivo.length - 1) await new Promise((r) => setTimeout(r, 350));
                       }
                       if (count > 0) Swal.fire({ icon: 'success', title: 'Descargas iniciadas', text: `${count} archivo(s) se están guardando en Descargas.`, confirmButtonColor: '#c41e3a', timer: 2500, timerProgressBar: true });
                     }}
@@ -454,59 +609,91 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                     Descargar todos los documentos
                   </button>
                 </div>
-                <div className="legalizacion-mtm__docs-list">
-                  {DOC_FIELDS.map(({ key, label, tipo }) => {
-                    const doc = docs[key];
-                    const estadoDoc = doc?.estadoDocumento || 'pendiente';
-                    const motivo = doc?.motivoRechazo;
-                    return (
-                      <div key={key} className="legalizacion-mtm__doc-item" style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, marginBottom: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                          <span className="legalizacion-mtm__doc-name"><strong>{label}</strong></span>
-                          <span style={{ fontSize: 12, color: estadoDoc === 'aprobado' ? '#16a34a' : estadoDoc === 'rechazado' ? '#dc2626' : '#6b7280' }}>
-                            {estadoDoc === 'aprobado' ? 'Aprobado' : estadoDoc === 'rechazado' ? 'Rechazado' : 'Pendiente'}
-                          </span>
-                        </div>
-                        {doc?.originalName && (
-                          <>
-                            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                              <button type="button" className="legalizacion-mtm__doc-preview-btn" onClick={() => getDocUrl(tipo, doc.originalName)}>Ver</button>
-                              <button type="button" className="btn-secondary" style={{ fontSize: 12 }} onClick={() => downloadDoc(tipo, doc.originalName)}>Descargar</button>
-                              {enRevision && estadoDoc !== 'aprobado' && (
-                                <>
-                                  <button type="button" className="btn-guardar" style={{ fontSize: 12 }} disabled={savingDoc === tipo} onClick={() => setEstadoDoc(tipo, 'aprobado')}>
-                                    {savingDoc === tipo ? '...' : 'Aprobar'}
-                                  </button>
-                                  <span style={{ marginLeft: 8 }}>
-                                    <input
-                                      type="text"
-                                      placeholder="Motivo rechazo"
-                                      value={rechazoMotivoDoc[tipo] ?? ''}
-                                      onChange={(e) => setRechazoMotivoDoc((p) => ({ ...p, [tipo]: e.target.value }))}
-                                      className="form-input"
-                                      style={{ width: 200, fontSize: 12 }}
-                                    />
-                                    <button type="button" className="btn-secondary" style={{ marginLeft: 4, fontSize: 12 }} disabled={savingDoc === tipo} onClick={() => handleRechazarDoc(tipo, label)}>
-                                      Rechazar
-                                    </button>
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                            {estadoDoc === 'rechazado' && motivo && (
-                              <p style={{ marginTop: 8, fontSize: 12, color: '#dc2626' }}><strong>Motivo rechazo:</strong> {motivo}</p>
+                <div className="admrevmtm__docs-grid">
+                  {definicionesDocumentos.length === 0 ? (
+                    <p style={{ color: '#64748b' }}>No hay definiciones de documentos en configuración.</p>
+                  ) : definicionesConArchivo.length === 0 ? (
+                    <p style={{ color: '#64748b' }}>Aún no hay archivos adjuntos en esta legalización.</p>
+                  ) : (
+                    definicionesConArchivo.map((d) => {
+                      const id = defIdStr(d);
+                      const doc = docs[id];
+                      const estadoDoc = doc?.estadoDocumento || 'pendiente';
+                      const motivo = doc?.motivoRechazo;
+                      const label = d.documentName || d.documentTypeItem?.value || 'Documento';
+                      const badgeClass =
+                        estadoDoc === 'aprobado'
+                          ? 'admrevmtm-doc__badge admrevmtm-doc__badge--ok'
+                          : estadoDoc === 'rechazado'
+                            ? 'admrevmtm-doc__badge admrevmtm-doc__badge--err'
+                            : 'admrevmtm-doc__badge admrevmtm-doc__badge--pendiente';
+                      const badgeText = estadoDoc === 'aprobado' ? 'Aprobado' : estadoDoc === 'rechazado' ? 'Rechazado' : 'Pendiente';
+                      return (
+                        <article key={id} className="admrevmtm-doc">
+                          <header className="admrevmtm-doc__head">
+                            <h4 className="admrevmtm-doc__title">
+                              {label}
+                              {d.documentMandatory ? <span style={{ color: '#c41e3a' }}> *</span> : null}
+                            </h4>
+                            <span className={badgeClass}>{badgeText}</span>
+                          </header>
+                          {d.documentObservation?.trim() ? (
+                            <p className="admrevmtm-doc__obs">{d.documentObservation}</p>
+                          ) : null}
+                          {doc?.originalName ? (
+                            <p className="admrevmtm-doc__file">Archivo: {doc.originalName}</p>
+                          ) : null}
+                          <div className="admrevmtm-doc__actions">
+                            <button type="button" className="admrevmtm-doc__link" onClick={() => getDocUrl(id, doc?.originalName || label)}>
+                              Ver
+                            </button>
+                            <button type="button" className="admrevmtm-doc__btn" onClick={() => downloadDoc(id, doc?.originalName || `${id}.pdf`)}>
+                              Descargar
+                            </button>
+                            {enRevision && estadoDoc !== 'aprobado' && (
+                              <button
+                                type="button"
+                                className="admrevmtm-doc__btn admrevmtm-doc__btn--approve"
+                                disabled={savingDoc === id}
+                                onClick={() => setEstadoDoc(id, 'aprobado')}
+                              >
+                                {savingDoc === id ? '…' : 'Aprobar'}
+                              </button>
                             )}
-                          </>
-                        )}
-                        {!doc?.key && <p style={{ marginTop: 4, fontSize: 12, color: '#9ca3af' }}>Sin documento cargado</p>}
-                      </div>
-                    );
-                  })}
+                          </div>
+                          {enRevision && estadoDoc !== 'aprobado' && (
+                            <div className="admrevmtm-doc__reject">
+                              <span className="admrevmtm-doc__reject-label">Rechazar documento</span>
+                              <textarea
+                                className="admrevmtm-doc__reject-input"
+                                placeholder="Escriba el motivo del rechazo (obligatorio)…"
+                                rows={3}
+                                value={rechazoMotivoDoc[id] ?? ''}
+                                onChange={(e) => setRechazoMotivoDoc((p) => ({ ...p, [id]: e.target.value }))}
+                                aria-label={`Motivo de rechazo: ${label}`}
+                              />
+                              <button
+                                type="button"
+                                className="admrevmtm-doc__reject-btn"
+                                disabled={savingDoc === id}
+                                onClick={() => handleRechazarDoc(id, label)}
+                              >
+                                Rechazar documento
+                              </button>
+                            </div>
+                          )}
+                          {estadoDoc === 'rechazado' && motivo ? (
+                            <p className="admrevmtm-doc__motivo"><strong>Motivo registrado:</strong> {motivo}</p>
+                          ) : null}
+                        </article>
+                      );
+                    })
+                  )}
                 </div>
               </section>
             )}
 
-            {tabActiva === 'seguimientos' && (
+            {tabActiva === 'seguimientos' && planTrabajoCreado && (
               <section className="legalizacion-mtm__section">
                 <SeguimientosMTM compact isAdmin />
               </section>

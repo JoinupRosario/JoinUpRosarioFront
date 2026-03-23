@@ -201,6 +201,16 @@
   box-sizing: border-box;
 }
 
+/* Tabla Mis aplicaciones: scroll horizontal; el vertical lo hace dashboard-main (vista acotada al footer) */
+.mis-aplicaciones-content .mis-aplicaciones-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mis-aplicaciones-content .mis-aplicaciones-table {
+  margin-bottom: 0;
+}
+
 /* Legalizaciones de Monitorías (estudiante y admin): todo el ancho de pantalla */
 .legalizaciones-monitorias-content {
   width: 100%;
@@ -211,6 +221,165 @@
   margin: 0;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* ── Tabla Legalizaciones MTM (estudiante): estilo y badges de estado ─────── */
+.legaliz-mtm-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 1.5rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 14px rgba(139, 21, 56, 0.06);
+}
+
+.legaliz-mtm-table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.legaliz-mtm-table thead th {
+  text-align: left;
+  padding: 14px 12px;
+  background: linear-gradient(135deg, #8b1538 0%, #a01840 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 2px solid #6d1029;
+  white-space: nowrap;
+}
+
+.legaliz-mtm-table thead th:first-child {
+  border-radius: 12px 0 0 0;
+}
+
+.legaliz-mtm-table thead th:last-child {
+  border-radius: 0 12px 0 0;
+}
+
+.legaliz-mtm-th-acciones {
+  min-width: 200px;
+}
+
+.legaliz-mtm-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.15s ease;
+}
+
+.legaliz-mtm-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.legaliz-mtm-table tbody tr:hover {
+  background: #fff5f5;
+}
+
+.legaliz-mtm-table tbody td {
+  padding: 12px;
+  vertical-align: middle;
+  color: #374151;
+}
+
+.legaliz-mtm-mono {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.legaliz-mtm-codigo {
+  color: #6b7280;
+}
+
+.legaliz-mtm-nombre-cargo {
+  max-width: 220px;
+  font-weight: 500;
+}
+
+.legaliz-mtm-badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.legaliz-mtm-badge--pendiente {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.legaliz-mtm-badge--borrador {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.legaliz-mtm-badge--revision {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.legaliz-mtm-badge--aprobada {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.legaliz-mtm-badge--rechazada {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.legaliz-mtm-badge--ajuste {
+  background: #faf5ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+
+.legaliz-mtm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legaliz-mtm-actions-select {
+  flex: 1;
+  min-width: 0;
+  max-width: 220px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.legaliz-mtm-actions-select:hover:not(:disabled) {
+  border-color: #c41e3a;
+}
+
+.legaliz-mtm-actions-select:focus {
+  outline: none;
+  border-color: #c41e3a;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.15);
+}
+
+.legaliz-mtm-actions-select option:disabled {
+  color: #9ca3af;
 }
 
 /* Información de registros */
@@ -1160,15 +1329,7 @@
   padding-right: 1rem;
 }
 
-/* Plan de trabajo MTM: forzar espacio para que el footer no tape el botón "Agregar actividad" */
-.plan-trabajo-mtm-vista {
-  padding-bottom: 200px !important;
-}
-.plan-trabajo-espacio-footer {
-  min-height: 180px !important;
-  display: block !important;
-  pointer-events: none;
-}
+/* Plan de trabajo MTM (estudiante): espacio inferior y layout en PlanDeTrabajoEstudiante.css (.planmtm-estudiante) */
 
 .legalizacion-mtm--full .legalizacion-mtm__body {
   max-width: 1400px;
