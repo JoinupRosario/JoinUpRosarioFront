@@ -8,7 +8,6 @@ import {
   FiX,
   FiHome,
   FiUser,
-  FiSearch,
   FiBookmark,
   FiList,
   FiTrendingUp,
@@ -64,6 +63,10 @@ import LegalizacionesMonitorias from './componentss/LegalizacionesMonitorias';
 import DetalleLegalizacionMTM from './componentss/DetalleLegalizacionMTM';
 import AdminLegalizacionMonitorias from './componentss/AdminLegalizacionMonitorias';
 import AdminDetalleLegalizacionMTM from './componentss/AdminDetalleLegalizacionMTM';
+import LegalizacionesPracticas from './componentss/LegalizacionesPracticas';
+import DetalleLegalizacionPractica from './componentss/DetalleLegalizacionPractica';
+import AdminLegalizacionPracticas from './componentss/AdminLegalizacionPracticas';
+import AdminDetalleLegalizacionPractica from './componentss/AdminDetalleLegalizacionPractica';
 import PlanDeTrabajoMTM from './componentss/PlanDeTrabajoMTM';
 import SeguimientosMTM from './componentss/SeguimientosMTM';
 import api from '../services/api';
@@ -263,6 +266,8 @@ export default function Dashboard() {
     if (path === '/dashboard/plantillas-notificacion-practicas') return 'plantillas-practicas';
     if (path.match(/^\/dashboard\/monitorias\/detalle\/[^/]+$/)) return 'monitorias-detalle';
     if (path.match(/^\/dashboard\/monitorias\/revision\/[^/]+$/)) return 'monitorias-revision';
+    if (path.match(/^\/dashboard\/legalizaciones\/detalle\/[^/]+$/)) return 'legalizaciones-detalle';
+    if (path.match(/^\/dashboard\/legalizaciones\/revision\/[^/]+$/)) return 'legalizaciones-revision';
     if (path.match(/^\/dashboard\/monitorias\/plan\/[^/]+$/)) return 'monitorias-plan';
     if (path.match(/^\/dashboard\/monitorias\/seguimientos\/[^/]+$/)) return 'monitorias-seguimientos';
     // Si no hay coincidencia exacta, devolver 'dashboard' por defecto
@@ -300,6 +305,15 @@ export default function Dashboard() {
       navigate('/dashboard/postulantes', { replace: true });
     }
   }, [isEstudiante, hasAMPO, hasVPPO, hasEMIP, vistaActual, navigate]);
+
+  useEffect(() => {
+    if (isEstudiante && vistaActual === 'legalizaciones-revision') {
+      navigate('/dashboard/legalizaciones', { replace: true });
+    }
+    if (!isEstudiante && vistaActual === 'legalizaciones-detalle') {
+      navigate('/dashboard/legalizaciones', { replace: true });
+    }
+  }, [isEstudiante, vistaActual, navigate]);
 
   // Sin permiso al módulo: redirigir si entró por URL
   const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'documentos-legalizacion-practica', 'documentos-legalizacion-monitoria', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones'];
@@ -442,7 +456,6 @@ export default function Dashboard() {
   const menuItemsEstudiante = [
     { text: 'Inicio', Icon: FiHome, vista: 'dashboard' },
     { text: 'Mi perfil', Icon: FiUser, vista: 'mi-perfil' },
-    { text: 'Búsqueda avanzada', Icon: FiSearch, vista: 'busqueda-avanzada' },
     { text: 'Oportunidades de práctica', Icon: FiBookmark, vista: 'oportunidades-practica' },
     { text: 'Oportunidades de monitoría', Icon: HiOutlineAcademicCap, vista: 'oportunidades-monitoria' },
     { text: 'Mis aplicaciones', Icon: FiList, vista: 'mis-aplicaciones' },
@@ -647,14 +660,14 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main
-        className={`dashboard-main${vistaActual === 'mis-aplicaciones' ? ' dashboard-main--mis-aplicaciones' : ''}${vistaActual === 'monitorias' ? ' dashboard-main--monitorias-list' : ''}${vistaActual === 'monitorias-revision' ? ' dashboard-main--monitorias-revision' : ''}`}
+        className={`dashboard-main${vistaActual === 'mis-aplicaciones' ? ' dashboard-main--mis-aplicaciones' : ''}${vistaActual === 'monitorias' ? ' dashboard-main--monitorias-list' : ''}${vistaActual === 'monitorias-revision' ? ' dashboard-main--monitorias-revision' : ''}${vistaActual === 'oportunidades-monitoria' ? ' dashboard-main--oportunidades-monitoria' : ''}${vistaActual === 'oportunidades-practica' ? ' dashboard-main--oportunidades-practica' : ''}${vistaActual === 'dashboard' && isEstudiante ? ' dashboard-main--home-estudiante' : ''}`}
       >
         {vistaActual === 'dashboard' && (
-          <div className="dashboard-content">
+          <>
             {isEstudiante ? (
               <HomeEstudiante />
             ) : (
-              <>
+              <div className="dashboard-content">
             <div className="dashboard-welcome">
               <h2>Bienvenido/a, {user?.name}</h2>
               <p>Aquí tienes un resumen de la actividad del sistema de gestión de prácticas</p>
@@ -735,9 +748,9 @@ export default function Dashboard() {
                 />
               )}
             </div>
-              </>
+              </div>
             )}
-          </div>
+          </>
         )}
         {vistaActual === 'mi-perfil' && (
           <div className="dashboard-content" style={{ padding: '2rem' }}>
@@ -770,13 +783,13 @@ export default function Dashboard() {
         {vistaActual === 'mis-aplicaciones' && (
           <MisAplicaciones />
         )}
-        {vistaActual === 'legalizaciones' && (
-          <div className="dashboard-content">
-            <div className="dashboard-welcome">
-              <h2>Legalizaciones de Prácticas</h2>
-              <p>Gestión de legalizaciones de prácticas. Esta sección estará disponible próximamente.</p>
-            </div>
-          </div>
+        {vistaActual === 'legalizaciones' && isEstudiante && <LegalizacionesPracticas />}
+        {vistaActual === 'legalizaciones' && !isEstudiante && <AdminLegalizacionPracticas />}
+        {vistaActual === 'legalizaciones-detalle' && isEstudiante && (
+          <DetalleLegalizacionPractica onVolver={() => navigate('/dashboard/legalizaciones')} />
+        )}
+        {vistaActual === 'legalizaciones-revision' && !isEstudiante && (
+          <AdminDetalleLegalizacionPractica onVolver={() => navigate('/dashboard/legalizaciones')} />
         )}
         {/* Legalizaciones de monitorías: estudiante ve sus aceptadas y su detalle; admin ve listado y revisión (otro componente) */}
         {vistaActual === 'monitorias' && isEstudiante && <LegalizacionesMonitorias />}

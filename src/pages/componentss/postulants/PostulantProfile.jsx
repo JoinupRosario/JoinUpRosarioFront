@@ -30,7 +30,22 @@ import Swal from 'sweetalert2';
 import api from '../../../services/api';
 import LocationSelectCascade from '../../../components/common/LocationSelectCascade';
 import ProgramAllSelect from '../../../components/common/ProgramAllSelect';
+import DetalleOportunidadModal from '../DetalleOportunidadModal';
+import { HiOutlineAcademicCap } from 'react-icons/hi';
 import '../../styles/PostulantProfile.css';
+import '../../styles/Oportunidades.css';
+
+/** Etiquetas de estado de postulación (misma lógica que MisAplicaciones). */
+const HISTORIAL_ESTADO_LABELS = {
+  aplicado: 'Aplicado',
+  empresa_consulto_perfil: 'Empresa consultó perfil',
+  empresa_descargo_hv: 'Empresa descargó HV',
+  seleccionado_empresa: 'Seleccionado por empresa',
+  aceptado_estudiante: 'Aceptado por estudiante',
+  rechazado: 'Rechazado',
+};
+
+const fmtDateHistorialMtm = (d) => (d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 /** Etiqueta fija en BD cuando el tipo es "Cédula" (buscar este valor en otros flujos). */
 export const DOCUMENT_LABEL_SUPPORT_CEDULA = 'Cédula';
@@ -234,6 +249,15 @@ const PostulantProfile = ({ onVolver }) => {
   const cartaCitySearchTimeoutRef = useRef(null);
   /** Si el estudiante puede generar carta de presentación (autorizado en periodo actual). null = cargando. */
   const [canGenerateCarta, setCanGenerateCarta] = useState(null);
+  /** Admin: modal historial de aplicaciones (prácticas + MTM) del postulante. */
+  const [historialModalOpen, setHistorialModalOpen] = useState(false);
+  const [historialLoading, setHistorialLoading] = useState(false);
+  const [historialRows, setHistorialRows] = useState([]);
+  const [historialError, setHistorialError] = useState('');
+  const [historialDetallePractica, setHistorialDetallePractica] = useState(null);
+  const [historialLoadingPractica, setHistorialLoadingPractica] = useState(false);
+  const [historialDetalleMtm, setHistorialDetalleMtm] = useState(null);
+  const [historialLoadingMtm, setHistorialLoadingMtm] = useState(false);
   /** Campos editables del perfil (postulant_profile): switches y habilidades técnicas. */
   const [profileEditFields, setProfileEditFields] = useState({
     conditionDiscapacity: false,
@@ -356,13 +380,74 @@ const PostulantProfile = ({ onVolver }) => {
     return createAlert('error', title, text);
   }, []);
 
-  const showFuncionalidadEnDesarrollo = useCallback((funcionalidad) => {
-    return createAlert(
-      'info',
-      'Funcionalidad en Desarrollo',
-      `La funcionalidad "${funcionalidad}" está actualmente en desarrollo y estará disponible próximamente.`
-    );
+  /** El usuario logueado es el dueño de este expediente de postulante (mismo user que postulantId). */
+  const isOwnPostulantProfile = useMemo(() => {
+    if (!postulant || !currentUser) return false;
+    const userId = currentUser._id ?? currentUser.id;
+    const linked = postulant.postulantId;
+    const linkedId = linked != null && typeof linked === 'object' ? linked._id ?? linked.id : linked;
+    return Boolean(userId && linkedId && String(userId) === String(linkedId));
+  }, [postulant, currentUser]);
+
+  const closeHistorialModal = useCallback(() => {
+    setHistorialModalOpen(false);
+    setHistorialRows([]);
+    setHistorialError('');
+    setHistorialDetallePractica(null);
+    setHistorialDetalleMtm(null);
   }, []);
+
+  const openAdminHistorial = useCallback(async () => {
+    if (!postulant?._id) return;
+    setHistorialModalOpen(true);
+    setHistorialLoading(true);
+    setHistorialError('');
+    setHistorialRows([]);
+    try {
+      const { data } = await api.get(`/postulants/${postulant._id}/historial-aplicaciones`);
+      setHistorialRows(Array.isArray(data?.data) ? data.data : []);
+    } catch (e) {
+      setHistorialError(e.response?.data?.message || e.message || 'No se pudo cargar el historial');
+    } finally {
+      setHistorialLoading(false);
+    }
+  }, [postulant?._id]);
+
+  const goToHistorialAplicaciones = useCallback(() => {
+    if (isOwnPostulantProfile) {
+      navigate('/dashboard/mis-aplicaciones');
+      return;
+    }
+    openAdminHistorial();
+  }, [isOwnPostulantProfile, navigate, openAdminHistorial]);
+
+  const verOfertaHistorial = useCallback((opportunityId, tipo) => {
+    if (!opportunityId) return;
+    if (tipo === 'Monitoría / Tutoría / Mentoría') {
+      setHistorialLoadingMtm(true);
+      setHistorialDetalleMtm(null);
+      api
+        .get(`/oportunidades-mtm/${opportunityId}`)
+        .then((res) => setHistorialDetalleMtm(res.data))
+        .catch(() => setHistorialDetalleMtm(null))
+        .finally(() => setHistorialLoadingMtm(false));
+    } else {
+      setHistorialLoadingPractica(true);
+      setHistorialDetallePractica(null);
+      api
+        .get(`/opportunities/${opportunityId}`)
+        .then((res) => setHistorialDetallePractica(res.data))
+        .catch(() => setHistorialDetallePractica(null))
+        .finally(() => setHistorialLoadingPractica(false));
+    }
+  }, []);
+
+  const textoEstadoConfirmacionAdmin = (row) => {
+    if (row.estado === 'aceptado_estudiante') return 'Aceptado';
+    if (row.estado === 'rechazado' && (row.seleccionadoPorEmpresa || row.seleccionado)) return 'Rechazado';
+    if (row.estado === 'seleccionado_empresa') return 'Pendiente confirmación del estudiante';
+    return '—';
+  };
 
   /** Lista para el modal de hoja de vida: Perfil base + versiones, con value único para el select. */
   const listForHojaVidaSelect = useMemo(() => {
@@ -2372,9 +2457,10 @@ const PostulantProfile = ({ onVolver }) => {
               {canGenerateCarta === null ? 'Cargando…' : 'Generar Carta de Presentación'}
             </button>
             <button
+              type="button"
               className="btn-action btn-outline"
-              onClick={() => showFuncionalidadEnDesarrollo('Historial de Aplicaciones')}
-              title="Historial de Aplicaciones"
+              onClick={goToHistorialAplicaciones}
+              title={isOwnPostulantProfile ? 'Ver mis aplicaciones (prácticas y monitorías)' : 'Ver historial de aplicaciones de este postulante'}
             >
               <FiList className="btn-icon" />
               Historial de Aplicaciones
@@ -4576,6 +4662,184 @@ const PostulantProfile = ({ onVolver }) => {
               <button type="button" className="form-modal-btn-cancel" onClick={() => { setReferenceModalOpen(false); setEditingReferenceId(null); }}>Cancelar</button>
               <button type="button" className="form-modal-btn-save" onClick={handleSaveReference} disabled={savingExperience}>{savingExperience ? 'Guardando...' : 'Guardar'}</button>
             </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Admin: historial de aplicaciones del postulante (prácticas + MTM) */}
+      {historialModalOpen && (
+        <div className="modal-overlay" onClick={closeHistorialModal} role="presentation">
+          <div
+            className="modal-content ofertas-afines-detalle-modal postulant-historial-aplicaciones-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-labelledby="postulant-historial-title"
+          >
+            <div className="ofertas-afines-detalle-modal__header">
+              <h3 id="postulant-historial-title" className="ofertas-afines-detalle-modal__title">
+                Historial de aplicaciones
+              </h3>
+              <button type="button" className="ofertas-afines-detalle-modal__close" onClick={closeHistorialModal} aria-label="Cerrar">
+                <FiX size={22} />
+              </button>
+            </div>
+            <div className="ofertas-afines-detalle-modal__body">
+              <p style={{ margin: '0 0 1rem', color: '#4b5563', fontSize: '0.95rem' }}>
+                {postulant?.postulantId && typeof postulant.postulantId === 'object'
+                  ? `${postulant.postulantId.name || ''} ${postulant.postulantId.lastname || ''}`.trim() || 'Postulante'
+                  : 'Postulante'}
+              </p>
+              {historialLoading ? (
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Cargando historial...</p>
+                </div>
+              ) : historialError ? (
+                <p className="ofertas-afines-aplicar-modal__error" role="alert">{historialError}</p>
+              ) : historialRows.length === 0 ? (
+                <p style={{ color: '#6b7280' }}>Este postulante no tiene aplicaciones registradas.</p>
+              ) : (
+                <div className="oportunidades-section mis-aplicaciones-table-wrap postulant-historial-aplicaciones-modal__table">
+                  <table className="postulants-table mis-aplicaciones-table" style={{ minWidth: '880px' }}>
+                    <thead>
+                      <tr>
+                        <th>Cargo</th>
+                        <th>Tipo</th>
+                        <th>Empresa</th>
+                        <th>Coordinador</th>
+                        <th>Fecha aplicación</th>
+                        <th>Estado oportunidad</th>
+                        <th>Estado postulación</th>
+                        <th>Consulta perfil</th>
+                        <th>Descarga HV</th>
+                        <th>Seleccionado</th>
+                        <th>Confirmación</th>
+                        <th>Detalle</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historialRows.map((row) => (
+                        <tr key={`${row.tipoOportunidad}-${row._id}`}>
+                          <td>{row.cargo || '—'}</td>
+                          <td>{row.tipoOportunidad || '—'}</td>
+                          <td>{row.empresa ?? (row.tipoOportunidad === 'Monitoría / Tutoría / Mentoría' ? 'Universidad del Rosario' : '—')}</td>
+                          <td>{row.nombreCoordinador ?? '—'}</td>
+                          <td>
+                            {row.fechaAplicacion
+                              ? new Date(row.fechaAplicacion).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                              : '—'}
+                          </td>
+                          <td>{row.estadoOportunidad === 'Inactiva' ? 'Cerrada' : (row.estadoOportunidad || '—')}</td>
+                          <td>{HISTORIAL_ESTADO_LABELS[row.estado] || row.estado || '—'}</td>
+                          <td>{row.empresaConsultoPerfil ? 'Sí' : 'No'}</td>
+                          <td>{row.empresaDescargoHv ? 'Sí' : 'No'}</td>
+                          <td>{row.seleccionadoPorEmpresa ?? row.seleccionado ? 'Sí' : 'No'}</td>
+                          <td>{textoEstadoConfirmacionAdmin(row)}</td>
+                          <td>
+                            {(row.opportunityId || row.oportunidadId) ? (
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                style={{ fontSize: '12px', padding: '4px 8px' }}
+                                onClick={() => verOfertaHistorial(row.opportunityId || row.oportunidadId, row.tipoOportunidad)}
+                              >
+                                Ver detalle
+                              </button>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <DetalleOportunidadModal
+        detalle={historialDetallePractica}
+        loading={historialLoadingPractica}
+        onClose={() => setHistorialDetallePractica(null)}
+        onAplicar={null}
+      />
+
+      {historialDetalleMtm != null && (
+        <div className="modal-overlay" onClick={() => !historialLoadingMtm && setHistorialDetalleMtm(null)}>
+          <div className="modal-content ofertas-afines-detalle-modal" onClick={(e) => e.stopPropagation()}>
+            {historialLoadingMtm ? (
+              <div className="loading-container">
+                <div className="loading-spinner" />
+                <p>Cargando...</p>
+              </div>
+            ) : (
+              <>
+                <div className="ofertas-afines-detalle-modal__header">
+                  <h3 className="ofertas-afines-detalle-modal__title">
+                    <HiOutlineAcademicCap style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                    {historialDetalleMtm.nombreCargo}
+                  </h3>
+                  <button type="button" onClick={() => setHistorialDetalleMtm(null)} className="ofertas-afines-detalle-modal__close" aria-label="Cerrar">
+                    <FiX size={22} />
+                  </button>
+                </div>
+                <div className="ofertas-afines-detalle-modal__body">
+                  <dl className="ofertas-afines-detalle-modal__grid">
+                    <dt>Dedicación</dt>
+                    <dd>{historialDetalleMtm.dedicacionHoras?.value ?? '—'}</dd>
+                    <dt>Valor por hora</dt>
+                    <dd>{historialDetalleMtm.valorPorHora?.value ?? '—'}</dd>
+                    <dt>Tipo vinculación</dt>
+                    <dd>{historialDetalleMtm.tipoVinculacion?.value ?? '—'}</dd>
+                    <dt>Periodo</dt>
+                    <dd>{historialDetalleMtm.periodo?.codigo ?? '—'}</dd>
+                    <dt>Categoría</dt>
+                    <dd>{historialDetalleMtm.categoria?.value ?? '—'}</dd>
+                    <dt>Vacantes</dt>
+                    <dd>{historialDetalleMtm.vacantes ?? '—'}</dd>
+                    <dt>Vencimiento</dt>
+                    <dd>{fmtDateHistorialMtm(historialDetalleMtm.fechaVencimiento)}</dd>
+                    <dt>Asignaturas</dt>
+                    <dd>
+                      {historialDetalleMtm.asignaturas?.length > 0
+                        ? historialDetalleMtm.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ')
+                        : '—'}
+                    </dd>
+                    <dt>Promedio mínimo</dt>
+                    <dd>{historialDetalleMtm.promedioMinimo ?? '—'}</dd>
+                    <dt>Profesor / responsable</dt>
+                    <dd>{historialDetalleMtm.nombreProfesor ?? '—'}</dd>
+                    <dt>Unidad académica</dt>
+                    <dd>{historialDetalleMtm.unidadAcademica ?? '—'}</dd>
+                    <dt>Horario</dt>
+                    <dd>{historialDetalleMtm.horario ?? '—'}</dd>
+                    <dt>Grupo</dt>
+                    <dd>{historialDetalleMtm.grupo ?? '—'}</dd>
+                    <dt>Programas</dt>
+                    <dd>
+                      {historialDetalleMtm.programas?.length > 0
+                        ? historialDetalleMtm.programas.map((p) => p.name || p.code).filter(Boolean).join(', ')
+                        : '—'}
+                    </dd>
+                  </dl>
+                  {historialDetalleMtm.funciones && (
+                    <section className="ofertas-afines-detalle-modal__block">
+                      <h4 className="ofertas-afines-detalle-modal__label">Funciones</h4>
+                      <p className="ofertas-afines-detalle-modal__text">{historialDetalleMtm.funciones}</p>
+                    </section>
+                  )}
+                  {historialDetalleMtm.requisitos && (
+                    <section className="ofertas-afines-detalle-modal__block">
+                      <h4 className="ofertas-afines-detalle-modal__label">Requisitos</h4>
+                      <p className="ofertas-afines-detalle-modal__text">{historialDetalleMtm.requisitos}</p>
+                    </section>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>

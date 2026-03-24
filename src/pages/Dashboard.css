@@ -358,6 +358,50 @@
   scroll-padding-bottom: 4rem;
 }
 
+/* Oportunidades monitoría / práctica (estudiante): hijo a ancho completo y sin que flex recorte el contenido */
+.dashboard-main.dashboard-main--oportunidades-monitoria,
+.dashboard-main.dashboard-main--oportunidades-practica {
+  align-items: stretch;
+}
+
+.dashboard-main.dashboard-main--oportunidades-monitoria > .oportunidades-monitoria-page,
+.dashboard-main.dashboard-main--oportunidades-practica > .oportunidades-practica-page {
+  flex: 1 1 auto;
+  flex-shrink: 0; /* altura = contenido; el scroll lo hace .dashboard-main */
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  /* Evita doble padding (main + página) */
+  .dashboard-main.dashboard-main--oportunidades-monitoria,
+  .dashboard-main.dashboard-main--oportunidades-practica {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Inicio estudiante: el contenido no se “aplasta” bajo el footer; scroll en main */
+.dashboard-main.dashboard-main--home-estudiante {
+  align-items: stretch;
+}
+
+.dashboard-main.dashboard-main--home-estudiante > .home-estudiante-page {
+  flex: 1 1 auto;
+  flex-shrink: 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .dashboard-main.dashboard-main--home-estudiante {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
 /* Dashboard Content */
 .dashboard-content {
   padding: 30px;

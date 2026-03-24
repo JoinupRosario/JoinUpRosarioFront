@@ -5,6 +5,7 @@ import { FiUsers, FiX, FiSend, FiCheckCircle, FiRefreshCw } from 'react-icons/fi
 import api from '../../services/api';
 import DetalleOportunidadModal from './DetalleOportunidadModal';
 import '../styles/Oportunidades.css';
+import './OfertasAfines.css';
 
 function getStatusLabel(estado) {
   const map = { Activa: 'Activa', Creada: 'Creada', 'En Revisión': 'En Revisión', Revisada: 'Revisada', Cerrada: 'Cerrada', Rechazada: 'Rechazada', Vencida: 'Vencida' };
@@ -174,7 +175,7 @@ export default function OfertasAfines() {
   };
 
   return (
-    <div className="dashboard-content">
+    <div className="oportunidades-practica-page">
       <div className="dashboard-welcome ofertas-afines-welcome">
         {!yaConfirmadoPractica && (
           <button
@@ -306,7 +307,7 @@ export default function OfertasAfines() {
           </div>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+            <div className="oportunidades-practica-page__pagination">
               <button
                 type="button"
                 className="btn-volver"
@@ -315,7 +316,7 @@ export default function OfertasAfines() {
               >
                 Anterior
               </button>
-              <span style={{ alignSelf: 'center' }}>
+              <span>
                 Página {currentPage} de {totalPages} ({total} ofertas)
               </span>
               <button

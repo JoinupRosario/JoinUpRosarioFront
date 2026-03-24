@@ -1,10 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
-import { FiX, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
+import { FiX, FiCheckCircle, FiRefreshCw, FiUsers } from 'react-icons/fi';
 import api from '../../services/api';
 import '../styles/Oportunidades.css';
+import './OfertasMonitoria.css';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+
+function getStatusLabel(estado) {
+  const map = { Activa: 'Activa', Creada: 'Creada', 'En Revisión': 'En Revisión', Revisada: 'Revisada', Cerrada: 'Cerrada', Rechazada: 'Rechazada', Vencida: 'Vencida' };
+  return map[estado] || estado;
+}
+
+function getStatusColor(estado) {
+  if (estado === 'Activa') return '#d1fae5';
+  if (estado === 'Cerrada' || estado === 'Vencida') return '#f3f4f6';
+  if (estado === 'Rechazada') return '#fee2e2';
+  return '#fef3c7';
+}
+
+function getStatusTextColor(estado) {
+  if (estado === 'Activa') return '#065f46';
+  if (estado === 'Cerrada' || estado === 'Vencida') return '#6b7280';
+  if (estado === 'Rechazada') return '#991b1b';
+  return '#92400e';
+}
 
 export default function OfertasMonitoria() {
   const [loading, setLoading] = useState(true);
@@ -17,9 +37,11 @@ export default function OfertasMonitoria() {
   const [showModalAplicar, setShowModalAplicar] = useState(false);
   const [profiles, setProfiles] = useState([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
-  const [selectedProfileId, setSelectedProfileId] = useState('');
+  /** Id único por fila: _id de la versión de HV (igual que OfertasAfines). No usar profileId como valor del radio (varias versiones comparten el mismo perfil base). */
+  const [selectedVersionId, setSelectedVersionId] = useState('');
   const [submittingAplicar, setSubmittingAplicar] = useState(false);
   const [showConfirmacionAplicar, setShowConfirmacionAplicar] = useState(false);
+  const [errorAplicar, setErrorAplicar] = useState('');
   const applyingToIdRef = useRef(null);
 
   const loadOfertas = async (page = 1) => {
@@ -61,8 +83,9 @@ export default function OfertasMonitoria() {
 
   const openModalAplicar = async () => {
     if (!detalle || detalle.estado !== 'Activa') return;
+    setErrorAplicar('');
     setShowModalAplicar(true);
-    setSelectedProfileId('');
+    setSelectedVersionId('');
     setProfiles([]);
     setLoadingProfiles(true);
     try {
@@ -96,7 +119,7 @@ export default function OfertasMonitoria() {
     if (!detalle) return;
     const id = detalle._id;
     if (!id || applyingToIdRef.current !== null) return;
-    const selected = profiles.find((p) => String(p._id) === String(selectedProfileId) || String(p.profileId) === String(selectedProfileId));
+    const selected = profiles.find((p) => String(p._id) === String(selectedVersionId));
     const profileIdToSend = selected?.profileId || selected?._id;
     if (!profileIdToSend) return;
     applyingToIdRef.current = id;
@@ -110,7 +133,7 @@ export default function OfertasMonitoria() {
       setShowConfirmacionAplicar(true);
     } catch (e) {
       const msg = e.response?.data?.message || e.message || 'Error al enviar la postulación';
-      alert(msg);
+      setErrorAplicar(msg);
     } finally {
       setSubmittingAplicar(false);
       applyingToIdRef.current = null;
@@ -123,8 +146,14 @@ export default function OfertasMonitoria() {
     loadOfertas(currentPage);
   };
 
+  const closeModalAplicar = () => {
+    if (submittingAplicar) return;
+    setErrorAplicar('');
+    setShowModalAplicar(false);
+  };
+
   return (
-    <div className="dashboard-content">
+    <div className="oportunidades-monitoria-page">
       <div className="dashboard-welcome ofertas-afines-welcome">
         <button
           type="button"
@@ -136,7 +165,7 @@ export default function OfertasMonitoria() {
           <FiRefreshCw size={18} className={loading ? 'ofertas-afines-refresh-btn__icon--spin' : ''} />
           <span>Refrescar</span>
         </button>
-        <h2>Oportunidades de monitorías, tutorías y mentorías</h2>
+        <h2>Monitorías, tutorías y mentorías</h2>
         <p>Ofertas que coinciden con tu programa, promedio y asignaturas cursadas (según información académica).</p>
       </div>
 
@@ -160,43 +189,71 @@ export default function OfertasMonitoria() {
         <>
           <div className="oportunidades-section">
             <div className="oportunidades-grid">
-              {opportunities.map((op) => (
-                <div
-                  key={op._id}
-                  className="oportunidad-card oportunidad-activa"
-                  onClick={() => openDetalle(op)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="oportunidad-header">
-                    <div className="oportunidad-title-section">
-                      <h4 className="oportunidad-title">{op.nombreCargo || 'Sin título'}</h4>
-                      <span className="oportunidad-number">No. {op._id?.slice(-6)}</span>
+              {opportunities.map((op) => {
+                const estado = op.estado || 'Activa';
+                const isActiva = estado === 'Activa';
+                const numPostulantes = op.postulacionesCount ?? op.postulaciones?.length ?? 0;
+                const remuneracion = op.valorPorHora?.value ? String(op.valorPorHora.value) : null;
+
+                return (
+                  <div
+                    key={op._id}
+                    className={`oportunidad-card ${isActiva ? 'oportunidad-activa' : ''}`}
+                    onClick={() => openDetalle(op)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="oportunidad-header">
+                      <div className="oportunidad-title-section">
+                        <h4 className="oportunidad-title">{op.nombreCargo || 'Sin título'}</h4>
+                        <span className="oportunidad-number">Oportunidad No. {op._id?.slice(-6)}</span>
+                      </div>
+                      <div className="oportunidad-pin">
+                        <HiOutlineAcademicCap />
+                      </div>
                     </div>
-                    <div className="oportunidad-pin">
-                      <HiOutlineAcademicCap />
+                    <div className="oportunidad-body">
+                      <div className="oportunidad-company">
+                        {op.company?.name || op.company?.commercialName || 'Universidad del Rosario'}
+                      </div>
+                      {remuneracion && <div className="oportunidad-remuneration">{remuneracion}</div>}
+                      <div className="oportunidad-areas">
+                        {op.categoria?.value && <span className="area-tag">{op.categoria.value}</span>}
+                        {op.periodo?.codigo && <span className="area-tag">{op.periodo.codigo}</span>}
+                      </div>
+                    </div>
+                    <div
+                      className="oportunidad-footer"
+                      style={{
+                        background: getStatusColor(estado),
+                        borderTop: `1px solid ${getStatusTextColor(estado)}20`,
+                      }}
+                    >
+                      <div className="oportunidad-status">
+                        <span className="status-text" style={{ color: getStatusTextColor(estado), fontWeight: 600 }}>
+                          {getStatusLabel(estado)}
+                        </span>
+                      </div>
+                      <div className="oportunidad-icons">
+                        <span className="oportunidad-type-icon">
+                          <HiOutlineAcademicCap />
+                          <span>Monitoría / Tutoría / Mentoría</span>
+                        </span>
+                        <span className="oportunidad-applicants-icon">
+                          <FiUsers />
+                          <span className="applicants-badge">{numPostulantes}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="oportunidad-body">
-                    <div className="oportunidad-company">{op.company?.name || 'Universidad del Rosario'}</div>
-                    {op.valorPorHora?.value && <div className="oportunidad-remuneration">{op.valorPorHora.value}</div>}
-                    <div className="oportunidad-areas">
-                      {op.categoria?.value && <span className="area-tag">{op.categoria.value}</span>}
-                      {op.periodo?.codigo && <span className="area-tag">{op.periodo.codigo}</span>}
-                    </div>
-                  </div>
-                  <div className="oportunidad-footer" style={{ background: '#d1fae5', borderTop: '1px solid rgba(6,95,70,0.12)' }}>
-                    <span className="status-text" style={{ color: '#065f46', fontWeight: 600 }}>Activa</span>
-                    <span className="oportunidad-type-icon"><HiOutlineAcademicCap /><span>Monitoría / Tutoría / Mentoría</span></span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+            <div className="oportunidades-monitoria-page__pagination">
               <button type="button" className="btn-volver" disabled={currentPage <= 1} onClick={() => loadOfertas(currentPage - 1)}>Anterior</button>
-              <span style={{ alignSelf: 'center' }}>Página {currentPage} de {totalPages} ({total} ofertas)</span>
+              <span>Página {currentPage} de {totalPages} ({total} ofertas)</span>
               <button type="button" className="btn-volver" disabled={currentPage >= totalPages} onClick={() => loadOfertas(currentPage + 1)}>Siguiente</button>
             </div>
           )}
@@ -274,11 +331,11 @@ export default function OfertasMonitoria() {
 
       {/* Modal selección HV para aplicar */}
       {showModalAplicar && (
-        <div className="modal-overlay" onClick={() => !submittingAplicar && setShowModalAplicar(false)}>
+        <div className="modal-overlay" onClick={closeModalAplicar}>
           <div className="modal-content ofertas-afines-aplicar-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ofertas-afines-aplicar-modal__header">
               <h3 className="ofertas-afines-aplicar-modal__title">Aplicar con hoja de vida</h3>
-              <button type="button" className="ofertas-afines-aplicar-modal__close" onClick={() => !submittingAplicar && setShowModalAplicar(false)} aria-label="Cerrar"><FiX size={22} /></button>
+              <button type="button" className="ofertas-afines-aplicar-modal__close" onClick={closeModalAplicar} aria-label="Cerrar"><FiX size={22} /></button>
             </div>
             <div className="ofertas-afines-aplicar-modal__body">
               <p className="ofertas-afines-aplicar-modal__intro">Seleccione el perfil (hoja de vida) con el que desea postularse:</p>
@@ -290,22 +347,25 @@ export default function OfertasMonitoria() {
                 <>
                   <ul className="ofertas-afines-aplicar-modal__list">
                     {profiles.map((p) => {
-                      const pid = String(p.profileId || p._id);
-                      const name = p.profileName || p.profileText?.slice(0, 50) || `Perfil ${pid.slice(-6)}`;
-                      const isSelected = selectedProfileId === pid;
+                      const versionId = String(p._id ?? '');
+                      const name = p.profileName || p.profileText?.slice(0, 50) || `Perfil ${versionId.slice(-6)}`;
+                      const isSelected = selectedVersionId === versionId;
                       return (
-                        <li key={pid} className="ofertas-afines-aplicar-modal__item">
+                        <li key={versionId} className="ofertas-afines-aplicar-modal__item">
                           <label className={`ofertas-afines-aplicar-modal__label ${isSelected ? 'ofertas-afines-aplicar-modal__label--selected' : ''}`}>
-                            <input type="radio" name="profileMtm" checked={isSelected} onChange={() => setSelectedProfileId(pid)} className="ofertas-afines-aplicar-modal__radio" />
+                            <input type="radio" name="profileMtm" checked={isSelected} onChange={() => setSelectedVersionId(versionId)} className="ofertas-afines-aplicar-modal__radio" />
                             <span className="ofertas-afines-aplicar-modal__name">{name}</span>
                           </label>
                         </li>
                       );
                     })}
                   </ul>
+                  {errorAplicar && (
+                    <p className="ofertas-afines-aplicar-modal__error" role="alert">{errorAplicar}</p>
+                  )}
                   <div className="ofertas-afines-aplicar-modal__footer">
-                    <button type="button" className="ofertas-afines-aplicar-modal__btn ofertas-afines-aplicar-modal__btn--secondary" onClick={() => setShowModalAplicar(false)} disabled={submittingAplicar}>Cancelar</button>
-                    <button type="button" className="ofertas-afines-aplicar-modal__btn ofertas-afines-aplicar-modal__btn--primary" onClick={submitAplicar} disabled={!selectedProfileId || submittingAplicar}>
+                    <button type="button" className="ofertas-afines-aplicar-modal__btn ofertas-afines-aplicar-modal__btn--secondary" onClick={closeModalAplicar} disabled={submittingAplicar}>Cancelar</button>
+                    <button type="button" className="ofertas-afines-aplicar-modal__btn ofertas-afines-aplicar-modal__btn--primary" onClick={submitAplicar} disabled={!selectedVersionId || submittingAplicar}>
                       {submittingAplicar ? 'Enviando...' : 'Enviar postulación'}
                     </button>
                   </div>

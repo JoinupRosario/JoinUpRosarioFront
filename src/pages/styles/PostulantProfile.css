@@ -3000,3 +3000,18 @@ input:checked + .slider:before {
   color: #6b7280;
   font-weight: 500;
 }
+
+/* Modal historial de aplicaciones (admin viendo perfil de postulante) */
+.postulant-historial-aplicaciones-modal {
+  max-width: min(1120px, 96vw);
+  width: 96vw;
+}
+
+.postulant-historial-aplicaciones-modal__table {
+  max-height: min(58vh, 520px);
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}

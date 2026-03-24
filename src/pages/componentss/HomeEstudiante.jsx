@@ -32,7 +32,7 @@ export default function HomeEstudiante() {
   }, []);
 
   return (
-    <div className="home-estudiante">
+    <div className="home-estudiante-page">
       <section className="home-estudiante-banner">
         <div className="home-estudiante-carousel">
           {BANNER_IMAGES.map((src, i) => (

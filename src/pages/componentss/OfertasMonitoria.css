@@ -1,0 +1,88 @@
+/**
+ * Estilos exclusivos para la vista del estudiante:
+ * /#/dashboard/oportunidades-monitoria
+ *
+ * Evita que el contenido quede “angosto” respecto al banner: ocupa todo el ancho
+ * útil del main y anula max-width heredados de .oportunidades-section global.
+ */
+
+.oportunidades-monitoria-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-self: stretch;
+  box-sizing: border-box;
+  background-color: #f8fafc;
+  padding: clamp(16px, 2.8vw, 32px);
+  padding-bottom: 3rem;
+}
+
+/* Banner alineado al mismo ancho que la rejilla */
+.oportunidades-monitoria-page .dashboard-welcome {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin-bottom: clamp(18px, 2vw, 28px);
+}
+
+.oportunidades-monitoria-page .dashboard-welcome h2 {
+  font-size: clamp(1.35rem, 2.5vw, 2rem);
+  line-height: 1.2;
+  padding-right: 7rem; /* espacio para Refrescar absoluto */
+}
+
+.oportunidades-monitoria-page .dashboard-welcome p {
+  max-width: 72ch;
+}
+
+/* Sección de tarjetas: ancho completo del contenedor de página */
+.oportunidades-monitoria-page .oportunidades-section {
+  max-width: none !important;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.oportunidades-monitoria-page .oportunidades-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: clamp(14px, 2vw, 22px);
+  margin-top: 0;
+}
+
+.oportunidades-monitoria-page .oportunidad-card {
+  min-height: 0;
+  width: 100%;
+}
+
+/* Estados vacío / carga: centrados pero sin columna estrecha a la izquierda */
+.oportunidades-monitoria-page .loading-container,
+.oportunidades-monitoria-page .empty-state {
+  width: 100%;
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+.oportunidades-monitoria-page__pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 1.5rem;
+  width: 100%;
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 640px) {
+  .oportunidades-monitoria-page .dashboard-welcome h2 {
+    padding-right: 0;
+  }
+}
