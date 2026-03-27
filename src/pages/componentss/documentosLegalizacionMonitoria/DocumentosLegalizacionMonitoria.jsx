@@ -44,7 +44,10 @@ const emptyForm = () => ({
 
 export default function DocumentosLegalizacionMonitoria({ onVolver }) {
   const { hasPermission } = useAuth();
-  const canCFDL = hasPermission('CFDL');
+  const canView = hasPermission('CDDM');
+  const canCreate = hasPermission('CRDM');
+  const canEdit = hasPermission('ACDM');
+  const canDelete = hasPermission('ELDM');
 
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(false);
@@ -119,7 +122,7 @@ export default function DocumentosLegalizacionMonitoria({ onVolver }) {
   }, [fetchDefinitionsPage, page, listSearch, pagination.limit]);
 
   useEffect(() => {
-    if (!canCFDL) return;
+    if (!canView) return;
     let cancelled = false;
     setLoading(true);
     loadCatalogs()
@@ -134,10 +137,10 @@ export default function DocumentosLegalizacionMonitoria({ onVolver }) {
     return () => {
       cancelled = true;
     };
-  }, [canCFDL, loadCatalogs]);
+  }, [canView, loadCatalogs]);
 
   useEffect(() => {
-    if (!canCFDL) return;
+    if (!canView) return;
     let cancelled = false;
     setListLoading(true);
     fetchDefinitionsPage(page, listSearch, pagination.limit)
@@ -152,7 +155,7 @@ export default function DocumentosLegalizacionMonitoria({ onVolver }) {
     return () => {
       cancelled = true;
     };
-  }, [canCFDL, page, listSearch, pagination.limit, fetchDefinitionsPage]);
+  }, [canView, page, listSearch, pagination.limit, fetchDefinitionsPage]);
 
   const handleSearchSubmit = (e) => {
     e?.preventDefault();
@@ -460,11 +463,11 @@ export default function DocumentosLegalizacionMonitoria({ onVolver }) {
     );
   };
 
-  if (!canCFDL) {
+  if (!canView) {
     return (
       <div className="dlp-page users-content">
         <div className="users-section">
-          <p>No tiene permiso para esta sección (CFDL).</p>
+          <p>No tiene permiso para esta sección.</p>
           <button type="button" className="btn-volver" onClick={onVolver}>
             <FiArrowLeft className="btn-icon" /> Volver
           </button>
@@ -481,9 +484,11 @@ export default function DocumentosLegalizacionMonitoria({ onVolver }) {
             <button type="button" className="btn-volver" onClick={onVolver}>
               <FiArrowLeft className="btn-icon" /> Volver
             </button>
-            <button type="button" className="btn-guardar" onClick={openCreate}>
-              <FiPlus className="btn-icon" /> Definir nuevo documento
-            </button>
+            {canCreate && (
+              <button type="button" className="btn-guardar" onClick={openCreate}>
+                <FiPlus className="btn-icon" /> Definir nuevo documento
+              </button>
+            )}
           </div>
           <div className="section-header">
             <h3>DOCUMENTOS PARA LEGALIZAR MONITORÍA</h3>
@@ -622,16 +627,20 @@ export default function DocumentosLegalizacionMonitoria({ onVolver }) {
                       <FiEye /> Ver
                     </button>
                   </li>
-                  <li>
-                    <button type="button" onClick={() => { setOpenMenuId(null); openEdit(row); }}>
-                      <FiEdit2 /> Editar
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" className="dlp-danger" onClick={() => { setOpenMenuId(null); handleDelete(row); }}>
-                      <FiTrash2 /> Eliminar
-                    </button>
-                  </li>
+                  {canEdit && (
+                    <li>
+                      <button type="button" onClick={() => { setOpenMenuId(null); openEdit(row); }}>
+                        <FiEdit2 /> Editar
+                      </button>
+                    </li>
+                  )}
+                  {canDelete && (
+                    <li>
+                      <button type="button" className="dlp-danger" onClick={() => { setOpenMenuId(null); handleDelete(row); }}>
+                        <FiTrash2 /> Eliminar
+                      </button>
+                    </li>
+                  )}
                 </>
               );
             })()}

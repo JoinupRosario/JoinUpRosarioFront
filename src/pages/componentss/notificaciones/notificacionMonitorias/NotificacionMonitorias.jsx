@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiArrowLeft, FiPlus, FiMoreVertical, FiEye, FiEdit2, FiToggleLeft, FiToggleRight, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiMoreVertical, FiEye, FiEdit2, FiToggleLeft, FiToggleRight, FiUsers, FiSearch } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../../services/api';
 import ModalPlantilla from '../ModalPlantilla';
@@ -52,6 +52,8 @@ export default function NotificacionMonitorias({ onVolver }) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [pagination, setPagination] = useState({ total: 0, pages: 1, limit: 10 });
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -80,12 +82,24 @@ export default function NotificacionMonitorias({ onVolver }) {
     }
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = searchInput.trim();
+      setDebouncedSearch((prev) => {
+        if (prev === next) return prev;
+        setPage(1);
+        return next;
+      });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const loadPlantillas = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/plantillas-notificacion', {
-        params: { tipo: TIPO, page, limit: perPage },
-      });
+      const params = { tipo: TIPO, page, limit: perPage };
+      if (debouncedSearch) params.search = debouncedSearch;
+      const { data } = await api.get('/plantillas-notificacion', { params });
       setPlantillas(Array.isArray(data?.data) ? data.data : []);
       setPagination(data?.pagination || { total: 0, pages: 1, limit: perPage });
     } catch (e) {
@@ -95,7 +109,7 @@ export default function NotificacionMonitorias({ onVolver }) {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage]);
+  }, [page, perPage, debouncedSearch]);
 
   useEffect(() => {
     loadParametros();
@@ -212,6 +226,19 @@ export default function NotificacionMonitorias({ onVolver }) {
             <FiPlus /> Crear plantilla
           </button>
         </div>
+        <div className="pn-header-right">
+          <div className="pn-search-input-wrap">
+            <FiSearch className="pn-search-icon" aria-hidden />
+            <input
+              type="search"
+              className="pn-search-input"
+              placeholder="Buscar por evento, asunto o cuerpo…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              aria-label="Buscar plantillas"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="pn-table-wrapper">
@@ -224,11 +251,15 @@ export default function NotificacionMonitorias({ onVolver }) {
           <div className="pn-loading">Cargando...</div>
         ) : listItems.length === 0 && !loading ? (
           <div className="pn-empty">
-            <p>No hay plantillas registradas.</p>
-            
+            <p>
+              {debouncedSearch
+                ? 'No hay plantillas que coincidan con tu búsqueda.'
+                : 'No hay plantillas registradas.'}
+            </p>
           </div>
         ) : (
           <>
+            <div className="pn-table-scroll">
             <table className="pn-table">
               <thead>
                 <tr>
@@ -268,6 +299,7 @@ export default function NotificacionMonitorias({ onVolver }) {
                 ))}
               </tbody>
             </table>
+            </div>
 
             {pagination.pages > 0 && (
               <div className="pn-pagination">

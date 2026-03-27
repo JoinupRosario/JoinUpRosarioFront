@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import ReactQuill from 'react-quill';
-import Select from 'react-select';
+import Select, { createFilter } from 'react-select';
 import 'react-quill/dist/quill.snow.css';
 import {
   FiChevronRight,
@@ -36,6 +36,12 @@ const FRECUENCIAS = [
   { value: 'semanal', label: 'Semanal' },
 ];
 
+const selectSearchFilter = createFilter({
+  ignoreCase: true,
+  ignoreAccents: true,
+  matchFrom: 'any',
+});
+
 export default function ModalPlantilla({
   open,
   tipo,
@@ -54,8 +60,8 @@ export default function ModalPlantilla({
   const [catalogVariables, setCatalogVariables] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [selectedVariableKeys, setSelectedVariableKeys] = useState([]);
-  const [destinatariosCatalog, setDestinatariosCatalog] = useState([]);
-  const [destinatariosLoading, setDestinatariosLoading] = useState(false);
+  const [rolesCatalog, setRolesCatalog] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
   const [selectedDestinatarios, setSelectedDestinatarios] = useState([]);
 
   const isEditing = !!editingItem;
@@ -98,15 +104,22 @@ export default function ModalPlantilla({
     }).catch(() => setCatalogVariables([])).finally(() => setCatalogLoading(false));
   }, [open]);
 
-  // Cargar destinatarios al abrir el modal (paso 1)
+  // Roles del sistema (destinatarios = usuarios con ese rol asignado en administrativos)
   useEffect(() => {
     if (!open) return;
-    setDestinatariosLoading(true);
-    api.get('/destinatarios-notificacion').then((res) => {
-      const list = res.data?.data ?? res.data ?? [];
-      setDestinatariosCatalog(Array.isArray(list) ? list : []);
-    }).catch(() => setDestinatariosCatalog([])).finally(() => setDestinatariosLoading(false));
+    setRolesLoading(true);
+    api
+      .get('/roles?estado=activos&limit=100')
+      .then((res) => {
+        const list = res.data?.data ?? res.data ?? [];
+        setRolesCatalog(Array.isArray(list) ? list : []);
+      })
+      .catch(() => setRolesCatalog([]))
+      .finally(() => setRolesLoading(false));
   }, [open]);
+
+  const labelDestinatario = (idOrKey) =>
+    rolesCatalog.find((r) => String(r._id) === String(idOrKey))?.nombre || idOrKey;
 
   const handleClose = () => {
     setStep(0);
@@ -190,26 +203,39 @@ export default function ModalPlantilla({
               <p className="pn-step-desc">Seleccione el evento y a quiénes irá dirigida la notificación.</p>
               <div className="pn-form-group">
                 <label>El evento *</label>
-                <select
-                  className="pn-select"
-                  value={selectedParametro ? String(selectedParametro._id) : ''}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    if (!id) {
+                <Select
+                  isSearchable
+                  isClearable
+                  filterOption={selectSearchFilter}
+                  placeholder="Buscar o seleccionar evento..."
+                  options={parametrosDisponibles.map((p) => ({
+                    value: String(p._id),
+                    label: p.nombre || p.value || String(p._id),
+                  }))}
+                  value={
+                    selectedParametro
+                      ? {
+                          value: String(selectedParametro._id),
+                          label: selectedParametro.nombre || selectedParametro.value || String(selectedParametro._id),
+                        }
+                      : null
+                  }
+                  onChange={(opt) => {
+                    if (!opt) {
                       setSelectedParametro(null);
                       return;
                     }
-                    const p = parametrosDisponibles.find((x) => String(x._id) === id);
+                    const p = parametrosDisponibles.find((x) => String(x._id) === String(opt.value));
                     setSelectedParametro(p || null);
                   }}
-                >
-                  <option value="">Seleccione el evento...</option>
-                  {parametrosDisponibles.map((p) => (
-                    <option key={p._id} value={String(p._id)}>
-                      {p.nombre || p.value}
-                    </option>
-                  ))}
-                </select>
+                  isDisabled={parametrosDisponibles.length === 0}
+                  className="pn-select-variables"
+                  classNamePrefix="pn-select"
+                  noOptionsMessage={() => 'No hay eventos disponibles.'}
+                  menuPortalTarget={document.body}
+                  menuPosition="fixed"
+                  styles={{ menuPortal: (base) => ({ ...base, zIndex: 1100 }) }}
+                />
                 {parametrosDisponibles.length === 0 && (
                   <p className="pn-step-desc" style={{ marginTop: 8 }}>
                     No hay eventos.
@@ -222,26 +248,31 @@ export default function ModalPlantilla({
                   <label>Destinatarios de la notificación *</label>
                   <Select
                     isMulti
-                    placeholder={destinatariosLoading ? 'Cargando destinatarios...' : 'Seleccione a quiénes va dirigida esta notificación...'}
-                    options={destinatariosCatalog.map((d) => ({
-                      value: (d.key || '').toLowerCase(),
-                      label: d.label || d.key || '',
+                    isSearchable
+                    filterOption={selectSearchFilter}
+                    closeMenuOnSelect={false}
+                    placeholder={rolesLoading ? 'Cargando roles...' : 'Buscar o seleccionar roles...'}
+                    options={rolesCatalog.map((r) => ({
+                      value: String(r._id),
+                      label: r.nombre || String(r._id),
                     }))}
-                    value={selectedDestinatarios.map((key) => {
-                      const d = destinatariosCatalog.find((c) => (c.key || '').toLowerCase() === key);
-                      return { value: key, label: d?.label || key };
-                    })}
+                    value={selectedDestinatarios.map((key) => ({
+                      value: key,
+                      label: labelDestinatario(key),
+                    }))}
                     onChange={(selected) => setSelectedDestinatarios((selected || []).map((s) => s.value))}
-                    isDisabled={destinatariosLoading}
+                    isDisabled={rolesLoading}
                     className="pn-select-variables"
                     classNamePrefix="pn-select"
-                    noOptionsMessage={() => 'No hay destinatarios. Ejecuta el seeder de destinatarios-notificacion en el backend.'}
+                    noOptionsMessage={() =>
+                      'No hay roles activos o no tienes permiso para listarlos (AMRO / LRO).'
+                    }
                     menuPortalTarget={document.body}
                     menuPosition="fixed"
                     styles={{ menuPortal: (base) => ({ ...base, zIndex: 1100 }) }}
                   />
                   <p className="pn-step-desc" style={{ marginTop: 6, marginBottom: 0 }}>
-                    Coordinadores, estudiantes, administradores, postulantes, docentes, etc.
+                    Se enviará a todos los usuarios administrativos activos que tengan el rol seleccionado.
                   </p>
                 </div>
               )}
@@ -272,7 +303,10 @@ export default function ModalPlantilla({
                 <label>Variables para esta plantilla</label>
                 <Select
                   isMulti
-                  placeholder={catalogLoading ? 'Cargando variables...' : 'Seleccione las variables que usará en asunto y cuerpo...'}
+                  isSearchable
+                  filterOption={selectSearchFilter}
+                  closeMenuOnSelect={false}
+                  placeholder={catalogLoading ? 'Cargando variables...' : 'Buscar o seleccionar variables...'}
                   options={catalogVariables.map((v) => ({
                     value: (v.key || '').toUpperCase(),
                     label: `[${(v.key || '').toUpperCase()}] ${v.label || v.key || ''}`,
@@ -353,7 +387,7 @@ export default function ModalPlantilla({
                   <span className="pn-review-label">Destinatarios</span>
                   <span className="pn-review-value">
                     {selectedDestinatarios.length > 0
-                      ? selectedDestinatarios.map((key) => destinatariosCatalog.find((d) => (d.key || '').toLowerCase() === key)?.label || key).join(', ')
+                      ? selectedDestinatarios.map((key) => labelDestinatario(key)).join(', ')
                       : '—'}
                   </span>
                 </div>

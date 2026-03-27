@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
-import Select from 'react-select';
+import Select, { createFilter } from 'react-select';
 import { FiX } from 'react-icons/fi';
 import api from '../../../services/api';
 import '../../styles/notificaciones.css';
+
+const selectSearchFilter = createFilter({
+  ignoreCase: true,
+  ignoreAccents: true,
+  matchFrom: 'any',
+});
 
 /**
  * Modal para ver y editar los destinatarios de una plantilla.
  */
 export default function ModalDestinatarios({ open, item, onSave, onClose }) {
-  const [catalog, setCatalog] = useState([]);
+  const [rolesCatalog, setRolesCatalog] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState([]);
 
@@ -16,11 +22,18 @@ export default function ModalDestinatarios({ open, item, onSave, onClose }) {
     if (!open) return;
     setSelectedKeys(item?.destinatarios || []);
     setLoading(true);
-    api.get('/destinatarios-notificacion').then((res) => {
-      const list = res.data?.data ?? res.data ?? [];
-      setCatalog(Array.isArray(list) ? list : []);
-    }).catch(() => setCatalog([])).finally(() => setLoading(false));
+    api
+      .get('/roles?estado=activos&limit=100')
+      .then((res) => {
+        const list = res.data?.data ?? res.data ?? [];
+        setRolesCatalog(Array.isArray(list) ? list : []);
+      })
+      .catch(() => setRolesCatalog([]))
+      .finally(() => setLoading(false));
   }, [open, item]);
+
+  const labelRol = (idOrKey) =>
+    rolesCatalog.find((r) => String(r._id) === String(idOrKey))?.nombre || idOrKey;
 
   const handleGuardar = () => {
     onSave(selectedKeys);
@@ -38,19 +51,24 @@ export default function ModalDestinatarios({ open, item, onSave, onClose }) {
           <button type="button" className="pn-modal-close" onClick={onClose}><FiX /></button>
         </div>
         <div className="pn-modal-body">
-          <p className="pn-step-desc">Seleccione a quiénes va dirigida esta notificación.</p>
+          <p className="pn-step-desc">
+            Seleccione los roles del sistema; el correo llegará a los administrativos activos con ese rol.
+          </p>
           <div className="pn-form-group">
             <Select
               isMulti
-              placeholder={loading ? 'Cargando...' : 'Seleccione destinatarios...'}
-              options={catalog.map((d) => ({
-                value: (d.key || '').toLowerCase(),
-                label: d.label || d.key || '',
+              isSearchable
+              filterOption={selectSearchFilter}
+              closeMenuOnSelect={false}
+              placeholder={loading ? 'Cargando roles...' : 'Buscar o seleccionar roles...'}
+              options={rolesCatalog.map((r) => ({
+                value: String(r._id),
+                label: r.nombre || String(r._id),
               }))}
-              value={selectedKeys.map((key) => {
-                const d = catalog.find((c) => (c.key || '').toLowerCase() === key);
-                return { value: key, label: d?.label || key };
-              })}
+              value={selectedKeys.map((key) => ({
+                value: key,
+                label: labelRol(key),
+              }))}
               onChange={(selected) => setSelectedKeys((selected || []).map((s) => s.value))}
               isDisabled={loading}
               className="pn-select-variables"

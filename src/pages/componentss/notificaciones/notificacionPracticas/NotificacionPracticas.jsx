@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiArrowLeft, FiPlus, FiMoreVertical, FiEye, FiEdit2, FiToggleLeft, FiToggleRight, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiMoreVertical, FiEye, FiEdit2, FiToggleLeft, FiToggleRight, FiUsers, FiSearch } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../../services/api';
 import ModalPlantilla from '../ModalPlantilla';
@@ -8,8 +8,16 @@ import ModalDestinatarios from '../ModalDestinatarios';
 import OptionsMenuPortal from '../OptionsMenuPortal';
 import '../../../styles/notificaciones.css';
 
-const TIPO = 'practica';
+/** Vista oportunidad/práctica: eventos de práctica + generales (entidad, tutores, credenciales). */
+const TIPOS_PLANTILLA = 'practica,general';
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+function etiquetaAmbitoEvento(tipo) {
+  if (tipo === 'general') return 'General';
+  if (tipo === 'practica') return 'Práctica';
+  if (tipo === 'monitoria') return 'Monitoría';
+  return tipo || '—';
+}
 
 const FRECUENCIAS = [
   { value: 'inmediato', label: 'Inmediato' },
@@ -36,6 +44,7 @@ function mapPlantillaToItem(p) {
     parametroId: param._id,
     value: param.value,
     nombre: param.nombre || param.value,
+    eventoTipo: param.tipo,
     asunto: p.asunto,
     cuerpo: p.cuerpo,
     frecuencia: p.frecuencia || 'inmediato',
@@ -54,6 +63,8 @@ export default function NotificacionPracticas({ onVolver }) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [pagination, setPagination] = useState({ total: 0, pages: 1, limit: 10 });
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -70,7 +81,7 @@ export default function NotificacionPracticas({ onVolver }) {
     setParametrosLoading(true);
     setParametrosError(null);
     try {
-      const { data } = await api.get('/parametros-plantilla', { params: { tipo: TIPO } });
+      const { data } = await api.get('/parametros-plantilla', { params: { tipo: TIPOS_PLANTILLA } });
       const list = data?.data ?? data ?? [];
       setParametros(Array.isArray(list) ? list : []);
     } catch (e) {
@@ -82,12 +93,24 @@ export default function NotificacionPracticas({ onVolver }) {
     }
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = searchInput.trim();
+      setDebouncedSearch((prev) => {
+        if (prev === next) return prev;
+        setPage(1);
+        return next;
+      });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const loadPlantillas = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/plantillas-notificacion', {
-        params: { tipo: TIPO, page, limit: perPage },
-      });
+      const params = { tipo: TIPOS_PLANTILLA, page, limit: perPage };
+      if (debouncedSearch) params.search = debouncedSearch;
+      const { data } = await api.get('/plantillas-notificacion', { params });
       setPlantillas(Array.isArray(data?.data) ? data.data : []);
       setPagination(data?.pagination || { total: 0, pages: 1, limit: perPage });
     } catch (e) {
@@ -97,7 +120,7 @@ export default function NotificacionPracticas({ onVolver }) {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage]);
+  }, [page, perPage, debouncedSearch]);
 
   useEffect(() => {
     loadParametros();
@@ -213,6 +236,19 @@ export default function NotificacionPracticas({ onVolver }) {
             <FiPlus /> Crear plantilla
           </button>
         </div>
+        <div className="pn-header-right">
+          <div className="pn-search-input-wrap">
+            <FiSearch className="pn-search-icon" aria-hidden />
+            <input
+              type="search"
+              className="pn-search-input"
+              placeholder="Buscar por evento, asunto o cuerpo…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              aria-label="Buscar plantillas"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="pn-table-wrapper">
@@ -225,14 +261,19 @@ export default function NotificacionPracticas({ onVolver }) {
           <div className="pn-loading">Cargando...</div>
         ) : listItems.length === 0 && !loading ? (
           <div className="pn-empty">
-            <p>No hay plantillas registradas. </p>
-          
+            <p>
+              {debouncedSearch
+                ? 'No hay plantillas que coincidan con tu búsqueda.'
+                : 'No hay plantillas registradas.'}
+            </p>
           </div>
         ) : (
           <>
+            <div className="pn-table-scroll">
             <table className="pn-table">
               <thead>
                 <tr>
+                  <th className="pn-th-ambito">Ámbito</th>
                   <th>Plantilla</th>
                   <th>Asunto</th>
                   <th>Frecuencia</th>
@@ -242,6 +283,7 @@ export default function NotificacionPracticas({ onVolver }) {
               <tbody>
                 {listItems.map((item) => (
                   <tr key={item._id}>
+                    <td className="pn-td-ambito">{etiquetaAmbitoEvento(item.eventoTipo)}</td>
                     <td className="pn-td-nombre">{item.nombre || item.value}</td>
                     <td className="pn-td-asunto">{item.asunto || '—'}</td>
                     <td className="pn-td-frecuencia">
@@ -269,6 +311,7 @@ export default function NotificacionPracticas({ onVolver }) {
                 ))}
               </tbody>
             </table>
+            </div>
 
             {pagination.pages > 0 && (
               <div className="pn-pagination">
@@ -344,7 +387,7 @@ export default function NotificacionPracticas({ onVolver }) {
 
       <ModalPlantilla
         open={showModal}
-        tipo={TIPO}
+        tipo={TIPOS_PLANTILLA}
         parametros={parametros}
         savedPlantillas={{}}
         editingItem={editingItem}

@@ -203,7 +203,7 @@ const PostulantProfile = ({ onVolver }) => {
   
   const [postulant, setPostulant] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('datos-personales');
+  const [activeTab, setActiveTab] = useState('info-basica');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editedData, setEditedData] = useState({});
@@ -2492,16 +2492,10 @@ const PostulantProfile = ({ onVolver }) => {
       {/* Tabs de navegación */}
       <div className="postulant-profile-tabs">
         <button
-          className={`profile-tab ${activeTab === 'datos-personales' ? 'active' : ''}`}
-          onClick={() => setActiveTab('datos-personales')}
+          className={`profile-tab ${activeTab === 'info-basica' ? 'active' : ''}`}
+          onClick={() => setActiveTab('info-basica')}
         >
-          DATOS PERSONALES
-        </button>
-        <button
-          className={`profile-tab ${activeTab === 'informacion-academica' ? 'active' : ''}`}
-          onClick={() => setActiveTab('informacion-academica')}
-        >
-          INFORMACIÓN ACADÉMICA
+          INFO BÁSICA
         </button>
         <button
           className={`profile-tab ${activeTab === 'perfil' ? 'active' : ''}`}
@@ -2514,7 +2508,7 @@ const PostulantProfile = ({ onVolver }) => {
       {/* Contenido principal */}
       <div className="postulant-profile-main">
         {/* Pestaña Datos personales: un solo bloque para evitar errores de DOM (removeChild) al cambiar de pestaña */}
-        {activeTab === 'datos-personales' && (
+        {activeTab === 'info-basica' && (
           <div className="profile-tab-content datos-personales-tab">
             {/* Fila 1: mitad = nombre + email + autorizaciones + %; otra mitad = Contacto 2x2 */}
             <div className="datos-personales-row datos-personales-row-1">
@@ -2579,7 +2573,7 @@ const PostulantProfile = ({ onVolver }) => {
               </div>
               <div className="datos-personales-col">
                 <div className="profile-section profile-section-contact profile-section-contact-grid">
-                  <h3 className="profile-section-title">Contacto y redes sociales</h3>
+                  <h3 className="profile-section-title">Contacto</h3>
                   <div className="profile-contact-grid-2x2">
                     <div className="contact-item">
                       <div className="contact-icon-wrapper"><FiPhone className="contact-icon" /></div>
@@ -2615,7 +2609,8 @@ const PostulantProfile = ({ onVolver }) => {
               <div className="datos-personales-col">
                 <div className="profile-section profile-section-identification">
                   <h3 className="profile-section-title">Identificación</h3>
-                  <div className="profile-data-grid profile-data-grid-identificacion">
+                  {isEditing ? (
+                    <div className="profile-data-grid profile-data-grid-identificacion">
               <div className="profile-data-field">
                 <label className="profile-field-label">
                   <span className="field-label-separator">|</span>
@@ -2696,12 +2691,39 @@ const PostulantProfile = ({ onVolver }) => {
                   </div>
                 )}
               </div>
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="profile-contact-grid-2x2 profile-contact-grid-readonly">
+                      <div className="contact-item">
+                        <span className="contact-sublabel">Tipo de documento</span>
+                        <span className="contact-text">
+                          {typeof postulant.type_doc_postulant === 'object' && postulant.type_doc_postulant !== null
+                            ? (postulant.type_doc_postulant.name ?? postulant.type_doc_postulant.value ?? '-')
+                            : (postulant.type_doc_postulant || '-')}
+                        </span>
+                      </div>
+                      <div className="contact-item">
+                        <span className="contact-sublabel">Número de documento</span>
+                        <span className="contact-text">
+                          {(profileData?.postulantProfile?.studentCode ?? postulant?.identity_postulant ?? '-') || '-'}
+                        </span>
+                      </div>
+                      <div className="contact-item">
+                        <span className="contact-sublabel">Sexo</span>
+                        <span className="contact-text">
+                          {typeof postulant.gender_postulant === 'object' && postulant.gender_postulant !== null
+                            ? (postulant.gender_postulant.name ?? postulant.gender_postulant.value ?? '-')
+                            : (postulant.gender_postulant || '-')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="datos-personales-col">
                 <div className="profile-section profile-section-ubicacion">
                   <h3 className="profile-section-title">Ubicación y datos adicionales</h3>
+                  {isEditing ? (
             <div className="profile-data-grid">
               <div className="profile-data-field">
                 <label className="profile-field-label">
@@ -2808,60 +2830,40 @@ const PostulantProfile = ({ onVolver }) => {
                 )}
               </div>
             </div>
+                  ) : (
+                    <div className="profile-contact-grid-2x2 profile-contact-grid-readonly">
+                      <div className="contact-item">
+                        <span className="contact-sublabel">País de nacimiento</span>
+                        <span className="contact-text">{postulant.nac_country?.name || '-'}</span>
+                      </div>
+                      <div className="contact-item">
+                        <span className="contact-sublabel">Dirección</span>
+                        <span className="contact-text">{postulant.address || '-'}</span>
+                      </div>
+                      <div className="contact-item">
+                        <span className="contact-sublabel">País de residencia</span>
+                        <span className="contact-text">{postulant.residence_country?.name || '-'}</span>
+                      </div>
+                      <div className="contact-item">
+                        <span className="contact-sublabel">Departamento de residencia</span>
+                        <span className="contact-text">{postulant.residence_department?.name || '-'}</span>
+                      </div>
+                      <div className="contact-item">
+                        <span className="contact-sublabel">Ciudad de residencia</span>
+                        <span className="contact-text">{postulant.residence_city?.name || '-'}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'informacion-academica' && (
+        {activeTab === 'info-basica' && (
           <div className="profile-tab-content academic-tab">
             <div className="academic-warning-banner">
               Atención! La Universidad del Rosario no se hace responsable de la veracidad de la información ingresada en relación a los estudios o experiencia externos a la institución relacionados por el postulante.
-            </div>
-
-            {/* Resumen: correo institucional, código del estudiante, PIDM, SSC semestres según créditos */}
-            <div className="profile-section profile-section-contact">
-              <div className="academic-summary-row">
-                <div className="profile-contact-info academic-summary-contact">
-                  <div className="contact-item">
-                    <div className="contact-icon-wrapper">
-                      <FiMail className="contact-icon" />
-                    </div>
-                    <span className="contact-text" title="Correo institucional">
-                      {profileData?.postulantProfile?.academicUser ?? postulant?.user?.email ?? '—'}
-                    </span>
-                  </div>
-                  <div className="contact-item">
-                    <div className="contact-icon-wrapper">
-                      <FiUser className="contact-icon" />
-                    </div>
-                    <span className="contact-text" title="Código del estudiante">
-                      {profileData?.postulantProfile?.studentCode ?? postulant?.identity_postulant ?? '—'}
-                    </span>
-                  </div>
-                  <div className="contact-item">
-                    <div className="contact-icon-wrapper">
-                      <FiGrid className="contact-icon" />
-                    </div>
-                    <span className="contact-text" title="PIDM">
-                      {profileData?.postulantProfile?.academicId != null ? String(profileData.postulantProfile.academicId) : (postulant?.identity_postulant ?? '—')}
-                    </span>
-                  </div>
-                  <div className="contact-item">
-                    <div className="contact-icon-wrapper">
-                      <FiBook className="contact-icon" />
-                    </div>
-                    <span className="contact-text" title="SSC semestres según créditos aprobados (calculado)">
-                      {(() => {
-                        const ssc = getSscSemestersFromCredits(profileData);
-                        if (ssc != null) return String(ssc);
-                        return '—';
-                      })()}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Rosario - En curso: tabla con columnas; "Cursos aprobados" en Opciones abre modal */}

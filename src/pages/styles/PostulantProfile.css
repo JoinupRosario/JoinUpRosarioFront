@@ -542,8 +542,8 @@ input:checked + .slider:before {
 }
 
 .profile-section-contact {
-  background: linear-gradient(180deg, #fefafb 0%, #fff 100%);
-  border-color: #fecaca;
+  background: #fff;
+  border-color: #e5e7eb;
 }
 
 /* Datos personales: layout 2 columnas (fila 1: resumen | contacto 2x2; fila 2: identificación | ubicación) */
@@ -557,6 +557,21 @@ input:checked + .slider:before {
 
 .datos-personales-tab .datos-personales-col {
   min-width: 0;
+}
+
+/* Fila 2: igualar altura entre Identificación y Ubicación */
+.datos-personales-tab .datos-personales-row-2 {
+  align-items: stretch;
+}
+
+.datos-personales-tab .datos-personales-row-2 .datos-personales-col {
+  display: flex;
+}
+
+.datos-personales-tab .datos-personales-row-2 .profile-section {
+  width: 100%;
+  height: 100%;
+  margin-bottom: 0;
 }
 
 .datos-personales-tab .datos-personales-col-summary {
@@ -626,6 +641,42 @@ input:checked + .slider:before {
 
 .datos-personales-tab .profile-contact-grid-2x2 .contact-item {
   min-width: 0;
+}
+
+.datos-personales-tab .profile-contact-grid-readonly {
+  align-items: stretch;
+  margin-top: 10px;
+  gap: 12px 16px;
+}
+
+.datos-personales-tab .profile-contact-grid-readonly .contact-item {
+  min-width: 0;
+  align-items: flex-start;
+  text-align: left;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  gap: 2px;
+}
+
+.contact-sublabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: left;
+  width: 100%;
+}
+
+.datos-personales-tab .profile-contact-grid-readonly .contact-text {
+  font-size: 12px;
+  text-align: left;
+  width: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* Identificación: 2 arriba, 1 abajo centrado */
