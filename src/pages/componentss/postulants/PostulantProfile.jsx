@@ -2495,7 +2495,7 @@ const PostulantProfile = ({ onVolver }) => {
           className={`profile-tab ${activeTab === 'info-basica' ? 'active' : ''}`}
           onClick={() => setActiveTab('info-basica')}
         >
-          INFO BÁSICA
+          INFO BÁSICA Y ACADÉMICA
         </button>
         <button
           className={`profile-tab ${activeTab === 'perfil' ? 'active' : ''}`}
