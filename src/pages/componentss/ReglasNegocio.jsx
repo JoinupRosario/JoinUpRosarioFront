@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
-import { FiArrowLeft, FiSave } from 'react-icons/fi';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { FiArrowLeft, FiSave, FiMoreVertical, FiX, FiEdit2, FiPlusCircle, FiBook } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import OptionsMenuPortal from './notificaciones/OptionsMenuPortal';
 import '../styles/Configuracion.css';
+import '../styles/notificaciones.css';
 
 const CODE_OPPORTUNITY_MIN_EXPIRY_DAYS = 'OPPORTUNITY_MIN_EXPIRY_DAYS';
 const CODE_PRACTICE_START_DAYS_AFTER_EXPIRY = 'PRACTICE_START_DAYS_AFTER_EXPIRY';
@@ -41,7 +44,90 @@ const TABS = [
   { id: 'mtm-aceptar', label: 'Aceptar selección MTM' },
   { id: 'jornada-practica', label: 'Jornada práctica' },
   { id: 'min-apoyo', label: 'Mínimo apoyo ($)' },
+  { id: 'programa-tipo', label: 'Programa / tipo práctica' },
 ];
+
+/** Filas por página: backend con `page`, `limit` y `search`. */
+const TP_PAGE_SIZE = 10;
+
+function normTipoPermitido(r) {
+  return String(r?.tipoPermitido ?? '')
+    .trim()
+    .toUpperCase();
+}
+
+/**
+ * Texto en columna "Tipo actual": etiquetas vienen del API (`typePracticeLabels` / `typePracticeLabel`)
+ * o del catálogo cargado por listId (`catalogItems`); sin textos de negocio fijos.
+ */
+function displayTipoPracticaRow(r, catalogItems = []) {
+  const ids =
+    Array.isArray(r.typePracticeItemIds) && r.typePracticeItemIds.length > 0
+      ? r.typePracticeItemIds
+      : r.typePracticeItemId
+        ? [r.typePracticeItemId]
+        : [];
+
+  const apiLabels = Array.isArray(r.typePracticeLabels)
+    ? r.typePracticeLabels.map((x) => String(x).trim()).filter(Boolean)
+    : [];
+  if (apiLabels.length > 0) {
+    return apiLabels.join(', ');
+  }
+
+  if (ids.length > 0 && catalogItems.length > 0) {
+    const fromCatalog = ids
+      .map((id) => catalogItems.find((it) => String(it._id) === String(id))?.value)
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean);
+    if (fromCatalog.length === ids.length) {
+      return fromCatalog.join(', ');
+    }
+    if (fromCatalog.length > 0 && ids.length > 1) {
+      const missing = ids.length - fromCatalog.length;
+      const api = r.typePracticeLabel && String(r.typePracticeLabel).trim();
+      const apiLooksMulti =
+        api && (api.includes(',') || api.split(',').map((s) => s.trim()).filter(Boolean).length >= ids.length);
+      if (apiLooksMulti) return api;
+      return `${fromCatalog.join(', ')} · +${missing} en BD (no figuran en ítems activos de este listId)`;
+    }
+    if (fromCatalog.length > 0) {
+      return fromCatalog.join(', ');
+    }
+  }
+
+  if (r.typePracticeLabel && String(r.typePracticeLabel).trim()) {
+    return r.typePracticeLabel.trim();
+  }
+
+  if (normTipoPermitido(r) === 'NO_APLICA') {
+    return { empty: true, text: 'Sin parametrizar' };
+  }
+
+  if (ids.length > 0) {
+    return 'Tipos en BD sin etiqueta en el catálogo de esta pantalla';
+  }
+
+  return '—';
+}
+
+function renderTipoPracticaCell(r, catalogItems) {
+  const v = displayTipoPracticaRow(r, catalogItems);
+  if (v === null) return null;
+  if (typeof v === 'object' && v.empty) {
+    return <span className="reglas-tp-cell-empty" title="Aún no hay tipo de práctica asignado para este programa">{v.text}</span>;
+  }
+  return v;
+}
+
+/** Sin regla en BD: solo enum NO_APLICA (sin ítem de catálogo). */
+function rowNeedsTpParametrizacion(r) {
+  return normTipoPermitido(r) === 'NO_APLICA';
+}
+
+function tpModalTitleForRow(r) {
+  return rowNeedsTpParametrizacion(r) ? 'Parametrizar' : 'Editar';
+}
 
 export default function ReglasNegocio({ onVolver }) {
   const [activeTab, setActiveTab] = useState(0);
@@ -63,6 +149,175 @@ export default function ReglasNegocio({ onVolver }) {
   /** Texto libre en el input (solo dígitos); se valida al guardar — evita el “salto” a 500.000 al borrar. */
   const [minApoyoCopInput, setMinApoyoCopInput] = useState(String(DEFAULT_MIN_APOYO_COP));
   const [minApoyoCopId, setMinApoyoCopId] = useState(null);
+
+  /** Pestaña: programa → tipo de práctica (cargue estudiantes / UEJOBS) */
+  const [tpLoading, setTpLoading] = useState(false);
+  const [tpList, setTpList] = useState([]);
+  const [tpPagination, setTpPagination] = useState({ page: 1, pages: 1, total: 0, limit: TP_PAGE_SIZE });
+  const [tpPage, setTpPage] = useState(1);
+  const [tpSearchInput, setTpSearchInput] = useState('');
+  const [tpSearchActive, setTpSearchActive] = useState('');
+  const [tpMenuProgramId, setTpMenuProgramId] = useState(null);
+  const [tpMenuAnchorRect, setTpMenuAnchorRect] = useState(null);
+  const [tpModalRow, setTpModalRow] = useState(null);
+  /** Selección múltiple: ids de `items` (listId tipo práctica). */
+  const [tpModalSelectedIds, setTpModalSelectedIds] = useState([]);
+  /** Si true, guardar null (no aplica UEJOBS). */
+  const [tpModalNoAplica, setTpModalNoAplica] = useState(false);
+  const [tpModalSaving, setTpModalSaving] = useState(false);
+  const [tpCatalogItems, setTpCatalogItems] = useState([]);
+  const [tpCatalogListId, setTpCatalogListId] = useState('');
+  const [tpCatalogLoading, setTpCatalogLoading] = useState(false);
+  /** Mismo listId que usa el listado (GET type-practice-rules → practiceTypeListId). */
+  const [tpRulesPracticeListId, setTpRulesPracticeListId] = useState('');
+
+  const tpEffectivePracticeListId = useMemo(() => {
+    return (
+      tpCatalogListId ||
+      tpRulesPracticeListId ||
+      (tpList[0] && tpList[0].practiceTypeListId ? String(tpList[0].practiceTypeListId) : '')
+    );
+  }, [tpCatalogListId, tpRulesPracticeListId, tpList]);
+
+  const closeTpMenu = () => {
+    setTpMenuProgramId(null);
+    setTpMenuAnchorRect(null);
+  };
+
+  const closeTpModal = () => {
+    if (tpModalSaving) return;
+    setTpModalRow(null);
+    setTpModalSelectedIds([]);
+    setTpModalNoAplica(false);
+  };
+
+  const openTpModalForRow = (r) => {
+    setTpModalRow(r);
+    setTpModalNoAplica(false);
+    const ids = (Array.isArray(r.typePracticeItemIds) && r.typePracticeItemIds.length > 0
+      ? r.typePracticeItemIds
+      : r.typePracticeItemId
+        ? [r.typePracticeItemId]
+        : []
+    ).map(String);
+    setTpModalSelectedIds(ids);
+    closeTpMenu();
+  };
+
+  const toggleTpModalItem = (itemId) => {
+    const sid = String(itemId);
+    setTpModalNoAplica(false);
+    setTpModalSelectedIds((prev) => {
+      const set = new Set(prev.map(String));
+      if (set.has(sid)) set.delete(sid);
+      else set.add(sid);
+      return [...set];
+    });
+  };
+
+  const loadTypePracticeRules = useCallback(async () => {
+    setTpLoading(true);
+    try {
+      const { data } = await api.get('/programs/type-practice-rules', {
+        params: { page: tpPage, limit: TP_PAGE_SIZE, search: tpSearchActive || undefined },
+      });
+      const rows = data?.data || [];
+      setTpList(rows);
+      setTpRulesPracticeListId(data?.practiceTypeListId ? String(data.practiceTypeListId) : '');
+      setTpPagination(data?.pagination || { page: 1, pages: 1, total: 0, limit: TP_PAGE_SIZE });
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err.response?.data?.message || 'No se pudo cargar la parametrización programa / tipo práctica.',
+        confirmButtonColor: '#c41e3a',
+      });
+      setTpList([]);
+      setTpRulesPracticeListId('');
+    } finally {
+      setTpLoading(false);
+    }
+  }, [tpPage, tpSearchActive]);
+
+  useEffect(() => {
+    if (activeTab !== TABS.length - 1) return;
+    loadTypePracticeRules();
+  }, [activeTab, loadTypePracticeRules]);
+
+  useEffect(() => {
+    if (activeTab !== TABS.length - 1) return;
+    let cancelled = false;
+    (async () => {
+      setTpCatalogLoading(true);
+      try {
+        const { data } = await api.get('/programs/type-practice-rule-items');
+        if (cancelled) return;
+        setTpCatalogListId(data?.listId || '');
+        setTpCatalogItems(Array.isArray(data?.data) ? data.data : []);
+      } catch {
+        if (!cancelled) {
+          setTpCatalogItems([]);
+          setTpCatalogListId('');
+        }
+      } finally {
+        if (!cancelled) setTpCatalogLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== TABS.length - 1) {
+      setTpMenuProgramId(null);
+      setTpMenuAnchorRect(null);
+    }
+  }, [activeTab]);
+
+  const handleTpSearch = (e) => {
+    e.preventDefault();
+    setTpPage(1);
+    setTpSearchActive(tpSearchInput.trim());
+  };
+
+  const handleTpModalSave = async () => {
+    if (!tpModalRow) return;
+    if (!tpModalNoAplica && tpModalSelectedIds.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Seleccione tipos o «No aplica»',
+        text: 'Elija uno o más ítems del catálogo (mismo listId que el API) o marque «No aplica al cargue UEJOBS».',
+        confirmButtonColor: '#c41e3a',
+      });
+      return;
+    }
+    const programId = String(tpModalRow.programId);
+    setTpModalSaving(true);
+    try {
+      const payload = tpModalNoAplica
+        ? { typePracticeItemIds: null }
+        : { typePracticeItemIds: tpModalSelectedIds };
+      await api.put(`/programs/${programId}/type-practice-rule`, payload);
+      Swal.fire({
+        icon: 'success',
+        title: 'Guardado',
+        text: 'Regla actualizada para todas las facultades de este programa.',
+        confirmButtonColor: '#c41e3a',
+      });
+      setTpModalRow(null);
+      setTpModalSelectedIds([]);
+      setTpModalNoAplica(false);
+      await loadTypePracticeRules();
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err.response?.data?.message || 'No se pudo guardar.',
+        confirmButtonColor: '#c41e3a',
+      });
+    } finally {
+      setTpModalSaving(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -415,10 +670,297 @@ export default function ReglasNegocio({ onVolver }) {
                   </p>
                 </div>
               )}
+
+              {activeTab === 7 && (
+                <div className="reglas-tp-section reglas-tp-section--pn">
+                  <form className="reglas-tp-toolbar" onSubmit={handleTpSearch}>
+                    <input
+                      type="search"
+                      className="reglas-tp-search-input"
+                      placeholder="Buscar por nombre o código de programa..."
+                      value={tpSearchInput}
+                      onChange={(e) => setTpSearchInput(e.target.value)}
+                      aria-label="Buscar programa"
+                    />
+                    <button type="submit" className="reglas-tp-btn-buscar" disabled={tpLoading}>
+                      Buscar
+                    </button>
+                  </form>
+
+                  <div className="reglas-tp-table-container">
+                    {tpLoading ? (
+                      <div className="reglas-tp-loading-container">
+                        <div className="reglas-tp-loading-spinner" aria-hidden />
+                        <p>Cargando programas...</p>
+                      </div>
+                    ) : tpList.length === 0 ? (
+                      <div className="reglas-tp-empty-state">
+                        <FiBook className="reglas-tp-empty-icon" aria-hidden />
+                        <h3>No se encontraron programas</h3>
+                        <p>
+                          {tpSearchActive
+                            ? 'Probá con otro nombre o código de programa.'
+                            : 'No hay programas que mostrar en esta página.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <table className="reglas-tp-table">
+                        <thead>
+                          <tr>
+                            <th>Programa</th>
+                            <th>Facultades (planes)</th>
+                            <th>Tipo actual</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tpList.map((r) => {
+                            const pid = String(r.programId);
+                            return (
+                              <tr key={pid}>
+                                <td className="reglas-tp-td-programa">
+                                  <strong>{r.name}</strong>
+                                  {r.code ? (
+                                    <span className="reglas-tp-code-sub">Código: {r.code}</span>
+                                  ) : null}
+                                </td>
+                                <td>{r.programFacultyCount}</td>
+                                <td className="reglas-tp-td-tipo">{renderTipoPracticaCell(r, tpCatalogItems)}</td>
+                                <td className="reglas-tp-td-acciones">
+                                  <div className="reglas-tp-options-wrap">
+                                    <button
+                                      type="button"
+                                      className="reglas-tp-btn-opciones"
+                                      onClick={(e) => {
+                                        if (tpMenuProgramId === pid) {
+                                          closeTpMenu();
+                                        } else {
+                                          setTpMenuProgramId(pid);
+                                          setTpMenuAnchorRect(e.currentTarget.getBoundingClientRect());
+                                        }
+                                      }}
+                                      title="Opciones"
+                                      aria-expanded={tpMenuProgramId === pid}
+                                      aria-haspopup="menu"
+                                    >
+                                      <FiMoreVertical /> Opciones
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+
+                  {!tpLoading && tpPagination.total > 0 && (
+                    <div className="reglas-tp-pagination" role="navigation" aria-label="Paginación de programas">
+                      <span className="reglas-tp-pagination-info">
+                        Mostrando{' '}
+                        {((tpPagination.page - 1) * (tpPagination.limit || TP_PAGE_SIZE)) + 1}–
+                        {Math.min(tpPagination.page * (tpPagination.limit || TP_PAGE_SIZE), tpPagination.total)} de{' '}
+                        <strong>{tpPagination.total}</strong> programas
+                      </span>
+                      <div className="reglas-tp-pagination-controls">
+                        <button
+                          type="button"
+                          className="reglas-tp-page-btn"
+                          onClick={() => setTpPage(1)}
+                          disabled={tpPage <= 1 || tpLoading}
+                          title="Primera página"
+                        >
+                          «
+                        </button>
+                        <button
+                          type="button"
+                          className="reglas-tp-page-btn"
+                          onClick={() => setTpPage((p) => Math.max(1, p - 1))}
+                          disabled={tpPage <= 1 || tpLoading}
+                        >
+                          ‹ Anterior
+                        </button>
+                        {Array.from({ length: Math.min(5, tpPagination.pages) }, (_, i) => {
+                          const half = 2;
+                          let start = Math.max(1, tpPage - half);
+                          const end = Math.min(tpPagination.pages, start + 4);
+                          start = Math.max(1, end - 4);
+                          return start + i;
+                        })
+                          .filter((n) => n >= 1 && n <= tpPagination.pages)
+                          .map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              className={`reglas-tp-page-btn ${n === tpPage ? 'reglas-tp-page-btn--active' : ''}`}
+                              onClick={() => setTpPage(n)}
+                              disabled={tpLoading}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        <button
+                          type="button"
+                          className="reglas-tp-page-btn"
+                          onClick={() => setTpPage((p) => Math.min(tpPagination.pages, p + 1))}
+                          disabled={tpPage >= tpPagination.pages || tpLoading}
+                        >
+                          Siguiente ›
+                        </button>
+                        <button
+                          type="button"
+                          className="reglas-tp-page-btn"
+                          onClick={() => setTpPage(tpPagination.pages)}
+                          disabled={tpPage >= tpPagination.pages || tpLoading}
+                          title="Última página"
+                        >
+                          »
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      <OptionsMenuPortal
+        open={activeTab === TABS.length - 1 && !!tpMenuProgramId}
+        anchorRect={tpMenuAnchorRect}
+        onClose={closeTpMenu}
+      >
+        {tpMenuProgramId && (() => {
+          const row = tpList.find((x) => String(x.programId) === tpMenuProgramId);
+          if (!row) return null;
+          const parametrizar = rowNeedsTpParametrizacion(row);
+          return (
+            <button
+              type="button"
+              className="pn-options-item"
+              onClick={() => openTpModalForRow(row)}
+            >
+              {parametrizar ? <FiPlusCircle /> : <FiEdit2 />}
+              {parametrizar ? 'Parametrizar' : 'Editar'}
+            </button>
+          );
+        })()}
+      </OptionsMenuPortal>
+
+      {createPortal(
+        tpModalRow ? (
+          <div
+            className="reglas-tp-modal-overlay"
+            role="presentation"
+            onClick={() => !tpModalSaving && closeTpModal()}
+          >
+            <div
+              className="pn-modal reglas-tp-modal-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reglas-tp-modal-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="pn-modal-header">
+                <h3 id="reglas-tp-modal-title">{tpModalTitleForRow(tpModalRow)}</h3>
+                <button
+                  type="button"
+                  className="pn-modal-close"
+                  onClick={closeTpModal}
+                  disabled={tpModalSaving}
+                  aria-label="Cerrar"
+                >
+                  <FiX />
+                </button>
+              </div>
+              <div className="pn-modal-body">
+                <p className="pn-step-desc">
+                  Programa: <strong>{tpModalRow.name}</strong>
+                  {tpModalRow.code ? ` · ${tpModalRow.code}` : ''}
+                </p>
+                <div className="reglas-tp-modal-field">
+                  <span className="reglas-tp-modal-field-label" id="reglas-tp-modal-multiselect-label">
+                    Ítems activos del listId{' '}
+                    {tpEffectivePracticeListId ? <code>{tpEffectivePracticeListId}</code> : '(API)'} — todas las
+                    facultades del programa
+                  </span>
+                  <label className="reglas-tp-modal-no-aplica">
+                    <input
+                      type="checkbox"
+                      checked={tpModalNoAplica}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setTpModalNoAplica(on);
+                        if (on) setTpModalSelectedIds([]);
+                      }}
+                      disabled={tpModalSaving || tpCatalogLoading}
+                    />
+                    No aplica al cargue UEJOBS
+                  </label>
+                  <ul
+                    className="reglas-tp-modal-checklist"
+                    role="group"
+                    aria-labelledby="reglas-tp-modal-multiselect-label"
+                    aria-disabled={tpModalNoAplica || tpCatalogLoading}
+                  >
+                    {tpCatalogItems.map((it) => {
+                      const id = String(it._id);
+                      const checked = tpModalSelectedIds.map(String).includes(id);
+                      return (
+                        <li key={id}>
+                          <label className={tpModalNoAplica ? 'is-disabled' : ''}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleTpModalItem(id)}
+                              disabled={tpModalSaving || tpCatalogLoading || tpModalNoAplica}
+                            />
+                            <span className="reglas-tp-checklist-text">
+                              {it.value}
+                              {it.description ? (
+                                <span className="reglas-tp-checklist-desc"> — {it.description}</span>
+                              ) : null}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {tpCatalogLoading ? (
+                    <p className="reglas-tp-catalog-loading">Cargando catálogo…</p>
+                  ) : tpCatalogItems.length === 0 ? (
+                    <p className="reglas-tp-catalog-empty">No hay ítems activos para este listId.</p>
+                  ) : null}
+                </div>
+                <div className="reglas-tp-modal-actions">
+                  <button
+                    type="button"
+                    className="pn-pagination-btn"
+                    onClick={closeTpModal}
+                    disabled={tpModalSaving}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="pn-btn-crear"
+                    onClick={handleTpModalSave}
+                    disabled={
+                      (!tpModalNoAplica && tpModalSelectedIds.length === 0) || tpModalSaving || tpCatalogLoading
+                    }
+                  >
+                    <FiSave className="btn-icon" />
+                    {tpModalSaving ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null,
+        document.body
+      )}
     </div>
   );
 }

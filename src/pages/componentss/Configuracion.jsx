@@ -71,7 +71,7 @@ export default function Configuracion({ onVolver }) {
     { text: 'Documentos para legalizar práctica académica', icon: FiFileText, descripcion: 'Documentos requeridos para legalización', permiso: 'CDDP' },
     { text: 'Documentos para legalizar monitorías', icon: FiFileText, descripcion: 'Documentos requeridos para legalización de monitorías', permiso: 'CDDM' },
     { text: 'Gestión de Parámetros', icon: FiMapPin, descripcion: 'Gestionar tipos de documento, niveles de estudio, dedicación, ARLs y otros parámetros del sistema', permiso: 'GPAR' },
-    { text: 'Configurar reglas de negocio', icon: FiSettings, descripcion: 'Tiempo mínimo de vencimiento de oportunidades (días desde apertura) y otras reglas', permiso: 'CFOP' },
+    { text: 'Configurar reglas de negocio', icon: FiSettings, descripcion: 'Vencimientos, MTM, apoyo económico, programa/tipo de práctica (UEJOBS) y otras reglas', permiso: 'CFOP' },
     { text: 'Configuración Asignaturas', icon: FiBook, descripcion: 'Cargar y gestionar asignaturas ofertadas desde el servidor SFTP (ASIGNATURAS_OFERTADAS_UXXI)', permiso: 'CFASIG' },
     { text: 'Parametrización de documentos', icon: FiFileText, descripcion: 'Configurar formatos y tipos de documentos (hoja de vida y otros que se requieran)', permiso: 'CFDL' }
   ];
