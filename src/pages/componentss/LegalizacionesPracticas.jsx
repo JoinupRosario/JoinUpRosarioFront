@@ -52,7 +52,7 @@ export default function LegalizacionesPracticas() {
     }
     const headers = [
       'Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Cargo / práctica', 'Periodo', 'Empresa',
-      'Docente-Monitor', 'Inicio', 'Fin', 'Estado legalización',
+      'Docente-Monitor', 'Inicio', 'Fin', 'Autogestionada', 'Estado legalización',
     ];
     const rows = data.map((row) => [
       row.numeroIdentidad ?? '',
@@ -65,6 +65,7 @@ export default function LegalizacionesPracticas() {
       row.docenteMonitor ?? '',
       fmtDate(row.fechaInicio),
       fmtDate(row.fechaFin),
+      row.practicaAutogestionada ? 'Sí' : 'No',
       row.estadoLegalizacion ?? '',
     ]);
     const wb = XLSX.utils.book_new();
@@ -77,20 +78,10 @@ export default function LegalizacionesPracticas() {
   const ejecutarAccion = (row, accion) => {
     if (accion === 'detalle') navigate(`/dashboard/legalizaciones/detalle/${row._id}`);
     if (accion === 'plan') {
-      Swal.fire({
-        icon: 'info',
-        title: 'Plan de práctica',
-        text: 'El módulo de plan de práctica se habilitará cuando la legalización esté aprobada por coordinación.',
-        confirmButtonColor: '#c41e3a',
-      });
+      navigate(`/dashboard/legalizaciones/plan/${row._id}`);
     }
     if (accion === 'seguimientos') {
-      Swal.fire({
-        icon: 'info',
-        title: 'Seguimientos',
-        text: 'Los seguimientos se habilitarán tras la aprobación de la legalización y del plan de práctica.',
-        confirmButtonColor: '#c41e3a',
-      });
+      navigate(`/dashboard/legalizaciones/seguimientos/${row._id}`);
     }
     if (accion === 'evaluaciones') {
       Swal.fire({
@@ -144,6 +135,7 @@ export default function LegalizacionesPracticas() {
                 <th>Práctica (cargo)</th>
                 <th>Periodo</th>
                 <th>Empresa</th>
+                <th>Autogest.</th>
                 <th>Docente-Monitor</th>
                 <th>Inicio</th>
                 <th>Fin</th>
@@ -161,6 +153,7 @@ export default function LegalizacionesPracticas() {
                   <td className="legaliz-mtm-nombre-cargo">{row.nombrePractica ?? '—'}</td>
                   <td>{row.periodo ?? '—'}</td>
                   <td className="legaliz-mtm-nombre-cargo">{row.empresa ?? '—'}</td>
+                  <td>{row.practicaAutogestionada ? 'Sí' : 'No'}</td>
                   <td>{row.docenteMonitor ?? '—'}</td>
                   <td>{fmtDate(row.fechaInicio)}</td>
                   <td>{fmtDate(row.fechaFin)}</td>

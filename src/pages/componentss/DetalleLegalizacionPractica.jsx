@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
@@ -35,6 +35,7 @@ const ORDEN_ENLACES_ACUERDO = ['practicante', 'escenario', 'universidad'];
 
 export default function DetalleLegalizacionPractica({ onVolver }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const postulacionId = location.pathname.split('/').filter(Boolean).pop();
 
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,8 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
   const [acuerdo, setAcuerdo] = useState(null);
   const [cargandoAcuerdo, setCargandoAcuerdo] = useState(false);
   const [generandoAcuerdoVinculacion, setGenerandoAcuerdoVinculacion] = useState(false);
+  const [certificacion, setCertificacion] = useState(null);
+  const [cargandoCert, setCargandoCert] = useState(false);
 
   const load = () => {
     if (!postulacionId) return;
@@ -79,6 +82,26 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
   useEffect(() => {
     load();
   }, [postulacionId]);
+
+  useEffect(() => {
+    if (!postulacionId || legalizacion?.estado !== 'aprobada') {
+      setCertificacion(null);
+      return;
+    }
+    setCargandoCert(true);
+    api
+      .get(`/certificaciones-practica/postulacion/${postulacionId}`)
+      .then((r) => setCertificacion(r.data?.certificacion ?? null))
+      .catch(() => setCertificacion(null))
+      .finally(() => setCargandoCert(false));
+  }, [postulacionId, legalizacion?.estado]);
+
+  const verCertificacionEstudiante = () => {
+    api.get(`/certificaciones-practica/postulacion/${postulacionId}/documento/url`).then((r) => {
+      const u = r.data?.url;
+      if (u) window.open(u, '_blank', 'noopener,noreferrer');
+    });
+  };
 
   useEffect(() => {
     if (!postulacionId || !esTipoAcuerdoVinculacion(oportunidadResumen?.tipoVinculacion)) {
@@ -308,6 +331,34 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
           <h2 className="legalizacion-mtm__title">Legalización de práctica — Detalle</h2>
         </div>
         <div className="legalizacion-mtm__topbar-actions">
+          {legalizacion?.estado === 'aprobada' && postulacionId && (
+            <>
+              <button
+                type="button"
+                className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
+                style={{ marginRight: 8 }}
+                onClick={() => navigate(`/dashboard/legalizaciones/plan/${postulacionId}`)}
+              >
+                Plan de práctica
+              </button>
+              <button
+                type="button"
+                className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
+                style={{ marginRight: 8 }}
+                onClick={() => navigate(`/dashboard/legalizaciones/seguimientos/${postulacionId}`)}
+              >
+                Seguimientos
+              </button>
+              <button
+                type="button"
+                className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
+                style={{ marginRight: 8 }}
+                onClick={() => navigate(`/dashboard/legalizaciones/supervision/${postulacionId}`)}
+              >
+                Supervisión
+              </button>
+            </>
+          )}
           {(isBorrador || enAjuste) && (
             <button
               type="button"
@@ -345,6 +396,47 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
             <>Estado: En ajuste. Corrija los documentos rechazados y vuelva a enviar. {legalizacion.rechazoMotivo && `Motivo: ${legalizacion.rechazoMotivo}`}</>
           )}
         </p>
+      )}
+
+      {legalizacion?.estado === 'aprobada' && (
+        <section
+          className="legalizacion-mtm__section"
+          style={{
+            marginBottom: 16,
+            padding: '12px 16px',
+            border: '1px solid #e2e8f0',
+            borderRadius: 8,
+            background: '#fafafa',
+          }}
+        >
+          <h3 className="legalizacion-mtm__section-title" style={{ marginTop: 0 }}>
+            Certificación de práctica
+          </h3>
+          {cargandoCert && <p style={{ color: '#64748b' }}>Cargando estado…</p>}
+          {!cargandoCert && (
+            <>
+              <p style={{ fontSize: 14 }}>
+                Estado:{' '}
+                <strong>
+                  {certificacion?.estado === 'cargada'
+                    ? 'Certificación recibida'
+                    : certificacion?.estado === 'pendiente_carga'
+                      ? 'Pendiente de cargue por la entidad o coordinación'
+                      : certificacion?.estado === 'vencida_sin_carga'
+                        ? 'Plazo vencido sin cargue — contacte a coordinación'
+                        : certificacion
+                          ? certificacion.estado
+                          : 'Coordinación aún no ha solicitado el cargue'}
+                </strong>
+              </p>
+              {certificacion?.documento?.key && (
+                <button type="button" className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary" style={{ marginTop: 8 }} onClick={verCertificacionEstudiante}>
+                  Ver certificación
+                </button>
+              )}
+            </>
+          )}
+        </section>
       )}
 
       {esTipoAcuerdoVinculacion(oportunidadResumen?.tipoVinculacion) && (

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
@@ -40,6 +40,7 @@ const estadoLabel = {
 
 export default function AdminDetalleLegalizacionPractica({ onVolver }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const postulacionId = location.pathname.split('/').filter(Boolean).pop();
 
   const [loading, setLoading] = useState(true);
@@ -60,6 +61,11 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
   const [generandoAcuerdo, setGenerandoAcuerdo] = useState(false);
   const [acuerdo, setAcuerdo] = useState(null);
   const [cargandoAcuerdo, setCargandoAcuerdo] = useState(false);
+  const [certificacion, setCertificacion] = useState(null);
+  const [linkCertificacionEntidad, setLinkCertificacionEntidad] = useState('');
+  const [cargandoCert, setCargandoCert] = useState(false);
+  const [inicializandoCert, setInicializandoCert] = useState(false);
+  const certFileRef = useRef(null);
 
   const load = () => {
     if (!postulacionId) return;
@@ -83,6 +89,26 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
   useEffect(() => {
     load();
   }, [postulacionId]);
+
+  useEffect(() => {
+    if (!postulacionId || legalizacion?.estado !== 'aprobada') {
+      setCertificacion(null);
+      setLinkCertificacionEntidad('');
+      return;
+    }
+    setCargandoCert(true);
+    api
+      .get(`/certificaciones-practica/postulacion/${postulacionId}`)
+      .then((r) => {
+        setCertificacion(r.data?.certificacion ?? null);
+        setLinkCertificacionEntidad(r.data?.linkCargaEntidad || '');
+      })
+      .catch(() => {
+        setCertificacion(null);
+        setLinkCertificacionEntidad('');
+      })
+      .finally(() => setCargandoCert(false));
+  }, [postulacionId, legalizacion?.estado]);
 
   useEffect(() => {
     if (!postulacionId || !esTipoAcuerdoVinculacion(oportunidadResumen?.tipoVinculacion)) {
@@ -241,10 +267,31 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
   };
 
   const patchDoc = (definitionId, estadoDocumento, motivoRechazo) => {
+    if (estadoDocumento === 'rechazado' && !String(motivoRechazo || '').trim()) {
+      Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Indique el motivo del rechazo antes de continuar.', confirmButtonColor: '#c41e3a' });
+      return;
+    }
     setSavingDoc(definitionId);
     api
       .patch(`/legalizaciones-practica/admin/${postulacionId}/documentos/${definitionId}`, { estadoDocumento, motivoRechazo })
-      .then((r) => setLegalizacion(r.data?.legalizacion))
+      .then((r) => {
+        setLegalizacion(r.data?.legalizacion);
+        if (estadoDocumento === 'aprobado') {
+          Swal.fire({
+            icon: 'success',
+            title: 'Documento aprobado',
+            html: '<p style="margin:0">El estado quedó guardado. Las acciones de aprobar/rechazar ya no están disponibles para este archivo.</p>',
+            confirmButtonColor: '#c41e3a',
+          });
+        } else {
+          Swal.fire({
+            icon: 'info',
+            title: 'Documento rechazado',
+            text: 'El estudiante verá el motivo y podrá cargar un nuevo archivo si corresponde.',
+            confirmButtonColor: '#c41e3a',
+          });
+        }
+      })
       .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo guardar', confirmButtonColor: '#c41e3a' }))
       .finally(() => setSavingDoc(null));
   };
@@ -294,6 +341,59 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
       .finally(() => setRechazando(false));
   };
 
+  const inicializarCertificacionHu010 = () => {
+    setInicializandoCert(true);
+    api
+      .post(`/certificaciones-practica/postulacion/${postulacionId}/inicializar`, {})
+      .then(() => api.get(`/certificaciones-practica/postulacion/${postulacionId}`))
+      .then((r) => {
+        setCertificacion(r.data?.certificacion ?? null);
+        setLinkCertificacionEntidad(r.data?.linkCargaEntidad || '');
+        Swal.fire({
+          icon: 'success',
+          title: 'Solicitud registrada',
+          text: 'Use el enlace para la entidad o cargue el documento desde coordinación.',
+          confirmButtonColor: '#c41e3a',
+        });
+      })
+      .catch((e) => Swal.fire({ icon: 'error', text: e.response?.data?.message || 'No se pudo inicializar' }))
+      .finally(() => setInicializandoCert(false));
+  };
+
+  const subirCertificacionCoord = () => {
+    const f = certFileRef.current?.files?.[0];
+    if (!f) {
+      Swal.fire({ icon: 'warning', title: 'Seleccione un archivo', confirmButtonColor: '#c41e3a' });
+      return;
+    }
+    const fd = new FormData();
+    fd.append('file', f);
+    api
+      .post(`/certificaciones-practica/postulacion/${postulacionId}/documento`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then(() => api.get(`/certificaciones-practica/postulacion/${postulacionId}`))
+      .then((r) => {
+        setCertificacion(r.data?.certificacion ?? null);
+        setLinkCertificacionEntidad(r.data?.linkCargaEntidad || '');
+        if (certFileRef.current) certFileRef.current.value = '';
+        Swal.fire({ icon: 'success', title: 'Certificación cargada', confirmButtonColor: '#c41e3a' });
+      })
+      .catch((e) => Swal.fire({ icon: 'error', text: e.response?.data?.message }));
+  };
+
+  const verCertificacionDoc = () => {
+    api.get(`/certificaciones-practica/postulacion/${postulacionId}/documento/url`).then((r) => {
+      const u = r.data?.url;
+      if (u) window.open(u, '_blank', 'noopener,noreferrer');
+    });
+  };
+
+  const toggleVinculacionLaboral = (v) => {
+    api
+      .patch(`/certificaciones-practica/postulacion/${postulacionId}/vinculacion-laboral`, { vinculacionLaboral: v })
+      .then((r) => setCertificacion(r.data?.certificacion ?? null))
+      .catch((e) => Swal.fire({ icon: 'error', text: e.response?.data?.message }));
+  };
+
   const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('es-CO') : '—');
 
   if (loading) {
@@ -318,6 +418,34 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
           <h2 className="legalizacion-mtm__title">Revisión — Legalización práctica</h2>
         </div>
         <div className="legalizacion-mtm__topbar-actions">
+          {legalizacion?.estado === 'aprobada' && postulacionId && (
+            <>
+              <button
+                type="button"
+                className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
+                style={{ marginRight: 8 }}
+                onClick={() => navigate(`/dashboard/legalizaciones/plan/${postulacionId}`)}
+              >
+                Plan de práctica
+              </button>
+              <button
+                type="button"
+                className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
+                style={{ marginRight: 8 }}
+                onClick={() => navigate(`/dashboard/legalizaciones/seguimientos/${postulacionId}`)}
+              >
+                Seguimientos
+              </button>
+              <button
+                type="button"
+                className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
+                style={{ marginRight: 8 }}
+                onClick={() => navigate(`/dashboard/legalizaciones/supervision/${postulacionId}`)}
+              >
+                Supervisión
+              </button>
+            </>
+          )}
           {esTipoAcuerdoVinculacion(oportunidadResumen?.tipoVinculacion) && (
             <button
               type="button"
@@ -440,6 +568,83 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
         </section>
       )}
 
+      {legalizacion?.estado === 'aprobada' && (
+        <section
+          className="legalizacion-mtm__section"
+          style={{
+            marginBottom: 16,
+            background: '#f8fafc',
+            borderRadius: 8,
+            padding: '14px 16px',
+            border: '1px solid #e2e8f0',
+          }}
+        >
+          <h3 className="legalizacion-mtm__section-title" style={{ marginTop: 0 }}>
+            Certificación de práctica / pasantía (HU010)
+          </h3>
+          <p style={{ fontSize: 14, color: '#475569', marginBottom: 12 }}>
+            Tras finalizar la práctica, solicite el cargue a la entidad (enlace público) o cargue el documento desde coordinación. El archivo queda asociado a esta postulación y al perfil del estudiante.
+          </p>
+          {cargandoCert && <p style={{ color: '#64748b' }}>Cargando estado de certificación…</p>}
+          {!cargandoCert && (
+            <>
+              <p>
+                <strong>Estado:</strong>{' '}
+                {certificacion?.estado === 'cargada'
+                  ? 'Cargada'
+                  : certificacion?.estado === 'pendiente_carga'
+                    ? 'Pendiente de cargue'
+                    : certificacion?.estado === 'vencida_sin_carga'
+                      ? 'Vencida sin cargue (alerta)'
+                      : certificacion
+                        ? certificacion.estado
+                        : 'Sin iniciar'}
+              </p>
+              {certificacion?.fechaLimiteCarga && (
+                <p style={{ fontSize: 13 }}>
+                  Fecha límite cargue: {new Date(certificacion.fechaLimiteCarga).toLocaleString('es-CO')}
+                </p>
+              )}
+              {linkCertificacionEntidad && (
+                <p style={{ wordBreak: 'break-all', fontSize: 13 }}>
+                  <strong>Enlace entidad:</strong>{' '}
+                  <a href={linkCertificacionEntidad} target="_blank" rel="noopener noreferrer">
+                    {linkCertificacionEntidad}
+                  </a>
+                </p>
+              )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
+                  onClick={inicializarCertificacionHu010}
+                  disabled={inicializandoCert || (certificacion?.documento?.key && certificacion?.estado === 'cargada')}
+                >
+                  {inicializandoCert ? 'Procesando…' : certificacion ? 'Renovar solicitud / enlace' : 'Solicitar cargue (entidad)'}
+                </button>
+                <input ref={certFileRef} type="file" accept=".pdf,application/pdf" style={{ maxWidth: 220 }} />
+                <button type="button" className="btn-guardar" onClick={subirCertificacionCoord}>
+                  Cargar certificación (coordinación)
+                </button>
+                {certificacion?.documento?.key && (
+                  <button type="button" className="btn-secondary" onClick={verCertificacionDoc}>
+                    Ver documento
+                  </button>
+                )}
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 14 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(certificacion?.vinculacionLaboral)}
+                  onChange={(e) => toggleVinculacionLaboral(e.target.checked)}
+                />
+                Estudiante vinculado laboralmente a la entidad
+              </label>
+            </>
+          )}
+        </section>
+      )}
+
       <div className="legalizacion-mtm__tabs">
         <button type="button" className={`legalizacion-mtm__tab ${tabActiva === 'datos' ? 'legalizacion-mtm__tab--active' : ''}`} onClick={() => setTabActiva('datos')}>Datos generales</button>
         <button type="button" className={`legalizacion-mtm__tab ${tabActiva === 'documentos' ? 'legalizacion-mtm__tab--active' : ''}`} onClick={() => setTabActiva('documentos')}>Documentos</button>
@@ -515,18 +720,34 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
                 const id = defIdStr(d);
                 const doc = docs[id];
                 const label = d.documentName;
+                const estadoDoc = doc?.estadoDocumento || 'pendiente';
+                const docAprobado = estadoDoc === 'aprobado';
+                const docRechazado = estadoDoc === 'rechazado';
+                const badgeClass = docAprobado
+                  ? 'admrevmtm-doc__badge--ok'
+                  : docRechazado
+                    ? 'admrevmtm-doc__badge--err'
+                    : 'admrevmtm-doc__badge--pendiente';
+                const estadoLabel = docAprobado ? 'Aprobado' : docRechazado ? 'Rechazado' : 'Pendiente de revisión';
                 return (
-                  <article key={id} className="admrevmtm-doc">
+                  <article key={id} className={`admrevmtm-doc${docAprobado ? ' admrevmtm-doc--locked' : ''}`}>
                     <header className="admrevmtm-doc__head">
                       <h4 className="admrevmtm-doc__title">{label}</h4>
                       {d.bindingAgreement && <span className="admrevmtm-doc__badge admrevmtm-doc__badge--pendiente">Acuerdo / vinculación</span>}
                     </header>
+                    <div className="admrevmtm-doc__status-row">
+                      <span className={`admrevmtm-doc__estado-badge ${badgeClass}`}>{estadoLabel}</span>
+                      <span className="admrevmtm-doc__estado-hint">
+                        {docAprobado && 'Este documento ya fue revisado y aprobado.'}
+                        {docRechazado && 'Puede aprobar un nuevo archivo si el estudiante lo vuelve a cargar.'}
+                        {!docAprobado && !docRechazado && 'Revise el archivo y apruebe o rechace con motivo.'}
+                      </span>
+                    </div>
                     <p className="admrevmtm-doc__file">{doc?.originalName}</p>
-                    <p className="admrevmtm-doc__file">Estado doc.: {doc?.estadoDocumento || 'pendiente'}</p>
                     <div className="admrevmtm-doc__actions">
                       <button type="button" className="admrevmtm-doc__link" onClick={() => getDocUrl(id, doc?.originalName || label)}>Vista previa</button>
                       <button type="button" className="admrevmtm-doc__btn" onClick={() => downloadDoc(id, doc?.originalName)}>Descargar</button>
-                      {enRevision && (
+                      {enRevision && !docAprobado && (
                         <>
                           <button
                             type="button"
@@ -534,7 +755,7 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
                             disabled={savingDoc === id || (d.bindingAgreement && !legalizacion?.acuerdoTresFirmasCompletas)}
                             onClick={() => patchDoc(id, 'aprobado')}
                           >
-                            Aprobar
+                            {savingDoc === id ? 'Guardando…' : 'Aprobar'}
                           </button>
                           <div className="admrevmtm-doc__reject">
                             <input

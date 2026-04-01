@@ -17,11 +17,137 @@
   gap: 0.75rem;
 }
 
+/* Plan de práctica — ancho completo del dashboard */
+.plan-practica-vista.planmtm-estudiante .legalizacion-mtm__body.plan-practica__body {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding-left: clamp(0.75rem, 2vw, 1.75rem);
+  padding-right: clamp(0.75rem, 2vw, 1.75rem);
+  padding-bottom: 2.5rem;
+  box-sizing: border-box;
+}
+
 .planmtm-estudiante .legalizacion-mtm__body {
   padding-bottom: 2.5rem;
   overflow: visible;
   max-width: 1100px;
   margin: 0 auto;
+}
+
+.plan-practica-vista.planmtm-estudiante .legalizacion-mtm__body:not(.plan-practica__body) {
+  max-width: 1100px;
+}
+
+.plan-practica__formato {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.plan-practica__grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .plan-practica__grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.plan-practica__grid-2 .legalizacion-mtm__section,
+.plan-practica__panel.plan-practica__panel--wide {
+  margin-bottom: 0;
+}
+
+.plan-practica__panel--wide {
+  width: 100%;
+}
+
+.plan-practica__textarea-tall {
+  min-height: 140px;
+  flex: 1;
+}
+
+.plan-practica__grid-2 .plan-practica__panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.plan-practica__panel--datos .legalizacion-mtm__grid {
+  margin-top: 0.25rem;
+}
+
+@media (min-width: 900px) {
+  .plan-practica__panel--datos .legalizacion-mtm__grid {
+    grid-template-columns: minmax(110px, 150px) 1fr minmax(110px, 150px) 1fr;
+    gap: 0.5rem 1.25rem;
+  }
+}
+
+.plan-practica__ponderacion-hint {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 0.9rem;
+}
+
+.plan-practica__ponderacion-hint--warn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.plan-practica__table-shell {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.plan-practica-vista .plan-practica__table {
+  width: 100%;
+  margin: 0;
+  background: #fff;
+}
+
+.plan-practica-vista .plan-practica__table th {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #475569;
+  padding: 0.65rem 0.75rem;
+}
+
+.plan-practica-vista .plan-practica__table td {
+  padding: 0.5rem 0.65rem;
+  vertical-align: middle;
+}
+
+.plan-practica__btn-add {
+  margin-top: 0.85rem;
+}
+
+.plan-practica-vista .planmtm-est__actividades-table-wrap {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.plan-practica-vista.planmtm-estudiante .legalizacion-mtm__topbar {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 1rem;
 }
 
 /* Aviso “cree el plan” — más legible que dashboard-welcome genérico */

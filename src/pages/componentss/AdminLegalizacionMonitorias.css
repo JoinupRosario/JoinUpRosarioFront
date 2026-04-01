@@ -41,6 +41,25 @@
   max-width: 52rem;
 }
 
+/* Totales por estado: mismo contraste que el resto del hero (evitar gris oscuro sobre rojo) */
+.admlegmtm__hero-stats {
+  margin-top: 10px !important;
+  font-size: 0.9rem !important;
+  color: #fff !important;
+  line-height: 1.5 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.admlegmtm__hero-stats strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.admlegmtm__hero-stats-item {
+  display: inline-block;
+  margin-right: 12px;
+}
+
 .admlegmtm__hero-actions {
   display: inline-flex;
   gap: 8px;

@@ -5,6 +5,7 @@ import SamlSuccess from './pages/auth/SamlSuccess';
 import Dashboard from './pages/Dashboard';
 import AsistenciaMTMPublic from './pages/AsistenciaMTMPublic';
 import FirmaAcuerdoPracticaPublic from './pages/FirmaAcuerdoPracticaPublic';
+import CertificacionPracticaPublic from './pages/CertificacionPracticaPublic';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import './App.css';
 
@@ -38,6 +39,7 @@ function AppContent() {
         <Route path="/auth/saml-success" element={<SamlSuccess />} />
         <Route path="/asistencia-mtm/:token" element={<AsistenciaMTMPublic />} />
         <Route path="/firma-acuerdo-practica/:token" element={<FirmaAcuerdoPracticaPublic />} />
+        <Route path="/certificacion-practica/:token" element={<CertificacionPracticaPublic />} />
         <Route
           path="/dashboard/*"
           element={

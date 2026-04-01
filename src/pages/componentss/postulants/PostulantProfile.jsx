@@ -191,9 +191,15 @@ const PostulantProfile = ({ onVolver }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser, hasPermission } = useAuth();
+  /** Misma regla que Dashboard: módulo estudiante o vacío (legacy) = vista postulante, sin cruzar permisos de staff. */
+  const moduloLower = currentUser?.modulo != null ? String(currentUser.modulo).trim().toLowerCase() : '';
+  const isEstudianteModulo = moduloLower === 'estudiante' || moduloLower === '';
   const canADPS = hasPermission('ADPS'); // Puede actualizar datos del postulante desde Sistema Académico
   const canADAP = hasPermission('ADAP'); // Puede actualizar datos académicos desde Sistema Académico
-  const isAdministrativo = (currentUser?.modulo != null ? String(currentUser.modulo).trim().toLowerCase() : '') === 'administrativo';
+  /** Solo personal administrativo; nunca mostrar sync Universitas al estudiante aunque el JWT traiga ADPS/ADAP por error. */
+  const showUniversitasADPS = canADPS && !isEstudianteModulo;
+  const showUniversitasADAP = canADAP && !isEstudianteModulo;
+  const isAdministrativo = moduloLower === 'administrativo';
 
   // Extraer el ID de la URL
   const extractIdFromPath = () => {
@@ -2404,7 +2410,7 @@ const PostulantProfile = ({ onVolver }) => {
                 </>
               )}
             </button>
-            {canADPS && (
+            {showUniversitasADPS && (
               <button
                 className="btn-action btn-outline"
                 onClick={handleActualizarInfoBasicaUniversitas}
@@ -2414,7 +2420,7 @@ const PostulantProfile = ({ onVolver }) => {
                 Actualizar Info Básica (Universitas)
               </button>
             )}
-            {canADAP && (
+            {showUniversitasADAP && (
               <button
                 className="btn-action btn-outline"
                 onClick={() => handleActualizarInfoAcademicaUniversitas('Actualizar Info Académica (Universitas)')}

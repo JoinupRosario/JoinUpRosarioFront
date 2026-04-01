@@ -14,6 +14,7 @@ export default function HomeEstudiante() {
   const navigate = useNavigate();
   const [slideIndex, setSlideIndex] = useState(0);
   const [autorizadoPracticas, setAutorizadoPracticas] = useState(false);
+  const [yaConfirmadoPractica, setYaConfirmadoPractica] = useState(false);
   const [loadingAutorizado, setLoadingAutorizado] = useState(true);
 
   useEffect(() => {
@@ -24,11 +25,18 @@ export default function HomeEstudiante() {
   }, []);
 
   useEffect(() => {
-    api
-      .get('/estudiantes-habilitados/me-autorizado')
-      .then((res) => setAutorizadoPracticas(res.data?.autorizado === true))
-      .catch(() => setAutorizadoPracticas(false))
-      .finally(() => setLoadingAutorizado(false));
+    let cancelled = false;
+    Promise.allSettled([
+      api.get('/estudiantes-habilitados/me-autorizado'),
+      api.get('/opportunities/mis-postulaciones'),
+    ]).then(([autRes, posRes]) => {
+      if (cancelled) return;
+      if (autRes.status === 'fulfilled') setAutorizadoPracticas(autRes.value.data?.autorizado === true);
+      if (posRes.status === 'fulfilled') setYaConfirmadoPractica(posRes.value.data?.tieneAceptadaDefinitivaGlobal === true);
+    }).finally(() => {
+      if (!cancelled) setLoadingAutorizado(false);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -51,7 +59,7 @@ export default function HomeEstudiante() {
       <section className="home-estudiante-opciones">
         <h2 className="home-estudiante-titulo">¿Qué tipo de oportunidad deseas buscar?</h2>
         <div className="home-estudiante-buttons">
-          {!loadingAutorizado && autorizadoPracticas && (
+          {!loadingAutorizado && autorizadoPracticas && !yaConfirmadoPractica && (
             <button
               type="button"
               className="home-estudiante-btn"
@@ -59,6 +67,16 @@ export default function HomeEstudiante() {
             >
               <HiOutlineBriefcase className="home-estudiante-btn-icon" />
               <span>Prácticas y Pasantías</span>
+            </button>
+          )}
+          {!loadingAutorizado && autorizadoPracticas && yaConfirmadoPractica && (
+            <button
+              type="button"
+              className="home-estudiante-btn"
+              onClick={() => navigate('/dashboard/legalizaciones')}
+            >
+              <HiOutlineBriefcase className="home-estudiante-btn-icon" />
+              <span>Mi práctica activa</span>
             </button>
           )}
           <button

@@ -14,6 +14,16 @@ const apiPublic = axios.create({
 apiPublic.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const h = config.headers;
+    if (h?.delete) {
+      h.delete('Content-Type');
+      h.delete('content-type');
+    } else if (h) {
+      delete h['Content-Type'];
+      delete h['content-type'];
+    }
+  }
   return config;
 });
 

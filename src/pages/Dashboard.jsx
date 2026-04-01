@@ -67,7 +67,11 @@ import LegalizacionesPracticas from './componentss/LegalizacionesPracticas';
 import DetalleLegalizacionPractica from './componentss/DetalleLegalizacionPractica';
 import AdminLegalizacionPracticas from './componentss/AdminLegalizacionPracticas';
 import AdminDetalleLegalizacionPractica from './componentss/AdminDetalleLegalizacionPractica';
+import CrearLegalizacionAutogestionada from './componentss/CrearLegalizacionAutogestionada';
 import PlanDeTrabajoMTM from './componentss/PlanDeTrabajoMTM';
+import PlanPractica from './componentss/PlanPractica';
+import SeguimientosPractica from './componentss/SeguimientosPractica';
+import SupervisionPractica from './componentss/SupervisionPractica';
 import SeguimientosMTM from './componentss/SeguimientosMTM';
 import api from '../services/api';
 // Importar imágenes
@@ -104,6 +108,7 @@ export default function Dashboard() {
   // Usuario con módulo estudiante o módulo vacío (migrados mal): solo directorio activo y vista estudiante
   const moduloRaw = user?.modulo != null ? String(user.modulo).trim().toLowerCase() : '';
   const isEstudiante = moduloRaw === 'estudiante' || moduloRaw === '';
+  const isLeader = String(user?.role || '').toLowerCase() === 'leader' || moduloRaw === 'leader';
 
   // Permiso acceso al módulo Postulantes (para menú y redirección)
   const hasAMPO = hasPermission('AMPO');
@@ -170,6 +175,7 @@ export default function Dashboard() {
     '/dashboard/postulantes/states-log': 'documents-log',
     '/dashboard/estudiantes': 'estudiantes',
     '/dashboard/legalizaciones': 'legalizaciones',
+    '/dashboard/legalizaciones/crear-autogestionada': 'legalizaciones-crear-autogestionada',
     '/dashboard/monitorias': 'monitorias',
     '/dashboard/roles': 'roles',
     '/dashboard/sucursales': 'sucursales',
@@ -186,7 +192,7 @@ export default function Dashboard() {
     '/dashboard/documentos-legalizacion-monitoria': 'documentos-legalizacion-monitoria',
     '/dashboard/reglas-negocio': 'reglas-negocio',
     '/dashboard/plantillas-notificacion-monitoria': 'plantillas-monitoria',
-    '/dashboard/plantillas-notificacion-practicas': 'plantillas-practicas'
+    '/dashboard/plantillas-notificacion-practicas': 'plantillas-practicas',
   };
 
   // Mapeo de vistas a rutas
@@ -203,6 +209,7 @@ export default function Dashboard() {
     'postulants': '/dashboard/postulants',
     'estudiantes': '/dashboard/estudiantes',
     'legalizaciones': '/dashboard/legalizaciones',
+    'legalizaciones-crear-autogestionada': '/dashboard/legalizaciones/crear-autogestionada',
     'monitorias': '/dashboard/monitorias',
     'roles': '/dashboard/roles',
     'sucursales': '/dashboard/sucursales',
@@ -219,7 +226,7 @@ export default function Dashboard() {
     'documentos-legalizacion-monitoria': '/dashboard/documentos-legalizacion-monitoria',
     'reglas-negocio': '/dashboard/reglas-negocio',
     'plantillas-monitoria': '/dashboard/plantillas-notificacion-monitoria',
-    'plantillas-practicas': '/dashboard/plantillas-notificacion-practicas'
+    'plantillas-practicas': '/dashboard/plantillas-notificacion-practicas',
   };
 
   // Obtener vista actual basada en la URL
@@ -266,7 +273,11 @@ export default function Dashboard() {
     if (path === '/dashboard/plantillas-notificacion-practicas') return 'plantillas-practicas';
     if (path.match(/^\/dashboard\/monitorias\/detalle\/[^/]+$/)) return 'monitorias-detalle';
     if (path.match(/^\/dashboard\/monitorias\/revision\/[^/]+$/)) return 'monitorias-revision';
+    if (path === '/dashboard/legalizaciones/crear-autogestionada') return 'legalizaciones-crear-autogestionada';
     if (path.match(/^\/dashboard\/legalizaciones\/detalle\/[^/]+$/)) return 'legalizaciones-detalle';
+    if (path.match(/^\/dashboard\/legalizaciones\/plan\/[^/]+$/)) return 'legalizaciones-plan';
+    if (path.match(/^\/dashboard\/legalizaciones\/supervision\/[^/]+$/)) return 'legalizaciones-supervision';
+    if (path.match(/^\/dashboard\/legalizaciones\/seguimientos\/[^/]+$/)) return 'legalizaciones-seguimientos';
     if (path.match(/^\/dashboard\/legalizaciones\/revision\/[^/]+$/)) return 'legalizaciones-revision';
     if (path.match(/^\/dashboard\/monitorias\/plan\/[^/]+$/)) return 'monitorias-plan';
     if (path.match(/^\/dashboard\/monitorias\/seguimientos\/[^/]+$/)) return 'monitorias-seguimientos';
@@ -313,7 +324,13 @@ export default function Dashboard() {
     if (!isEstudiante && vistaActual === 'legalizaciones-detalle') {
       navigate('/dashboard/legalizaciones', { replace: true });
     }
-  }, [isEstudiante, vistaActual, navigate]);
+    if (isEstudiante && vistaActual === 'legalizaciones-crear-autogestionada') {
+      navigate('/dashboard/legalizaciones', { replace: true });
+    }
+    if (!isEstudiante && vistaActual === 'legalizaciones-crear-autogestionada' && !hasCLPA && !isLeader) {
+      navigate('/dashboard/legalizaciones', { replace: true });
+    }
+  }, [isEstudiante, vistaActual, navigate, hasCLPA, isLeader]);
 
   // Sin permiso al módulo: redirigir si entró por URL
   const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'documentos-legalizacion-practica', 'documentos-legalizacion-monitoria', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones'];
@@ -331,7 +348,8 @@ export default function Dashboard() {
     'ubicaciones': ['AMLS', 'GPAR']
   };
   useEffect(() => {
-    if (vistaActual === 'configuracion-personal' && !hasCFAPER) {
+    // CFAPER aplica a staff; el estudiante siempre puede su configuración personal sin depender de permisos de rol admin.
+    if (vistaActual === 'configuracion-personal' && !hasCFAPER && !isEstudiante) {
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -363,6 +381,15 @@ export default function Dashboard() {
       navigate('/dashboard', { replace: true });
     }
   }, [isEstudiante, hasCFAPER, hasRolesAccess, hasAMUS, hasAMRE, hasAMSU, hasAMCO, hasAAME, hasAMOP, hasAMPR, hasCLPA, hasAMMO, vistaActual, navigate, hasPermission]);
+
+  // Vistas solo administrativas: si un estudiante entra por URL, volver al inicio (evita pantalla vacía o logs ajenos).
+  useEffect(() => {
+    if (!isEstudiante) return;
+    const adminOnly = ['postulants-log', 'postulants-document-log'];
+    if (adminOnly.includes(vistaActual)) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isEstudiante, vistaActual, navigate]);
 
   // Esperar a que termine la verificación de autenticación antes de renderizar
   if (authLoading) {
@@ -466,7 +493,7 @@ export default function Dashboard() {
 
   // Ocultar ítems del menú según permiso de acceso al módulo
   const menuItems = (isEstudiante ? menuItemsEstudiante : menuItemsAdmin).filter((item) => {
-        if (item.vista === 'configuracion-personal') return hasCFAPER;
+        if (item.vista === 'configuracion-personal') return isEstudiante || hasCFAPER;
         if (item.vista === 'postulants') return hasAMPO;
         if (item.vista === 'roles') return hasRolesAccess;
         if (item.vista === 'usuarios') return hasAMUS;
@@ -477,7 +504,7 @@ export default function Dashboard() {
         if (item.vista === 'oportunidades') return hasAMOP;
         if (item.vista === 'estudiantes') return hasAMPR;
         // Módulo estudiante: siempre ver legalizaciones (no filtrar por permisos de admin)
-        if (item.vista === 'legalizaciones') return isEstudiante || hasCLPA;
+        if (item.vista === 'legalizaciones') return isEstudiante || hasCLPA || isLeader;
         if (item.vista === 'monitorias') return isEstudiante || hasAMMO;
         return true;
       });
@@ -540,6 +567,10 @@ export default function Dashboard() {
             'mis-aplicaciones':         'Mis aplicaciones',
             'estudiantes':              'Estudiantes Habilitados para Prácticas',
             'legalizaciones':           'Legalizaciones de Prácticas',
+            'legalizaciones-crear-autogestionada': 'Registrar práctica autogestionada',
+            'legalizaciones-plan':      'Plan de práctica',
+            'legalizaciones-seguimientos': 'Seguimiento plan de práctica',
+            'legalizaciones-supervision': 'Supervisión de la práctica',
             'monitorias':               'Legalizaciones de Monitorías',
             'monitorias-detalle':       'Detalle de la oportunidad — Legalización',
             'monitorias-revision':      'Revisión de legalización MTM',
@@ -576,6 +607,10 @@ export default function Dashboard() {
                 'mis-aplicaciones':         'Mis aplicaciones',
                 'estudiantes':              'Estudiantes Habilitados para Prácticas',
                 'legalizaciones':           'Legalizaciones de Prácticas',
+                'legalizaciones-crear-autogestionada': 'Registrar práctica autogestionada',
+                'legalizaciones-plan':      'Plan de práctica',
+                'legalizaciones-seguimientos': 'Seguimiento plan de práctica',
+                'legalizaciones-supervision': 'Supervisión de la práctica',
                 'monitorias':               'Legalizaciones de Monitorías',
                 'monitorias-detalle':       'Detalle de la oportunidad — Legalización',
                 'monitorias-revision':      'Revisión de legalización MTM',
@@ -791,6 +826,18 @@ export default function Dashboard() {
         {vistaActual === 'legalizaciones-revision' && !isEstudiante && (
           <AdminDetalleLegalizacionPractica onVolver={() => navigate('/dashboard/legalizaciones')} />
         )}
+        {vistaActual === 'legalizaciones-crear-autogestionada' && !isEstudiante && (hasCLPA || isLeader) && (
+          <CrearLegalizacionAutogestionada onVolver={() => navigate('/dashboard/legalizaciones')} />
+        )}
+        {vistaActual === 'legalizaciones-plan' && (isEstudiante || hasCLPA || isLeader || ['admin', 'superadmin'].includes(String(user?.role || '').toLowerCase())) && (
+          <PlanPractica onVolver={() => navigate('/dashboard/legalizaciones')} />
+        )}
+        {vistaActual === 'legalizaciones-seguimientos' && (isEstudiante || hasCLPA || isLeader || ['admin', 'superadmin'].includes(String(user?.role || '').toLowerCase())) && (
+          <SeguimientosPractica onVolver={() => navigate('/dashboard/legalizaciones')} />
+        )}
+        {vistaActual === 'legalizaciones-supervision' && (isEstudiante || hasCLPA || isLeader || ['admin', 'superadmin'].includes(String(user?.role || '').toLowerCase())) && (
+          <SupervisionPractica onVolver={() => navigate('/dashboard/legalizaciones')} />
+        )}
         {/* Legalizaciones de monitorías: estudiante ve sus aceptadas y su detalle; admin ve listado y revisión (otro componente) */}
         {vistaActual === 'monitorias' && isEstudiante && <LegalizacionesMonitorias />}
         {vistaActual === 'monitorias' && !isEstudiante && <AdminLegalizacionMonitorias />}
@@ -823,7 +870,7 @@ export default function Dashboard() {
           <SeguimientosMTM onVolver={() => navigate('/dashboard/monitorias')} />
         )}
         {vistaActual === 'configuracion-personal' && (
-          hasCFAPER
+          (hasCFAPER || isEstudiante)
             ? (isEstudiante
                 ? <ConfiguracionEstudiante onVolver={handleVolver} />
                 : <ConfiguracionPersonal onVolver={handleVolver} />)
