@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FiPlus,
   FiEdit,
@@ -32,6 +32,10 @@ const Users = ({ onVolver }) => {
   const [vistaActual, setVistaActual] = useState('buscar');
   const [usersAdministrativos, setUsersAdministrativos] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [loadingRolesList, setLoadingRolesList] = useState(false);
+  const [roleSearchTerm, setRoleSearchTerm] = useState('');
+  const [rolesUiPage, setRolesUiPage] = useState(1);
+  const ROLES_UI_PAGE_SIZE = 24;
   const [sucursales, setSucursales] = useState([]);
   const [tiposIdentificacion, setTiposIdentificacion] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -147,10 +151,58 @@ const Users = ({ onVolver }) => {
 
   // Cargar datos iniciales
   useEffect(() => {
-    cargarRoles();
     cargarSucursales();
     cargarTiposIdentificacion();
   }, []);
+
+  /** Lista completa de roles (el backend pagina; antes solo se cargaba la primera página). */
+  const cargarRolesCompletos = async () => {
+    try {
+      setLoadingRolesList(true);
+      const all = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const { data } = await api.get('/roles', {
+          params: { page, limit: 500, estado: 'todos' }
+        });
+        if (!data?.success) break;
+        const chunk = data.data || [];
+        all.push(...chunk);
+        totalPages = Math.max(1, data.pages || 1);
+        page += 1;
+      } while (page <= totalPages);
+      setRoles(all);
+    } catch (error) {
+      console.error('Error al cargar roles:', error);
+      showError('Error', 'No se pudieron cargar los roles');
+      setRoles([]);
+    } finally {
+      setLoadingRolesList(false);
+    }
+  };
+
+  useEffect(() => {
+    if (vistaActual !== 'roles') return;
+    setRolesUiPage(1);
+    cargarRolesCompletos();
+  }, [vistaActual]);
+
+  /** Asignados primero, luego por nombre; respeta búsqueda local. */
+  const rolesFiltradosYOrdenados = useMemo(() => {
+    if (!roles?.length) return [];
+    const q = roleSearchTerm.trim().toLowerCase();
+    const arr = q
+      ? roles.filter((r) => (r.nombre || '').toLowerCase().includes(q))
+      : [...roles];
+    arr.sort((a, b) => {
+      const aOn = rolesSeleccionados[a._id] ? 0 : 1;
+      const bOn = rolesSeleccionados[b._id] ? 0 : 1;
+      if (aOn !== bOn) return aOn - bOn;
+      return (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' });
+    });
+    return arr;
+  }, [roles, rolesSeleccionados, roleSearchTerm]);
 
   const cargarTiposIdentificacion = async () => {
     try {
@@ -177,18 +229,6 @@ const Users = ({ onVolver }) => {
       showError('Error', 'No se pudieron cargar los usuarios');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const cargarRoles = async () => {
-    try {
-      const response = await api.get('/roles');
-      if (response.data.success) {
-        setRoles(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error al cargar roles:', error);
-      showError('Error', 'No se pudieron cargar los roles');
     }
   };
 
@@ -337,6 +377,8 @@ const Users = ({ onVolver }) => {
   // Abrir gestión de roles
   const abrirGestionRoles = (user) => {
     setSelectedUser(user);
+    setRoleSearchTerm('');
+    setRolesUiPage(1);
     setVistaActual('roles');
   };
   const abrirGestionProgramas = (user) => {
@@ -457,10 +499,9 @@ const Users = ({ onVolver }) => {
     }
   };
 
-  // Guardar roles del usuario
+  // Guardar roles del usuario (una sola petición PUT: evita vaciar BD antes de reasignar y perder ARUS al editarse a uno mismo)
   const guardarRoles = async (rolesSeleccionados) => {
     try {
-      // Mostrar confirmación
       const result = await showConfirmation(
         'Guardar Roles',
         `¿Estás seguro de que deseas guardar los roles para el usuario "${selectedUser?.nombres} ${selectedUser?.apellidos}"?`
@@ -470,32 +511,21 @@ const Users = ({ onVolver }) => {
         return;
       }
 
-      // Primero, limpiar todos los roles existentes
-      if (selectedUser.roles && selectedUser.roles.length > 0) {
-        for (const rolUser of selectedUser.roles) {
-          await api.delete(`/users-administrativos/${selectedUser._id}/roles`, {
-            data: { rolId: rolUser.rol._id || rolUser.rol }
-          });
-        }
-      }
-
-      // Luego, agregar los roles seleccionados
-      for (const rolId of Object.keys(rolesSeleccionados)) {
-        if (rolesSeleccionados[rolId]) {
-          await api.post(`/users-administrativos/${selectedUser._id}/roles`, {
-            rolId: rolId
-          });
-        }
-      }
+      const rolIds = Object.keys(rolesSeleccionados).filter((id) => rolesSeleccionados[id]);
+      await api.put(`/users-administrativos/${selectedUser._id}/roles`, { rolIds });
 
       await showSuccess('Éxito', 'Roles actualizados correctamente');
       setVistaActual('buscar');
       setSelectedUser(null);
       cargarUsersAdministrativos(currentPage, searchQuery, filtroEstado);
-
     } catch (error) {
       console.error('Error al guardar roles:', error);
-      showError('Error', 'Error al guardar los roles');
+      const msg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Error al guardar los roles';
+      showError('Error', msg);
     }
   };
 
@@ -1051,13 +1081,17 @@ const Users = ({ onVolver }) => {
 
   // Renderizar vista de Gestión de Roles
   const renderGestionRoles = () => {
-
-
     const handleGuardarRoles = async () => {
-
       await guardarRoles(rolesSeleccionados);
-
     };
+
+    const totalRolesUi = rolesFiltradosYOrdenados.length;
+    const totalPagesUi = Math.max(1, Math.ceil(totalRolesUi / ROLES_UI_PAGE_SIZE) || 1);
+    const pageUi = Math.min(Math.max(1, rolesUiPage), totalPagesUi);
+    const rolesSlice = rolesFiltradosYOrdenados.slice(
+      (pageUi - 1) * ROLES_UI_PAGE_SIZE,
+      pageUi * ROLES_UI_PAGE_SIZE
+    );
 
     if (!selectedUser) {
       return (
@@ -1072,14 +1106,14 @@ const Users = ({ onVolver }) => {
 
     return (
       <div className="users-content">
-        <div className="users-section">
+        <div className="users-section users-section--roles">
           <div className="users-header">
             <div className="configuracion-actions">
               <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
                 <FiArrowLeft className="btn-icon" />
                 Volver
               </button>
-              <button className="btn-guardar" onClick={handleGuardarRoles}>
+              <button className="btn-guardar" onClick={handleGuardarRoles} disabled={loadingRolesList}>
                 <FiKey className="btn-icon" />
                 Guardar Roles
               </button>
@@ -1095,48 +1129,107 @@ const Users = ({ onVolver }) => {
               <div className="roles-stats">
                 <span>
                   {Object.values(rolesSeleccionados).filter(Boolean).length} roles asignados
+                  {roles.length > 0 && (
+                    <span className="roles-stats-total"> · {roles.length} roles en el sistema</span>
+                  )}
                 </span>
               </div>
             </div>
 
-            <div className="roles-layout">
-              <div className="roles-table">
-                <div className="roles-table-header">
-                  <div className="rol-col rol-col-nombre">ROL</div>
-                  <div className="rol-col rol-col-estado">ESTADO</div>
-                </div>
-                <div className="roles-table-body">
-                  {roles && roles.length > 0 ? (
-                    roles.map(rol => (
-                      <div key={rol._id} className="rol-table-row">
-                        <div className="rol-col rol-col-nombre">
-                          <span className="rol-name">{rol.nombre}</span>
+            <div className="users-filters roles-toolbar">
+              <div className="search-box">
+                <FiSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Buscar rol por nombre..."
+                  value={roleSearchTerm}
+                  onChange={(e) => {
+                    setRoleSearchTerm(e.target.value);
+                    setRolesUiPage(1);
+                  }}
+                  className="search-input"
+                />
+              </div>
+            </div>
 
-                        </div>
-                        <div className="rol-col rol-col-estado">
-                          <div className="rol-switch-container">
-                            <label className="rol-switch">
-                              <input
-                                type="checkbox"
-                                checked={!!rolesSeleccionados[rol._id]}
-                                onChange={() => setRolesSeleccionados(prev => ({
-                                  ...prev,
-                                  [rol._id]: !prev[rol._id]
-                                }))}
-                              />
-                              <span className="rol-slider"></span>
-                            </label>
+            <div className="roles-layout roles-layout--wide">
+              {loadingRolesList ? (
+                <div className="loading-container" style={{ padding: 32 }}>
+                  <div className="loading-spinner"></div>
+                  <p>Cargando lista de roles...</p>
+                </div>
+              ) : (
+                <>
+                  <div className="roles-assign-grid">
+                    {rolesSlice.length > 0 ? (
+                      rolesSlice.map((rol) => {
+                        const on = !!rolesSeleccionados[rol._id];
+                        return (
+                          <div
+                            key={rol._id}
+                            className={`roles-assign-card${on ? ' roles-assign-card--active' : ''}`}
+                          >
+                            <span className="rol-name" title={rol.nombre}>
+                              {rol.nombre}
+                            </span>
+                            <div className="rol-switch-container">
+                              <label className="rol-switch">
+                                <input
+                                  type="checkbox"
+                                  checked={on}
+                                  onChange={() =>
+                                    setRolesSeleccionados((prev) => ({
+                                      ...prev,
+                                      [rol._id]: !prev[rol._id]
+                                    }))
+                                  }
+                                />
+                                <span className="rol-slider"></span>
+                              </label>
+                            </div>
                           </div>
-                        </div>
+                        );
+                      })
+                    ) : (
+                      <div className="empty-state roles-assign-empty">
+                        <p>{roleSearchTerm.trim() ? 'Ningún rol coincide con la búsqueda.' : 'No hay roles disponibles.'}</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="empty-state">
-                      <p>No hay roles disponibles</p>
+                    )}
+                  </div>
+
+                  {totalRolesUi > 0 && (
+                    <div className="users-pagination roles-pagination-bar">
+                      <span className="users-pagination-info">
+                        Mostrando{' '}
+                        {totalRolesUi ? (pageUi - 1) * ROLES_UI_PAGE_SIZE + 1 : 0}–
+                        {Math.min(pageUi * ROLES_UI_PAGE_SIZE, totalRolesUi)} de <strong>{totalRolesUi}</strong>
+                        {roleSearchTerm.trim() ? ' (filtrados)' : ''}
+                      </span>
+                      <div className="users-pagination-controls">
+                        <button
+                          type="button"
+                          className="users-page-btn"
+                          disabled={pageUi <= 1}
+                          onClick={() => setRolesUiPage((p) => Math.max(1, p - 1))}
+                        >
+                          Anterior
+                        </button>
+                        <span className="users-pagination-info" style={{ margin: '0 8px' }}>
+                          Página {pageUi} / {totalPagesUi}
+                        </span>
+                        <button
+                          type="button"
+                          className="users-page-btn"
+                          disabled={pageUi >= totalPagesUi}
+                          onClick={() => setRolesUiPage((p) => Math.min(totalPagesUi, p + 1))}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
                     </div>
                   )}
-                </div>
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>
