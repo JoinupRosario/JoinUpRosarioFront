@@ -150,7 +150,7 @@ export default function ReglasNegocio({ onVolver }) {
   const [minApoyoCopInput, setMinApoyoCopInput] = useState(String(DEFAULT_MIN_APOYO_COP));
   const [minApoyoCopId, setMinApoyoCopId] = useState(null);
 
-  /** Pestaña: programa → tipo de práctica (cargue estudiantes / UEJOBS) */
+  /** Pestaña: programa → tipo de práctica (cargue estudiantes / URJOBS) */
   const [tpLoading, setTpLoading] = useState(false);
   const [tpList, setTpList] = useState([]);
   const [tpPagination, setTpPagination] = useState({ page: 1, pages: 1, total: 0, limit: TP_PAGE_SIZE });
@@ -162,8 +162,6 @@ export default function ReglasNegocio({ onVolver }) {
   const [tpModalRow, setTpModalRow] = useState(null);
   /** Selección múltiple: ids de `items` (listId tipo práctica). */
   const [tpModalSelectedIds, setTpModalSelectedIds] = useState([]);
-  /** Si true, guardar null (no aplica UEJOBS). */
-  const [tpModalNoAplica, setTpModalNoAplica] = useState(false);
   const [tpModalSaving, setTpModalSaving] = useState(false);
   const [tpCatalogItems, setTpCatalogItems] = useState([]);
   const [tpCatalogListId, setTpCatalogListId] = useState('');
@@ -188,12 +186,10 @@ export default function ReglasNegocio({ onVolver }) {
     if (tpModalSaving) return;
     setTpModalRow(null);
     setTpModalSelectedIds([]);
-    setTpModalNoAplica(false);
   };
 
   const openTpModalForRow = (r) => {
     setTpModalRow(r);
-    setTpModalNoAplica(false);
     const ids = (Array.isArray(r.typePracticeItemIds) && r.typePracticeItemIds.length > 0
       ? r.typePracticeItemIds
       : r.typePracticeItemId
@@ -206,7 +202,6 @@ export default function ReglasNegocio({ onVolver }) {
 
   const toggleTpModalItem = (itemId) => {
     const sid = String(itemId);
-    setTpModalNoAplica(false);
     setTpModalSelectedIds((prev) => {
       const set = new Set(prev.map(String));
       if (set.has(sid)) set.delete(sid);
@@ -281,11 +276,11 @@ export default function ReglasNegocio({ onVolver }) {
 
   const handleTpModalSave = async () => {
     if (!tpModalRow) return;
-    if (!tpModalNoAplica && tpModalSelectedIds.length === 0) {
+    if (tpModalSelectedIds.length === 0) {
       Swal.fire({
         icon: 'warning',
-        title: 'Seleccione tipos o «No aplica»',
-        text: 'Elija uno o más ítems del catálogo (mismo listId que el API) o marque «No aplica al cargue UEJOBS».',
+        title: 'Seleccione tipos de práctica',
+        text: 'Elija uno o más ítems del catálogo (mismo listId que el API).',
         confirmButtonColor: '#c41e3a',
       });
       return;
@@ -293,10 +288,9 @@ export default function ReglasNegocio({ onVolver }) {
     const programId = String(tpModalRow.programId);
     setTpModalSaving(true);
     try {
-      const payload = tpModalNoAplica
-        ? { typePracticeItemIds: null }
-        : { typePracticeItemIds: tpModalSelectedIds };
-      await api.put(`/programs/${programId}/type-practice-rule`, payload);
+      await api.put(`/programs/${programId}/type-practice-rule`, {
+        typePracticeItemIds: tpModalSelectedIds,
+      });
       Swal.fire({
         icon: 'success',
         title: 'Guardado',
@@ -305,7 +299,6 @@ export default function ReglasNegocio({ onVolver }) {
       });
       setTpModalRow(null);
       setTpModalSelectedIds([]);
-      setTpModalNoAplica(false);
       await loadTypePracticeRules();
     } catch (err) {
       Swal.fire({
@@ -886,36 +879,23 @@ export default function ReglasNegocio({ onVolver }) {
                     {tpEffectivePracticeListId ? <code>{tpEffectivePracticeListId}</code> : '(API)'} — todas las
                     facultades del programa
                   </span>
-                  <label className="reglas-tp-modal-no-aplica">
-                    <input
-                      type="checkbox"
-                      checked={tpModalNoAplica}
-                      onChange={(e) => {
-                        const on = e.target.checked;
-                        setTpModalNoAplica(on);
-                        if (on) setTpModalSelectedIds([]);
-                      }}
-                      disabled={tpModalSaving || tpCatalogLoading}
-                    />
-                    No aplica al cargue UEJOBS
-                  </label>
                   <ul
                     className="reglas-tp-modal-checklist"
                     role="group"
                     aria-labelledby="reglas-tp-modal-multiselect-label"
-                    aria-disabled={tpModalNoAplica || tpCatalogLoading}
+                    aria-disabled={tpCatalogLoading}
                   >
                     {tpCatalogItems.map((it) => {
                       const id = String(it._id);
                       const checked = tpModalSelectedIds.map(String).includes(id);
                       return (
                         <li key={id}>
-                          <label className={tpModalNoAplica ? 'is-disabled' : ''}>
+                          <label>
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleTpModalItem(id)}
-                              disabled={tpModalSaving || tpCatalogLoading || tpModalNoAplica}
+                              disabled={tpModalSaving || tpCatalogLoading}
                             />
                             <span className="reglas-tp-checklist-text">
                               {it.value}
@@ -947,9 +927,7 @@ export default function ReglasNegocio({ onVolver }) {
                     type="button"
                     className="pn-btn-crear"
                     onClick={handleTpModalSave}
-                    disabled={
-                      (!tpModalNoAplica && tpModalSelectedIds.length === 0) || tpModalSaving || tpCatalogLoading
-                    }
+                    disabled={tpModalSelectedIds.length === 0 || tpModalSaving || tpCatalogLoading}
                   >
                     <FiSave className="btn-icon" />
                     {tpModalSaving ? 'Guardando...' : 'Guardar'}

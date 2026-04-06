@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { FiEye, FiX } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
@@ -46,6 +47,8 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
   const [error, setError] = useState(null);
   const [tabActiva, setTabActiva] = useState('datos');
   const [deletingDoc, setDeletingDoc] = useState(null);
+  /** Vista previa documento: { url?, name, loading?, error? } | null */
+  const [previewDoc, setPreviewDoc] = useState(null);
   const [asistenciaLink, setAsistenciaLink] = useState('');
   const [planAprobado, setPlanAprobado] = useState(false);
   const [definicionesDocumentos, setDefinicionesDocumentos] = useState([]);
@@ -75,7 +78,7 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
           eps: leg?.eps?._id ?? leg?.eps ?? '',
           tipoCuentaValor: leg?.tipoCuentaValor ?? '',
           banco: leg?.banco?._id ?? leg?.banco ?? '',
-          numeroCuenta: leg?.numeroCuenta ?? '',
+          numeroCuenta: leg?.numeroCuenta != null ? String(leg.numeroCuenta).replace(/\D/g, '') : '',
         });
         setListas({
           eps: epsRes.data?.data ?? (Array.isArray(epsRes.data) ? epsRes.data : []),
@@ -174,6 +177,33 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
     }
     return true;
   };
+
+  const abrirVistaPrevia = async (definitionId, nombreArchivo) => {
+    if (!definitionId || !postulacionId) return;
+    setPreviewDoc({ name: nombreArchivo || 'Documento', loading: true, url: null, error: null });
+    try {
+      const { data } = await api.get(
+        `/oportunidades-mtm/legalizaciones/${postulacionId}/documentos/${definitionId}/url`
+      );
+      const url = data?.url;
+      if (!url) throw new Error('No se recibió URL de descarga');
+      setPreviewDoc({ name: nombreArchivo || 'Documento', loading: false, url, error: null });
+    } catch (e) {
+      const msg = e.response?.data?.message || e.message || 'No se pudo obtener la vista previa.';
+      setPreviewDoc({ name: nombreArchivo || 'Documento', loading: false, url: null, error: msg });
+    }
+  };
+
+  const cerrarVistaPrevia = () => setPreviewDoc(null);
+
+  useEffect(() => {
+    if (!previewDoc) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setPreviewDoc(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [previewDoc]);
 
   const handleEliminarDoc = async (definitionId) => {
     if (!definitionId) return;
@@ -338,14 +368,10 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
                 <dd>{estudiante?.correoAlterno ?? '—'}</dd>
                 <dt>Identificación</dt>
                 <dd>{estudiante?.identificacion ?? '—'}</dd>
-                <dt>Cédula de ciudadanía</dt>
-                <dd>{estudiante?.cedulaAttachment ? 'Precargado desde su perfil (documento de soporte tipo Cédula).' : '—'}</dd>
                 <dt>Celular</dt>
                 <dd>{estudiante?.celular ?? '—'}</dd>
                 <dt>Dirección</dt>
                 <dd>{estudiante?.direccion ?? '—'}</dd>
-                <dt>Zona de residencia</dt>
-                <dd>{estudiante?.zonaResidencia ?? '—'}</dd>
                 <dt>Localidad / Barrio</dt>
                 <dd>{estudiante?.localidadBarrio ?? '—'}</dd>
                 <dt>Facultad</dt>
@@ -470,11 +496,18 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
                   <span className="legalizacion-mtm__label">Número de cuenta</span>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
                     className="legalizacion-mtm__input"
                     value={form.numeroCuenta}
-                    onChange={(e) => setForm((f) => ({ ...f, numeroCuenta: e.target.value }))}
+                    onChange={(e) => {
+                      const soloDigitos = e.target.value.replace(/\D/g, '');
+                      setForm((f) => ({ ...f, numeroCuenta: soloDigitos }));
+                    }}
                     disabled={!puedeEditar}
-                    placeholder="Número de cuenta"
+                    placeholder="Solo números"
+                    maxLength={24}
                   />
                 </label>
               </div>
@@ -534,6 +567,17 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
                           <span className="legmtm-est__doc-filename" title={doc.originalName}>
                             ✓ {doc.originalName}
                           </span>
+                          {doc?.key && (
+                            <button
+                              type="button"
+                              className="legalizacion-mtm__doc-preview"
+                              onClick={() => abrirVistaPrevia(id, doc.originalName)}
+                              title="Vista previa"
+                            >
+                              <FiEye aria-hidden />
+                              Vista previa
+                            </button>
+                          )}
                           {puedeSubir && (
                             <button type="button" className="legalizacion-mtm__doc-delete" onClick={() => handleEliminarDoc(id)} disabled={deletingDoc === id}>
                               {deletingDoc === id ? 'Eliminando...' : 'Eliminar'}
@@ -555,6 +599,59 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
           </section>
         )}
       </div>
+
+      {previewDoc && (
+        <div
+          className="legmtm-est__preview-overlay"
+          role="presentation"
+          onClick={cerrarVistaPrevia}
+        >
+          <div
+            className="legmtm-est__preview-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="legmtm-preview-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="legmtm-est__preview-header">
+              <h3 id="legmtm-preview-title" className="legmtm-est__preview-title">
+                {previewDoc.name}
+              </h3>
+              <button
+                type="button"
+                className="legmtm-est__preview-close"
+                onClick={cerrarVistaPrevia}
+                aria-label="Cerrar vista previa"
+              >
+                <FiX />
+              </button>
+            </div>
+            <div className="legmtm-est__preview-body">
+              {previewDoc.loading && (
+                <p className="legmtm-est__preview-msg">Cargando vista previa…</p>
+              )}
+              {previewDoc.error && !previewDoc.loading && (
+                <p className="legmtm-est__preview-msg legmtm-est__preview-msg--error">{previewDoc.error}</p>
+              )}
+              {previewDoc.url && !previewDoc.loading && !previewDoc.error && (
+                /\.(jpe?g|png|gif|webp)$/i.test(previewDoc.name || '') ? (
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.name}
+                    className="legmtm-est__preview-img"
+                  />
+                ) : (
+                  <iframe
+                    title={previewDoc.name}
+                    src={previewDoc.url}
+                    className="legmtm-est__preview-iframe"
+                  />
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -484,12 +484,48 @@
 .uxxi-prog-multi-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 10px 14px;
   border-bottom: 1px solid #eee;
-  cursor: pointer;
   font-size: 13.5px;
   margin: 0;
+}
+
+.uxxi-prog-multi-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+.uxxi-prog-tipo-cell {
+  flex-shrink: 0;
+  min-width: 200px;
+  max-width: min(280px, 38vw);
+}
+
+.uxxi-select--inline {
+  width: 100%;
+  font-size: 12.5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.uxxi-prog-tipo-fixed {
+  font-size: 12.5px;
+  color: #4b5563;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.uxxi-prog-tipo-warn {
+  font-size: 11.5px;
+  color: #b45309;
+  white-space: nowrap;
 }
 
 .uxxi-prog-multi-row:last-child {
@@ -500,7 +536,7 @@
   background: #fff5f5;
 }
 
-.uxxi-prog-multi-row input[type="checkbox"] {
+.uxxi-prog-multi-row-main input[type="checkbox"] {
   width: 18px;
   height: 18px;
   accent-color: #c41e3a;
@@ -572,8 +608,52 @@
   }
 }
 
+/* Periodo + Nivel en una sola fila (dos columnas) */
+.uxxi-filters-row--periodo-nivel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .uxxi-filters-row--periodo-nivel {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+.uxxi-filters-hint-banner {
+  grid-column: 1 / -1;
+  margin: -2px 0 8px;
+}
+
+.uxxi-field-hint--banner {
+  margin: 0;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 3px solid #cbd5e1;
+  color: #475569 !important;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .uxxi-field { display: flex; flex-direction: column; gap: 6px; }
 .uxxi-field--full { grid-column: 1 / -1; }
+.uxxi-field--blocked {
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+.uxxi-label-req { color: #c41e3a; font-weight: 700; }
+.uxxi-field-hint--top {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
 
 .uxxi-label {
   font-size: 12px; font-weight: 600;

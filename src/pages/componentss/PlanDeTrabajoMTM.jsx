@@ -116,8 +116,7 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
       .finally(() => setCreando(false));
   };
 
-  const handleGuardar = () => {
-    setSaving(true);
+  const buildPlanPayload = () => {
     const actividades = form.actividades
       .filter((a) => a.fecha || a.tema || a.estrategiasMetodologias)
       .map((a) => ({
@@ -126,12 +125,17 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
         estrategiasMetodologias: a.estrategiasMetodologias || '',
       }));
     if (actividades.length === 0) actividades.push({ fecha: new Date(), tema: '', estrategiasMetodologias: '' });
-    api.put(`/oportunidades-mtm/plan-trabajo/${postulacionId}`, {
+    return {
       justificacion: form.justificacion,
       objetivoGeneral: form.objetivoGeneral,
       objetivosEspecificos: form.objetivosEspecificos,
       actividades,
-    })
+    };
+  };
+
+  const handleGuardar = () => {
+    setSaving(true);
+    api.put(`/oportunidades-mtm/plan-trabajo/${postulacionId}`, buildPlanPayload())
       .then((r) => {
         setPlan(r.data?.plan);
         Swal.fire({ icon: 'success', title: 'Guardado', text: 'Plan actualizado.', confirmButtonColor: '#c41e3a' });
@@ -147,12 +151,17 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
       return;
     }
     setEnviando(true);
-    api.post(`/oportunidades-mtm/plan-trabajo/${postulacionId}/enviar-revision`)
+    api
+      .put(`/oportunidades-mtm/plan-trabajo/${postulacionId}`, buildPlanPayload())
       .then((r) => {
         setPlan(r.data?.plan);
-        Swal.fire({ icon: 'success', title: 'Enviado', text: 'El plan fue enviado a revisión del profesor.', confirmButtonColor: '#c41e3a' });
+        return api.post(`/oportunidades-mtm/plan-trabajo/${postulacionId}/enviar-revision`);
       })
-      .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo enviar.', confirmButtonColor: '#c41e3a' }))
+      .then((r) => {
+        setPlan(r.data?.plan);
+        Swal.fire({ icon: 'success', title: 'Enviado', text: 'El plan fue guardado y enviado a revisión del profesor.', confirmButtonColor: '#c41e3a' });
+      })
+      .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo guardar o enviar. Intente de nuevo.', confirmButtonColor: '#c41e3a' }))
       .finally(() => setEnviando(false));
   };
 
@@ -290,7 +299,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
         <div className="legalizacion-mtm__body">
           <section className="legalizacion-mtm__section">
             <h3 className="legalizacion-mtm__section-title">Datos básicos de la MTM</h3>
-            <dl className="legalizacion-mtm__grid">
+            <dl className="legalizacion-mtm__grid planmtm-est__dl-datos">
               <dt>Facultad</dt><dd>{datos.facultad || '—'}</dd>
               <dt>Programa</dt><dd>{datos.programa || '—'}</dd>
               <dt>Asignatura / Área</dt><dd>{datos.asignaturaArea || '—'}</dd>
@@ -305,39 +314,41 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
 
           {yaExiste && (
             <>
-              <section className="legalizacion-mtm__section">
-                <h3 className="legalizacion-mtm__section-title">Justificación de la monitoría académica</h3>
-                <textarea
-                  className="form-textarea"
-                  rows={4}
-                  value={form.justificacion}
-                  onChange={(e) => setForm((f) => ({ ...f, justificacion: e.target.value }))}
-                  disabled={!puedeEditar}
-                  placeholder="Justificación..."
-                />
-              </section>
-              <section className="legalizacion-mtm__section">
-                <h3 className="legalizacion-mtm__section-title">Objetivo general</h3>
-                <textarea
-                  className="form-textarea"
-                  rows={2}
-                  value={form.objetivoGeneral}
-                  onChange={(e) => setForm((f) => ({ ...f, objetivoGeneral: e.target.value }))}
-                  disabled={!puedeEditar}
-                  placeholder="Objetivo general..."
-                />
-              </section>
-              <section className="legalizacion-mtm__section">
-                <h3 className="legalizacion-mtm__section-title">Objetivos específicos</h3>
-                <textarea
-                  className="form-textarea"
-                  rows={4}
-                  value={form.objetivosEspecificos}
-                  onChange={(e) => setForm((f) => ({ ...f, objetivosEspecificos: e.target.value }))}
-                  disabled={!puedeEditar}
-                  placeholder="Objetivos específicos..."
-                />
-              </section>
+              <div className="planmtm-est__editor-grid">
+                <section className="legalizacion-mtm__section">
+                  <h3 className="legalizacion-mtm__section-title">Justificación de la monitoría académica</h3>
+                  <textarea
+                    className="form-textarea planmtm-est__textarea"
+                    rows={3}
+                    value={form.justificacion}
+                    onChange={(e) => setForm((f) => ({ ...f, justificacion: e.target.value }))}
+                    disabled={!puedeEditar}
+                    placeholder="Justificación..."
+                  />
+                </section>
+                <section className="legalizacion-mtm__section">
+                  <h3 className="legalizacion-mtm__section-title">Objetivo general</h3>
+                  <textarea
+                    className="form-textarea planmtm-est__textarea"
+                    rows={2}
+                    value={form.objetivoGeneral}
+                    onChange={(e) => setForm((f) => ({ ...f, objetivoGeneral: e.target.value }))}
+                    disabled={!puedeEditar}
+                    placeholder="Objetivo general..."
+                  />
+                </section>
+                <section className="legalizacion-mtm__section">
+                  <h3 className="legalizacion-mtm__section-title">Objetivos específicos</h3>
+                  <textarea
+                    className="form-textarea planmtm-est__textarea"
+                    rows={3}
+                    value={form.objetivosEspecificos}
+                    onChange={(e) => setForm((f) => ({ ...f, objetivosEspecificos: e.target.value }))}
+                    disabled={!puedeEditar}
+                    placeholder="Objetivos específicos..."
+                  />
+                </section>
+              </div>
               <section className="legalizacion-mtm__section">
                 <h3 className="legalizacion-mtm__section-title">Actividades</h3>
                 <p className="legalizacion-mtm__hint">Fecha, tema y estrategias/metodologías por actividad.</p>

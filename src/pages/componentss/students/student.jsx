@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiSearch,
@@ -60,8 +60,10 @@ const Student = ({ onVolver }) => {
   const [niveles, setNiveles] = useState([]);
   const [programas, setProgramas] = useState([]);
   const [periodos, setPeriodos] = useState([]);
-  const [tiposPractica, setTiposPractica] = useState([]);
+  /** programaFacultadId → id ítem tipo de práctica (reglas programa–tipo) */
+  const [tipoPracticaPorPrograma, setTipoPracticaPorPrograma] = useState({});
   const [loadParamsError, setLoadParamsError] = useState(null);
+  const [loadingProgramasPeriodo, setLoadingProgramasPeriodo] = useState(false);
 
   // Valores seleccionados en el modal
   const [filtros, setFiltros] = useState({
@@ -69,7 +71,6 @@ const Student = ({ onVolver }) => {
     nivel: '',
     programasSeleccionados: [],
     periodo: '',
-    tipoPractica: '',
     estado: '',
   });
 
@@ -171,48 +172,27 @@ const Student = ({ onVolver }) => {
     if (showHistorialModal) loadHistorial();
   }, [showHistorialModal, loadHistorial]);
 
-  // Cargar datos para los filtros del modal
+  // Cargar datos para los filtros del modal (periodos = solo los que tienen al menos una regla ACTIVE)
   const loadModalParams = useCallback(async () => {
     setLoadingParams(true);
     setLoadParamsError(null);
     try {
-      const [pfReglasRes, sedesRes, programasRes, periodosRes, itemsRes] = await Promise.all([
-        api.get('/condiciones-curriculares/program-faculty-en-reglas-activas').catch(e => {
-          console.error('[pf-reglas]', e);
-          return { data: { programFacultyIds: [] } };
-        }),
+      const [sedesRes, periodosRes] = await Promise.all([
         api.get('/sucursales', { params: { limit: 200 } }).catch(e => { console.error('[sedes]', e); return { data: [] }; }),
-        api.get('/program-faculties', { params: { activo: 'SI', limit: 500, status: 'ACTIVE' } }).catch(e => { console.error('[programas]', e); return { data: [] }; }),
-        api.get('/periodos', { params: { estado: 'Activo', limit: 100, tipo: 'practica' } }).catch(e => { console.error('[periodos]', e); return { data: [] }; }),
-        api.get('/locations/items/L_PRACTICE_TYPE', { params: { limit: 100 } }).catch(e => { console.error('[tipos]', e); return { data: [] }; }),
+        api.get('/estudiantes-habilitados/periodos-con-reglas-activas').catch(e => {
+          console.error('[periodos-reglas]', e);
+          return { data: { periodos: [] } };
+        }),
       ]);
 
-      const pfEnReglas = new Set((pfReglasRes.data?.programFacultyIds || []).map(String));
-
-      // Sedes: campo "nombre"
       const sedesData = sedesRes.data?.data || sedesRes.data || [];
       setSedes(Array.isArray(sedesData) ? sedesData : []);
 
-      // Solo programas (program_faculty) que están en alguna condición curricular activa
-      const progRaw = programasRes.data?.data || programasRes.data || [];
-      const progData = (Array.isArray(progRaw) ? progRaw : [])
-        .filter(pf => pf.activo === 'SI' && pf.status === 'ACTIVE' && pfEnReglas.has(String(pf._id)));
-      setProgramas(progData);
+      const perList = periodosRes.data?.periodos || [];
+      setPeriodos(Array.isArray(perList) ? perList : []);
 
-      // Niveles = niveles de esos programas (misma lógica que antes: labelLevel / level > 3 chars)
-      const nivelesRaw = progData
-        .map(pf => (pf.programId?.labelLevel || pf.programId?.level || '').trim())
-        .filter(n => n.length > 3);
-      const nivelesUnicos = [...new Map(nivelesRaw.map(n => [normalize(n), n])).values()].sort();
-      setNiveles(nivelesUnicos);
-
-      // Periodos: campo "codigo"
-      const perRaw = periodosRes.data?.data || periodosRes.data || [];
-      setPeriodos(Array.isArray(perRaw) ? perRaw : []);
-
-      // Tipos de práctica: campo "value"
-      const itemsRaw = itemsRes.data?.data || itemsRes.data || [];
-      setTiposPractica(Array.isArray(itemsRaw) ? itemsRaw : []);
+      setProgramas([]);
+      setNiveles([]);
     } catch (err) {
       console.error('[loadModalParams]', err);
       setLoadParamsError('Error cargando parámetros. Intenta de nuevo.');
@@ -221,28 +201,82 @@ const Student = ({ onVolver }) => {
     }
   }, []);
 
+  /** Tras elegir periodo: programas y niveles solo de condiciones curriculares ACTIVE de ese periodo */
+  const loadProgramasPorPeriodo = useCallback(async (periodoId) => {
+    if (!periodoId) {
+      setProgramas([]);
+      setNiveles([]);
+      setTipoPracticaPorPrograma({});
+      return;
+    }
+    setTipoPracticaPorPrograma({});
+    setLoadingProgramasPeriodo(true);
+    try {
+      const { data } = await api.get('/estudiantes-habilitados/programas-uxxi-por-periodo', {
+        params: { periodoId },
+      });
+      const progData = data.programas || [];
+      setProgramas(progData);
+      const nivelesRaw = progData
+        .map((pf) => (pf.programId?.labelLevel || pf.programId?.level || '').trim())
+        .filter((n) => n.length > 3);
+      const nivelesUnicos = [...new Map(nivelesRaw.map((n) => [normalize(n), n])).values()].sort();
+      setNiveles(nivelesUnicos);
+    } catch (e) {
+      console.error('[loadProgramasPorPeriodo]', e);
+      setProgramas([]);
+      setNiveles([]);
+      showError('Error', e.response?.data?.message || 'No se pudieron cargar los programas del periodo');
+    } finally {
+      setLoadingProgramasPeriodo(false);
+    }
+  }, [showError]);
+
   const openUxxiModal = () => {
     setShowUxxiModal(true);
-    setFiltros({ sede: '', nivel: '', programasSeleccionados: [], periodo: '', tipoPractica: '', estado: '' });
+    setFiltros({ sede: '', nivel: '', programasSeleccionados: [], periodo: '', estado: '' });
+    setTipoPracticaPorPrograma({});
     setProgSearch('');
     setReglasAplicables([]);
     setReglasBuscadas(false);
     setPreviewData(null);
+    setLoadingProgramasPeriodo(false);
     loadModalParams();
   };
+
+  const periodoSeleccionado = Boolean(filtros.periodo);
+  const nivelSeleccionado = Boolean(filtros.nivel);
 
   // Lanzar el proceso de preview (SFTP + OSB + reglas)
   const handleBuscarYCargar = useCallback(async () => {
     const camposFaltantes = [
       !HIDE_SUCURSALES_UI && !filtros.sede && 'Sede',
+      !filtros.periodo && 'Periodo académico',
+      !filtros.nivel && 'Nivel',
       (!filtros.programasSeleccionados || filtros.programasSeleccionados.length === 0) && 'Al menos un programa',
-      !filtros.periodo      && 'Periodo académico',
-      !filtros.tipoPractica && 'Tipo de práctica',
     ].filter(Boolean);
+
+    const faltantesTipo = [];
+    for (const pid of filtros.programasSeleccionados || []) {
+      const pf = programas.find((p) => String(p._id) === String(pid));
+      const tipos = pf?.tiposPractica || [];
+      const elegido = tipoPracticaPorPrograma[String(pid)];
+      if (tipos.length === 0) {
+        faltantesTipo.push(`${pf?.code || pid}: sin tipo de práctica en reglas de negocio (programa–facultad)`);
+      } else if (tipos.length > 1 && (!elegido || !tipos.some((t) => String(t._id) === String(elegido)))) {
+        faltantesTipo.push(`${pf?.code || pid}: elija el tipo de práctica para el cargue`);
+      }
+    }
 
     if (camposFaltantes.length > 0) {
       createAlert('warning', 'Campos requeridos',
         `Por favor completa los siguientes campos antes de continuar:\n\n• ${camposFaltantes.join('\n• ')}`
+      );
+      return;
+    }
+    if (faltantesTipo.length > 0) {
+      createAlert('warning', 'Tipo de práctica por programa',
+        faltantesTipo.join('\n• '),
       );
       return;
     }
@@ -267,7 +301,6 @@ const Student = ({ onVolver }) => {
         programasSeleccionados: programasPayload,
         periodoId: filtros.periodo,
         codigoPeriodo: periodoObj?.codigo || '',
-        tipoPracticaId: filtros.tipoPractica || null,
         sedeId: filtros.sede || null,
       }, { timeout: 600000 });
       setPreviewData(data);
@@ -279,7 +312,7 @@ const Student = ({ onVolver }) => {
     } finally {
       setLoadingPreview(false);
     }
-  }, [filtros, programas, periodos]);
+  }, [filtros, programas, periodos, tipoPracticaPorPrograma]);
 
   // Confirmar cargue → guarda en BD
   const handleConfirmarCargue = useCallback(async () => {
@@ -287,12 +320,20 @@ const Student = ({ onVolver }) => {
     const periodoObj = periodos.find((p) => p._id === filtros.periodo);
     setConfirmando(true);
     try {
+      const tipoMap = {};
+      for (const pid of filtros.programasSeleccionados || []) {
+        const pf = programas.find((p) => String(p._id) === String(pid));
+        const tipos = pf?.tiposPractica || [];
+        const k = String(pid);
+        if (tipos.length === 1) tipoMap[k] = String(tipos[0]._id);
+        else if (tipoPracticaPorPrograma[k]) tipoMap[k] = tipoPracticaPorPrograma[k];
+      }
       const { data } = await api.post('/estudiantes-habilitados/confirmar-cargue', {
         estudiantes: previewData.estudiantes,
         periodoId: filtros.periodo,
-        codigoPeriodo:      periodoObj?.codigo || '',
-        tipoPracticaId:     filtros.tipoPractica || null,
-        sedeId:             filtros.sede || null,
+        codigoPeriodo: periodoObj?.codigo || '',
+        tipoPracticaPorPrograma: tipoMap,
+        sedeId: filtros.sede || null,
       });
       setShowPreviewModal(false);
       setShowUxxiModal(false);
@@ -303,7 +344,7 @@ const Student = ({ onVolver }) => {
     } finally {
       setConfirmando(false);
     }
-  }, [previewData, filtros, programas, periodos, loadStudents]);
+  }, [previewData, filtros, programas, periodos, loadStudents, tipoPracticaPorPrograma]);
 
   // Crear User + Postulant para los estudiantes del preview que no existen en BD
   const handleCrearUsuariosBD = useCallback(async () => {
@@ -350,7 +391,12 @@ const Student = ({ onVolver }) => {
   useEffect(() => {
     if (!showUxxiModal) return;
     const progSel = filtros.programasSeleccionados || [];
-    if (!filtros.periodo || progSel.length === 0) {
+    if (!filtros.periodo) {
+      setReglasAplicables([]);
+      setReglasBuscadas(false);
+      return;
+    }
+    if (progSel.length === 0) {
       setReglasAplicables([]);
       setReglasBuscadas(false);
       return;
@@ -382,9 +428,11 @@ const Student = ({ onVolver }) => {
     return () => { cancelled = true; };
   }, [filtros.periodo, filtros.programasSeleccionados, showUxxiModal]);
 
-  // Programas filtrados por búsqueda y nivel
-  const programasFiltrados = programas.filter(pf => {
-    const matchNivel = !filtros.nivel || normalize(pf.programId?.labelLevel || '') === normalize(filtros.nivel);
+  // Programas: solo tras elegir nivel; únicamente los de ese nivel (misma fuente que el select de niveles)
+  const programasFiltrados = programas.filter((pf) => {
+    if (!periodoSeleccionado || !filtros.nivel) return false;
+    const nivelProg = (pf.programId?.labelLevel || pf.programId?.level || '').trim();
+    const matchNivel = normalize(nivelProg) === normalize(filtros.nivel);
     const q = normalize(progSearch);
     const matchSearch = !q ||
       normalize(pf.code).includes(q) ||
@@ -393,12 +441,24 @@ const Student = ({ onVolver }) => {
   });
 
   const idsSeleccionados = new Set((filtros.programasSeleccionados || []).map(String));
-  const toggleProgramaUxxi = (pfId, checked) => {
-    const id = String(pfId);
+
+  const toggleProgramaUxxi = (pf, checked) => {
+    const id = String(pf._id);
+    const tipos = pf.tiposPractica || [];
     setFiltros((f) => {
       const cur = f.programasSeleccionados || [];
       if (checked) return { ...f, programasSeleccionados: [...new Set([...cur, id])] };
       return { ...f, programasSeleccionados: cur.filter((x) => String(x) !== id) };
+    });
+    setTipoPracticaPorPrograma((prev) => {
+      const next = { ...prev };
+      if (!checked) {
+        delete next[id];
+        return next;
+      }
+      if (tipos.length === 1) next[id] = String(tipos[0]._id);
+      else if (tipos.length > 1 && next[id] == null) next[id] = '';
+      return next;
     });
   };
 
@@ -406,6 +466,22 @@ const Student = ({ onVolver }) => {
     if (!date) return '-';
     return new Date(date).toLocaleString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
+
+  const uxxiBuscarDeshabilitado = useMemo(() => {
+    if (!filtros.periodo || !filtros.nivel || loadingProgramasPeriodo || !(filtros.programasSeleccionados?.length)) {
+      return true;
+    }
+    for (const pid of filtros.programasSeleccionados || []) {
+      const pf = programas.find((p) => String(p._id) === String(pid));
+      const tipos = pf?.tiposPractica || [];
+      if (tipos.length === 0) return true;
+      if (tipos.length > 1) {
+        const el = tipoPracticaPorPrograma[String(pid)];
+        if (!el || !tipos.some((t) => String(t._id) === String(el))) return true;
+      }
+    }
+    return false;
+  }, [filtros.periodo, filtros.nivel, filtros.programasSeleccionados, loadingProgramasPeriodo, programas, tipoPracticaPorPrograma]);
 
   return (
     <div className="student-container">
@@ -690,13 +766,70 @@ const Student = ({ onVolver }) => {
               <div className="uxxi-modal-body">
                 <div className="uxxi-filters-grid">
 
+                  {/* Fila 1: Periodo + Nivel (dos columnas) */}
+                  <div className="uxxi-filters-row uxxi-filters-row--periodo-nivel">
+                    <div className="uxxi-field">
+                      <label className="uxxi-label">Periodo académico <span className="uxxi-label-req">*</span></label>
+                      <select
+                        className="uxxi-select"
+                        value={filtros.periodo}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setFiltros((f) => ({ ...f, periodo: v, nivel: '', programasSeleccionados: [] }));
+                          setTipoPracticaPorPrograma({});
+                          setProgSearch('');
+                          loadProgramasPorPeriodo(v);
+                        }}
+                      >
+                        <option value="">— Seleccione primero el periodo —</option>
+                        {periodos.map((p) => (
+                          <option key={p._id} value={p._id}>{p.codigo}</option>
+                        ))}
+                      </select>
+                      {periodos.length === 0 && (
+                        <span className="uxxi-field-hint">No hay periodos con condición curricular activa. Configúrelas en Condiciones curriculares.</span>
+                      )}
+                    </div>
+                    <div className={`uxxi-field ${!periodoSeleccionado ? 'uxxi-field--blocked' : ''}`}>
+                      <label className="uxxi-label">Nivel</label>
+                      <select
+                        className="uxxi-select"
+                        value={filtros.nivel}
+                        disabled={!periodoSeleccionado || loadingProgramasPeriodo}
+                        onChange={(e) => {
+                          setFiltros((f) => ({ ...f, nivel: e.target.value, programasSeleccionados: [] }));
+                          setTipoPracticaPorPrograma({});
+                        }}
+                      >
+                        <option value="">{!periodoSeleccionado ? '— Primero elija periodo —' : '— Seleccione un nivel —'}</option>
+                        {niveles.map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      {periodoSeleccionado && !loadingProgramasPeriodo && niveles.length === 0 && (
+                        <span className="uxxi-field-hint">No hay programas en reglas activas para este periodo.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="uxxi-filters-hint-banner">
+                    <p className="uxxi-field-hint uxxi-field-hint--top uxxi-field-hint--banner">
+                      Solo se listan periodos de práctica con al menos una regla curricular activa. Elija nivel y programas; el tipo de práctica por programa viene de las reglas de negocio (si hay varios, elija uno para el cargue).
+                    </p>
+                  </div>
+
                   {/* Sede: oculto visualmente; filtros.sede y API se mantienen */}
                   {!HIDE_SUCURSALES_UI && (
-                  <div className="uxxi-field">
+                  <div className={`uxxi-field ${!periodoSeleccionado ? 'uxxi-field--blocked' : ''}`}>
                     <label className="uxxi-label">Sede</label>
-                    <select className="uxxi-select" value={filtros.sede} onChange={e => setFiltros(f => ({ ...f, sede: e.target.value }))}>
+                    <select
+                      className="uxxi-select"
+                      value={filtros.sede}
+                      disabled={!periodoSeleccionado}
+                      onChange={(e) => setFiltros((f) => ({ ...f, sede: e.target.value }))}
+                    >
                       <option value="">— Seleccione una sede —</option>
-                      {sedes.map(s => (
+                      {sedes.map((s) => (
                         <option key={s._id} value={s._id}>{s.nombre}</option>
                       ))}
                     </select>
@@ -704,27 +837,20 @@ const Student = ({ onVolver }) => {
                   </div>
                   )}
 
-                  {/* Nivel */}
-                  <div className="uxxi-field">
-                    <label className="uxxi-label">Nivel</label>
-                    <select className="uxxi-select" value={filtros.nivel} onChange={e => setFiltros(f => ({ ...f, nivel: e.target.value, programasSeleccionados: [] }))}>
-                      <option value="">— Seleccione un nivel —</option>
-                      {niveles.map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                    {niveles.length === 0 && (
-                      <span className="uxxi-field-hint">
-                        No hay programas con condición curricular activa. Configure reglas en Condiciones curriculares (programas o facultad completa).
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Programas (uno o más) */}
-                  <div className="uxxi-field uxxi-field--full">
+                  {/* 3) Programas (uno o más): solo tras elegir nivel; lista acotada a ese nivel */}
+                  <div
+                    className={`uxxi-field uxxi-field--full ${
+                      !periodoSeleccionado || loadingProgramasPeriodo || (periodoSeleccionado && !nivelSeleccionado)
+                        ? 'uxxi-field--blocked'
+                        : ''
+                    }`}
+                  >
                     <label className="uxxi-label">Programas <span style={{ fontWeight: 400, color: '#9ca3af' }}>(marca uno o más)</span></label>
                     <input
                       className="uxxi-prog-input"
                       placeholder="Filtrar por código o nombre..."
                       value={progSearch}
+                      disabled={!periodoSeleccionado || loadingProgramasPeriodo || !nivelSeleccionado}
                       onChange={(e) => setProgSearch(e.target.value)}
                     />
                     <div className="uxxi-prog-multi-toolbar">
@@ -734,73 +860,113 @@ const Student = ({ onVolver }) => {
                       <button
                         type="button"
                         className="uxxi-prog-multi-btn"
-                        onClick={() =>
+                        disabled={!periodoSeleccionado || loadingProgramasPeriodo || !nivelSeleccionado}
+                        onClick={() => {
                           setFiltros((f) => ({
                             ...f,
                             programasSeleccionados: [
                               ...new Set([...(f.programasSeleccionados || []), ...programasFiltrados.map((p) => String(p._id))]),
                             ],
-                          }))
-                        }
+                          }));
+                          setTipoPracticaPorPrograma((prev) => {
+                            const next = { ...prev };
+                            for (const p of programasFiltrados) {
+                              const tid = String(p._id);
+                              const tipos = p.tiposPractica || [];
+                              if (tipos.length === 1) next[tid] = String(tipos[0]._id);
+                              else if (tipos.length > 1 && next[tid] == null) next[tid] = '';
+                            }
+                            return next;
+                          });
+                        }}
                       >
                         Marcar listados
                       </button>
                       <button
                         type="button"
                         className="uxxi-prog-multi-btn"
-                        onClick={() => setFiltros((f) => ({ ...f, programasSeleccionados: [] }))}
+                        disabled={!periodoSeleccionado || loadingProgramasPeriodo || !nivelSeleccionado}
+                        onClick={() => {
+                          setFiltros((f) => ({ ...f, programasSeleccionados: [] }));
+                          setTipoPracticaPorPrograma({});
+                        }}
                       >
                         Quitar todos
                       </button>
                     </div>
-                    <div className="uxxi-prog-multi-list">
-                      {programasFiltrados.length === 0 ? (
-                        <div className="uxxi-prog-empty" style={{ padding: 16 }}>Sin programas con este filtro. Ajuste nivel o búsqueda.</div>
-                      ) : (
-                        programasFiltrados.map((pf) => (
-                          <label key={pf._id} className="uxxi-prog-multi-row">
-                            <input
-                              type="checkbox"
-                              checked={idsSeleccionados.has(String(pf._id))}
-                              onChange={(e) => toggleProgramaUxxi(pf._id, e.target.checked)}
-                            />
-                            <span className="uxxi-prog-code">{pf.code}</span>
-                            <span className="uxxi-prog-name">{pf.programId?.name || '—'}</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
+                    {loadingProgramasPeriodo ? (
+                      <div className="uxxi-prog-empty" style={{ padding: 20, textAlign: 'center' }}>
+                        <div className="loading-spinner" style={{ width: 28, height: 28, margin: '0 auto 8px' }} />
+                        Cargando programas del periodo…
+                      </div>
+                    ) : (
+                      <div className="uxxi-prog-multi-list">
+                        {!periodoSeleccionado ? (
+                          <div className="uxxi-prog-empty" style={{ padding: 16 }}>Seleccione un periodo académico.</div>
+                        ) : !nivelSeleccionado ? (
+                          <div className="uxxi-prog-empty" style={{ padding: 16 }}>
+                            Seleccione un <strong>nivel</strong> para ver y marcar los programas de ese nivel en el periodo elegido.
+                          </div>
+                        ) : programasFiltrados.length === 0 ? (
+                          <div className="uxxi-prog-empty" style={{ padding: 16 }}>
+                            No hay programas para este nivel con el filtro de búsqueda. Pruebe otro término o verifique las reglas del periodo.
+                          </div>
+                        ) : (
+                          programasFiltrados.map((pf) => {
+                            const tipos = pf.tiposPractica || [];
+                            const pid = String(pf._id);
+                            const elegido = tipoPracticaPorPrograma[pid];
+                            return (
+                              <div key={pf._id} className="uxxi-prog-multi-row">
+                                <label className="uxxi-prog-multi-row-main">
+                                  <input
+                                    type="checkbox"
+                                    checked={idsSeleccionados.has(pid)}
+                                    onChange={(e) => toggleProgramaUxxi(pf, e.target.checked)}
+                                  />
+                                  <span className="uxxi-prog-code">{pf.code}</span>
+                                  <span className="uxxi-prog-name">{pf.programId?.name || '—'}</span>
+                                </label>
+                                <div className="uxxi-prog-tipo-cell" onClick={(e) => e.stopPropagation()}>
+                                  {tipos.length === 0 && (
+                                    <span className="uxxi-prog-tipo-warn" title="Configure en Reglas programa / tipo de práctica">
+                                      Sin tipos configurados
+                                    </span>
+                                  )}
+                                  {tipos.length === 1 && (
+                                    <span className="uxxi-prog-tipo-fixed">{tipos[0].value}</span>
+                                  )}
+                                  {tipos.length > 1 && (
+                                    <select
+                                      className="uxxi-select uxxi-select--inline"
+                                      aria-label={`Tipo de práctica para ${pf.code}`}
+                                      value={elegido || ''}
+                                      onChange={(e) =>
+                                        setTipoPracticaPorPrograma((prev) => ({
+                                          ...prev,
+                                          [pid]: e.target.value,
+                                        }))
+                                      }
+                                    >
+                                      <option value="">— Elija tipo —</option>
+                                      {tipos.map((t) => (
+                                        <option key={t._id} value={t._id}>{t.value}</option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  {/* Periodo */}
-                  <div className="uxxi-field">
-                    <label className="uxxi-label">Periodo académico</label>
-                    <select className="uxxi-select" value={filtros.periodo} onChange={e => setFiltros(f => ({ ...f, periodo: e.target.value }))}>
-                      <option value="">— Seleccione un periodo —</option>
-                      {periodos.map(p => (
-                        <option key={p._id} value={p._id}>{p.codigo}</option>
-                      ))}
-                    </select>
-                    {periodos.length === 0 && <span className="uxxi-field-hint">Sin periodos activos</span>}
-                  </div>
-
-                  {/* Tipo de práctica */}
-                  <div className="uxxi-field">
-                    <label className="uxxi-label">Tipo de práctica</label>
-                    <select className="uxxi-select" value={filtros.tipoPractica} onChange={e => setFiltros(f => ({ ...f, tipoPractica: e.target.value }))}>
-                      <option value="">— Seleccione un tipo —</option>
-                      {tiposPractica.map(t => (
-                        <option key={t._id} value={t._id}>{t.value}</option>
-                      ))}
-                    </select>
-                    {tiposPractica.length === 0 && <span className="uxxi-field-hint">Sin tipos disponibles</span>}
-                  </div>
-
 
                 </div>
 
                 {/* ── Reglas curriculares aplicables ── */}
-                {(reglasBuscadas || loadingReglas) && (
+                {periodoSeleccionado && (reglasBuscadas || loadingReglas) && (
                   <div className="uxxi-reglas-section">
                     <div className="uxxi-reglas-header">
                       <FiCheckCircle className="uxxi-reglas-icon" />
@@ -929,6 +1095,8 @@ const Student = ({ onVolver }) => {
               <button
                 className="uxxi-btn-primary"
                 onClick={handleBuscarYCargar}
+                disabled={uxxiBuscarDeshabilitado}
+                title={!filtros.periodo ? 'Seleccione periodo académico' : !filtros.nivel ? 'Seleccione nivel' : ''}
               >
                 <FiUploadCloud style={{ marginRight: 6 }} />
                 Buscar y cargar

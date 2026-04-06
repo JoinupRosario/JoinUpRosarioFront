@@ -27,10 +27,16 @@ const defaultForm = () => ({
   comentarios: '',
 });
 
-export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = false }) {
+export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = false, postulacionId: postulacionIdProp }) {
   const location = useLocation();
   const pathSegments = location.pathname.split('/').filter(Boolean);
-  const postulacionId = pathSegments[pathSegments.length - 1];
+  const fromPath = pathSegments[pathSegments.length - 1];
+  const postulacionId =
+    postulacionIdProp && isValidPostulacionId(postulacionIdProp)
+      ? postulacionIdProp
+      : isValidPostulacionId(fromPath)
+        ? fromPath
+        : '';
   const fileInputRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
@@ -473,7 +479,7 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
       </form>
       )}
 
-      <section className={compact ? undefined : 'segmtm-est__registros'}>
+      <section className={compact ? 'segmtm-est__registros segmtm-est__registros--embedded' : 'segmtm-est__registros'}>
         <div className="segmtm-est__registros-header">
           <h3 className="legalizacion-mtm__section-title">Registros</h3>
           {isAdmin && pendientesIds.length > 0 && (

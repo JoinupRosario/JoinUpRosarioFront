@@ -981,24 +981,6 @@
   line-height: 1.4;
 }
 
-.reglas-tp-modal-no-aplica {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1e293b;
-  cursor: pointer;
-  user-select: none;
-}
-
-.reglas-tp-modal-no-aplica input {
-  width: 16px;
-  height: 16px;
-  accent-color: #c41e3a;
-}
-
 .reglas-tp-modal-checklist {
   list-style: none;
   margin: 0;

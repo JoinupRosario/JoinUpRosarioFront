@@ -8,13 +8,20 @@ import SeguimientosMTM from './SeguimientosMTM';
 import '../styles/Oportunidades.css';
 import './AdminDetalleLegalizacionMTM.css';
 
+const POSTULACION_OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/;
+function postulacionIdFromRevisionPath(pathname) {
+  const m = String(pathname || '').match(/\/dashboard\/monitorias\/revision\/([^/]+)/);
+  const id = m?.[1];
+  return id && POSTULACION_OBJECT_ID_REGEX.test(id) ? id : '';
+}
+
 function defIdStr(d) {
   return d?._id != null ? String(d._id) : '';
 }
 
 export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   const location = useLocation();
-  const postulacionId = location.pathname.split('/').filter(Boolean).pop();
+  const postulacionId = useMemo(() => postulacionIdFromRevisionPath(location.pathname), [location.pathname]);
 
   const [loading, setLoading] = useState(true);
   const [legalizacion, setLegalizacion] = useState(null);
@@ -36,7 +43,11 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   const [exportandoReporteAsistencia, setExportandoReporteAsistencia] = useState(false);
 
   useEffect(() => {
-    if (!postulacionId) return;
+    if (!postulacionId) {
+      setLoading(false);
+      setError('URL inválida. Abra la revisión desde el listado de legalizaciones de monitorías.');
+      return;
+    }
     setLoading(true);
     setError(null);
     api.get(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}`)
@@ -62,12 +73,12 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
       .finally(() => setLoadingPlan(false));
   }, [postulacionId, legalizacion?.estado]);
 
-  /** Link de asistencia y pestaña Seguimientos solo si ya existe plan de trabajo (como la pestaña Plan tras legalizar). */
-  const planTrabajoCreado = Boolean(planTrabajo);
+  /** Link de asistencia y pestaña Seguimientos: solo si el plan de trabajo ya está aprobado. */
+  const planTrabajoAprobadoParaSeguimientos = planTrabajo?.estado === 'aprobado';
 
   useEffect(() => {
-    if (tabActiva === 'seguimientos' && !planTrabajoCreado) setTabActiva('datos');
-  }, [tabActiva, planTrabajoCreado]);
+    if (tabActiva === 'seguimientos' && !planTrabajoAprobadoParaSeguimientos) setTabActiva('datos');
+  }, [tabActiva, planTrabajoAprobadoParaSeguimientos]);
 
   const exportarReporteAsistenciaEstaMonitoria = () => {
     if (!postulacionId) return;
@@ -488,7 +499,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                 Plan de trabajo
               </button>
             )}
-            {planTrabajoCreado && (
+            {planTrabajoAprobadoParaSeguimientos && (
               <button
                 type="button"
                 className={`legalizacion-mtm__tab ${tabActiva === 'seguimientos' ? 'legalizacion-mtm__tab--active' : ''}`}
@@ -509,11 +520,8 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                     <dt>Correo institucional</dt><dd>{estudiante?.correoInstitucional ?? '—'}</dd>
                     <dt>Correo alterno</dt><dd>{estudiante?.correoAlterno ?? '—'}</dd>
                     <dt>Identificación</dt><dd>{estudiante?.identificacion ?? '—'}</dd>
-                    <dt>Cédula de ciudadanía</dt>
-                    <dd>{estudiante?.cedulaAttachment ? 'Cargada en perfil' : '—'}</dd>
                     <dt>Celular</dt><dd>{estudiante?.celular ?? '—'}</dd>
                     <dt>Dirección</dt><dd>{estudiante?.direccion ?? '—'}</dd>
-                    <dt>Zona de residencia</dt><dd>{estudiante?.zonaResidencia ?? '—'}</dd>
                     <dt>Localidad / Barrio</dt><dd>{estudiante?.localidadBarrio ?? '—'}</dd>
                     <dt>Facultad</dt><dd>{estudiante?.facultad ?? '—'}</dd>
                     <dt>Programa</dt><dd>{estudiante?.programa ?? '—'}</dd>
@@ -544,7 +552,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                     <dt>Asignaturas</dt><dd>{oportunidad?.asignaturas?.length ? oportunidad.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ') : '—'}</dd>
                   </dl>
                 </section>
-                {planTrabajoCreado && (
+                {planTrabajoAprobadoParaSeguimientos && (
                   <section className="legalizacion-mtm__section">
                     <h3 className="legalizacion-mtm__section-title">Link de asistencia</h3>
                     <p className="legalizacion-mtm__hint">Un único link por MTM para todo el semestre. Compártalo con los estudiantes para que registren su asistencia a los espacios.</p>
@@ -693,19 +701,23 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
               </section>
             )}
 
-            {tabActiva === 'seguimientos' && planTrabajoCreado && (
+            {tabActiva === 'seguimientos' && planTrabajoAprobadoParaSeguimientos && (
               <section className="legalizacion-mtm__section">
-                <SeguimientosMTM compact isAdmin />
+                <SeguimientosMTM compact isAdmin postulacionId={postulacionId} />
               </section>
             )}
 
-            {tabActiva === 'plan' && (
+            {tabActiva === 'plan' && legalizacionAprobada && (
               <section className="legalizacion-mtm__section">
                 <h3 className="legalizacion-mtm__section-title">Plan de trabajo</h3>
                 {loadingPlan ? (
                   <p style={{ color: '#6b7280' }}>Cargando plan...</p>
                 ) : !planTrabajo ? (
                   <p style={{ color: '#6b7280' }}>El estudiante aún no ha creado el plan de trabajo.</p>
+                ) : planTrabajo.estado === 'borrador' ? (
+                  <p style={{ color: '#6b7280', margin: 0, lineHeight: 1.55 }}>
+                    El estudiante aún no ha enviado su plan de trabajo a revisión. Cuando lo envíe, podrá revisarlo y aprobarlo desde esta pestaña.
+                  </p>
                 ) : (
                   <>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginBottom: 12 }}>

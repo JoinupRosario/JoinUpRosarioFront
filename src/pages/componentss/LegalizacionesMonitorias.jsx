@@ -7,7 +7,7 @@ import api from '../../services/api';
 import '../styles/Oportunidades.css';
 
 function badgeClassPorCodigoLegalizacion(codigo) {
-  if (codigo == null) return 'legaliz-mtm-badge legaliz-mtm-badge--pendiente';
+  if (codigo == null || codigo === '') return 'legaliz-mtm-badge legaliz-mtm-badge--pendiente';
   const map = {
     borrador: 'legaliz-mtm-badge legaliz-mtm-badge--borrador',
     en_revision: 'legaliz-mtm-badge legaliz-mtm-badge--revision',
@@ -18,9 +18,12 @@ function badgeClassPorCodigoLegalizacion(codigo) {
   return map[codigo] || 'legaliz-mtm-badge legaliz-mtm-badge--pendiente';
 }
 
-/** Texto corto en la celda; el API envía descripción larga en title. */
+/** Texto corto en la celda; si no hay código (sin registro legalización), usa la etiqueta del API o «Pendiente de iniciar». */
 function etiquetaCortaLegalizacion(codigo, etiquetaLarga) {
-  if (codigo == null) return 'Pendiente de iniciar';
+  if (codigo == null || codigo === '') {
+    const t = etiquetaLarga && String(etiquetaLarga).trim();
+    return t || 'Pendiente de iniciar';
+  }
   const cortas = {
     borrador: 'Borrador',
     en_revision: 'En revisión',

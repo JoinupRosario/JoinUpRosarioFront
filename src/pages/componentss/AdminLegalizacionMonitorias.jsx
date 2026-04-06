@@ -6,12 +6,16 @@ import Swal from 'sweetalert2';
 import api from '../../services/api';
 import './AdminLegalizacionMonitorias.css';
 
+/** Claves = `estadoMTM` del API (incl. alias usados en getLegalizacionesMTMAdmin). */
 const ESTADO_LABEL = {
   borrador: 'Pendiente de envío',
   en_revision: 'En revisión',
   aprobada: 'Legalizada',
   rechazada: 'Anulada',
   en_ajuste: 'En ajuste',
+  legalizada: 'Legalizada',
+  anulada: 'Anulada',
+  aceptada: 'Pendiente de envío',
 };
 
 function buildListParams({ filtroEstado, filtroPeriodo, filtroPrograma, busqueda, page, limit }) {
