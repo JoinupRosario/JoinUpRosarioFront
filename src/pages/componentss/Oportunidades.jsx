@@ -1,11 +1,26 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { FiArrowLeft, FiPlus, FiRefreshCw, FiSearch, FiFilter, FiBookOpen, FiDollarSign, FiFileText, FiUsers, FiCalendar, FiMapPin, FiClock, FiBook, FiX, FiEdit, FiXCircle, FiCopy, FiList, FiArrowUp, FiArrowDown, FiAlertCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiRefreshCw, FiFilter, FiBookOpen, FiDollarSign, FiFileText, FiUsers, FiCalendar, FiMapPin, FiClock, FiBook, FiX, FiEdit, FiXCircle, FiCopy, FiList, FiArrowUp, FiArrowDown, FiAlertCircle } from 'react-icons/fi';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import { useAuth } from '../../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import '../styles/Oportunidades.css';
+
+/** Estados solo de práctica (flujo revisión): MTM no aplica — no consultar monitorías. */
+function shouldOmitMtmListado(estado, estadosRevision) {
+  const e = (estado && String(estado).trim()) || (estadosRevision && String(estadosRevision).trim()) || '';
+  if (!e) return false;
+  return ['En Revisión', 'Revisada', 'Rechazada'].includes(e);
+}
+
+/** Mapea filtro de estado del listado al enum MTM (Borrador / Activa / Inactiva). */
+function mapEstadoToMtm(estado, estadosRevision) {
+  const e = (estado && String(estado).trim()) || (estadosRevision && String(estadosRevision).trim()) || '';
+  if (!e) return undefined;
+  const m = { Creada: 'Borrador', Activa: 'Activa', Cerrada: 'Inactiva', Vencida: 'Inactiva' };
+  return m[e];
+}
 
 export default function Oportunidades({ onVolver }) {
   const { user } = useAuth();
@@ -13,7 +28,6 @@ export default function Oportunidades({ onVolver }) {
   const [oportunidades, setOportunidades] = useState([]);
   const [companySearchResults, setCompanySearchResults] = useState([]);
   const [companySearchLoading, setCompanySearchLoading] = useState(false);
-  const [search, setSearch] = useState('');
   const [vista, setVista] = useState('lista'); // lista | crear | detalle | editar
   const [listaTab, setListaTab] = useState('practicas'); // practicas | monitorias
   const [oportunidadSeleccionada, setOportunidadSeleccionada] = useState(null);
@@ -60,7 +74,6 @@ export default function Oportunidades({ onVolver }) {
   const [selectedLinkageDescription, setSelectedLinkageDescription] = useState('');
   
   // Estados para filtros, paginación y ordenamiento
-  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     numeroOportunidad: '',
     tipoOportunidad: '',
@@ -230,20 +243,47 @@ export default function Oportunidades({ onVolver }) {
       const params = {
         page: currentPage,
         limit: 10,
-        search: search || undefined,
         ...filters,
         sortField: sortField,
         sortDirection: sortDirection === 'descendente' ? 'desc' : 'asc'
       };
       
-      // Limpiar parámetros undefined
       Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
 
-      // Traer prácticas y monitorías MTM en paralelo
-      const [practRes, mtmRes] = await Promise.all([
-        api.get('/opportunities', { params }),
-        api.get('/oportunidades-mtm', { params: { search: params.search, limit: 100 } }).catch(() => ({ data: { data: [] } }))
-      ]);
+      const tipoF = (filters.tipoOportunidad || '').trim();
+      const fetchPractica = tipoF !== 'monitoria';
+      const omitMtm = shouldOmitMtmListado(filters.estado, filters.estadosRevision);
+      const omitMtmFormacion = !!(filters.formacionAcademica && String(filters.formacionAcademica).trim());
+      const fetchMtm = tipoF !== 'practica' && !omitMtm && !omitMtmFormacion;
+
+      const mtmEstado = mapEstadoToMtm(filters.estado, filters.estadosRevision);
+      const mtmParams = {
+        limit: 100,
+        nombreCargo: (filters.nombreCargo || '').trim() || undefined,
+        empresa: (filters.empresa || '').trim() || undefined,
+        estado: mtmEstado,
+        numeroOportunidad: (filters.numeroOportunidad || '').trim() || undefined,
+        fechaCierreDesde: filters.fechaCierreDesde || undefined,
+        fechaCierreHasta: filters.fechaCierreHasta || undefined,
+        requisitos: (filters.requisitos || '').trim() || undefined,
+      };
+      Object.keys(mtmParams).forEach((key) => {
+        if (mtmParams[key] === undefined || mtmParams[key] === '') delete mtmParams[key];
+      });
+
+      let practRes = { data: { opportunities: [], totalPages: 1, total: 0, currentPage: 1 } };
+      let mtmRes = { data: { data: [] } };
+
+      if (fetchPractica && fetchMtm) {
+        [practRes, mtmRes] = await Promise.all([
+          api.get('/opportunities', { params }),
+          api.get('/oportunidades-mtm', { params: mtmParams }).catch(() => ({ data: { data: [] } }))
+        ]);
+      } else if (fetchPractica) {
+        practRes = await api.get('/opportunities', { params });
+      } else if (fetchMtm) {
+        mtmRes = await api.get('/oportunidades-mtm', { params: mtmParams }).catch(() => ({ data: { data: [] } }));
+      }
 
       const regular = practRes.data.opportunities || practRes.data.data || [];
       const mtm = (mtmRes.data?.data || []).map(op => ({
@@ -444,7 +484,6 @@ export default function Oportunidades({ onVolver }) {
       requisitos: '',
       estado: ''
     });
-    setSearch('');
     setCurrentPage(1);
     loadOportunidades();
   };
@@ -643,16 +682,6 @@ export default function Oportunidades({ onVolver }) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  const filteredOportunidades = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return oportunidades;
-    return oportunidades.filter(o =>
-      o.title?.toLowerCase().includes(q) ||
-      o.company?.name?.toLowerCase().includes(q) ||
-      o.opportunityNumber?.toString().includes(q)
-    );
-  }, [oportunidades, search]);
 
   const getStatusColor = (status) => {
     // Colores de fondo para el footer según el estado
@@ -2040,52 +2069,121 @@ export default function Oportunidades({ onVolver }) {
     }
   };
 
-  // Función para duplicar oportunidad
+  /** Duplicar: abre el formulario de creación con datos precargados (no crea registro hasta pulsar Crear). */
   const handleDuplicarOportunidad = async () => {
+    if (!oportunidadSeleccionada?._id) return;
     try {
-      const result = await Swal.fire({
-        icon: 'question',
-        title: '¿Duplicar oportunidad?',
-        text: 'Se creará una nueva oportunidad con los mismos datos',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, duplicar',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#c41e3a',
-        cancelButtonColor: '#6c757d'
-      });
+      Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      const isMTM = oportunidadSeleccionada._isMTM;
 
-      if (!result.isConfirmed) return;
-
-      Swal.fire({
-        title: 'Duplicando oportunidad...',
-        text: 'Por favor espere',
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
+      if (isMTM) {
+        await loadMtmParams();
+        const { data } = await api.get(`/oportunidades-mtm/${oportunidadSeleccionada._id}`);
+        const prof = data.profesorResponsable;
+        const profDisplay = prof ? [prof.nombres, prof.apellidos].filter(Boolean).join(' ') : (data.nombreProfesor || '');
+        setShowSalarioEmocionalDropdown(false);
+        setFormData({
+          nombreCargo: data.nombreCargo || '',
+          auxilioEconomico: false,
+          requiereConfidencialidad: false,
+          apoyoEconomico: '',
+          tipoVinculacion: data.tipoVinculacion?._id || data.tipoVinculacion || '',
+          periodo: data.periodo?._id || data.periodo || '',
+          vacantes: data.vacantes != null ? String(data.vacantes) : '',
+          fechaVencimiento: data.fechaVencimiento ? data.fechaVencimiento.slice(0, 10) : '',
+          pais: '',
+          ciudad: '',
+          jornadaOrdinariaSemanal: '',
+          dedicacion: '',
+          fechaInicioPractica: '',
+          fechaFinPractica: '',
+          horario: data.horario || '',
+          areaDesempeno: '',
+          enlacesFormatoEspecificos: '',
+          primerDocumento: null,
+          primerDocumentoNombre: '',
+          primerDocumentoRequerido: false,
+          segundoDocumento: null,
+          segundoDocumentoNombre: '',
+          tercerDocumento: null,
+          tercerDocumentoNombre: '',
+          salarioEmocional: [],
+          promedioMinimoRequerido: data.promedioMinimo != null ? String(data.promedioMinimo) : '',
+          formacionAcademica: [],
+          idiomas: [],
+          funciones: data.funciones || '',
+          requisitos: data.requisitos || ''
+        });
+        setMtmDedicacionHoras(data.dedicacionHoras?._id || data.dedicacionHoras || '');
+        setMtmValorPorHora(data.valorPorHora?._id || data.valorPorHora || '');
+        setMtmCategoria(data.categoria?._id || data.categoria || '');
+        setMtmNombreProfesor(data.nombreProfesor || '');
+        setMtmUnidadAcademica(data.unidadAcademica || '');
+        setMtmGrupo(data.grupo || '');
+        setMtmAsignaturas(Array.isArray(data.asignaturas) ? data.asignaturas : []);
+        setMtmProgramas(Array.isArray(data.programas) ? data.programas : []);
+        setMtmProfesorResponsable(prof?._id || '');
+        setMtmProfesorDisplay(profDisplay);
+        setMtmProfesorSearch('');
+        setMtmAsigSearch('');
+        setMtmProgramaSearch('');
+        setShowMtmAsigDrop(false);
+        setShowMtmProgramaDrop(false);
+        setShowMtmProfesorDrop(false);
+        setSelectedCompany(data.company || null);
+        if (isAdmin) {
+          setCompanySearch(data.company?.name || data.company?.commercialName || '');
+          setShowCompanyDropdown(false);
+          setCompanySearchResults([]);
         }
-      });
+        setTipoOportunidad('monitoria');
+        setOportunidadSeleccionada(null);
+        setVista('crear');
+        Swal.close();
+        await Swal.fire({
+          icon: 'info',
+          title: 'Nueva oportunidad desde copia',
+          text: 'Revise y ajuste los datos; luego pulse Crear para registrar.',
+          confirmButtonColor: '#c41e3a'
+        });
+        return;
+      }
 
-      const endpoint = oportunidadSeleccionada._isMTM
-        ? `/oportunidades-mtm/${oportunidadSeleccionada._id}/duplicate`
-        : `/opportunities/${oportunidadSeleccionada._id}/duplicate`;
-      const { data } = await api.post(endpoint);
-
+      const { data: opp } = await api.get(`/opportunities/${oportunidadSeleccionada._id}`);
+      const fd = buildEditFormDataFromOpp(opp);
+      setShowSalarioEmocionalDropdown(false);
+      if (fd) {
+        setFormData((prev) => ({
+          ...prev,
+          ...fd,
+          primerDocumento: null,
+          primerDocumentoNombre: '',
+          primerDocumentoRequerido: false,
+          segundoDocumento: null,
+          segundoDocumentoNombre: '',
+          tercerDocumento: null,
+          tercerDocumentoNombre: ''
+        }));
+      }
+      setSelectedCompany(opp.company || null);
+      if (isAdmin) {
+        setCompanySearch(opp.company?.name || opp.company?.commercialName || '');
+        setShowCompanyDropdown(false);
+        setCompanySearchResults([]);
+      }
+      setTipoOportunidad('practica');
+      setOportunidadSeleccionada(null);
+      setVista('crear');
       Swal.close();
       await Swal.fire({
-        icon: 'success',
-        title: '¡Éxito!',
-        text: 'La oportunidad ha sido duplicada correctamente',
-        confirmButtonText: 'Aceptar',
+        icon: 'info',
+        title: 'Nueva oportunidad desde copia',
+        text: 'Revise y ajuste los datos; luego pulse Crear para registrar.',
         confirmButtonColor: '#c41e3a'
       });
-
-      // Recargar lista y volver a ella
-      await loadOportunidades();
-      setVista('lista');
-      setOportunidadSeleccionada(null);
     } catch (error) {
       Swal.close();
-      const errorMessage = error.response?.data?.message || error.message || 'Error al duplicar oportunidad';
+      const errorMessage = error.response?.data?.message || error.message || 'No se pudo preparar la copia';
       await Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -4343,8 +4441,13 @@ export default function Oportunidades({ onVolver }) {
     // ── DETALLE MTM (lectura / edición) ──────────────────────────────────────
     if (opp._isMTM) {
       const fmtFecha = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-      const estadoDisplay = opp.estado === 'Inactiva' ? 'Cerrada' : (opp.estado || 'Borrador');
-      const estadoColors = { Borrador: '#6b7280', Activa: '#16a34a', Inactiva: '#dc2626', Cerrada: '#374151' };
+      const estadoDisplay =
+        opp.estado === 'Inactiva'
+          ? 'Cerrada'
+          : opp.estado === 'Borrador'
+            ? 'Creada'
+            : (opp.estado || 'Creada');
+      const estadoColors = { Creada: '#6b7280', Borrador: '#6b7280', Activa: '#16a34a', Inactiva: '#dc2626', Cerrada: '#374151' };
       const estadoCol = estadoColors[estadoDisplay] || '#6b7280';
 
       const handleActivarMtmEdicion = () => {
@@ -6700,170 +6803,158 @@ export default function Oportunidades({ onVolver }) {
         <p>Se encontraron {oportunidades.filter(o => listaTab === 'practicas' ? !o._isMTM : o._isMTM).length} registros.</p>
       </div>
 
-      {/* Filtros de Búsqueda */}
-      <div className="filtros-busqueda-section">
-        <div className="filtros-header">
-          <FiFilter className="filtros-icon" />
-          <h4>Filtros de Búsqueda</h4>
-        </div>
-        <div className="filtros-buttons">
-          <button className="btn-mas-filtros" onClick={() => setShowFilters(!showFilters)}>
-            Más filtros
-          </button>
-          <button className="btn-buscar" onClick={handleApplyFilters}>
-            Buscar
-          </button>
-          <button className="btn-limpiar" onClick={handleClearFilters}>
-            Limpiar
-          </button>
-        </div>
-        {showFilters && (
-          <div className="filtros-content">
-              <div className="filtro-item">
-                <label>Número de oportunidad</label>
-                <input
-                  type="text"
-                  value={filters.numeroOportunidad}
-                  onChange={e => setFilters({...filters, numeroOportunidad: e.target.value})}
-                  placeholder="Ingrese número"
-                />
-              </div>
-              <div className="filtro-item">
-                <label>Tipo de Oportunidad</label>
-                <select
-                  value={filters.tipoOportunidad}
-                  onChange={e => setFilters({...filters, tipoOportunidad: e.target.value})}
-                >
-                  <option value="">Seleccione</option>
-                  <option value="practica">Práctica</option>
-                  <option value="monitoria">Monitoría</option>
-                </select>
-              </div>
-              <div className="filtro-item">
-                <label>Nombre del cargo</label>
-                <input
-                  type="text"
-                  value={filters.nombreCargo}
-                  onChange={e => setFilters({...filters, nombreCargo: e.target.value})}
-                  placeholder="Ingrese nombre"
-                />
-              </div>
-              <div className="filtro-item">
-                <label>Empresa</label>
-                <input
-                  type="text"
-                  value={filters.empresa}
-                  onChange={e => setFilters({...filters, empresa: e.target.value})}
-                  placeholder="Ingrese empresa"
-                />
-              </div>
-              <div className="filtro-item">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={filters.empresaConfidenciales}
-                    onChange={e => setFilters({...filters, empresaConfidenciales: e.target.checked})}
-                  />
-                  Empresa confidenciales
-                </label>
-              </div>
-              <div className="filtro-item">
-                <label>Fechas de cierre</label>
-                <div className="filtro-dates">
-                  <input
-                    type="date"
-                    value={filters.fechaCierreDesde}
-                    onChange={e => setFilters({...filters, fechaCierreDesde: e.target.value})}
-                    placeholder="Desde"
-                  />
-                  <input
-                    type="date"
-                    value={filters.fechaCierreHasta}
-                    onChange={e => setFilters({...filters, fechaCierreHasta: e.target.value})}
-                    placeholder="Hasta"
-                  />
-                </div>
-              </div>
-              <div className="filtro-item">
-                <label>Formación Académica</label>
-                <input
-                  type="text"
-                  value={filters.formacionAcademica}
-                  onChange={e => setFilters({...filters, formacionAcademica: e.target.value})}
-                  placeholder="Ingrese formación"
-                />
-              </div>
-              <div className="filtro-item">
-                <label>Estados de revisión</label>
-                <select
-                  value={filters.estadosRevision}
-                  onChange={e => setFilters({...filters, estadosRevision: e.target.value})}
-                >
-                  <option value="">Seleccione</option>
-                  <option value="Creada">Creada</option>
-                  <option value="En Revisión">En Revisión</option>
-                  <option value="Revisada">Revisada</option>
-                </select>
-              </div>
-              <div className="filtro-item">
-                <label>Requisitos</label>
-                <input
-                  type="text"
-                  value={filters.requisitos}
-                  onChange={e => setFilters({...filters, requisitos: e.target.value})}
-                  placeholder="Ingrese requisitos"
-                />
-              </div>
-              <div className="filtro-item">
-                <label>Estado</label>
-                <select
-                  value={filters.estado}
-                  onChange={e => setFilters({...filters, estado: e.target.value})}
-                >
-                  <option value="">Seleccione</option>
-                  <option value="Creada">Creada</option>
-                  <option value="En Revisión">En Revisión</option>
-                  <option value="Revisada">Revisada</option>
-                  <option value="Activa">Activa</option>
-                  <option value="Rechazada">Rechazada</option>
-                  <option value="Cerrada">Cerrada</option>
-                  <option value="Vencida">Vencida</option>
-                </select>
-              </div>
+      {/* Filtros fijos compactos */}
+      <div className="filtros-busqueda-section filtros-busqueda-section--compact">
+        <div className="filtros-toolbar">
+          <div className="filtros-toolbar-left">
+            <div className="filtros-header">
+              <FiFilter className="filtros-icon" />
+              <h4>Filtros</h4>
             </div>
-          )}
-      </div>
-
-      {/* Barra de búsqueda simple */}
-      <div className="oportunidades-filters">
-        <div className="filter-group">
-          <FiFilter className="filter-icon" />
-          <input
-            type="text"
-            className="filter-input"
-            placeholder="Buscar por título, empresa o número..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyPress={e => e.key === 'Enter' && handleApplyFilters()}
-          />
-          <div className="ordenar-content">
-            <select
-              value={sortField}
-              onChange={e => setSortField(e.target.value)}
-              className="ordenar-select"
-            >
-              <option value="fechaCreacion">Fecha de Creación</option>
-              <option value="nombreCargo">Nombre del Cargo</option>
-              <option value="fechaVencimiento">Fecha de Vencimiento</option>
-              <option value="estado">Estado</option>
-            </select>
-            <button
-              className="ordenar-direction-btn"
-              onClick={() => setSortDirection(sortDirection === 'ascendente' ? 'descendente' : 'ascendente')}
-              title={sortDirection === 'ascendente' ? 'Ascendente' : 'Descendente'}
-            >
-              {sortDirection === 'ascendente' ? <FiArrowUp /> : <FiArrowDown />}
+            <div className="filtros-orden-compact" title="Orden de la lista">
+              <span className="filtros-orden-label">Orden</span>
+              <select
+                value={sortField}
+                onChange={e => setSortField(e.target.value)}
+                className="ordenar-select ordenar-select--compact"
+                aria-label="Campo para ordenar"
+              >
+                <option value="fechaCreacion">Fecha creación</option>
+                <option value="nombreCargo">Nombre cargo</option>
+                <option value="fechaVencimiento">Fecha vencimiento</option>
+                <option value="estado">Estado</option>
+              </select>
+              <button
+                type="button"
+                className="ordenar-direction-btn ordenar-direction-btn--compact"
+                onClick={() => setSortDirection(sortDirection === 'ascendente' ? 'descendente' : 'ascendente')}
+                title={sortDirection === 'ascendente' ? 'Ascendente' : 'Descendente'}
+                aria-label={sortDirection === 'ascendente' ? 'Orden ascendente' : 'Orden descendente'}
+              >
+                {sortDirection === 'ascendente' ? <FiArrowUp /> : <FiArrowDown />}
+              </button>
+            </div>
+          </div>
+          <div className="filtros-actions">
+            <button type="button" className="btn-buscar btn-buscar--compact" onClick={handleApplyFilters}>
+              Buscar
             </button>
+            <button type="button" className="btn-limpiar btn-limpiar--compact" onClick={handleClearFilters}>
+              Limpiar
+            </button>
+          </div>
+        </div>
+
+        <div className="filtros-content filtros-grid-compacto">
+          <div className="filtro-item">
+            <label>Número de oportunidad</label>
+            <input
+              type="text"
+              value={filters.numeroOportunidad}
+              onChange={e => setFilters({ ...filters, numeroOportunidad: e.target.value })}
+              placeholder="Número"
+            />
+          </div>
+          <div className="filtro-item">
+            <label>Tipo</label>
+            <select
+              value={filters.tipoOportunidad}
+              onChange={e => setFilters({ ...filters, tipoOportunidad: e.target.value })}
+            >
+              <option value="">Todos</option>
+              <option value="practica">Práctica</option>
+              <option value="monitoria">Monitoría</option>
+            </select>
+          </div>
+          <div className="filtro-item">
+            <label>Nombre del cargo</label>
+            <input
+              type="text"
+              value={filters.nombreCargo}
+              onChange={e => setFilters({ ...filters, nombreCargo: e.target.value })}
+              placeholder="Cargo"
+            />
+          </div>
+          <div className="filtro-item">
+            <label>Empresa</label>
+            <input
+              type="text"
+              value={filters.empresa}
+              onChange={e => setFilters({ ...filters, empresa: e.target.value })}
+              placeholder="Empresa"
+            />
+          </div>
+          <div className="filtro-item">
+            <label>Cierre desde</label>
+            <input
+              type="date"
+              value={filters.fechaCierreDesde}
+              onChange={e => setFilters({ ...filters, fechaCierreDesde: e.target.value })}
+            />
+          </div>
+          <div className="filtro-item">
+            <label>Cierre hasta</label>
+            <input
+              type="date"
+              value={filters.fechaCierreHasta}
+              onChange={e => setFilters({ ...filters, fechaCierreHasta: e.target.value })}
+            />
+          </div>
+          <div className="filtro-item">
+            <label>Formación académica</label>
+            <input
+              type="text"
+              value={filters.formacionAcademica}
+              onChange={e => setFilters({ ...filters, formacionAcademica: e.target.value })}
+              placeholder="Formación"
+            />
+          </div>
+          <div className="filtro-item">
+            <label>Estado de revisión</label>
+            <select
+              value={filters.estadosRevision}
+              onChange={e => setFilters({ ...filters, estadosRevision: e.target.value })}
+            >
+              <option value="">Todos</option>
+              <option value="Creada">Creada</option>
+              <option value="En Revisión">En Revisión</option>
+              <option value="Revisada">Revisada</option>
+            </select>
+          </div>
+          <div className="filtro-item">
+            <label>Requisitos</label>
+            <input
+              type="text"
+              value={filters.requisitos}
+              onChange={e => setFilters({ ...filters, requisitos: e.target.value })}
+              placeholder="Texto en requisitos"
+            />
+          </div>
+          <div className="filtro-item">
+            <label>Estado</label>
+            <select
+              value={filters.estado}
+              onChange={e => setFilters({ ...filters, estado: e.target.value })}
+            >
+              <option value="">Todos</option>
+              <option value="Creada">Creada</option>
+              <option value="En Revisión">En Revisión</option>
+              <option value="Revisada">Revisada</option>
+              <option value="Activa">Activa</option>
+              <option value="Rechazada">Rechazada</option>
+              <option value="Cerrada">Cerrada</option>
+              <option value="Vencida">Vencida</option>
+            </select>
+          </div>
+          <div className="filtro-item filtro-item--checkbox">
+            <label className="filtro-checkbox-label">
+              <input
+                type="checkbox"
+                checked={filters.empresaConfidenciales}
+                onChange={e => setFilters({ ...filters, empresaConfidenciales: e.target.checked })}
+              />
+              Empresas confidenciales
+            </label>
           </div>
         </div>
       </div>

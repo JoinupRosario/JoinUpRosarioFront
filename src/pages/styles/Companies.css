@@ -682,6 +682,11 @@
     max-width: none;
   }
 
+  .modal-overlay.modal-overlay-doc-preview .modal.modal-doc-preview {
+    width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px) !important;
+  }
+
   .modal-overlay-programas .modal.modal-programas {
     width: 440px !important;
     max-width: calc(100vw - 40px) !important;
@@ -1573,4 +1578,113 @@
 .companies-content.companies-entity-form-root .entidad-contacto-form-compact .form-actions .btn-guardar {
   padding: 7px 16px;
   font-size: 12px;
+}
+
+/* Documentos constitución legal + vista previa (fuera del grid de datos para no romper columnas) */
+.entidad-doc-legal-section {
+  width: 100%;
+  box-sizing: border-box;
+  clear: both;
+}
+.entidad-doc-legal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+}
+.entidad-doc-legal-fields .form-group {
+  width: 100%;
+  min-width: 0;
+}
+.entidad-doc-legal-title {
+  margin: 8px 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+  width: 100%;
+}
+.entidad-doc-legal-intro {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.35;
+  max-width: 100%;
+}
+.entidad-pending-doc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.entidad-pending-doc-name {
+  font-size: 12px;
+  color: #374151;
+  max-width: 100%;
+  word-break: break-all;
+}
+.entidad-btn-quitar-archivo {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Vista previa documentos: portal a body; reglas fuertes para no perder el centro por otros .modal/.modal-overlay globales */
+.modal-overlay.modal-overlay-doc-preview {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  min-width: 100% !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+  z-index: 10050 !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: auto !important;
+}
+
+.modal-overlay.modal-overlay-doc-preview .modal.modal-doc-preview {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  margin: 0 !important;
+  width: min(960px, calc(100vw - 32px)) !important;
+  max-width: min(960px, calc(100vw - 32px)) !important;
+  max-height: 92vh !important;
+  flex: 0 1 auto !important;
+  align-self: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+.modal-doc-preview-body {
+  flex: 1;
+  min-height: 200px;
+  overflow: auto;
+  background: #f3f4f6;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-doc-preview-iframe {
+  width: 100%;
+  min-height: 65vh;
+  border: none;
+  border-radius: 6px;
+  background: #fff;
+}
+.modal-doc-preview-media {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }

@@ -18,23 +18,20 @@ import {
   FiMapPin,
   FiLayers,
   FiTrendingUp,
-  FiActivity
+  FiActivity,
+  FiGrid
 } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import '../styles/Ubicaciones.css';
 import api from '../../services/api';
 
-// ── Parámetros exclusivos de Monitoría / Tutoría / Mentoría ──────────────────
+// ── Parámetros de listas MTM (oportunidad) — van en pestaña Práctica ──────────
 const MTM_VIEWS = ['dedicacionHorasMTM', 'valorPorHoraMTM', 'tipoVinculacionMTM', 'categoriaMTM'];
 
 // Mapeo de vistas a listId (tipos de documento = misma lista que tipo de identificación en facultad)
 const VIEW_TO_LIST_ID = {
-  // Monitoría
-  'dedicacionHorasMTM':  'L_DEDICATON_HOURS',
-  'valorPorHoraMTM':     'L_REMUNERATION_HOURS_PER_WEEK',
-  'tipoVinculacionMTM':  'L_CONTRACT_TYPE_STUDY_WORKING',
-  'categoriaMTM':        'L_MONITORING_TYPE',
+  // Monitoría (pestaña propia)
   // Prácticas / General
   'documentTypes': 'L_IDENTIFICATIONTYPE',
   'studyLevels': 'L_LEVEL_PROGRAM',
@@ -57,16 +54,22 @@ const VIEW_TO_LIST_ID = {
   'geographicScopes': 'L_STATE_COUNTRY', // Verificar si es correcto
   'modalities': 'L_FUNCTIONS',
   'activities': 'L_MONITORING_ACTIVITY',
+  'institutions': 'L_UNIVERSITIES',
   'eps': 'L_EPS',
-  'banks': 'L_BANCO'
+  'banks': 'L_BANCO',
+  'dedicacionHorasMTM': 'L_DEDICATON_HOURS',
+  'valorPorHoraMTM': 'L_REMUNERATION_HOURS_PER_WEEK',
+  'tipoVinculacionMTM': 'L_CONTRACT_TYPE_STUDY_WORKING',
+  'categoriaMTM': 'L_MONITORING_TYPE',
 };
 
 // Mapeo de campos de formulario a campos de Item
 const VIEW_TO_FIELD = {
   'dedicacionHorasMTM': 'dedicacionHoras',
-  'valorPorHoraMTM':    'valorPorHora',
+  'valorPorHoraMTM': 'valorPorHora',
   'tipoVinculacionMTM': 'tipoVinculacionMTM',
-  'categoriaMTM':       'categoriaMTM',
+  'categoriaMTM': 'categoriaMTM',
+  'institutions': 'institucion',
   'documentTypes': 'tipo',
   'studyLevels': 'nivelEstudio',
   'dedicationTypes': 'dedicacion',
@@ -96,8 +99,8 @@ const Ubicaciones = ({ onVolver }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const fromParametrizacionDocumentos = location.state?.from === 'configuracion-documentos';
-  // 'practica' | 'monitoria' — controla qué grupo de sub-tabs se muestra
-  const [tabGroup, setTabGroup] = useState('practica');
+  // 'transversales' | 'practica' | 'monitoria'
+  const [tabGroup, setTabGroup] = useState('transversales');
   const [vistaActual, setVistaActual] = useState('documentTypes');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -138,7 +141,8 @@ const Ubicaciones = ({ onVolver }) => {
   const [geographicScopes, setGeographicScopes] = useState([]);
   const [modalities, setModalities] = useState([]);
   const [activities, setActivities] = useState([]);
-  
+  const [institutions, setInstitutions] = useState([]);
+
   // Datos de ubicaciones
   const [countries, setCountries] = useState([]);
   const [states, setStates] = useState([]);
@@ -275,6 +279,8 @@ const Ubicaciones = ({ onVolver }) => {
       loadModalities(page, search);
     } else if (vistaActual === 'activities') {
       loadActivities(page, search);
+    } else if (vistaActual === 'institutions') {
+      loadInstitutions(page, search);
     }
     // Ubicaciones
     else if (vistaActual === 'countries') {
@@ -357,6 +363,8 @@ const Ubicaciones = ({ onVolver }) => {
         loadModalities(page, searchTerm);
       } else if (vistaActual === 'activities') {
         loadActivities(page, searchTerm);
+      } else if (vistaActual === 'institutions') {
+        loadInstitutions(page, searchTerm);
       }
       // Ubicaciones
       else if (vistaActual === 'countries') {
@@ -375,7 +383,7 @@ const Ubicaciones = ({ onVolver }) => {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, vistaActual]);
 
 
   // Función genérica para cargar items por listId
@@ -425,6 +433,7 @@ const Ubicaciones = ({ onVolver }) => {
           'geographicScopes': setGeographicScopes,
           'modalities': setModalities,
           'activities': setActivities,
+          'institutions': setInstitutions,
           'eps': setEps,
           'banks': setBanks
         };
@@ -535,6 +544,10 @@ const Ubicaciones = ({ onVolver }) => {
 
   const loadActivities = async (page = 1, search = '') => {
     await loadItems('activities', page, search);
+  };
+
+  const loadInstitutions = async (page = 1, search = '') => {
+    await loadItems('institutions', page, search);
   };
 
   // ==================== FUNCIONES DE CARGA - EPS Y BANCOS ====================
@@ -974,6 +987,8 @@ const Ubicaciones = ({ onVolver }) => {
       data = modalities;
     } else if (vistaActual === 'activities') {
       data = activities;
+    } else if (vistaActual === 'institutions') {
+      data = institutions;
     }
     // Ubicaciones
     else if (vistaActual === 'countries') {
@@ -1005,80 +1020,137 @@ const Ubicaciones = ({ onVolver }) => {
         <h2>Gestión de Parámetros</h2>
       </div>
 
-      {/* ── Macro-tabs: Prácticas / Monitoría ── */}
+      {/* ── Macro-tabs: Transversales / Práctica / Monitoría ── */}
       <div className="ubicaciones-macro-tabs">
         <button
+          type="button"
+          className={`macro-tab transversales ${tabGroup === 'transversales' ? 'active' : ''}`}
+          onClick={() => {
+            setTabGroup('transversales');
+            setVistaActual('documentTypes');
+            setShowForm(false);
+            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+            setSearchTerm('');
+          }}
+        >
+          <FiGrid /> Transversales
+        </button>
+        <button
+          type="button"
           className={`macro-tab ${tabGroup === 'practica' ? 'active' : ''}`}
           onClick={() => {
             setTabGroup('practica');
-            setVistaActual('documentTypes');
+            setVistaActual('dedicationTypes');
             setShowForm(false);
             setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
             setSearchTerm('');
           }}
         >
-          <FiBriefcase /> Parámetros Prácticas
+          <FiBriefcase /> Práctica
         </button>
         <button
+          type="button"
           className={`macro-tab monitoria ${tabGroup === 'monitoria' ? 'active' : ''}`}
           onClick={() => {
             setTabGroup('monitoria');
-            setVistaActual('dedicacionHorasMTM');
+            setVistaActual('eps');
             setShowForm(false);
             setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
             setSearchTerm('');
           }}
         >
-          <FiBook /> Parámetros Monitorías / Tutorías / Mentorías
+          <FiBook /> Monitoría
         </button>
       </div>
 
-      {/* ── Sub-tabs Monitoría ── */}
-      {tabGroup === 'monitoria' && (
+      {/* ── Sub-tabs Transversales ── */}
+      {tabGroup === 'transversales' && (
         <div className="ubicaciones-tabs">
-          {[
-            { key: 'dedicacionHorasMTM',  label: 'Dedicación Horas/Semana', icon: <FiClock /> },
-            { key: 'valorPorHoraMTM',     label: 'Valor por Hora',          icon: <FiTrendingUp /> },
-            { key: 'tipoVinculacionMTM',  label: 'Tipo de Vinculación',     icon: <FiShield /> },
-            { key: 'categoriaMTM',        label: 'Categoría (Tipo MTM)',     icon: <FiLayers /> },
-          ].map(({ key, label, icon }) => (
-            <button
-              key={key}
-              className={`tab ${vistaActual === key ? 'active' : ''}`}
-              onClick={() => { setVistaActual(key); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
-            >
-              {icon} {label}
-            </button>
-          ))}
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'documentTypes' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('documentTypes'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiFileText /> Tipos de Documento
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'studyLevels' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('studyLevels'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiBook /> Niveles de estudio
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'countries' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('countries'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiWorld /> Países
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'states' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('states'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiMapPin /> Estados / Departamentos
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'cities' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('cities'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiMapPin /> Ciudades
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'competencies' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('competencies'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiAward /> Competencias
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'languages' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('languages'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiWorld /> Idiomas
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'experienceTypes' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('experienceTypes'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiBook /> Tipo experiencia
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'achievementTypes' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('achievementTypes'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiAward /> Tipo logro
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'activities' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('activities'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiActivity /> Actividad
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'institutions' ? 'active' : ''}`}
+            onClick={() => { setVistaActual('institutions'); setShowForm(false); setPagination({ page: 1, limit: 10, total: 0, pages: 0 }); setSearchTerm(''); }}
+          >
+            <FiLayers /> Instituciones
+          </button>
         </div>
       )}
 
-      {/* ── Sub-tabs Prácticas (los originales, solo visibles cuando tabGroup=practica) ── */}
+      {/* ── Sub-tabs Práctica (escenario, oportunidades, legalización práctica, parámetros lista MTM) ── */}
       {tabGroup === 'practica' && (
       <div className="ubicaciones-tabs">
         <button
-          className={`tab ${vistaActual === 'documentTypes' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('documentTypes');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiFileText /> Tipos de Documento
-        </button>
-        <button
-          className={`tab ${vistaActual === 'studyLevels' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('studyLevels');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiBook /> Niveles de Estudio
-        </button>
-        <button
+          type="button"
           className={`tab ${vistaActual === 'dedicationTypes' ? 'active' : ''}`}
           onClick={() => {
             setVistaActual('dedicationTypes');
@@ -1090,6 +1162,7 @@ const Ubicaciones = ({ onVolver }) => {
           <FiClock /> Dedicación
         </button>
         <button
+          type="button"
           className={`tab ${vistaActual === 'arls' ? 'active' : ''}`}
           onClick={() => {
             setVistaActual('arls');
@@ -1099,28 +1172,6 @@ const Ubicaciones = ({ onVolver }) => {
           }}
         >
           <FiShield /> ARLs
-        </button>
-        <button
-          className={`tab ${vistaActual === 'eps' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('eps');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiActivity /> EPS
-        </button>
-        <button
-          className={`tab ${vistaActual === 'banks' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('banks');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiBriefcase /> Bancos
         </button>
         
         {/* Separador visual */}
@@ -1235,90 +1286,9 @@ const Ubicaciones = ({ onVolver }) => {
         {/* Separador visual */}
         <div className="tab-separator"></div>
         
-        {/* UBICACIONES */}
+        {/* Tipo práctica (oportunidad práctica) */}
         <button
-          className={`tab ${vistaActual === 'countries' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('countries');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiWorld /> Países
-        </button>
-        <button
-          className={`tab ${vistaActual === 'states' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('states');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiMapPin /> Estados/Departamentos
-        </button>
-        <button
-          className={`tab ${vistaActual === 'cities' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('cities');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiMapPin /> Ciudades
-        </button>
-        
-        {/* Separador visual */}
-        <div className="tab-separator"></div>
-        
-        {/* ESTUDIANTES-POSTULANTES */}
-        <button
-          className={`tab ${vistaActual === 'competencies' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('competencies');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiAward /> Competencias
-        </button>
-        <button
-          className={`tab ${vistaActual === 'languages' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('languages');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiWorld /> Idiomas
-        </button>
-        <button
-          className={`tab ${vistaActual === 'experienceTypes' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('experienceTypes');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiBook /> Tipo Experiencia
-        </button>
-        <button
-          className={`tab ${vistaActual === 'achievementTypes' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('achievementTypes');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiAward /> Tipo Logro
-        </button>
-        <button
+          type="button"
           className={`tab ${vistaActual === 'practiceTypes' ? 'active' : ''}`}
           onClick={() => {
             setVistaActual('practiceTypes');
@@ -1333,8 +1303,9 @@ const Ubicaciones = ({ onVolver }) => {
         {/* Separador visual */}
         <div className="tab-separator"></div>
         
-        {/* LEGALIZACIÓN */}
+        {/* LEGALIZACIÓN práctica */}
         <button
+          type="button"
           className={`tab ${vistaActual === 'geographicScopes' ? 'active' : ''}`}
           onClick={() => {
             setVistaActual('geographicScopes');
@@ -1346,6 +1317,7 @@ const Ubicaciones = ({ onVolver }) => {
           <FiMapPin /> Ámbito Geográfico
         </button>
         <button
+          type="button"
           className={`tab ${vistaActual === 'modalities' ? 'active' : ''}`}
           onClick={() => {
             setVistaActual('modalities');
@@ -1356,19 +1328,74 @@ const Ubicaciones = ({ onVolver }) => {
         >
           <FiActivity /> Modalidad
         </button>
-        <button
-          className={`tab ${vistaActual === 'activities' ? 'active' : ''}`}
-          onClick={() => {
-            setVistaActual('activities');
-            setShowForm(false);
-            setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
-            setSearchTerm('');
-          }}
-        >
-          <FiActivity /> Actividad
-        </button>
+
+        {/* Separador visual */}
+        <div className="tab-separator"></div>
+
+        {/* Listas de oportunidad monitoría (MTM) — categoría está en pestaña Monitoría */}
+        {[
+          { key: 'dedicacionHorasMTM', label: 'Dedicación horas/semana', icon: <FiClock /> },
+          { key: 'valorPorHoraMTM', label: 'Valor por hora', icon: <FiTrendingUp /> },
+          { key: 'tipoVinculacionMTM', label: 'Tipo de vinculación', icon: <FiShield /> },
+        ].map(({ key, label, icon }) => (
+          <button
+            key={key}
+            type="button"
+            className={`tab ${vistaActual === key ? 'active' : ''}`}
+            onClick={() => {
+              setVistaActual(key);
+              setShowForm(false);
+              setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+              setSearchTerm('');
+            }}
+          >
+            {icon} {label}
+          </button>
+        ))}
       </div>
       )}{/* fin tabGroup === 'practica' */}
+
+      {/* ── Sub-tabs Monitoría (legalización MTM + categoría oportunidad) ── */}
+      {tabGroup === 'monitoria' && (
+        <div className="ubicaciones-tabs">
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'eps' ? 'active' : ''}`}
+            onClick={() => {
+              setVistaActual('eps');
+              setShowForm(false);
+              setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+              setSearchTerm('');
+            }}
+          >
+            <FiActivity /> EPS
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'banks' ? 'active' : ''}`}
+            onClick={() => {
+              setVistaActual('banks');
+              setShowForm(false);
+              setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+              setSearchTerm('');
+            }}
+          >
+            <FiBriefcase /> Bancos
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'categoriaMTM' ? 'active' : ''}`}
+            onClick={() => {
+              setVistaActual('categoriaMTM');
+              setShowForm(false);
+              setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+              setSearchTerm('');
+            }}
+          >
+            <FiLayers /> Categoría (Tipo MTM)
+          </button>
+        </div>
+      )}
 
       {/* Filtros */}
       {/* Barra de búsqueda y acciones */}
@@ -1417,10 +1444,13 @@ const Ubicaciones = ({ onVolver }) => {
           else if (vistaActual === 'geographicScopes') loadGeographicScopes(pagination.page, searchTerm);
           else if (vistaActual === 'modalities') loadModalities(pagination.page, searchTerm);
           else if (vistaActual === 'activities') loadActivities(pagination.page, searchTerm);
+          else if (vistaActual === 'institutions') loadInstitutions(pagination.page, searchTerm);
           // Ubicaciones
           else if (vistaActual === 'countries') loadCountries(pagination.page, searchTerm);
           else if (vistaActual === 'states') loadStates(pagination.page, searchTerm);
           else if (vistaActual === 'cities') loadCities(pagination.page, searchTerm);
+          else if (vistaActual === 'eps') loadEPS(pagination.page, searchTerm);
+          else if (vistaActual === 'banks') loadBanks(pagination.page, searchTerm);
         }}>
           <FiRefreshCw /> Actualizar
         </button>
@@ -1556,6 +1586,12 @@ const Ubicaciones = ({ onVolver }) => {
                   </>
                 )}
                 {vistaActual === 'achievementTypes' && (
+                  <>
+                    <th>Valor</th>
+                    <th>Descripción</th>
+                  </>
+                )}
+                {vistaActual === 'institutions' && (
                   <>
                     <th>Valor</th>
                     <th>Descripción</th>
@@ -1765,6 +1801,12 @@ const Ubicaciones = ({ onVolver }) => {
                         <td>{item.description || '-'}</td>
                       </>
                     )}
+                    {vistaActual === 'institutions' && (
+                      <>
+                        <td>{item.value || '-'}</td>
+                        <td>{item.description || '-'}</td>
+                      </>
+                    )}
                     {vistaActual === 'practiceTypes' && (
                       <>
                         <td>{item.value || '-'}</td>
@@ -1875,6 +1917,7 @@ const Ubicaciones = ({ onVolver }) => {
           else if (vistaActual === 'languages')              loadLanguages(p, searchTerm);
           else if (vistaActual === 'experienceTypes')        loadExperienceTypes(p, searchTerm);
           else if (vistaActual === 'achievementTypes')       loadAchievementTypes(p, searchTerm);
+          else if (vistaActual === 'institutions')           loadInstitutions(p, searchTerm);
           else if (vistaActual === 'practiceTypes')          loadPracticeTypes(p, searchTerm);
           else if (vistaActual === 'geographicScopes')       loadGeographicScopes(p, searchTerm);
           else if (vistaActual === 'modalities')             loadModalities(p, searchTerm);
@@ -1929,6 +1972,7 @@ const Ubicaciones = ({ onVolver }) => {
                  vistaActual === 'states' ? 'Estado/Departamento' :
                  vistaActual === 'cities' ? 'Ciudad' :
                  vistaActual === 'codigosCiiu' ? 'Código CIIU' :
+                 vistaActual === 'institutions' ? 'Institución' :
                  vistaActual.slice(0, -1)}
               </h3>
               <button className="btn-close" onClick={() => setShowForm(false)}>

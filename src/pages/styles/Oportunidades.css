@@ -461,6 +461,89 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
+.filtros-busqueda-section--compact {
+  padding: 8px 14px 10px;
+}
+
+.filtros-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.filtros-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.filtros-toolbar .filtros-header {
+  margin-bottom: 0;
+}
+
+.filtros-orden-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filtros-orden-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.filtros-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ordenar-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filtro-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4b5563;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.filtro-item--checkbox {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.filtros-content.filtros-grid-compacto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 6px 10px;
+  padding: 0;
+  border-top: none;
+}
+
+.filtros-content.filtros-grid-compacto .filtro-item {
+  min-width: 0;
+  flex: unset;
+}
+
 .filtros-header {
   display: flex;
   align-items: center;
@@ -470,24 +553,17 @@
 
 .filtros-header h4 {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #374151;
   text-transform: none;
 }
 
 .filtros-icon {
-  font-size: 16px;
+  font-size: 15px;
   color: #6b7280;
 }
 
-.filtros-buttons {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.btn-mas-filtros,
 .btn-buscar,
 .btn-limpiar {
   padding: 8px 16px;
@@ -499,13 +575,11 @@
   transition: all 0.2s ease;
 }
 
-.btn-mas-filtros {
-  background: #c41e3a;
-  color: white;
-}
-
-.btn-mas-filtros:hover {
-  background: #a01a2f;
+.btn-buscar--compact,
+.btn-limpiar--compact {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 5px;
 }
 
 .btn-buscar {
@@ -534,29 +608,36 @@
   border-top: 1px solid #e5e7eb;
 }
 
+.filtros-busqueda-section .filtros-content.filtros-grid-compacto {
+  padding-top: 2px;
+}
+
 .filtro-item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 180px;
+  gap: 2px;
+  min-width: 120px;
   flex: 1 1 auto;
 }
 
 .filtro-item label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
   text-transform: none;
+  line-height: 1.15;
 }
 
 .filtro-item input[type="text"],
 .filtro-item input[type="date"],
 .filtro-item select {
-  padding: 8px 12px;
+  padding: 5px 8px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 5px;
+  font-size: 12px;
   color: #374151;
+  min-height: 30px;
+  box-sizing: border-box;
 }
 
 .filtro-item input[type="checkbox"] {
@@ -572,7 +653,7 @@
   flex: 1;
 }
 
-/* Ordenar Por - ahora está en el filter-group */
+/* Compat: bloque antiguo de ordenar (unificado en .ordenar-inline) */
 .ordenar-content {
   display: flex;
   align-items: center;
@@ -589,6 +670,14 @@
   background: white;
   cursor: pointer;
   min-width: 180px;
+}
+
+.ordenar-select--compact {
+  min-width: 0;
+  max-width: 200px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 5px;
 }
 
 .ordenar-select:hover {
@@ -611,6 +700,18 @@
   height: 36px;
 }
 
+.ordenar-direction-btn--compact {
+  width: 30px;
+  height: 30px;
+  padding: 4px;
+  border-radius: 5px;
+}
+
+.ordenar-direction-btn--compact svg {
+  width: 15px;
+  height: 15px;
+}
+
 .ordenar-direction-btn:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
@@ -620,39 +721,6 @@
 .ordenar-direction-btn svg {
   width: 18px;
   height: 18px;
-}
-
-/* Filtros */
-.oportunidades-filters {
-  padding: 15px 20px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.filter-icon {
-  color: #6b7280;
-  font-size: 18px;
-}
-
-.filter-input {
-  flex: 1;
-  padding: 10px 15px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.filter-input:focus {
-  outline: none;
-  border-color: #c41e3a;
-  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
 }
 
 /* Grid de Oportunidades */
@@ -2727,57 +2795,54 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
     font-size: 13px;
   }
 
-  .filtros-buttons {
+  .filtros-toolbar {
     flex-direction: column;
-    gap: 8px;
+    align-items: stretch;
   }
 
-  .btn-mas-filtros,
-  .btn-buscar,
-  .btn-limpiar {
+  .filtros-actions {
     width: 100%;
-    padding: 10px 16px;
+    justify-content: stretch;
+    gap: 10px;
+  }
+
+  .filtros-actions .btn-buscar,
+  .filtros-actions .btn-limpiar {
+    flex: 1;
+    padding: 8px 12px;
     font-size: 12px;
   }
 
-  .filtros-content,
-  .ordenar-content {
+  .filtros-toolbar-left {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-orden-compact {
+    width: 100%;
+  }
+
+  .ordenar-select--compact {
+    flex: 1;
+    max-width: none;
+  }
+
+  .filtros-content.filtros-grid-compacto {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 8px;
   }
 
   .filtro-item label,
   .ordenar-label {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .filtro-item input[type="text"],
   .filtro-item input[type="date"],
   .filtro-item select,
   .ordenar-select {
-    font-size: 13px;
-    padding: 10px;
-  }
-
-  .filtro-dates {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .oportunidades-filters {
-    padding: 12px 15px;
-  }
-
-  .filter-group {
-    flex-direction: column;
-    max-width: 100%;
-    gap: 8px;
-  }
-
-  .filter-input {
-    width: 100%;
-    font-size: 14px;
-    padding: 10px 12px;
+    font-size: 12px;
+    padding: 8px 10px;
   }
 
   .oportunidades-grid {
@@ -3027,9 +3092,8 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
     font-size: 14px;
   }
 
-  .btn-mas-filtros,
-  .btn-buscar,
-  .btn-limpiar {
+  .filtros-actions .btn-buscar,
+  .filtros-actions .btn-limpiar {
     padding: 8px 14px;
     font-size: 11px;
   }
@@ -3045,15 +3109,6 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
   .ordenar-select {
     font-size: 12px;
     padding: 8px;
-  }
-
-  .oportunidades-filters {
-    padding: 10px 12px;
-  }
-
-  .filter-input {
-    font-size: 13px;
-    padding: 8px 10px;
   }
 
   .oportunidades-grid {

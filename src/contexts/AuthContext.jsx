@@ -34,6 +34,11 @@ const authReducer = (state, action) => {
         permissions: [],
         roles: [],
       };
+    case 'UPDATE_USER':
+      return {
+        ...state,
+        user: state.user ? { ...state.user, ...action.payload } : null,
+      };
     case 'SET_LOADING':
       return {
         ...state,
@@ -163,7 +168,7 @@ export const AuthProvider = ({ children }) => {
         payload: { token, user, permissions, roles },
       });
       
-      return { success: true, modulo: user.modulo };
+      return { success: true, modulo: user.modulo, user };
     } catch (error) {
       return {
         success: false,
@@ -237,6 +242,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /** Fusiona campos del usuario (p. ej. tras cambiar contraseña) y persiste en localStorage */
+  const updateUser = (updates) => {
+    dispatch({ type: 'UPDATE_USER', payload: updates });
+    try {
+      const token = localStorage.getItem('token');
+      const raw = localStorage.getItem('user');
+      if (!raw) return;
+      const prev = JSON.parse(raw);
+      const next = { ...prev, ...updates };
+      localStorage.setItem('user', JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
+
   const value = {
     ...state,
     login,
@@ -246,6 +266,7 @@ export const AuthProvider = ({ children }) => {
     hasPermission,
     hasAnyPermission,
     refreshPermissions,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

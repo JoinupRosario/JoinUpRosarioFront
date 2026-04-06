@@ -143,10 +143,11 @@ function isSeccionHojaVidaCompletada(profileData, postulant, sectionKey) {
     case 'formacion_rosario_en_curso':
       return has(pp?.enrolledPrograms?.filter((ep) => ep.programFacultyId != null));
     case 'formacion_rosario_finalizada':
-      return has(pp?.graduatePrograms);
+      return has(pp?.graduatePrograms?.filter((g) => g.programFacultyId != null));
     case 'formacion_en_curso_otras':
       return has(pp?.enrolledPrograms?.filter((ep) => ep.programFacultyId == null));
     case 'formacion_finalizada_otras':
+      return has(pp?.graduatePrograms?.filter((g) => g.programFacultyId == null));
     case 'otros_estudios':
       return has(pp?.otherStudies);
     case 'experiencia_laboral':
@@ -287,10 +288,10 @@ const PostulantProfile = ({ onVolver }) => {
   const [editingGraduateId, setEditingGraduateId] = useState(null);
   const [programasFinalizadosModalOpen, setProgramasFinalizadosModalOpen] = useState(false);
   const [programasFinalizadosFormData, setProgramasFinalizadosFormData] = useState({
-    programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', departamento: '', ciudad: '',
+    programa: '', tituloFormacion: '', fechaObtencion: '', pais: '', institucion: '', departamento: '', ciudad: '',
   });
   const [savingAcademic, setSavingAcademic] = useState(false);
-  /** Id del programa finalizado cuyo menú Opciones está abierto (Rosario - Finalizada). */
+  /** Id del programa finalizado UR (programFacultyId) u otras instituciones cuyo menú Opciones está abierto. */
   const [academicFinalizadaOptionsId, setAcademicFinalizadaOptionsId] = useState(null);
   /** Id del otro estudio cuyo menú Opciones está abierto. */
   const [otherStudyOptionsId, setOtherStudyOptionsId] = useState(null);
@@ -303,7 +304,7 @@ const PostulantProfile = ({ onVolver }) => {
   });
   /** Opciones del select Institución (items con listId L_UNIVERSITIES) */
   const [institutionOptions, setInstitutionOptions] = useState([]);
-  /** Países para formación Rosario finalizada */
+  /** Países (GET /locations/countries) para formación académica finalizada — otras instituciones */
   const [graduateCountryOptions, setGraduateCountryOptions] = useState([]);
   /** Modal agregar área de interés */
   const [interestAreaModalOpen, setInterestAreaModalOpen] = useState(false);
@@ -1179,30 +1180,39 @@ const PostulantProfile = ({ onVolver }) => {
 
   const handleSaveGraduateProgram = useCallback(async () => {
     if (!postulant?._id || !currentBaseProfileId) return;
-    if (!programasFinalizadosFormData.programa) {
-      showError('Campo requerido', 'Seleccione un programa');
+    const nombrePrograma = (programasFinalizadosFormData.programa || '').trim();
+    if (!nombrePrograma) {
+      showError('Campo requerido', 'Indique el nombre del programa');
+      return;
+    }
+    if (!programasFinalizadosFormData.pais) {
+      showError('Campo requerido', 'Seleccione el país');
       return;
     }
     try {
       setSavingAcademic(true);
       const body = {
-        programId: programasFinalizadosFormData.programa,
+        programId: null,
+        externalProgramName: nombrePrograma,
         title: programasFinalizadosFormData.tituloFormacion || undefined,
         endDate: programasFinalizadosFormData.fechaObtencion || undefined,
-        university: programasFinalizadosFormData.institucion || undefined,
-        stateId: programasFinalizadosFormData.departamento || undefined,
-        cityId: programasFinalizadosFormData.ciudad || undefined,
+        countryId: programasFinalizadosFormData.pais,
+        programFacultyId: null,
+        university: null,
+        stateId: null,
+        cityId: null,
+        anotherUniversity: null,
       };
       if (editingGraduateId) {
         await api.put(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/graduate-programs/${editingGraduateId}`, body);
-        createAlert('success', 'Actualizado', 'Programa finalizado actualizado.');
+        createAlert('success', 'Actualizado', 'Formación académica finalizada actualizada.');
       } else {
         await api.post(`/postulants/${postulant._id}/profiles/${currentBaseProfileId}/graduate-programs`, body);
-        createAlert('success', 'Guardado', 'Programa finalizado registrado.');
+        createAlert('success', 'Guardado', 'Formación académica finalizada registrada.');
       }
       setProgramasFinalizadosModalOpen(false);
       setEditingGraduateId(null);
-      setProgramasFinalizadosFormData({ programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', departamento: '', ciudad: '' });
+      setProgramasFinalizadosFormData({ programa: '', tituloFormacion: '', fechaObtencion: '', pais: '', institucion: '', departamento: '', ciudad: '' });
       loadProfileDataForProfile(postulant._id, currentBaseProfileId);
     } catch (err) {
       console.error(err);
@@ -3045,87 +3055,168 @@ const PostulantProfile = ({ onVolver }) => {
               })()}
             </section>
 
+            {/* Rosario finalizada: solo registros con programFacultyId (sincronización / facultad UR). Sin alta manual aquí. */}
             <section className="academic-section">
               <div className="section-title-row">
                 <h3 className="academic-section-title">Formación académica Rosario - Finalizada</h3>
-                {isEditing && (
-                  <span className="section-actions">
-                    <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setEditingGraduateId(null); setProgramasFinalizadosFormData({ programa: '', tituloFormacion: '', fechaObtencion: '', institucion: '', departamento: '', ciudad: '' }); setProgramasFinalizadosModalOpen(true); }} title="Agregar"><FiPlus /></button>
-                  </span>
-                )}
               </div>
-              {profileData?.graduatePrograms?.length > 0 ? (
-                <>
-                  <p className="academic-subtitle academic-subtitle--above-table">Formación académica Finalizada - Registrada</p>
+              <p className="academic-subtitle">Programas finalizados en la Universidad del Rosario (vinculados a facultad). Se actualizan desde la información académica institucional cuando aplica.</p>
+              {(() => {
+                const graduateRosario = (profileData?.graduatePrograms || []).filter((g) => g.programFacultyId != null);
+                return graduateRosario.length > 0 ? (
                   <div className="exp-table-wrap academic-table-wrap">
                     <table className="exp-table academic-table">
                       <thead>
                         <tr>
                           <th>Programa</th>
+                          <th>Facultad</th>
                           <th>Título formación académica</th>
                           <th>Fecha de obtención de título</th>
-                          <th>Acciones</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {profileData.graduatePrograms.map((gp) => {
-                          const isOptionsOpen = academicFinalizadaOptionsId === gp._id;
-                          return (
-                            <tr key={gp._id}>
-                              <td>{gp.programId?.name || gp.programId?.code || '—'}</td>
-                              <td>{gp.title || '—'}</td>
-                              <td>{gp.endDate ? formatDate(gp.endDate) : '—'}</td>
-                              <td>
-                                {isEditing && (
-                                  <div className="academic-row-actions" ref={isOptionsOpen ? academicOptionsAnchorRef : undefined}>
-                                    <button
-                                      type="button"
-                                      className="perfil-opciones-btn"
-                                      onClick={() => setAcademicFinalizadaOptionsId(isOptionsOpen ? null : gp._id)}
-                                      title="Opciones"
-                                    >
-                                      Opciones <FiMoreVertical />
-                                    </button>
-                                    {isOptionsOpen && (
-                                      <>
-                                        <div className="perfil-opciones-backdrop" onClick={() => setAcademicFinalizadaOptionsId(null)} />
-                                        <div
-                                          className={`perfil-opciones-menu perfil-opciones-menu--fixed${academicOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
-                                          style={academicOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...academicOptionsMenuFixed } : undefined}
-                                        >
-                                          <button type="button" onClick={() => {
-                                            setAcademicFinalizadaOptionsId(null);
-                                            setEditingGraduateId(gp._id);
-                                            setProgramasFinalizadosFormData({
-                                              programa: gp.programId?._id || gp.programId || '',
-                                              tituloFormacion: gp.title || '',
-                                              fechaObtencion: gp.endDate ? (typeof gp.endDate === 'string' ? gp.endDate.slice(0, 10) : new Date(gp.endDate).toISOString().slice(0, 10)) : '',
-                                              institucion: gp.university?._id || gp.university || '',
-                                              departamento: gp.stateId?._id || gp.stateId || '',
-                                              ciudad: gp.cityId?._id || gp.cityId || '',
-                                            });
-                                            setProgramasFinalizadosModalOpen(true);
-                                          }}>Editar</button>
-                                          <button type="button" onClick={() => handleDeleteGraduateProgram(gp._id)}>Eliminar</button>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {graduateRosario.map((gp) => (
+                          <tr key={gp._id}>
+                            <td>{gp.programId?.name || gp.programId?.code || '—'}</td>
+                            <td>{gp.programFacultyId?.facultyId?.name || gp.programFacultyId?.name || '—'}</td>
+                            <td>{gp.title || '—'}</td>
+                            <td>{gp.endDate ? formatDate(gp.endDate) : '—'}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
-                </>
-              ) : (
-                <div className="academic-empty">
-                  <FiXCircle className="academic-empty-icon" />
-                  <span>No tiene formación finalizada registrada.</span>
-                </div>
-              )}
+                ) : (
+                  <div className="academic-empty">
+                    <FiXCircle className="academic-empty-icon" />
+                    <span>No tiene formación finalizada en la Universidad del Rosario registrada.</span>
+                  </div>
+                );
+              })()}
+            </section>
+
+            {/* Otras instituciones: programFacultyId null — nombre de programa libre, título, fecha, país */}
+            <section className="academic-section">
+              <div className="section-title-row">
+                <h3 className="academic-section-title">Formación académica finalizada (otras instituciones)</h3>
+                {isEditing && (
+                  <span className="section-actions">
+                    <button
+                      type="button"
+                      className="section-action-btn section-action-add-only"
+                      onClick={() => {
+                        setEditingGraduateId(null);
+                        setProgramasFinalizadosFormData({
+                          programa: '',
+                          tituloFormacion: '',
+                          fechaObtencion: '',
+                          pais: '',
+                          institucion: '',
+                          departamento: '',
+                          ciudad: '',
+                        });
+                        setProgramasFinalizadosModalOpen(true);
+                      }}
+                      title="Agregar"
+                    >
+                      <FiPlus />
+                    </button>
+                  </span>
+                )}
+              </div>
+              <p className="academic-subtitle">Formación de pregrado o posgrado finalizada fuera de la Universidad del Rosario.</p>
+              {(() => {
+                const graduateOtras = (profileData?.graduatePrograms || []).filter((g) => g.programFacultyId == null);
+                return graduateOtras.length > 0 ? (
+                  <>
+                    <p className="academic-subtitle academic-subtitle--above-table">Formación académica finalizada — Registrada</p>
+                    <div className="exp-table-wrap academic-table-wrap">
+                      <table className="exp-table academic-table">
+                        <thead>
+                          <tr>
+                            <th>Programa</th>
+                            <th>Título formación académica</th>
+                            <th>Fecha de obtención de título</th>
+                            <th>País</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {graduateOtras.map((gp) => {
+                            const isOptionsOpen = academicFinalizadaOptionsId === gp._id;
+                            return (
+                              <tr key={gp._id}>
+                                <td>
+                                  <span className="academic-item-icon academic-item-check"><FiCheck /></span>
+                                  {gp.externalProgramName || gp.programId?.name || gp.programId?.code || '—'}
+                                </td>
+                                <td>{gp.title || '—'}</td>
+                                <td>{gp.endDate ? formatDate(gp.endDate) : '—'}</td>
+                                <td>{gp.countryId?.name ?? '—'}</td>
+                                <td>
+                                  {isEditing && (
+                                    <div className="academic-row-actions" ref={isOptionsOpen ? academicOptionsAnchorRef : undefined}>
+                                      <button
+                                        type="button"
+                                        className="perfil-opciones-btn"
+                                        onClick={() => setAcademicFinalizadaOptionsId(isOptionsOpen ? null : gp._id)}
+                                        title="Opciones"
+                                      >
+                                        Opciones <FiMoreVertical />
+                                      </button>
+                                      {isOptionsOpen && (
+                                        <>
+                                          <div className="perfil-opciones-backdrop" onClick={() => setAcademicFinalizadaOptionsId(null)} />
+                                          <div
+                                            className={`perfil-opciones-menu perfil-opciones-menu--fixed${academicOptionsMenuAbove ? ' perfil-opciones-menu--above' : ''}`}
+                                            style={academicOptionsMenuFixed ? { position: 'fixed', zIndex: 11, ...academicOptionsMenuFixed } : undefined}
+                                          >
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setAcademicFinalizadaOptionsId(null);
+                                                setEditingGraduateId(gp._id);
+                                                setProgramasFinalizadosFormData({
+                                                  programa: gp.externalProgramName || gp.programId?.name || '',
+                                                  tituloFormacion: gp.title || '',
+                                                  fechaObtencion: gp.endDate
+                                                    ? (typeof gp.endDate === 'string'
+                                                        ? gp.endDate.slice(0, 10)
+                                                        : new Date(gp.endDate).toISOString().slice(0, 10))
+                                                    : '',
+                                                  pais: gp.countryId?._id || gp.countryId || '',
+                                                  institucion: '',
+                                                  departamento: '',
+                                                  ciudad: '',
+                                                });
+                                                setProgramasFinalizadosModalOpen(true);
+                                              }}
+                                            >
+                                              Editar
+                                            </button>
+                                            <button type="button" onClick={() => handleDeleteGraduateProgram(gp._id)}>
+                                              Eliminar
+                                            </button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="academic-empty">
+                    <FiXCircle className="academic-empty-icon" />
+                    <span>No tiene formación académica finalizada en otras instituciones registrada.</span>
+                  </div>
+                );
+              })()}
             </section>
 
             <section className="academic-section">
@@ -3866,23 +3957,28 @@ const PostulantProfile = ({ onVolver }) => {
         </div>
       )}
 
-      {/* Modal programas finalizados */}
+      {/* Modal: formación académica finalizada — otras instituciones (programFacultyId null; país desde /locations/countries) */}
       {programasFinalizadosModalOpen && (
-        <div className="form-modal-overlay" onClick={() => setProgramasFinalizadosModalOpen(false)}>
+        <div className="form-modal-overlay" onClick={() => { setProgramasFinalizadosModalOpen(false); setEditingGraduateId(null); }}>
           <div className="form-modal-content" onClick={e => e.stopPropagation()}>
             <div className="form-modal-header">
-              <h3 className="form-modal-title">{editingGraduateId ? 'Editar programa finalizado' : 'Agregar programa finalizado'}</h3>
-              <button type="button" className="form-modal-close" onClick={() => setProgramasFinalizadosModalOpen(false)} aria-label="Cerrar"><FiX /></button>
+              <h3 className="form-modal-title">
+                {editingGraduateId ? 'Editar formación finalizada (otras instituciones)' : 'Agregar formación finalizada (otras instituciones)'}
+              </h3>
+              <button type="button" className="form-modal-close" onClick={() => { setProgramasFinalizadosModalOpen(false); setEditingGraduateId(null); }} aria-label="Cerrar"><FiX /></button>
             </div>
             <div className="form-modal-body">
-              <ProgramAllSelect
-                id="pf-programa"
-                value={programasFinalizadosFormData.programa}
-                onChange={(v) => setProgramasFinalizadosFormData(prev => ({ ...prev, programa: v }))}
-                label="Programa"
-                required
-                onError={showError}
-              />
+              <div className="form-floating mb-3">
+                <input
+                  type="text"
+                  id="pf-programa"
+                  value={programasFinalizadosFormData.programa}
+                  onChange={e => setProgramasFinalizadosFormData(prev => ({ ...prev, programa: e.target.value }))}
+                  className="form-control"
+                  placeholder=" "
+                />
+                <label htmlFor="pf-programa">Programa <span className="text-danger">*</span></label>
+              </div>
               <div className="form-floating mb-3">
                 <input
                   type="text"
@@ -3904,9 +4000,43 @@ const PostulantProfile = ({ onVolver }) => {
                 />
                 <label htmlFor="pf-fecha">Fecha de obtención de título</label>
               </div>
+              <div className="form-floating mb-3">
+                <select
+                  id="pf-pais"
+                  className="form-select"
+                  value={programasFinalizadosFormData.pais}
+                  onChange={e => setProgramasFinalizadosFormData(prev => ({ ...prev, pais: e.target.value }))}
+                >
+                  <option value="">Seleccione país</option>
+                  {[...graduateCountryOptions]
+                    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es', { sensitivity: 'base' }))
+                    .map((c) => (
+                      <option key={c._id} value={c._id}>{c.name}</option>
+                    ))}
+                </select>
+                <label htmlFor="pf-pais">País <span className="text-danger">*</span></label>
+              </div>
             </div>
             <div className="form-modal-footer">
-              <button type="button" className="form-modal-btn-cancel" onClick={() => { setProgramasFinalizadosModalOpen(false); setEditingGraduateId(null); }}>Descartar</button>
+              <button
+                type="button"
+                className="form-modal-btn-cancel"
+                onClick={() => {
+                  setProgramasFinalizadosModalOpen(false);
+                  setEditingGraduateId(null);
+                  setProgramasFinalizadosFormData({
+                    programa: '',
+                    tituloFormacion: '',
+                    fechaObtencion: '',
+                    pais: '',
+                    institucion: '',
+                    departamento: '',
+                    ciudad: '',
+                  });
+                }}
+              >
+                Descartar
+              </button>
               <button type="button" className="form-modal-btn-save" onClick={handleSaveGraduateProgram} disabled={savingAcademic}>{savingAcademic ? 'Guardando...' : 'Guardar'}</button>
             </div>
           </div>

@@ -69,6 +69,12 @@ export default function SamlSuccess() {
         await loginWithToken(token, user);
         log(`loginWithToken OK — modulo: ${user.modulo}`);
 
+        if (user.debeCambiarPassword) {
+          log('debeCambiarPassword — redirigiendo a /dashboard');
+          navigate('/dashboard', { replace: true });
+          return;
+        }
+
         const mod = user.modulo != null ? String(user.modulo).trim().toLowerCase() : '';
         const esEstudianteOModuloVacio = mod === 'estudiante' || mod === '';
 

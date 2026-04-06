@@ -45,29 +45,16 @@
   line-height: 1;
 }
 
+/* El scroll lo hace solo .dashboard-main; aquí solo contenido en flujo */
 .configuracion-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background-color: white;
-  max-height: calc(100vh - 70px - 50px);
-}
-
-.configuracion-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.configuracion-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-.configuracion-content::-webkit-scrollbar-thumb {
-  background: #c41e3a;
-  border-radius: 4px;
-}
-
-.configuracion-content::-webkit-scrollbar-thumb:hover {
-  background: #a01730;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  overflow: visible;
+  background-color: transparent;
+  max-height: none;
 }
 
 .configuracion-section {

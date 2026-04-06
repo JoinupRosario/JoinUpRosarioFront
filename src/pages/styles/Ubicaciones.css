@@ -1,7 +1,8 @@
 .ubicaciones-container {
-  padding: 20px;
-  background: #f5f5f5;
-  min-height: 100vh;
+  padding: 12px 0 8px;
+  background: transparent;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .ubicaciones-header {
@@ -58,6 +59,8 @@
 }
 .macro-tab:hover { background: #f3f4f6; color: #374151; }
 .macro-tab.active { background: #fff; color: #c41e3a; border-bottom-color: #c41e3a; }
+.macro-tab.transversales.active { color: #047857; border-bottom-color: #059669; }
+.macro-tab.transversales:hover { color: #065f46; }
 .macro-tab.monitoria.active { color: #1d4ed8; border-bottom-color: #1d4ed8; }
 .macro-tab.monitoria:hover { color: #1e40af; }
 
@@ -487,10 +490,12 @@
   align-items: center;
   gap: 12px;
   margin-top: 20px;
+  margin-bottom: 0;
   padding: 12px 20px;
   background: #fff;
   border-top: 1px solid #f0f0f0;
   border-radius: 0 0 8px 8px;
+  flex-wrap: wrap;
 }
 
 .pagination-info {

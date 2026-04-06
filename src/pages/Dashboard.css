@@ -25,6 +25,7 @@
   z-index: 100;
   margin: 0;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -187,7 +188,8 @@
   top: 70px;
   right: -350px;
   width: 320px;
-  height: calc(100vh - 70px - 50px);
+  height: calc(100dvh - 70px);
+  max-height: calc(100dvh - 70px);
   background: linear-gradient(180deg, #8b1538 0%, #a01e3a 50%, #c41e3a 100%);
   color: white;
   transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -313,49 +315,38 @@
   transition: opacity 0.3s;
 }
 
-/* Main Content: padding-bottom mínimo para que el contenido no quede oculto tras el footer fijo (50px) */
+/*
+ * Área principal: único scroll vertical del dashboard (header y footer en flujo flex).
+ * Evita footer fixed + padding “gris” que tapaba paginación y doble scroll con hijos.
+ */
 .dashboard-main {
   flex: 1;
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding-bottom: 60px; /* Solo lo necesario: altura del footer + pequeño margen */
+  padding: 16px 24px 24px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
+  scroll-padding-bottom: 1rem;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* Permite que el flex funcione correctamente */
-  height: calc(100vh - 70px - 50px); /* Altura fija para el scroll */
-  background-color: #f8fafc; /* Mismo fondo que dashboard-content para que no se vea franja gris */
+  align-items: stretch;
+  min-height: 0;
+  background-color: #f5f5f5;
+  box-sizing: border-box;
 }
 
-/*
- * Mis aplicaciones: el footer es position:fixed y el main ocupaba hasta el borde inferior del viewport,
- * por eso la última fila quedaba detrás. Acotamos la altura útil solo en esta vista.
- */
 .dashboard-main.dashboard-main--mis-aplicaciones {
-  /* Header ~logo 65px + padding; footer fixed ~80px (50px + padding) + margen */
-  max-height: calc(100dvh - 92px - 88px);
-  padding-bottom: 1.5rem;
-  box-sizing: border-box;
-  scroll-padding-bottom: 1rem;
+  scroll-padding-bottom: 0.5rem;
 }
 
-/* Legalizaciones monitorías (listado): espacio extra al final para que paginación no quede bajo el footer fijo */
 .dashboard-main.dashboard-main--monitorias-list {
-  max-height: calc(100dvh - 92px - 88px);
-  padding-bottom: 5.5rem;
-  box-sizing: border-box;
-  scroll-padding-bottom: 5rem;
+  scroll-padding-bottom: 0.75rem;
 }
 
-/* Revisión admin MTM: sin max-height del listado; el contenido define altura (evita franja gris vacía abajo) */
 .dashboard-main.dashboard-main--monitorias-revision {
-  max-height: none !important;
-  padding-bottom: 5rem;
-  box-sizing: border-box;
-  scroll-padding-bottom: 4rem;
+  scroll-padding-bottom: 0.75rem;
 }
 
 /* Oportunidades monitoría / práctica (estudiante): hijo a ancho completo y sin que flex recorte el contenido */
@@ -473,11 +464,11 @@
   font-weight: 400;
 }
 
-/* Footer: fijo al viewport para que no se desplace al abrir diálogos (ej. carga de archivos) */
+/* Footer: en el flujo del flex (debajo del main) — ya no tapa paginación ni deja franja gris */
 .dashboard-footer {
   background-color: #1a1a1a;
   color: white;
-  padding: 15px 20px;
+  padding: 12px 20px;
   text-align: center;
   font-size: 12px;
   display: flex;
@@ -485,13 +476,12 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  height: 50px;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
+  min-height: 48px;
   flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 20;
 }
 
 .footer-link {
@@ -592,28 +582,13 @@
     width: 280px;
     right: -280px;
     top: 60px;
-    height: calc(100vh - 60px - 50px);
+    height: calc(100dvh - 60px);
+    max-height: calc(100dvh - 60px);
   }
 
   .dashboard-main {
-    padding: 20px 15px;
-    height: calc(100vh - 60px - 50px);
-  }
-
-  .dashboard-main.dashboard-main--mis-aplicaciones {
-    max-height: calc(100dvh - 64px - 88px);
-    padding-bottom: 1.25rem;
-  }
-
-  .dashboard-main.dashboard-main--monitorias-list {
-    max-height: calc(100dvh - 64px - 88px);
-    padding-bottom: 4.5rem;
-    scroll-padding-bottom: 4rem;
-  }
-
-  .dashboard-main.dashboard-main--monitorias-revision {
-    padding-bottom: 4.5rem;
-    scroll-padding-bottom: 3.5rem;
+    padding: 12px 12px 16px;
+    scroll-padding-bottom: 0.75rem;
   }
 
   .welcome-section h2 {

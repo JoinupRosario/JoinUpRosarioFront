@@ -109,6 +109,11 @@ export default function Login() {
     const result = await login(formData.email, formData.password);
 
     if (result.success) {
+      if (result.user?.debeCambiarPassword) {
+        navigate('/dashboard');
+        setLoading(false);
+        return;
+      }
       const mod = result.modulo != null ? String(result.modulo).trim().toLowerCase() : '';
       const esAdmin = mod === 'administrativo';
       const esEstudiante = mod === 'estudiante' || mod === '';
@@ -127,7 +132,7 @@ export default function Login() {
       }
     } else {
       if (result.code === 'USE_SAML') {
-        Swal.fire({
+        await Swal.fire({
           icon: 'warning',
           title: 'Acceso institucional requerido',
           text: result.message,
@@ -135,7 +140,16 @@ export default function Login() {
           confirmButtonText: 'Entendido',
         });
       } else {
-        setError(result.message);
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error al iniciar sesión',
+          text: result.message || 'Verifique su usuario y contraseña.',
+          confirmButtonColor: '#c41e3a',
+          confirmButtonText: 'Entendido',
+          customClass: {
+            popup: 'login-error-modal',
+          },
+        });
       }
     }
 
@@ -184,7 +198,7 @@ export default function Login() {
           {/* Formulario */}
           <div className="login-form">
             {error && (
-              <div className="error-message">
+              <div className="error-message" role="alert">
                 {error}
               </div>
             )}

@@ -16,6 +16,10 @@ const badgeClass = (estado) =>
   estado === 'Inactiva' ? 'mtm-badge mtm-badge-inactiva' :
   'mtm-badge mtm-badge-borrador';
 
+/** Etiqueta en UI: el backend sigue usando "Borrador" hasta activar. */
+const mtmEstadoLabel = (estado) =>
+  estado === 'Borrador' ? 'Creada' : estado || '—';
+
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-CO') : '—';
 
 const EMPTY_FORM = {
@@ -440,23 +444,53 @@ export default function OportunidadesMTM({ onVolver }) {
     }
   };
 
+  /** Abre el formulario de creación con los datos de la oportunidad (no crea registro hasta pulsar Crear). */
   const handleDuplicate = async (op) => {
-    const { isConfirmed } = await Swal.fire({
-      title: '¿Duplicar oportunidad?',
-      text: `Se creará una copia de "${op.nombreCargo}" en estado Borrador.`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, duplicar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#3b82f6'
-    });
-    if (!isConfirmed) return;
+    setLoading(true);
     try {
-      await api.post(`/oportunidades-mtm/${op._id}/duplicate`);
-      Swal.fire({ icon: 'success', title: '¡Duplicada!', confirmButtonColor: '#3b82f6', timer: 2000, timerProgressBar: true });
-      loadOportunidades(1);
+      const res = await api.get(`/oportunidades-mtm/${op._id}`);
+      const data = res.data;
+      const prof = data.profesorResponsable;
+      const profDisplay = prof ? [prof.nombres, prof.apellidos].filter(Boolean).join(' ') : (data.nombreProfesor || '');
+      setForm({
+        nombreCargo: data.nombreCargo || '',
+        dedicacionHoras: data.dedicacionHoras?._id || data.dedicacionHoras || '',
+        valorPorHora: data.valorPorHora?._id || data.valorPorHora || '',
+        tipoVinculacion: data.tipoVinculacion?._id || data.tipoVinculacion || '',
+        categoria: data.categoria?._id || data.categoria || '',
+        periodo: data.periodo?._id || data.periodo || '',
+        vacantes: data.vacantes ?? '',
+        fechaVencimiento: data.fechaVencimiento ? data.fechaVencimiento.slice(0, 10) : '',
+        promedioMinimo: data.promedioMinimo ?? '',
+        profesorResponsable: prof?._id || data.profesorResponsable || '',
+        nombreProfesor: data.nombreProfesor || '',
+        unidadAcademica: data.unidadAcademica || '',
+        horario: data.horario || '',
+        grupo: data.grupo || '',
+        funciones: data.funciones || '',
+        requisitos: data.requisitos || '',
+        asignaturas: Array.isArray(data.asignaturas) ? data.asignaturas : [],
+        programas: Array.isArray(data.programas) ? data.programas : []
+      });
+      setProfesorDisplay(profDisplay);
+      setProfesorSearch('');
+      setAsigSearch('');
+      setProgramaSearch('');
+      setShowAsigDrop(false);
+      setShowProgramaDrop(false);
+      setShowProfesorDrop(false);
+      setSelected(null);
+      setVista('crear');
+      await Swal.fire({
+        icon: 'info',
+        title: 'Nueva oportunidad desde copia',
+        text: 'Revise y ajuste los datos; luego pulse Crear para registrar.',
+        confirmButtonColor: '#3b82f6'
+      });
     } catch (e) {
-      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo duplicar.', confirmButtonColor: '#3b82f6' });
+      Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo cargar la oportunidad.', confirmButtonColor: '#3b82f6' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -601,7 +635,7 @@ export default function OportunidadesMTM({ onVolver }) {
         </div>
         <select className="mtm-filter-select" value={filterEstado} onChange={e => setFilterEstado(e.target.value)}>
           <option value="">Todos los estados</option>
-          <option value="Borrador">Borrador</option>
+          <option value="Borrador">Creada</option>
           <option value="Activa">Activa</option>
           <option value="Inactiva">Inactiva</option>
         </select>
@@ -651,7 +685,7 @@ export default function OportunidadesMTM({ onVolver }) {
                     <td>{op.periodo?.codigo || '—'}</td>
                     <td>{op.vacantes ?? '—'}</td>
                     <td>{fmtDate(op.fechaVencimiento)}</td>
-                    <td><span className={badgeClass(op.estado)}>{op.estado}</span></td>
+                    <td><span className={badgeClass(op.estado)}>{mtmEstadoLabel(op.estado)}</span></td>
                     <td>
                       <div className="mtm-table-actions">
                         <button className="mtm-action-btn" title="Ver detalle" onClick={() => handleView(op)}><FiEye /></button>
@@ -980,7 +1014,7 @@ export default function OportunidadesMTM({ onVolver }) {
           <div className="mtm-detail-hero">
             <h2>{op.nombreCargo}</h2>
             <div className="mtm-detail-hero-meta">
-              <span className={badgeClass(op.estado)}>{op.estado}</span>
+              <span className={badgeClass(op.estado)}>{mtmEstadoLabel(op.estado)}</span>
               {op.periodo?.codigo && <span><FiCalendar size={13} style={{ marginRight: 4 }} />{op.periodo.codigo}</span>}
               {op.categoria?.value && <span><FiBookOpen size={13} style={{ marginRight: 4 }} />{op.categoria.value}</span>}
               {op.vacantes && <span><FiUsers size={13} style={{ marginRight: 4 }} />{op.vacantes} vacante{op.vacantes !== 1 ? 's' : ''}</span>}

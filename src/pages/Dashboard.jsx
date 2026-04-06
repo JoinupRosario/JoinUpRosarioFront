@@ -74,6 +74,7 @@ import SeguimientosPractica from './componentss/SeguimientosPractica';
 import SupervisionPractica from './componentss/SupervisionPractica';
 import SeguimientosMTM from './componentss/SeguimientosMTM';
 import api from '../services/api';
+import ForcePasswordChangeModal from '../components/auth/ForcePasswordChangeModal';
 // Importar imágenes
 import headerLogoImg from '../assets/images/login/header.png';
 import userAvatarImg from '../assets/images/login/user.png';
@@ -541,6 +542,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
+      <ForcePasswordChangeModal />
       {/* Header */}
       <header className="dashboard-header">
         <div className="header-left">

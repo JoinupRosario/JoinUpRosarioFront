@@ -1,13 +1,91 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiEdit, FiPlus, FiRefreshCw, FiSearch, FiTrash2 } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiEye, FiPlus, FiRefreshCw, FiSearch, FiTrash2 } from 'react-icons/fi';
 import { Country, State, City } from 'country-state-city';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import '../styles/Companies.css';
+
+function idDigits(s) {
+  return String(s || '').replace(/\D/g, '');
+}
+function idTypesCompatible(lt, ct) {
+  const a = String(lt || '').toUpperCase().trim();
+  const b = String(ct || '').toUpperCase().trim();
+  if (!a || !b) return true;
+  return a === b;
+}
+/** Fila de contacto que corresponde al R. legal (idNumber↔identification, correo, o 1er contacto sin conflicto de doc) */
+function contactRowMatchesLegalRep(c, lr, { snap, lrEmail, contactIndex }) {
+  const ce = String(c.userEmail || '').toLowerCase().trim();
+  const lrId = String(lr?.idNumber || '').trim();
+  const cId = String(c.identification || '').trim();
+  const ndL = idDigits(lrId);
+  const ndC = idDigits(cId);
+  if (ndL && ndC && ndL === ndC && idTypesCompatible(lr?.idType, c.idType)) return true;
+  const matchesSnap = snap && ce === snap;
+  const matchesCurrent = lrEmail && ce === lrEmail;
+  if (matchesSnap || matchesCurrent) return true;
+  if (contactIndex === 0) {
+    if (ndL && ndC && idTypesCompatible(lr?.idType, c.idType) && ndL !== ndC) return false;
+    return true;
+  }
+  return false;
+}
+
+/** Coincide código CIIU guardado con ítem del catálogo (value / valueForCalculations, con o sin ceros a la izquierda). */
+function findCiiuCatalogItem(ciiuCatalog, code) {
+  const b = String(code ?? '').trim();
+  if (!b) return null;
+  return (ciiuCatalog || []).find((ci) => {
+    const a = String(ci.value ?? ci.valueForCalculations ?? '').trim();
+    if (!a) return false;
+    if (a === b) return true;
+    const na = a.replace(/\D/g, '');
+    const nb = b.replace(/\D/g, '');
+    if (na && nb && na === nb) return true;
+    return a.padStart(5, '0') === b.padStart(5, '0');
+  });
+}
+
+/**
+ * Texto legible para Sector empresarial: L_BUSINESS_SECTOR o, si quedó guardado un código CIIU
+ * (flujo legacy: economicSector = primer código CIIU), resolución vía catálogo L_CIIU.
+ */
+function sectorEmpresarialLabel(c, businessSectorItems, ciiuCatalog) {
+  const v = c?.economicSector;
+  if (v == null || v === '') return '-';
+  const vStr = String(v).trim();
+  if (!vStr) return '-';
+  const vLower = vStr.toLowerCase();
+  const items = businessSectorItems || [];
+  const item = items.find((s) =>
+    [s.value, s.valueForCalculations, s.valueForReports]
+      .filter((x) => x != null && String(x).trim() !== '')
+      .some((x) => String(x).trim().toLowerCase() === vLower)
+  );
+  if (item) {
+    const label = [item.value, item.description, item.valueForReports].find((t) => t && String(t).trim());
+    return label ? String(label).trim() : vStr;
+  }
+  const tryCiiuLabel = (code) => {
+    const ci = findCiiuCatalogItem(ciiuCatalog, code);
+    if (!ci) return null;
+    const label = [ci.description, ci.valueForReports, ci.value].find((t) => t && String(t).trim());
+    return label ? String(label).trim() : null;
+  };
+  const fromEconomic = tryCiiuLabel(vStr);
+  if (fromEconomic) return fromEconomic;
+  const codes = Array.isArray(c.ciiuCodes) ? c.ciiuCodes : [];
+  for (const code of codes) {
+    const lbl = tryCiiuLabel(code);
+    if (lbl) return lbl;
+  }
+  return vStr;
+}
 
 export default function Companies({ onVolver }) {
   const navigate = useNavigate();
@@ -138,10 +216,14 @@ export default function Companies({ onVolver }) {
     rutDocument: null,
     agencyAccreditationDocument: null,
   });
+  /** Vista previa modal: locales (blob) o firmados S3 (isRemote) */
+  const [companyDocumentPreview, setCompanyDocumentPreview] = useState(null);
   const refInputLogo = useRef(null);
   const refInputCamara = useRef(null);
   const refInputRut = useRef(null);
   const refInputAgencia = useRef(null);
+  /** Email del R. legal al abrir edición: sincroniza fila de contacto vinculado en pestaña Contactos */
+  const legalRepLinkedEmailRef = useRef('');
   // Estados para contactos
   const [contacts, setContacts] = useState([]);
   const [pendingContacts, setPendingContacts] = useState([]); // Contactos a crear al guardar (solo en creación)
@@ -278,7 +360,7 @@ export default function Companies({ onVolver }) {
       setSectorMineTypes(sectorMineData.data || []);
 
       // Cargar Sector Económico (L_BUSINESS_SECTOR)
-      const { data: economicSectorsData } = await api.get('/locations/items/L_BUSINESS_SECTOR', { params: { limit: 100 } });
+      const { data: economicSectorsData } = await api.get('/locations/items/L_BUSINESS_SECTOR', { params: { limit: 500 } });
       setEconomicSectors(economicSectorsData.data || []);
 
       // Cargar Códigos CIIU (L_CIIU)
@@ -322,6 +404,37 @@ export default function Companies({ onVolver }) {
     }
     if (form.legalRepresentative?.email) validateEmailDomain(form.legalRepresentative.email);
   }, [vista, form.domains, form.legalRepresentative?.email]);
+
+  // Reflejar en la tabla el R. legal (documento/correo o 1er contacto coherente), no por isPrincipal
+  useEffect(() => {
+    if (!editing?._id || vista !== 'form') return;
+    const lr = form.legalRepresentative || {};
+    const lrEmail = String(lr.email || form.contact?.email || '').toLowerCase().trim();
+    const snap = legalRepLinkedEmailRef.current;
+    setContacts((prev) =>
+      prev.map((c, idx) => {
+        if (!contactRowMatchesLegalRep(c, lr, { snap, lrEmail, contactIndex: idx })) return c;
+        return {
+          ...c,
+          userEmail: lr.email ?? c.userEmail,
+          firstName: lr.firstName ?? c.firstName,
+          lastName: lr.lastName ?? c.lastName,
+          identification: lr.idNumber ?? c.identification,
+          idType: lr.idType ?? c.idType,
+        };
+      })
+    );
+    legalRepLinkedEmailRef.current = lrEmail;
+  }, [
+    editing?._id,
+    vista,
+    form.legalRepresentative?.email,
+    form.legalRepresentative?.firstName,
+    form.legalRepresentative?.lastName,
+    form.legalRepresentative?.idNumber,
+    form.legalRepresentative?.idType,
+    form.contact?.email,
+  ]);
 
   // Revalidar correo del contacto cuando esté abierto el formulario y cambien dominios (Entidad) o userEmail
   useEffect(() => {
@@ -494,10 +607,20 @@ export default function Companies({ onVolver }) {
       setEditing(data);
       setContacts(data.contacts || []);
       company = data;
+      legalRepLinkedEmailRef.current = String(
+        company.legalRepresentative?.email || company.contact?.email || ''
+      )
+        .toLowerCase()
+        .trim();
     } catch (e) {
       console.error('Error cargando empresa/contactos', e);
       setEditing(company);
       setContacts([]);
+      legalRepLinkedEmailRef.current = String(
+        company.legalRepresentative?.email || company.contact?.email || ''
+      )
+        .toLowerCase()
+        .trim();
     }
 
     // Buscar códigos si no existen
@@ -577,7 +700,15 @@ export default function Companies({ onVolver }) {
     setVista('form');
   };
 
+  const closeCompanyDocumentPreview = () => {
+    setCompanyDocumentPreview((prev) => {
+      if (prev?.url && !prev.isRemote) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+  };
+
   const cancelForm = () => {
+    closeCompanyDocumentPreview();
     setVista('lista');
     setEditing(null);
     setForm(emptyForm);
@@ -600,6 +731,7 @@ export default function Companies({ onVolver }) {
     [refInputLogo, refInputCamara, refInputRut, refInputAgencia].forEach((r) => {
       if (r.current) r.current.value = '';
     });
+    legalRepLinkedEmailRef.current = '';
     setNuevaSede({
       name: '',
       address: '',
@@ -645,24 +777,80 @@ export default function Companies({ onVolver }) {
   const hasStoredCompanyFile = (val) =>
     val != null && String(val).trim().length > 0;
 
-  const openCompanyDocument = async (companyId, field) => {
+  const COMPANY_DOC_FIELD_LABELS = {
+    agencyAccreditationDocument: 'Acreditación agencia',
+    chamberOfCommerceCertificate: 'Certificado Cámara de Comercio',
+    rutDocument: 'RUT',
+    logo: 'Logo',
+  };
+
+  const openRemoteCompanyDocumentPreview = async (companyId, field) => {
     if (!companyId) return;
     try {
       const { data } = await api.get(`/companies/${companyId}/document/${field}`);
       const url = data?.url;
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-      else
+      if (!url) {
         await Swal.fire({
           icon: 'warning',
           title: 'Documento',
           text: data?.message || 'Sin enlace disponible',
           confirmButtonColor: '#c41e3a',
         });
+        return;
+      }
+      setCompanyDocumentPreview({
+        url,
+        name: COMPANY_DOC_FIELD_LABELS[field] || field,
+        mime: '',
+        isRemote: true,
+      });
     } catch (e) {
       await Swal.fire({
         icon: 'error',
         title: 'Documento',
-        text: e.response?.data?.message || 'No se pudo abrir el archivo. Verifique que S3 esté configurado.',
+        text: e.response?.data?.message || 'No se pudo cargar el documento.',
+        confirmButtonColor: '#c41e3a',
+      });
+    }
+  };
+
+  const openLocalCompanyFilePreview = (file) => {
+    if (!file) return;
+    setCompanyDocumentPreview((prev) => {
+      if (prev?.url && !prev.isRemote) URL.revokeObjectURL(prev.url);
+      const url = URL.createObjectURL(file);
+      return { url, name: file.name, mime: file.type || '', isRemote: false };
+    });
+  };
+
+  const removeStoredCompanyDocument = async (field) => {
+    if (!editing?._id) return;
+    const label = COMPANY_DOC_FIELD_LABELS[field] || field;
+    const result = await Swal.fire({
+      icon: 'question',
+      title: '¿Eliminar documento?',
+      text: `Se eliminará ${label} de la entidad. Si está en almacenamiento, también se borrará el archivo.`,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#c41e3a',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await api.delete(`/companies/${editing._id}/document/${field}`);
+      setEditing((prev) => (prev ? { ...prev, [field]: '' } : null));
+      await Swal.fire({
+        icon: 'success',
+        title: 'Eliminado',
+        text: 'El documento fue eliminado.',
+        confirmButtonColor: '#c41e3a',
+      });
+    } catch (e) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: e.response?.data?.message || 'No se pudo eliminar el documento.',
         confirmButtonColor: '#c41e3a',
       });
     }
@@ -729,16 +917,134 @@ export default function Companies({ onVolver }) {
       return;
     }
 
-    // Al crear: exigir al menos un contacto adicional y que el principal esté elegido
+    // Creación: constitución legal — mismos archivos que POST /companies/:id/initial-files (S3)
     if (!editing) {
-      if (!pendingContacts || pendingContacts.length < 1) {
+      const { chamberOfCommerceCertificate, rutDocument, agencyAccreditationDocument } = pendingCompanyFiles;
+      if (!chamberOfCommerceCertificate) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Documentos requeridos',
+          text: 'Debe adjuntar el certificado de Cámara de Comercio para validar que la entidad esté legalmente constituida.',
+          confirmButtonColor: '#c41e3a',
+        });
+        return;
+      }
+      if (!rutDocument) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Documentos requeridos',
+          text: 'Debe adjuntar el RUT (Registro Único Tributario) de la entidad.',
+          confirmButtonColor: '#c41e3a',
+        });
+        return;
+      }
+      if (form.operatesAsAgency && !agencyAccreditationDocument) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Documentos requeridos',
+          text: 'Si la entidad opera como agencia / bolsa / Head Hunter, debe adjuntar el documento de acreditación de agencia.',
+          confirmButtonColor: '#c41e3a',
+        });
+        return;
+      }
+    }
+
+    // Al crear: lista efectiva = pendientes + contacto en formulario abierto (si está completo)
+    let effectivePendingContacts = !editing ? [...(pendingContacts || [])] : null;
+    let effectiveMainContactIndex = mainContactIndex;
+
+    if (!editing && effectivePendingContacts) {
+      if (showContactForm) {
+        const fn = (contactForm.firstName || '').trim();
+        const ln = (contactForm.lastName || '').trim();
+        const em = (contactForm.userEmail || '').trim();
+        const coreComplete = !!(fn && ln && em);
+        const extraFilled = [
+          contactForm.phone,
+          contactForm.mobile,
+          contactForm.countryCode,
+          contactForm.stateCode,
+          contactForm.city,
+          contactForm.address,
+          contactForm.position,
+          contactForm.extension,
+          contactForm.alternateEmail,
+          contactForm.dependency,
+        ].some((v) => String(v || '').trim());
+        const corePartial = !!(fn || ln || em) && !coreComplete;
+
+        if (corePartial || (!coreComplete && extraFilled)) {
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Contacto incompleto',
+            text: 'Complete nombres, apellidos y correo de usuario del contacto adicional, o cancele el formulario de contacto, antes de guardar la entidad.',
+            confirmButtonColor: '#c41e3a',
+          });
+          return;
+        }
+
+        if (coreComplete) {
+          const contactDomains = (form.domains || [])
+            .map((d) => String(d).replace(/^@/, '').toLowerCase().trim())
+            .filter(Boolean);
+          if (contactDomains.length > 0 && contactForm.userEmail) {
+            const domain = (contactForm.userEmail || '').split('@')[1]?.toLowerCase();
+            if (!domain || !contactDomains.includes(domain)) {
+              await Swal.fire({
+                icon: 'warning',
+                title: 'Correo no permitido',
+                text: `El correo del contacto debe pertenecer a uno de los dominios de la empresa: ${contactDomains.join(', ')}`,
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#c41e3a',
+              });
+              return;
+            }
+          }
+          const payload = { ...contactForm };
+          if (typeof editingContact === 'number') {
+            effectivePendingContacts = effectivePendingContacts.map((c, i) =>
+              i === editingContact ? payload : c
+            );
+          } else if (effectivePendingContacts.length >= 7) {
+            await Swal.fire({
+              icon: 'warning',
+              title: 'Límite de contactos',
+              text: 'Máximo 8 contactos por escenario (representante legal + 7 adicionales).',
+              confirmButtonColor: '#c41e3a',
+            });
+            return;
+          } else {
+            effectivePendingContacts = [...effectivePendingContacts, payload];
+          }
+        }
+      }
+
+      if (!effectivePendingContacts || effectivePendingContacts.length < 1) {
         await Swal.fire({
           icon: 'warning',
           title: 'Contactos requeridos',
           text: 'Debe agregar al menos un contacto adicional (pestaña Contactos) además del representante legal. Por ejemplo, la persona de RRHH que gestiona prácticas.',
-          confirmButtonColor: '#c41e3a'
+          confirmButtonColor: '#c41e3a',
         });
         return;
+      }
+
+      for (const pc of effectivePendingContacts) {
+        const idStr = String(pc.identification || '').trim();
+        if (idStr.length > 0 && idStr.length < 6) {
+          const label = [pc.firstName, pc.lastName].filter(Boolean).join(' ').trim() || 'contacto adicional';
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Identificación',
+            text: `En "${label}": si informa número de documento, debe tener al menos 6 caracteres (el sistema lo usa para generar la contraseña del usuario). Deje el documento vacío o complételo con al menos 6 caracteres.`,
+            confirmButtonColor: '#c41e3a',
+          });
+          return;
+        }
+      }
+
+      if (effectiveMainContactIndex > effectivePendingContacts.length) {
+        effectiveMainContactIndex = 0;
       }
     }
 
@@ -791,7 +1097,7 @@ export default function Companies({ onVolver }) {
         phone: formToSend.contact?.phone || formToSend.phone || ''
       };
     } else {
-      if (mainContactIndex === 0) {
+      if (effectiveMainContactIndex === 0) {
         formToSend.contact = {
           name: `${formToSend.legalRepresentative.firstName || ''} ${formToSend.legalRepresentative.lastName || ''}`.trim(),
           email: formToSend.legalRepresentative.email || '',
@@ -799,7 +1105,7 @@ export default function Companies({ onVolver }) {
           phone: formToSend.contact?.phone || formToSend.phone || ''
         };
       } else {
-        const c = pendingContacts[mainContactIndex - 1];
+        const c = effectivePendingContacts[effectiveMainContactIndex - 1];
         formToSend.contact = {
           name: `${c?.firstName || ''} ${c?.lastName || ''}`.trim(),
           email: c?.userEmail || '',
@@ -814,6 +1120,37 @@ export default function Companies({ onVolver }) {
       let response;
       if (editing) {
         response = await api.put(`/companies/${editing._id}`, formToSend);
+        const { logo, chamberOfCommerceCertificate, rutDocument, agencyAccreditationDocument } = pendingCompanyFiles;
+        const hasPendingFiles = !!(logo || chamberOfCommerceCertificate || rutDocument || agencyAccreditationDocument);
+        if (hasPendingFiles) {
+          try {
+            const fd = new FormData();
+            if (logo) fd.append('logo', logo);
+            if (chamberOfCommerceCertificate) fd.append('chamberOfCommerceCertificate', chamberOfCommerceCertificate);
+            if (rutDocument) fd.append('rutDocument', rutDocument);
+            if (agencyAccreditationDocument) fd.append('agencyAccreditationDocument', agencyAccreditationDocument);
+            await api.post(`/companies/${editing._id}/initial-files`, fd);
+            filesUploadNote = ' Logo y documentos guardados correctamente.';
+          } catch (upErr) {
+            console.error('Error subiendo archivos entidad (edición)', upErr);
+            filesUploadNote = ` ${upErr.response?.data?.message || 'No se pudieron subir los archivos. Puede intentar de nuevo.'}`;
+            await Swal.fire({
+              icon: 'warning',
+              title: 'Archivos',
+              text: upErr.response?.data?.message || 'La empresa se actualizó, pero falló la subida de archivos.',
+              confirmButtonColor: '#c41e3a',
+            });
+          }
+          setPendingCompanyFiles({
+            logo: null,
+            chamberOfCommerceCertificate: null,
+            rutDocument: null,
+            agencyAccreditationDocument: null,
+          });
+          [refInputLogo, refInputCamara, refInputRut, refInputAgencia].forEach((r) => {
+            if (r.current) r.current.value = '';
+          });
+        }
       } else {
         response = await api.post('/companies', formToSend);
         const newCompanyId = response.data?.data?._id || response.data?._id;
@@ -824,11 +1161,11 @@ export default function Companies({ onVolver }) {
             userEmail: form.legalRepresentative?.email || '',
             position: form.contact?.position || '',
             phone: form.contact?.phone || form.phone || '',
-            isPrincipal: mainContactIndex === 0
+            isPrincipal: effectiveMainContactIndex === 0
           };
-          const toCreate = mainContactIndex === 0
-            ? pendingContacts.map(pc => ({ ...pc, isPrincipal: false }))
-            : [legalRepAsContact, ...pendingContacts.filter((_, i) => i !== mainContactIndex - 1).map(pc => ({ ...pc, isPrincipal: false }))];
+          const toCreate = effectiveMainContactIndex === 0
+            ? effectivePendingContacts.map(pc => ({ ...pc, isPrincipal: false }))
+            : [legalRepAsContact, ...effectivePendingContacts.filter((_, i) => i !== effectiveMainContactIndex - 1).map(pc => ({ ...pc, isPrincipal: false }))];
           for (const payload of toCreate) {
             await api.post(`/companies/${newCompanyId}/contacts`, payload);
           }
@@ -842,10 +1179,10 @@ export default function Companies({ onVolver }) {
               if (rutDocument) fd.append('rutDocument', rutDocument);
               if (agencyAccreditationDocument) fd.append('agencyAccreditationDocument', agencyAccreditationDocument);
               await api.post(`/companies/${newCompanyId}/initial-files`, fd);
-              filesUploadNote = ' Logo y documentos guardados en almacenamiento.';
+              filesUploadNote = ' Logo y documentos guardados correctamente.';
             } catch (upErr) {
               console.error('Error subiendo archivos entidad', upErr);
-              filesUploadNote = ` ${upErr.response?.data?.message || 'No se pudieron subir los archivos. Puede editar la entidad e intentar de nuevo (o contacte a sistemas si S3 no está configurado).'}`;
+              filesUploadNote = ` ${upErr.response?.data?.message || 'No se pudieron subir los archivos. Puede editar la entidad e intentar de nuevo.'}`;
               await Swal.fire({
                 icon: 'warning',
                 title: 'Archivos',
@@ -994,7 +1331,7 @@ export default function Companies({ onVolver }) {
         list = list.concat(nextPage.data || []);
       }
       const contactCols = ['Contacto 1', 'Contacto 2', 'Contacto 3', 'Contacto 4', 'Contacto 5', 'Contacto 6', 'Contacto 7', 'Contacto 8'];
-      const headers = ['Razón Social', 'NIT', 'Sector', 'CIIU', 'Tamaño', 'Ciudad', 'Teléfono', ...contactCols, 'País', 'Estado'];
+      const headers = ['Razón Social', 'NIT', 'Ciudad', ...contactCols, 'País', 'Sector empresarial', 'Estado'];
       const safe = (v) => (v != null && v !== undefined ? String(v) : '');
       const rowForCompany = (c) => {
         const mainContact = c.contact?.name || [c.legalRepresentative?.firstName, c.legalRepresentative?.lastName].filter(Boolean).join(' ') || '';
@@ -1007,16 +1344,14 @@ export default function Companies({ onVolver }) {
         });
         const contactCells = [mainContactStr, ...additional];
         while (contactCells.length < 8) contactCells.push('');
+        const seLabel = sectorEmpresarialLabel(c, economicSectors, ciiuCodes);
         return [
           safe(c.name),
           safe(c.nit),
-          safe(c.sector),
-          (c.ciiuCodes && c.ciiuCodes.length) ? c.ciiuCodes.join('; ') : safe(c.ciiuCode),
-          safe(c.size),
           safe(c.city),
-          safe(c.phone),
           ...contactCells,
           safe(c.country),
+          safe(seLabel === '-' ? '' : seLabel),
           getStatusLabel(c.status)
         ];
       };
@@ -1024,9 +1359,9 @@ export default function Companies({ onVolver }) {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
       const colWidths = [
-        { wch: 35 }, { wch: 14 }, { wch: 18 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 14 },
+        { wch: 35 }, { wch: 14 }, { wch: 18 },
         ...Array(8).fill({ wch: 32 }),
-        { wch: 14 }, { wch: 22 }
+        { wch: 14 }, { wch: 28 }, { wch: 22 }
       ];
       ws['!cols'] = colWidths;
       XLSX.utils.book_append_sheet(wb, ws, 'Entidades');
@@ -1205,6 +1540,23 @@ export default function Companies({ onVolver }) {
       }
       const { data } = await api.get(`/companies/${editing._id}`);
       setContacts(data.contacts || []);
+      setEditing((prev) => (prev ? { ...prev, ...data } : prev));
+      setForm((prev) => ({
+        ...prev,
+        legalRepresentative: {
+          ...prev.legalRepresentative,
+          ...(data.legalRepresentative || {}),
+        },
+        contact: {
+          ...prev.contact,
+          ...(data.contact || {}),
+        },
+      }));
+      legalRepLinkedEmailRef.current = String(
+        data.legalRepresentative?.email || data.contact?.email || ''
+      )
+        .toLowerCase()
+        .trim();
       cancelContactForm();
     } catch (error) {
       console.error('Error guardando contacto', error);
@@ -1468,10 +1820,86 @@ export default function Companies({ onVolver }) {
                       setPendingCompanyFiles((p) => ({ ...p, logo: e.target.files?.[0] || null }))
                     }
                   />
-                  <span className="entidad-hint-compact">JPG/PNG/GIF/WEBP. Se sube al guardar la entidad nueva.</span>
+                  {pendingCompanyFiles.logo && (
+                    <div className="entidad-pending-doc-row">
+                      <span className="entidad-pending-doc-name">{pendingCompanyFiles.logo.name}</span>
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openLocalCompanyFilePreview(pendingCompanyFiles.logo)}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => {
+                          setPendingCompanyFiles((p) => ({ ...p, logo: null }));
+                          if (refInputLogo.current) refInputLogo.current.value = '';
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
+                  <span className="entidad-hint-compact">JPG, PNG, GIF o WEBP.</span>
                 </>
               ) : (
-                <span className="entidad-hint-compact">El logo se actualiza con la acción específica de la entidad (si aplica).</span>
+                <>
+                  <input
+                    ref={refInputLogo}
+                    className="form-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({ ...p, logo: e.target.files?.[0] || null }))
+                    }
+                  />
+                  {pendingCompanyFiles.logo ? (
+                    <div className="entidad-pending-doc-row">
+                      <span className="entidad-pending-doc-name">{pendingCompanyFiles.logo.name}</span>
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openLocalCompanyFilePreview(pendingCompanyFiles.logo)}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => {
+                          setPendingCompanyFiles((p) => ({ ...p, logo: null }));
+                          if (refInputLogo.current) refInputLogo.current.value = '';
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ) : hasStoredCompanyFile(editing.logo) ? (
+                    <div className="entidad-doc-enlace">
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openRemoteCompanyDocumentPreview(editing._id, 'logo')}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => removeStoredCompanyDocument('logo')}
+                      >
+                        Eliminar
+                      </button>
+                      <span className="entidad-hint-compact">{String(editing.logo).split('/').pop()}</span>
+                    </div>
+                  ) : null}
+                  <span className="entidad-hint-compact">
+                    JPG, PNG, GIF o WEBP.
+                    {hasStoredCompanyFile(editing.logo) && !pendingCompanyFiles.logo ? ' Puede reemplazar el logo.' : ''}
+                  </span>
+                </>
               )}
             </div>
             {/* Sector MinE (SNIES) (obligatorio) */}
@@ -1712,46 +2140,20 @@ export default function Companies({ onVolver }) {
               </div>
             </div>
             </div>
+          </div>
+
+          <div className="entidad-doc-legal-section">
             <div className="form-separator-line" />
 
-            {/* Documentos: PDF o imagen; solo S3 tras creación exitosa */}
+            <div className="form-section-title entidad-doc-legal-title">Documentos de constitución legal</div>
+            <p className="entidad-doc-legal-intro">
+              Adjunte certificado de Cámara de Comercio y RUT.
+              {form.operatesAsAgency && ' Si opera como agencia, también el documento de acreditación.'}
+            </p>
+
+            <div className="entidad-doc-legal-fields">
             <div className="form-group">
-              <label className="form-label">Doc. Acreditación Agencia</label>
-              {!editing ? (
-                <>
-                  <input
-                    ref={refInputAgencia}
-                    className="form-input"
-                    type="file"
-                    accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
-                    onChange={(e) =>
-                      setPendingCompanyFiles((p) => ({
-                        ...p,
-                        agencyAccreditationDocument: e.target.files?.[0] || null,
-                      }))
-                    }
-                  />
-                  <span className="entidad-hint-compact">PDF o imagen. Se sube al guardar.</span>
-                </>
-              ) : hasStoredCompanyFile(editing.agencyAccreditationDocument) ? (
-                <div className="entidad-doc-enlace">
-                  <button
-                    type="button"
-                    className="btn-doc-ver"
-                    onClick={() => openCompanyDocument(editing._id, 'agencyAccreditationDocument')}
-                  >
-                    Ver / descargar
-                  </button>
-                  <span className="entidad-hint-compact">
-                    {String(editing.agencyAccreditationDocument).split('/').pop()}
-                  </span>
-                </div>
-              ) : (
-                <span className="entidad-hint-compact">Sin archivo</span>
-              )}
-            </div>
-            <div className="form-group">
-              <label className="form-label">Certificado Cámara de Comercio</label>
+              <label className="form-label">Certificado Cámara de Comercio <span className="required">*</span></label>
               {!editing ? (
                 <>
                   <input
@@ -1766,27 +2168,99 @@ export default function Companies({ onVolver }) {
                       }))
                     }
                   />
-                  <span className="entidad-hint-compact">PDF o imagen. Se sube al guardar.</span>
+                  {pendingCompanyFiles.chamberOfCommerceCertificate && (
+                    <div className="entidad-pending-doc-row">
+                      <span className="entidad-pending-doc-name">{pendingCompanyFiles.chamberOfCommerceCertificate.name}</span>
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openLocalCompanyFilePreview(pendingCompanyFiles.chamberOfCommerceCertificate)}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => {
+                          setPendingCompanyFiles((p) => ({ ...p, chamberOfCommerceCertificate: null }));
+                          if (refInputCamara.current) refInputCamara.current.value = '';
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
+                  <span className="entidad-hint-compact">PDF o imagen. Obligatorio.</span>
                 </>
-              ) : hasStoredCompanyFile(editing.chamberOfCommerceCertificate) ? (
-                <div className="entidad-doc-enlace">
-                  <button
-                    type="button"
-                    className="btn-doc-ver"
-                    onClick={() => openCompanyDocument(editing._id, 'chamberOfCommerceCertificate')}
-                  >
-                    Ver / descargar
-                  </button>
-                  <span className="entidad-hint-compact">
-                    {String(editing.chamberOfCommerceCertificate).split('/').pop()}
-                  </span>
-                </div>
               ) : (
-                <span className="entidad-hint-compact">Sin archivo</span>
+                <>
+                  <input
+                    ref={refInputCamara}
+                    className="form-input"
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({
+                        ...p,
+                        chamberOfCommerceCertificate: e.target.files?.[0] || null,
+                      }))
+                    }
+                  />
+                  {pendingCompanyFiles.chamberOfCommerceCertificate ? (
+                    <div className="entidad-pending-doc-row">
+                      <span className="entidad-pending-doc-name">{pendingCompanyFiles.chamberOfCommerceCertificate.name}</span>
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openLocalCompanyFilePreview(pendingCompanyFiles.chamberOfCommerceCertificate)}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => {
+                          setPendingCompanyFiles((p) => ({ ...p, chamberOfCommerceCertificate: null }));
+                          if (refInputCamara.current) refInputCamara.current.value = '';
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ) : hasStoredCompanyFile(editing.chamberOfCommerceCertificate) ? (
+                    <div className="entidad-doc-enlace">
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openRemoteCompanyDocumentPreview(editing._id, 'chamberOfCommerceCertificate')}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => removeStoredCompanyDocument('chamberOfCommerceCertificate')}
+                      >
+                        Eliminar
+                      </button>
+                      <span className="entidad-hint-compact">
+                        {String(editing.chamberOfCommerceCertificate).split('/').pop()}
+                      </span>
+                    </div>
+                  ) : null}
+                  <span className="entidad-hint-compact">
+                    PDF o imagen. Obligatorio.
+                    {hasStoredCompanyFile(editing.chamberOfCommerceCertificate) && !pendingCompanyFiles.chamberOfCommerceCertificate
+                      ? ' Puede reemplazar el archivo con otro.'
+                      : !hasStoredCompanyFile(editing.chamberOfCommerceCertificate)
+                        ? ' Aún no hay archivo en el sistema.'
+                        : ''}
+                  </span>
+                </>
               )}
             </div>
             <div className="form-group">
-              <label className="form-label">RUT</label>
+              <label className="form-label">RUT <span className="required">*</span></label>
               {!editing ? (
                 <>
                   <input
@@ -1798,21 +2272,201 @@ export default function Companies({ onVolver }) {
                       setPendingCompanyFiles((p) => ({ ...p, rutDocument: e.target.files?.[0] || null }))
                     }
                   />
-                  <span className="entidad-hint-compact">PDF o imagen. Se sube al guardar.</span>
+                  {pendingCompanyFiles.rutDocument && (
+                    <div className="entidad-pending-doc-row">
+                      <span className="entidad-pending-doc-name">{pendingCompanyFiles.rutDocument.name}</span>
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openLocalCompanyFilePreview(pendingCompanyFiles.rutDocument)}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => {
+                          setPendingCompanyFiles((p) => ({ ...p, rutDocument: null }));
+                          if (refInputRut.current) refInputRut.current.value = '';
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
+                  <span className="entidad-hint-compact">PDF o imagen. Obligatorio.</span>
                 </>
-              ) : hasStoredCompanyFile(editing.rutDocument) ? (
-                <div className="entidad-doc-enlace">
-                  <button
-                    type="button"
-                    className="btn-doc-ver"
-                    onClick={() => openCompanyDocument(editing._id, 'rutDocument')}
-                  >
-                    Ver / descargar
-                  </button>
-                  <span className="entidad-hint-compact">{String(editing.rutDocument).split('/').pop()}</span>
-                </div>
               ) : (
-                <span className="entidad-hint-compact">Sin archivo</span>
+                <>
+                  <input
+                    ref={refInputRut}
+                    className="form-input"
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({ ...p, rutDocument: e.target.files?.[0] || null }))
+                    }
+                  />
+                  {pendingCompanyFiles.rutDocument ? (
+                    <div className="entidad-pending-doc-row">
+                      <span className="entidad-pending-doc-name">{pendingCompanyFiles.rutDocument.name}</span>
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openLocalCompanyFilePreview(pendingCompanyFiles.rutDocument)}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => {
+                          setPendingCompanyFiles((p) => ({ ...p, rutDocument: null }));
+                          if (refInputRut.current) refInputRut.current.value = '';
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ) : hasStoredCompanyFile(editing.rutDocument) ? (
+                    <div className="entidad-doc-enlace">
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openRemoteCompanyDocumentPreview(editing._id, 'rutDocument')}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => removeStoredCompanyDocument('rutDocument')}
+                      >
+                        Eliminar
+                      </button>
+                      <span className="entidad-hint-compact">{String(editing.rutDocument).split('/').pop()}</span>
+                    </div>
+                  ) : null}
+                  <span className="entidad-hint-compact">
+                    PDF o imagen. Obligatorio.
+                    {hasStoredCompanyFile(editing.rutDocument) && !pendingCompanyFiles.rutDocument
+                      ? ' Puede reemplazar el archivo con otro.'
+                      : !hasStoredCompanyFile(editing.rutDocument)
+                        ? ' Aún no hay archivo en el sistema.'
+                        : ''}
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Doc. acreditación agencia {form.operatesAsAgency && <span className="required">*</span>}
+              </label>
+              {!editing ? (
+                <>
+                  <input
+                    ref={refInputAgencia}
+                    className="form-input"
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({
+                        ...p,
+                        agencyAccreditationDocument: e.target.files?.[0] || null,
+                      }))
+                    }
+                  />
+                  {pendingCompanyFiles.agencyAccreditationDocument && (
+                    <div className="entidad-pending-doc-row">
+                      <span className="entidad-pending-doc-name">{pendingCompanyFiles.agencyAccreditationDocument.name}</span>
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openLocalCompanyFilePreview(pendingCompanyFiles.agencyAccreditationDocument)}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => {
+                          setPendingCompanyFiles((p) => ({ ...p, agencyAccreditationDocument: null }));
+                          if (refInputAgencia.current) refInputAgencia.current.value = '';
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
+                  <span className="entidad-hint-compact">
+                    PDF o imagen. {form.operatesAsAgency ? 'Obligatorio si opera como agencia.' : 'Opcional.'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <input
+                    ref={refInputAgencia}
+                    className="form-input"
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setPendingCompanyFiles((p) => ({
+                        ...p,
+                        agencyAccreditationDocument: e.target.files?.[0] || null,
+                      }))
+                    }
+                  />
+                  {pendingCompanyFiles.agencyAccreditationDocument ? (
+                    <div className="entidad-pending-doc-row">
+                      <span className="entidad-pending-doc-name">{pendingCompanyFiles.agencyAccreditationDocument.name}</span>
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openLocalCompanyFilePreview(pendingCompanyFiles.agencyAccreditationDocument)}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => {
+                          setPendingCompanyFiles((p) => ({ ...p, agencyAccreditationDocument: null }));
+                          if (refInputAgencia.current) refInputAgencia.current.value = '';
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ) : hasStoredCompanyFile(editing.agencyAccreditationDocument) ? (
+                    <div className="entidad-doc-enlace">
+                      <button
+                        type="button"
+                        className="btn-doc-ver"
+                        onClick={() => openRemoteCompanyDocumentPreview(editing._id, 'agencyAccreditationDocument')}
+                      >
+                        <FiEye className="btn-icon" /> Vista previa
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary entidad-btn-quitar-archivo"
+                        onClick={() => removeStoredCompanyDocument('agencyAccreditationDocument')}
+                      >
+                        Eliminar
+                      </button>
+                      <span className="entidad-hint-compact">
+                        {String(editing.agencyAccreditationDocument).split('/').pop()}
+                      </span>
+                    </div>
+                  ) : null}
+                  <span className="entidad-hint-compact">
+                    PDF o imagen. {form.operatesAsAgency ? 'Obligatorio si opera como agencia.' : 'Opcional.'}
+                    {hasStoredCompanyFile(editing.agencyAccreditationDocument) && !pendingCompanyFiles.agencyAccreditationDocument
+                      ? ' Puede reemplazar el archivo con otro.'
+                      : !hasStoredCompanyFile(editing.agencyAccreditationDocument) && form.operatesAsAgency
+                        ? ' Aún no hay archivo en el sistema.'
+                        : ''}
+                  </span>
+                </>
               )}
             </div>
             {/* Convenio prácticas (switch) */}
@@ -1821,6 +2475,7 @@ export default function Companies({ onVolver }) {
               <input type="checkbox" checked={form.wantsPracticeAgreement} onChange={e=>setForm({ ...form, wantsPracticeAgreement: e.target.checked })} />
             </div>
             </div>
+          </div>
           </div>
 
           {/* Programas de interés */}
@@ -2189,13 +2844,19 @@ export default function Companies({ onVolver }) {
         {activeTab === 'contactos' && (
           <div className="contacts-section">
             <div className="contacts-header">
-              <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
-                {editing
-                  ? `Máximo 8 contactos por escenario (incluye representante legal). Actual: ${1 + contacts.length}`
-                  : 'Debe haber al menos dos contactos: el representante legal (pestaña Entidad) y mínimo un contacto adicional (ej. persona de RRHH que gestiona prácticas). Elija quién es el contacto principal.'}
-                {!editing && <br />}
-                {!editing && <>Actual: <strong>{1 + pendingContacts.length}</strong> contacto(s).</>}
-              </p>
+              {(editing || (!editing && pendingContacts.length === 0)) && (
+                <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
+                  {editing
+                    ? `Máximo 8 contactos por escenario (incluye representante legal). Actual: ${1 + contacts.length}`
+                    : (
+                      <>
+                        Debe haber al menos dos contactos: el representante legal (pestaña Entidad) y mínimo un contacto adicional (ej. persona de RRHH que gestiona prácticas). Elija quién es el contacto principal.
+                        <br />
+                        Actual: <strong>1</strong> contacto(s).
+                      </>
+                    )}
+                </p>
+              )}
               {canCCON && (
                 <button
                   type="button"
@@ -2647,6 +3308,32 @@ export default function Companies({ onVolver }) {
           </div>,
           document.body
         )}
+        {companyDocumentPreview && createPortal(
+          <div className="modal-overlay modal-overlay-doc-preview" onClick={closeCompanyDocumentPreview}>
+            <div className="modal modal-doc-preview" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h4>{companyDocumentPreview.name}</h4>
+                <button type="button" className="modal-close" onClick={closeCompanyDocumentPreview} aria-label="Cerrar">
+                  ×
+                </button>
+              </div>
+              <div className="modal-body modal-doc-preview-body">
+                {/^image\//i.test(companyDocumentPreview.mime || '') ||
+                /\.(png|jpe?g|gif|webp)$/i.test(companyDocumentPreview.name || '') ? (
+                  <img src={companyDocumentPreview.url} alt="" className="modal-doc-preview-media" />
+                ) : (
+                  <iframe title="Vista previa del documento" src={companyDocumentPreview.url} className="modal-doc-preview-iframe" />
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-guardar" onClick={closeCompanyDocumentPreview}>
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
       </div>
     );
   }
@@ -2782,20 +3469,17 @@ export default function Companies({ onVolver }) {
               <tr>
                 <th>Razón Social</th>
                 <th>NIT</th>
-                <th>Sector</th>
-                <th>CIIU</th>
-                <th>Tamaño</th>
                 <th>Ciudad</th>
-                <th>Teléfono</th>
                 <th>Contacto</th>
                 <th>País</th>
-              <th>Estado</th>
+                <th>Sector empresarial</th>
+                <th>Estado</th>
               </tr>
             </thead>
             <tbody>
               {companies.length === 0 ? (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: 'center', padding: '20px' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
                     No se encontraron empresas
                   </td>
                 </tr>
@@ -2809,13 +3493,10 @@ export default function Companies({ onVolver }) {
                   >
                     <td>{c.name || '-'}</td>
                     <td>{c.nit || '-'}</td>
-                    <td>{c.sector || '-'}</td>
-                    <td>{(c.ciiuCodes && c.ciiuCodes.length) ? c.ciiuCodes.join(', ') : (c.ciiuCode || '-')}</td>
-                    <td>{c.size || '-'}</td>
                     <td>{c.city || '-'}</td>
-                    <td>{c.phone || '-'}</td>
                     <td>{c.contact?.name || '-'}</td>
                     <td>{c.country || '-'}</td>
+                    <td>{sectorEmpresarialLabel(c, economicSectors, ciiuCodes)}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       {canAIEO ? (
                         <select 
