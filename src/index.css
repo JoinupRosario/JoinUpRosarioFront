@@ -54,3 +54,8 @@ button {
   font-family: inherit;
   cursor: pointer;
 }
+
+/* SweetAlert2: el contenedor por defecto (1060) queda detrás de modales full-screen (p. ej. Aplicaciones ~10000, Cerrar ~100002) */
+body.swal2-shown > .swal2-container {
+  z-index: 1000100 !important;
+}

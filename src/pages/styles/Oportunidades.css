@@ -4614,14 +4614,14 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
 }
 
 /* Vista Aplicaciones / Postulantes — pantalla completa */
-/* SweetAlert sobre la vista Aplicaciones (modal rechazar/deshacer) */
+/* SweetAlert sobre la vista Aplicaciones (refuerzo; el z-index global está en index.css) */
 .swal-over-vista-aplicaciones {
-  z-index: 100001 !important;
+  z-index: 1000100 !important;
 }
 
 /* SweetAlert de éxito/error al cerrar oportunidad — por encima del modal Confirmación (100002) */
 .swal-over-modal-cierre {
-  z-index: 100003 !important;
+  z-index: 1000100 !important;
 }
 
 .oportunidades-vista-aplicaciones-overlay {
@@ -4753,6 +4753,34 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
 
 .detalle-postulante-acciones {
   margin: 16px 0;
+}
+.detalle-postulante-acciones--mtm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.detalle-postulante-ya-seleccionado {
+  font-weight: 600;
+  color: #15803d;
+  font-size: 14px;
+}
+.btn-seleccionar-estudiante {
+  padding: 8px 16px;
+  background: #15803d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn-seleccionar-estudiante:hover:not(:disabled) {
+  background: #166534;
+}
+.btn-seleccionar-estudiante:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .btn-rechazar-estudiante {
   padding: 8px 16px;

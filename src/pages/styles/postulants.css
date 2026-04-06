@@ -1823,9 +1823,9 @@ input:checked+.slider:before {
 .sincr-modal-box {
   background: #fff;
   border-radius: 12px;
-  width: 720px;
-  max-width: 96vw;
-  max-height: 90vh;
+  width: min(1120px, 98vw);
+  max-width: 98vw;
+  max-height: 92vh;
   box-shadow: 0 8px 32px rgba(0,0,0,.2);
   overflow: hidden;
   display: flex;
@@ -1834,7 +1834,8 @@ input:checked+.slider:before {
 
 .sincr-modal-body {
   overflow-y: auto;
-  max-height: calc(90vh - 130px);
+  overflow-x: hidden;
+  max-height: calc(92vh - 130px);
 }
 
 .sincr-modal-header {
@@ -2044,14 +2045,16 @@ input:checked+.slider:before {
 }
 
 .sincr-stats {
-  display: flex;
-  gap: 14px;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  justify-content: stretch;
   margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .sincr-stat {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2060,6 +2063,8 @@ input:checked+.slider:before {
   border-radius: 10px;
   padding: 14px 10px;
   border: 2px solid transparent;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .sincr-stat--green  { border-color: #28a745; }
@@ -2081,10 +2086,14 @@ input:checked+.slider:before {
 }
 
 .sincr-stat-lbl {
-  font-size: .78rem;
+  font-size: .72rem;
   color: #666;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: .03em;
+  text-align: center;
+  line-height: 1.25;
+  hyphens: auto;
+  word-break: break-word;
 }
 
 .sincr-errors {
@@ -2192,4 +2201,37 @@ input:checked+.slider:before {
   font-weight: 500;
   margin-top: 14px;
   font-size: .9rem;
+}
+
+.sincr-detail-section--egresados {
+  max-height: min(420px, 55vh);
+  overflow-y: auto;
+}
+
+.sincr-egresados-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
+.sincr-egresados-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .78rem;
+}
+
+.sincr-egresados-table th,
+.sincr-egresados-table td {
+  border: 1px solid #dee2e6;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.sincr-egresados-table th {
+  background: #e9ecef;
+  font-weight: 600;
+}
+
+.sincr-egresados-row--err {
+  background: #fff5f5;
 }

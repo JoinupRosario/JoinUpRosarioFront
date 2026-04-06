@@ -26,7 +26,7 @@ import Swal from 'sweetalert2';
 import '../styles/Ubicaciones.css';
 import api from '../../services/api';
 
-// ── Parámetros de listas MTM (oportunidad) — van en pestaña Práctica ──────────
+// ── Parámetros de listas MTM: dedicación/valor en Práctica; tipo vinculación + categoría en Monitoría ──
 const MTM_VIEWS = ['dedicacionHorasMTM', 'valorPorHoraMTM', 'tipoVinculacionMTM', 'categoriaMTM'];
 
 // Mapeo de vistas a listId (tipos de documento = misma lista que tipo de identificación en facultad)
@@ -1332,11 +1332,10 @@ const Ubicaciones = ({ onVolver }) => {
         {/* Separador visual */}
         <div className="tab-separator"></div>
 
-        {/* Listas de oportunidad monitoría (MTM) — categoría está en pestaña Monitoría */}
+        {/* Listas MTM parciales (dedicación, valor); tipo de vinculación MTM está en pestaña Monitoría */}
         {[
           { key: 'dedicacionHorasMTM', label: 'Dedicación horas/semana', icon: <FiClock /> },
           { key: 'valorPorHoraMTM', label: 'Valor por hora', icon: <FiTrendingUp /> },
-          { key: 'tipoVinculacionMTM', label: 'Tipo de vinculación', icon: <FiShield /> },
         ].map(({ key, label, icon }) => (
           <button
             key={key}
@@ -1393,6 +1392,18 @@ const Ubicaciones = ({ onVolver }) => {
             }}
           >
             <FiLayers /> Categoría (Tipo MTM)
+          </button>
+          <button
+            type="button"
+            className={`tab ${vistaActual === 'tipoVinculacionMTM' ? 'active' : ''}`}
+            onClick={() => {
+              setVistaActual('tipoVinculacionMTM');
+              setShowForm(false);
+              setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+              setSearchTerm('');
+            }}
+          >
+            <FiShield /> Tipo de vinculación
           </button>
         </div>
       )}

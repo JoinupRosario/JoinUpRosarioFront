@@ -683,7 +683,7 @@ const Postulants = ({ onVolver }) => {
                 </div>
                 <div className="sincr-modal-body sincr-loading-body">
                   <div className="sincr-spinner" />
-                  <p className="sincr-loading-msg">Leyendo archivo UXXI y comparando con la base de datos…</p>
+                  <p className="sincr-loading-msg">Leyendo cargue_postulantes y CARGUE_EGRESADOSUR (SFTP) y comparando con la base de datos…</p>
                   <p className="sincr-loading-sub">Esto puede tardar unos segundos.</p>
                 </div>
               </>
@@ -817,7 +817,74 @@ const Postulants = ({ onVolver }) => {
                     </div>
                   )}
 
-                  {previewData.cantidadPorCrear === 0 && (previewData.cantidadPorCompletar ?? 0) === 0 && previewData.cantidadPorInactivar === 0 && (
+                  {previewData.egresados?.advertencia && (
+                    <div className="sincr-detail-section">
+                      <p className="sincr-modal-subtitle" style={{ color: '#b45309' }}>
+                        Egresados: {previewData.egresados.advertencia}
+                      </p>
+                    </div>
+                  )}
+
+                  {previewData.egresados && previewData.egresados.totalFilas > 0 && (
+                    <div className="sincr-detail-section sincr-detail-section--egresados">
+                      <h4 className="sincr-detail-title sincr-detail-title--green">
+                        <FiBook /> Egresados (CARGUE_EGRESADOSUR) — {previewData.egresados.totalFilas} fila(s) en archivo
+                      </h4>
+                      <div className="sincr-stats" style={{ marginBottom: 12 }}>
+                        <div className="sincr-stat sincr-stat--green">
+                          <FiCheckCircle className="sincr-stat-icon" />
+                          <span className="sincr-stat-num">{previewData.egresados.resumen?.aplicar ?? 0}</span>
+                          <span className="sincr-stat-lbl">A aplicar</span>
+                        </div>
+                        <div className="sincr-stat sincr-stat--orange">
+                          <FiUserMinus className="sincr-stat-icon" />
+                          <span className="sincr-stat-num">{previewData.egresados.resumen?.inactivaciones ?? 0}</span>
+                          <span className="sincr-stat-lbl">Inactivar usuario (único programa)</span>
+                        </div>
+                        {(previewData.egresados.errores?.length ?? 0) > 0 && (
+                          <div className="sincr-stat sincr-stat--orange">
+                            <FiAlertCircle className="sincr-stat-icon" />
+                            <span className="sincr-stat-num">{previewData.egresados.errores.length}</span>
+                            <span className="sincr-stat-lbl">Advertencias / filas omitidas</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="sincr-egresados-table-wrap">
+                        <table className="sincr-egresados-table">
+                          <thead>
+                            <tr>
+                              <th>Documento</th>
+                              <th>Cód. programa</th>
+                              <th>Título</th>
+                              <th>Fecha grado</th>
+                              <th>Estado</th>
+                              <th>Inactiva usuario</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(previewData.egresados.filas || []).slice(0, 80).map((row, i) => (
+                              <tr key={i} className={row.estado === 'error' ? 'sincr-egresados-row--err' : ''}>
+                                <td>{row.documento}</td>
+                                <td>{row.codPrograma}</td>
+                                <td title={row.titulo}>{row.titulo?.length > 40 ? `${row.titulo.slice(0, 40)}…` : row.titulo}</td>
+                                <td>{row.fechaGrado}</td>
+                                <td>{row.estado === 'ok' ? 'OK' : 'Error'}{row.detalle ? ` — ${row.detalle}` : ''}</td>
+                                <td>{row.inactivaraUsuario ? 'Sí' : 'No'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {(previewData.egresados.filas || []).length > 80 && (
+                          <p className="sincr-detail-more">… mostrando 80 de {(previewData.egresados.filas || []).length} filas</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {previewData.cantidadPorCrear === 0 && (previewData.cantidadPorCompletar ?? 0) === 0 && previewData.cantidadPorInactivar === 0
+                    && !(previewData.egresados?.resumen?.aplicar > 0)
+                    && !(previewData.egresados?.totalFilas > 0)
+                    && !previewData.egresados?.advertencia && (
                     <p className="sincr-nochanges">No hay cambios pendientes. La base de datos ya está sincronizada con el archivo.</p>
                   )}
                 </div>
@@ -825,7 +892,8 @@ const Postulants = ({ onVolver }) => {
                   <button className="btn-action btn-outline" onClick={() => setSincrModal({ open: false, data: null })}>
                     Cancelar
                   </button>
-                  {(previewData.cantidadPorCrear > 0 || (previewData.cantidadPorCompletar ?? 0) > 0 || previewData.cantidadPorInactivar > 0) && (
+                  {(previewData.cantidadPorCrear > 0 || (previewData.cantidadPorCompletar ?? 0) > 0 || previewData.cantidadPorInactivar > 0
+                    || (previewData.egresados?.resumen?.aplicar > 0)) && (
                     <button
                       className="btn-action btn-primary"
                       onClick={handleConfirmarSincronizar}
@@ -872,13 +940,49 @@ const Postulants = ({ onVolver }) => {
                       <span className="sincr-stat-num">{sincrModal.data.totalArchivo}</span>
                       <span className="sincr-stat-lbl">En archivo</span>
                     </div>
+                    {sincrModal.data.egresados && (
+                      <>
+                        <div className="sincr-stat sincr-stat--green">
+                          <FiBook className="sincr-stat-icon" />
+                          <span className="sincr-stat-num">{sincrModal.data.egresados.graduados ?? 0}</span>
+                          <span className="sincr-stat-lbl">Programas finalizados (egresados)</span>
+                        </div>
+                        {(sincrModal.data.egresados.actualizadosGraduado ?? 0) > 0 && (
+                          <div className="sincr-stat sincr-stat--teal">
+                            <FiCheckCircle className="sincr-stat-icon" />
+                            <span className="sincr-stat-num">{sincrModal.data.egresados.actualizadosGraduado}</span>
+                            <span className="sincr-stat-lbl">Títulos/fechas actualizados</span>
+                          </div>
+                        )}
+                        <div className="sincr-stat sincr-stat--orange">
+                          <FiUserMinus className="sincr-stat-icon" />
+                          <span className="sincr-stat-num">{sincrModal.data.egresados.inactivadosPorEgreso ?? 0}</span>
+                          <span className="sincr-stat-lbl">Inactivados por egreso único</span>
+                        </div>
+                      </>
+                    )}
                   </div>
+                  {sincrModal.data.egresados?.omitido && (
+                    <p className="sincr-modal-subtitle" style={{ color: '#b45309' }}>
+                      Archivo de egresados no procesado: {sincrModal.data.egresados.errores?.[0]?.error || 'error desconocido'}
+                    </p>
+                  )}
                   {sincrModal.data.errores?.length > 0 && (
                     <div className="sincr-errors">
                       <h4>Errores ({sincrModal.data.errores.length})</h4>
                       <ul>
                         {sincrModal.data.errores.map((e, i) => (
                           <li key={i}><b>{e.identificacion}</b>: {e.error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {sincrModal.data.egresados?.errores?.length > 0 && (
+                    <div className="sincr-errors">
+                      <h4>Errores en egresados ({sincrModal.data.egresados.errores.length})</h4>
+                      <ul>
+                        {sincrModal.data.egresados.errores.map((e, i) => (
+                          <li key={i}><b>{e.documento}</b>: {e.error}</li>
                         ))}
                       </ul>
                     </div>

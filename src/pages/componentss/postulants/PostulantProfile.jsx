@@ -101,7 +101,7 @@ const CREDITOS_POR_SEMESTRE = 18;
 const SECCIONES_HOJA_VIDA_LABELS = {
   datos_basicos: 'Datos básicos (nombre, documento, correo, teléfono, dirección)',
   cedula: 'Cédula de ciudadanía (archivo soporte)',
-  perfil: 'Perfil profesional (nombre perfil, texto perfil, competencias, idiomas)',
+  perfil: 'Perfil profesional (idiomas y habilidades digitales obligatorios para HV; áreas y competencias opcionales)',
   formacion_rosario_en_curso: 'Formación académica Rosario - En curso',
   formacion_rosario_finalizada: 'Formación académica Rosario - Finalizada',
   formacion_en_curso_otras: 'Formación académica en curso (otras instituciones)',
@@ -137,9 +137,8 @@ function isSeccionHojaVidaCompletada(profileData, postulant, sectionKey) {
     case 'cedula':
       return has(pp?.profileSupports);
     case 'perfil':
-      // Completado si hay texto de perfil, o al menos una competencia, o al menos un idioma (no exige todo a la vez)
-      const profileText = p?.profileText ?? pp?.selectedProfileVersion?.profileText;
-      return str(profileText) || has(pp?.skills) || has(pp?.languages);
+      // Obligatorio para HV: al menos un idioma y texto de habilidades digitales (alineado con backend)
+      return has(pp?.languages) && str(p?.skillsTechnicalSoftware ?? '');
     case 'formacion_rosario_en_curso':
       return has(pp?.enrolledPrograms?.filter((ep) => ep.programFacultyId != null));
     case 'formacion_rosario_finalizada':
@@ -2200,7 +2199,7 @@ const PostulantProfile = ({ onVolver }) => {
     }));
   }, []);
 
-  // Completitud alineada con backend: 8 datos visibles + código estudiante + áreas + competencias + idiomas (12).
+  // Completitud alineada con backend: 8 datos + código estudiante + idiomas + habilidades digitales (11 ítems).
   // La parte académica (créditos, etc.) no baja el % del círculo; se muestra aparte como recomendación.
   const completenessBySection = useMemo(() => {
     const empty = { scoreDatos: 0, scorePerfil: 0, scoreAcademica: 0, overall: 0, missingDatos: [], missingPerfil: [], missingAcademica: [] };
@@ -2233,9 +2232,8 @@ const PostulantProfile = ({ onVolver }) => {
     const pp = profileData?.postulantProfile;
     const itemsPerfil = [
       { ok: pp?.studentCode != null && String(pp.studentCode).trim() !== '', label: 'Código de estudiante' },
-      { ok: (profileData?.interestAreas?.length ?? 0) > 0, label: 'Al menos un área de interés' },
-      { ok: (profileData?.skills?.length ?? 0) > 0, label: 'Al menos una competencia' },
       { ok: (profileData?.languages?.length ?? 0) > 0, label: 'Al menos un idioma' },
+      { ok: pp?.skillsTechnicalSoftware != null && String(pp.skillsTechnicalSoftware).trim() !== '', label: 'Habilidades digitales' },
     ];
     const missingPerfil = profileData ? itemsPerfil.filter((i) => !i.ok).map((i) => i.label) : [];
     const scorePerfil = profileData && itemsPerfil.length ? Math.round(itemsPerfil.filter((i) => i.ok).length / itemsPerfil.length * 100) : 0;
@@ -2269,7 +2267,7 @@ const PostulantProfile = ({ onVolver }) => {
     };
   }, [postulant, profileData]);
 
-  // Círculo: mismo % que persiste el backend tras cargar profile-data (12 ítems).
+  // Círculo: mismo % que persiste el backend tras cargar profile-data (11 ítems).
   const calculateCompleteness = useCallback(() => {
     const apiPct = profileData?.profileCompleteness?.percentage;
     if (apiPct != null && Number.isFinite(Number(apiPct))) return Math.min(100, Math.round(Number(apiPct)));
@@ -2385,7 +2383,7 @@ const PostulantProfile = ({ onVolver }) => {
       html += '<p style="font-size:0.88em; color:#666; margin-top:0.5rem;">Estos ítems no afectan el porcentaje del perfil ni la generación de la hoja de vida, pero son útiles para prácticas y registro.</p>';
     }
     if (!profileData && !mainFromApi) {
-      html += '<p style="margin-top:0.75rem; font-size:0.9em; color:#666;">Abra <strong>Perfil y experiencia</strong> para ver el detalle de áreas, competencias e idiomas.</p>';
+      html += '<p style="margin-top:0.75rem; font-size:0.9em; color:#666;">Abra <strong>Perfil y experiencia</strong> para completar idiomas y habilidades digitales (obligatorios para la hoja de vida).</p>';
     }
     Swal.fire({
       title: '¿Qué hace falta?',
@@ -3398,12 +3396,12 @@ const PostulantProfile = ({ onVolver }) => {
               );
             })()}
 
-            {/* 4. Áreas de interés, Competencias, Idiomas */}
+            {/* 4. Áreas de interés, Competencias, Idiomas (áreas y competencias opcionales para HV) */}
             <div className="perfil-seccion-grupo">
               <h3 className="perfil-seccion-titulo">Áreas de interés, competencias e idiomas</h3>
               <div className="perfil-block">
                 <div className="section-title-row">
-                  <h4 className="perfil-block-title">Áreas de Interés</h4>
+                  <h4 className="perfil-block-title">Áreas de Interés <span className="perfil-optional-tag">(opcional)</span></h4>
                   {isEditing && (
                     <span className="section-actions">
                       <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setInterestAreaFormData({ area: '' }); setInterestAreaModalOpen(true); }} title="Agregar"><FiPlus /></button>
@@ -3428,8 +3426,8 @@ const PostulantProfile = ({ onVolver }) => {
               </div>
               <div className="perfil-block">
                 <div className="section-title-row">
-                  <h4 className="perfil-block-title">Competencias</h4>
-                  {isEditing && (
+                  <h4 className="perfil-block-title">Competencias <span className="perfil-optional-tag">(opcional)</span></h4>
+  {isEditing && (
                     <span className="section-actions">
                       <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setSkillFormData({ skillId: '', experienceYears: '' }); setSkillModalOpen(true); }} title="Agregar"><FiPlus /></button>
                     </span>
@@ -3453,7 +3451,7 @@ const PostulantProfile = ({ onVolver }) => {
               </div>
               <div className="perfil-block">
                 <div className="section-title-row">
-                  <h4 className="perfil-block-title">Idiomas</h4>
+                  <h4 className="perfil-block-title">Idiomas <span className="perfil-required-tag">(obligatorio para hoja de vida)</span></h4>
                   {isEditing && (
                     <span className="section-actions">
                       <button type="button" className="section-action-btn section-action-add-only" onClick={() => { setLanguageFormData({ language: '', level: '' }); setLanguageModalOpen(true); }} title="Agregar"><FiPlus /></button>
@@ -3481,12 +3479,12 @@ const PostulantProfile = ({ onVolver }) => {
             {/* 5. Habilidades digitales */}
             <div className="perfil-block">
               <div className="section-title-row">
-                <h4 className="perfil-block-title">Habilidades digitales</h4>
+                <h4 className="perfil-block-title">Habilidades digitales <span className="perfil-required-tag">(obligatorio para hoja de vida)</span></h4>
                 {isEditing && <FiEdit className="field-edit-icon" style={{ marginLeft: '8px' }} />}
               </div>
               {isEditing ? (
                 <>
-                  <textarea className="form-control perfil-skills-textarea" value={profileEditFields.skillsTechnicalSoftware} onChange={e => handleProfileFieldChange('skillsTechnicalSoftware', e.target.value.slice(0, 512))} placeholder="Escriba sus habilidades digitales" rows={3} maxLength={512} />
+                  <textarea className="form-control perfil-skills-textarea" value={profileEditFields.skillsTechnicalSoftware} onChange={e => handleProfileFieldChange('skillsTechnicalSoftware', e.target.value.slice(0, 512))} placeholder="Describa sus habilidades digitales (obligatorio para generar la hoja de vida)" rows={3} maxLength={512} />
                   <div className="perfil-field-char-count">Caracteres restantes: {512 - (profileEditFields.skillsTechnicalSoftware || '').length}</div>
                 </>
               ) : (
@@ -3814,12 +3812,7 @@ const PostulantProfile = ({ onVolver }) => {
                     </span>
                   )}
                 </div>
-                {profileData?.postulantProfile && profileData.postulantProfile.perfilCompleto === false && (
-                  <div className="perfil-hv-incomplete-alert" role="alert">
-                    <FiHelpCircle className="perfil-hv-incomplete-alert-icon" />
-                    <span>Para generar la hoja de vida debe completar: datos personales, áreas de interés, competencias e idiomas. No se exigen experiencia laboral, logros ni otras experiencias.</span>
-                  </div>
-                )}
+               
                 <p className="perfil-block-desc">Puede generar hasta 5 archivos de Hoja de Vida, según los diferentes perfiles que tenga. El tamaño máximo de cada archivo es de 5Mb.</p>
                 {profileData?.profileCvs?.length > 0 ? (
                   <ul className="perfil-doc-list">

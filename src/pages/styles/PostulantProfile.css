@@ -1360,6 +1360,18 @@ input:checked + .slider:before {
   margin: 0 0 8px 0;
 }
 
+.perfil-optional-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.perfil-required-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
 .perfil-block-note {
   font-size: 12px;
   font-style: italic;

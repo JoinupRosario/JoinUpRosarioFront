@@ -142,11 +142,12 @@ export default function OportunidadesMTM({ onVolver }) {
 
   const loadParams = async () => {
     try {
+      const itemParams = { limit: 100, isActive: true };
       const [ded, val, vinc, cat, per] = await Promise.all([
-        api.get('/locations/items/L_DEDICATON_HOURS?limit=100'),
-        api.get('/locations/items/L_REMUNERATION_HOURS_PER_WEEK?limit=100'),
-        api.get('/locations/items/L_CONTRACT_TYPE_STUDY_WORKING?limit=100'),
-        api.get('/locations/items/L_MONITORING_TYPE?limit=100'),
+        api.get('/locations/items/L_DEDICATON_HOURS', { params: itemParams }),
+        api.get('/locations/items/L_REMUNERATION_HOURS_PER_WEEK', { params: itemParams }),
+        api.get('/locations/items/L_CONTRACT_TYPE_STUDY_WORKING', { params: itemParams }),
+        api.get('/locations/items/L_MONITORING_TYPE', { params: itemParams }),
         api.get('/periodos?tipo=monitoria&estado=Activo&limit=100')
       ]);
       setDedicacionItems(ded.data?.data || ded.data || []);
