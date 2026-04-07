@@ -423,10 +423,10 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
 
   if (error || (!loading && !legalizacion)) {
     return (
-      <div className="dashboard-content">
-        <div className="dashboard-welcome">
-          <p style={{ color: '#c41e3a' }}>{error || 'No se encontró la legalización'}</p>
-          <button type="button" className="btn-secondary" onClick={onVolver}>Volver</button>
+      <div className="dashboard-content admrevmtm">
+        <div className="admrevmtm__state-screen admrevmtm__state-screen--error">
+          <p>{error || 'No se encontró la legalización'}</p>
+          <button type="button" className="btn-secondary" onClick={onVolver}>Volver al listado</button>
         </div>
       </div>
     );
@@ -437,7 +437,14 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
       <header className="legalizacion-mtm__topbar">
         <div className="legalizacion-mtm__topbar-left">
           <button type="button" className="legalizacion-mtm__back" onClick={onVolver}>← Volver</button>
-          <h2 className="legalizacion-mtm__title">Revisión de legalización MTM</h2>
+          <div>
+            <h2 className="legalizacion-mtm__title">Revisión de legalización</h2>
+            <p className="admrevmtm__subtitle">
+              Monitoría
+              {oportunidad?.nombreCargo ? ` · ${oportunidad.nombreCargo}` : ''}
+              {estudiante?.nombre ? ` · ${estudiante.nombre}` : ''}
+            </p>
+          </div>
         </div>
         <div className="legalizacion-mtm__topbar-actions">
           {legalizacion?.estado && (

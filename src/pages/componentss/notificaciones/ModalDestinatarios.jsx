@@ -73,6 +73,9 @@ export default function ModalDestinatarios({ open, item, onSave, onClose }) {
               isDisabled={loading}
               className="pn-select-variables"
               classNamePrefix="pn-select"
+              noOptionsMessage={() =>
+                'No hay roles activos o no tienes permiso para listarlos (AMRO / LRO).'
+              }
               menuPortalTarget={document.body}
               menuPosition="fixed"
               styles={{ menuPortal: (base) => ({ ...base, zIndex: 1100 }) }}

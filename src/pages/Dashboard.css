@@ -349,6 +349,21 @@
   scroll-padding-bottom: 0.75rem;
 }
 
+/* Revisión legalización práctica: alto según contenido y ancho útil completo */
+.dashboard-main.dashboard-main--legalizaciones-revision {
+  max-height: none !important;
+  padding-bottom: 5rem;
+  box-sizing: border-box;
+  scroll-padding-bottom: 4rem;
+  align-items: stretch;
+}
+
+.dashboard-main.dashboard-main--legalizaciones-revision > .dashboard-content {
+  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* Oportunidades monitoría / práctica (estudiante): hijo a ancho completo y sin que flex recorte el contenido */
 .dashboard-main.dashboard-main--oportunidades-monitoria,
 .dashboard-main.dashboard-main--oportunidades-practica {

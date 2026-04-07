@@ -11,6 +11,32 @@
   min-height: auto !important;
 }
 
+/* Revisión: sin contenedor estrecho — mismo ancho que el área principal */
+.dashboard-content.admrevmtm.legalizacion-mtm--full {
+  max-width: none;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: clamp(0.75rem, 1.8vw, 1.75rem);
+  padding-right: clamp(0.75rem, 1.8vw, 1.75rem);
+}
+
+.admrevmtm.legalizacion-mtm--full .legalizacion-mtm__body {
+  max-width: none !important;
+  width: 100%;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.admrevmtm.legalizacion-mtm--full .legalizacion-mtm__topbar {
+  max-width: none;
+  width: 100%;
+}
+
+.admrevmtm.legalizacion-mtm--full .legalizacion-mtm__tabs {
+  max-width: none;
+  width: 100%;
+}
+
 /* Espacio razonable para scroll hasta debajo del footer fijo (sin agujero enorme) */
 .admrevmtm.legalizacion-mtm--full {
   padding-bottom: 2.5rem !important;
@@ -31,7 +57,89 @@
 }
 
 .admrevmtm .legalizacion-mtm__panels {
-  align-items: start;
+  align-items: stretch;
+  gap: 1.35rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .admrevmtm .legalizacion-mtm__panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1320px) {
+  .admrevmtm .legalizacion-mtm__panels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+/* Tarjetas “Datos generales” (revisión práctica) */
+.admrevmtm .admrevmtm-panel-card.legalizacion-mtm__section {
+  position: relative;
+  border-radius: 16px;
+  padding: 1.45rem 1.5rem 1.55rem;
+  border: 1px solid #e8ecf1;
+  border-top: none;
+  box-shadow:
+    0 4px 16px rgba(15, 23, 42, 0.06),
+    0 1px 3px rgba(15, 23, 42, 0.04);
+  background: #fff;
+  overflow: hidden;
+}
+
+.admrevmtm .admrevmtm-panel-card.legalizacion-mtm__section::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #c41e3a 0%, #e11d48 55%, #f43f5e 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+/* Título de tarjeta: contexto (kicker) + titular */
+.admrevmtm .admrevmtm-panel-card .legalizacion-mtm__section-title.admrevmtm-panel-card__title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-top: 0;
+  margin-bottom: 1.1rem;
+  padding-top: 0.15rem;
+  padding-bottom: 0;
+  border-bottom: none;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.admrevmtm-panel-card__kicker {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #c41e3a;
+  line-height: 1.2;
+}
+
+.admrevmtm-panel-card__title-main {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #eef2f6;
+  font-size: 1.06rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+  line-height: 1.28;
+  text-align: start;
+}
+
+.admrevmtm .admrevmtm-panel-card .legalizacion-mtm__grid--admrev {
+  row-gap: 0.7rem;
 }
 
 .admrevmtm .legalizacion-mtm__grid dd {
@@ -41,10 +149,139 @@
   line-height: 1.45;
 }
 
+/* Datos generales (revisión práctica): proporción etiqueta/valor y valores justificados */
+.admrevmtm .legalizacion-mtm__grid--admrev {
+  grid-template-columns: minmax(9.25rem, 26%) minmax(0, 1fr);
+  column-gap: 1.1rem;
+  row-gap: 0.55rem;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .admrevmtm .legalizacion-mtm__grid--admrev {
+    grid-template-columns: minmax(10rem, 28%) minmax(0, 1fr);
+    column-gap: 1.25rem;
+  }
+}
+
+.admrevmtm .legalizacion-mtm__grid--admrev dt {
+  padding-top: 0.12em;
+}
+
+/* Etiquetas con texto completo en title (hover) */
+.admrevmtm .admrevmtm-panel-card .legalizacion-mtm__grid--admrev dt[title] {
+  cursor: help;
+}
+
+/* Justificación reforzada dentro de las tarjetas (vence reglas globales .legalizacion-mtm__grid) */
+.admrevmtm .admrevmtm-panel-card .legalizacion-mtm__grid--admrev dt {
+  text-align: justify;
+  text-align-last: start;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  line-height: 1.38;
+  max-width: 100%;
+}
+
+.admrevmtm .admrevmtm-panel-card .legalizacion-mtm__grid--admrev dd,
+.admrevmtm .admrevmtm-panel-card .legalizacion-mtm__grid--admrev dd.admrevmtm-dd-value {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: justify;
+  text-align-last: start;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  line-height: 1.5;
+}
+
+.admrevmtm-dd-value {
+  text-align: justify;
+  text-align-last: start;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.admrevmtm .admrevmtm-panel-card .admrevmtm-longtext-preview {
+  display: block;
+  width: 100%;
+  text-align: justify;
+  text-align-last: start;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.admrevmtm-longtext-preview {
+  margin: 0 0 0.65rem;
+  font-size: inherit;
+  line-height: 1.5;
+  text-align: justify;
+  text-align-last: start;
+  text-justify: inter-word;
+}
+
+.admrevmtm-longtext-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.95rem 0.45rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #c41e3a 0%, #b01e35 100%);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(196, 30, 58, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.admrevmtm-longtext-btn:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.35);
+  transform: translateY(-1px);
+}
+
+.admrevmtm-longtext-btn:active {
+  transform: translateY(0);
+}
+
+.admrevmtm-longtext-btn__icon {
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+/* Solo botón “Ver funciones” (sin párrafo truncado) */
+.admrevmtm-dd-value--expand-only {
+  padding-top: 0.2rem;
+}
+
+.admrevmtm-dd-value--expand-only.admrevmtm-dd-value {
+  text-align: start;
+  text-align-last: auto;
+}
+
+.admrevmtm-dd--full-width {
+  grid-column: 2 / -1;
+}
+
 @media (max-width: 640px) {
   .admrevmtm .legalizacion-mtm__grid {
     grid-template-columns: 1fr;
     gap: 0.15rem 0;
+  }
+
+  .admrevmtm .legalizacion-mtm__grid--admrev {
+    grid-template-columns: 1fr;
+  }
+
+  .admrevmtm-dd--full-width {
+    grid-column: 1 / -1;
   }
 
   .admrevmtm .legalizacion-mtm__grid dt {
@@ -54,6 +291,117 @@
   .admrevmtm .legalizacion-mtm__grid dt:first-child {
     margin-top: 0;
   }
+
+  .admrevmtm .legalizacion-mtm__grid--admrev dt:first-child {
+    margin-top: 0;
+  }
+}
+
+/* Modal texto largo (funciones, horario, etc.) */
+.admrevmtm-text-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.admrevmtm-text-modal {
+  width: 100%;
+  max-width: 720px;
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.admrevmtm-text-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.admrevmtm-text-modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+  padding-right: 0.5rem;
+}
+
+.admrevmtm-text-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.admrevmtm-text-modal__close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.admrevmtm-text-modal__body {
+  padding: 1rem 1.15rem 1.25rem;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  text-align: start;
+}
+
+/* Contenedor: una línea del origen = un <p> (así justify aplica al relleno de cada párrafo) */
+.admrevmtm-text-modal__prose {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.admrevmtm-text-modal__para {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #1e293b;
+  text-align: justify;
+  text-align-last: start;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.admrevmtm-text-modal__para--blank {
+  min-height: 0.55rem;
+  margin: 0;
+  padding: 0;
+  line-height: 0;
 }
 
 /* —— Pestaña Documentos —— */
@@ -146,6 +494,13 @@
   color: #1e293b;
   line-height: 1.35;
   padding-right: 0.5rem;
+}
+
+.admrevmtm-doc__head-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .admrevmtm-doc__badge {
@@ -424,4 +779,340 @@
 .admrevmtm .admrevmtm__btn-reporte-asistencia:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* —— Revisión legalización: cabecera y layout —— */
+.admrevmtm .legalizacion-mtm__topbar {
+  align-items: flex-start;
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 1.25rem;
+  background: #fff;
+  border: 1px solid #e8ecf1;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
+  border-bottom: none;
+}
+
+.admrevmtm .legalizacion-mtm__topbar-left {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.admrevmtm .legalizacion-mtm__topbar-actions {
+  flex: 1 1 280px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.admrevmtm .legalizacion-mtm__title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.admrevmtm .admrevmtm__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.admrevmtm .legalizacion-mtm__tabs {
+  padding: 0.35rem 0.5rem;
+  margin-bottom: 1.5rem;
+  background: #f1f5f9;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.admrevmtm .legalizacion-mtm__tab {
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  margin-bottom: 0;
+  border-bottom: none;
+  font-size: 0.9rem;
+}
+
+.admrevmtm .legalizacion-mtm__tab:hover {
+  background: rgba(255, 255, 255, 0.85);
+  color: #334155;
+}
+
+.admrevmtm .legalizacion-mtm__tab--active {
+  background: #fff;
+  color: #c41e3a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.admrevmtm .legalizacion-mtm__section:not(.admrevmtm-panel-card) {
+  background: #fff;
+  border: 1px solid #e8ecf1;
+  border-radius: 12px;
+  padding: 1.15rem 1.25rem 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.admrevmtm .legalizacion-mtm__section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  padding-bottom: 0.65rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admrevmtm .legalizacion-mtm__estado {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Acuerdo de vinculación (práctica): mismo bloque .legalizacion-mtm__section + fondo distinto */
+.admrevmtm .legalizacion-mtm__section.admrevmtm__acuerdo-panel {
+  background: linear-gradient(165deg, #f8fafc 0%, #fff 48%);
+  border-color: #e2e8f0;
+  border-radius: 14px;
+}
+
+.admrevmtm__acuerdo-panel .legalizacion-mtm__section-title {
+  border-bottom: none;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0;
+}
+
+.admrevmtm__acuerdo-lead {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.55;
+  max-width: 72ch;
+}
+
+.admrevmtm__acuerdo-alert {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 10px;
+}
+
+.admrevmtm__acuerdo-alert--ok {
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.admrevmtm__acuerdo-alert--warn {
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.admrevmtm__acuerdo-muted {
+  margin: 0 0 0.65rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.admrevmtm__acuerdo-status {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.admrevmtm__acuerdo-meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.admrevmtm__firma-links-title {
+  display: block;
+  margin: 0.5rem 0 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+.admrevmtm__firma-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admrevmtm__firma-item {
+  margin-bottom: 0.85rem;
+}
+
+.admrevmtm__firma-parte {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.35rem;
+}
+
+.admrevmtm__firma-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.admrevmtm__firma-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.admrevmtm__firma-copy {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admrevmtm__firma-copy:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.admrevmtm__table-wrap {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admrevmtm__table-wrap .postulants-table {
+  margin: 0;
+  min-width: 520px;
+}
+
+.admrevmtm__table-wrap .postulants-table th {
+  background: #f8fafc;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+}
+
+.admrevmtm__acuerdo-actions {
+  margin-top: 1rem;
+}
+
+/* Estado del documento en tarjeta */
+.admrevmtm-doc__estado {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.admrevmtm-doc__estado--ok {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.admrevmtm-doc__estado--err {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.admrevmtm-doc__estado--pendiente {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.admrevmtm-doc__file-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  padding: 0 16px 10px;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.admrevmtm-doc__file-name {
+  font-weight: 600;
+  color: #475569;
+  word-break: break-word;
+}
+
+/* Historial */
+.admrevmtm__historial-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admrevmtm__historial-wrap .postulants-table {
+  margin: 0;
+  min-width: 640px;
+}
+
+.admrevmtm__historial-wrap .postulants-table th {
+  background: #f8fafc;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+}
+
+.admrevmtm__historial-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 1.25rem;
+}
+
+/* Carga / error */
+.admrevmtm__state-screen {
+  max-width: 420px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #e8ecf1;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.admrevmtm__state-screen--error {
+  color: #b91c1c;
+}
+
+.admrevmtm__state-screen p {
+  margin: 0 0 1rem;
+  line-height: 1.5;
 }
