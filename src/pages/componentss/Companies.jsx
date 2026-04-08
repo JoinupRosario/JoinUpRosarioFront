@@ -777,6 +777,16 @@ export default function Companies({ onVolver }) {
   const hasStoredCompanyFile = (val) =>
     val != null && String(val).trim().length > 0;
 
+  /** Texto junto a Vista previa: nombre del adjunto migrado (attachments.name) o último segmento de la clave S3 */
+  const labelStoredCompanyDoc = (field, val) => {
+    const dn = editing?.documentAttachmentNames?.[field];
+    if (dn && String(dn).trim()) return String(dn).trim();
+    const s = String(val ?? '').trim();
+    if (!s) return '';
+    if (/^\d+$/.test(s)) return `Adjunto #${s}`;
+    return s.split('/').pop() || s;
+  };
+
   const COMPANY_DOC_FIELD_LABELS = {
     agencyAccreditationDocument: 'Acreditación agencia',
     chamberOfCommerceCertificate: 'Certificado Cámara de Comercio',
@@ -800,7 +810,7 @@ export default function Companies({ onVolver }) {
       }
       setCompanyDocumentPreview({
         url,
-        name: COMPANY_DOC_FIELD_LABELS[field] || field,
+        name: data?.fileName || COMPANY_DOC_FIELD_LABELS[field] || field,
         mime: '',
         isRemote: true,
       });
@@ -839,7 +849,15 @@ export default function Companies({ onVolver }) {
     if (!result.isConfirmed) return;
     try {
       await api.delete(`/companies/${editing._id}/document/${field}`);
-      setEditing((prev) => (prev ? { ...prev, [field]: '' } : null));
+      setEditing((prev) => {
+        if (!prev) return null;
+        const next = { ...prev, [field]: '' };
+        if (prev.documentAttachmentNames?.[field]) {
+          next.documentAttachmentNames = { ...prev.documentAttachmentNames };
+          delete next.documentAttachmentNames[field];
+        }
+        return next;
+      });
       await Swal.fire({
         icon: 'success',
         title: 'Eliminado',
@@ -1892,7 +1910,7 @@ export default function Companies({ onVolver }) {
                       >
                         Eliminar
                       </button>
-                      <span className="entidad-hint-compact">{String(editing.logo).split('/').pop()}</span>
+                      <span className="entidad-hint-compact">{labelStoredCompanyDoc('logo', editing.logo)}</span>
                     </div>
                   ) : null}
                   <span className="entidad-hint-compact">
@@ -2244,7 +2262,7 @@ export default function Companies({ onVolver }) {
                         Eliminar
                       </button>
                       <span className="entidad-hint-compact">
-                        {String(editing.chamberOfCommerceCertificate).split('/').pop()}
+                        {labelStoredCompanyDoc('chamberOfCommerceCertificate', editing.chamberOfCommerceCertificate)}
                       </span>
                     </div>
                   ) : null}
@@ -2344,7 +2362,7 @@ export default function Companies({ onVolver }) {
                       >
                         Eliminar
                       </button>
-                      <span className="entidad-hint-compact">{String(editing.rutDocument).split('/').pop()}</span>
+                      <span className="entidad-hint-compact">{labelStoredCompanyDoc('rutDocument', editing.rutDocument)}</span>
                     </div>
                   ) : null}
                   <span className="entidad-hint-compact">
@@ -2454,7 +2472,7 @@ export default function Companies({ onVolver }) {
                         Eliminar
                       </button>
                       <span className="entidad-hint-compact">
-                        {String(editing.agencyAccreditationDocument).split('/').pop()}
+                        {labelStoredCompanyDoc('agencyAccreditationDocument', editing.agencyAccreditationDocument)}
                       </span>
                     </div>
                   ) : null}

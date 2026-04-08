@@ -13,7 +13,8 @@ import {
   FiTrendingUp,
   FiClock,
   FiCheckCircle,
-  FiAlertCircle
+  FiAlertCircle,
+  FiBookOpen
 } from 'react-icons/fi';
 import { 
   HiOutlineOfficeBuilding,
@@ -50,7 +51,7 @@ import NotificacionMonitorias from './componentss/notificaciones/notificacionMon
 import NotificacionPracticas from './componentss/notificaciones/notificacionPracticas/NotificacionPracticas';
 import Oportunidades from './componentss/Oportunidades';
 import StatCard from '../components/ui/StatCard';
-import SimpleChart from '../components/ui/SimpleChart';
+import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
 import Postulants  from './componentss/postulants/postulants';
 import PostulantStatusLog from './componentss/postulants/postulantLogs/PostulantStatusLog';
 import PostulantDocumentLog from './componentss/postulants/postulantLogs/PostulantDocumentLog';
@@ -416,50 +417,89 @@ export default function Dashboard() {
     }
   }, [location.pathname, authLoading]);
 
-  // Datos de ejemplo para el dashboard
-  const [dashboardData, setDashboardData] = useState({
-    stats: {
-      totalStudents: 0,
-      activePractices: 0,
-      availableOpportunities: 0,
-      registeredCompanies: 0
-    },
-    charts: {
+  const emptyDashboard = () => ({
+    shared: { totalStudents: 0, registeredCompanies: 0 },
+    practicas: {
+      oportunidadesActivas: 0,
+      oportunidadesTotal: 0,
+      legalizacionesTotal: 0,
+      totalPostulaciones: 0,
       applicationsByMonth: [],
-      practiceStatus: [],
-      applicationTrends: []
-    }
+      applicationTrends: [],
+      oportunidadesPorEstado: [{ label: 'Sin datos', value: 0 }],
+      postulacionesPorEstado: [],
+      legalizacionesPorEstado: [],
+    },
+    monitoria: {
+      oportunidadesActivas: 0,
+      oportunidadesTotal: 0,
+      legalizacionesTotal: 0,
+      totalPostulaciones: 0,
+      applicationsByMonth: [],
+      applicationTrends: [],
+      oportunidadesPorEstado: [{ label: 'Sin datos', value: 0 }],
+      postulacionesPorEstado: [],
+      legalizacionesPorEstado: [],
+    },
   });
+
+  const [dashboardData, setDashboardData] = useState(emptyDashboard);
+  const [dashboardTab, setDashboardTab] = useState('practicas'); // practicas | monitoria
 
   // Cargar datos del dashboard (stats) para usuarios no estudiantes
   useEffect(() => {
     if (isEstudiante) return;
     const loadDashboardData = async () => {
       setLoading(true);
-      let apiStats = { totalStudents: 0, availableOpportunities: 0, registeredCompanies: 0 };
       try {
-        const statsRes = await api.get('/dashboard/stats');
-        apiStats = statsRes?.data || apiStats;
+        const { data } = await api.get('/dashboard/stats');
+        const p = data?.practicas || {};
+        const m = data?.monitoria || {};
+        const shared = data?.shared || {};
+        setDashboardData({
+          shared: {
+            totalStudents: shared.totalStudents ?? data?.totalStudents ?? 0,
+            registeredCompanies: shared.registeredCompanies ?? data?.registeredCompanies ?? 0,
+          },
+          practicas: {
+            oportunidadesActivas: p.oportunidadesActivas ?? data?.availableOpportunities ?? 0,
+            oportunidadesTotal: p.oportunidadesTotal ?? 0,
+            legalizacionesTotal: p.legalizacionesTotal ?? 0,
+            totalPostulaciones: p.totalPostulaciones ?? 0,
+            applicationsByMonth: Array.isArray(p.applicationsByMonth) && p.applicationsByMonth.length
+              ? p.applicationsByMonth
+              : [{ label: 'Sin datos', value: 0 }],
+            applicationTrends: Array.isArray(p.applicationTrends) && p.applicationTrends.length
+              ? p.applicationTrends
+              : [{ label: 'N/D', value: 0 }],
+            oportunidadesPorEstado: Array.isArray(p.oportunidadesPorEstado) && p.oportunidadesPorEstado.length
+              ? p.oportunidadesPorEstado
+              : [{ label: 'Sin datos', value: 0 }],
+            postulacionesPorEstado: Array.isArray(p.postulacionesPorEstado) ? p.postulacionesPorEstado : [],
+            legalizacionesPorEstado: Array.isArray(p.legalizacionesPorEstado) ? p.legalizacionesPorEstado : [],
+          },
+          monitoria: {
+            oportunidadesActivas: m.oportunidadesActivas ?? 0,
+            oportunidadesTotal: m.oportunidadesTotal ?? 0,
+            legalizacionesTotal: m.legalizacionesTotal ?? 0,
+            totalPostulaciones: m.totalPostulaciones ?? 0,
+            applicationsByMonth: Array.isArray(m.applicationsByMonth) && m.applicationsByMonth.length
+              ? m.applicationsByMonth
+              : [{ label: 'Sin datos', value: 0 }],
+            applicationTrends: Array.isArray(m.applicationTrends) && m.applicationTrends.length
+              ? m.applicationTrends
+              : [{ label: 'N/D', value: 0 }],
+            oportunidadesPorEstado: Array.isArray(m.oportunidadesPorEstado) && m.oportunidadesPorEstado.length
+              ? m.oportunidadesPorEstado
+              : [{ label: 'Sin datos', value: 0 }],
+            postulacionesPorEstado: Array.isArray(m.postulacionesPorEstado) ? m.postulacionesPorEstado : [],
+            legalizacionesPorEstado: Array.isArray(m.legalizacionesPorEstado) ? m.legalizacionesPorEstado : [],
+          },
+        });
       } catch (err) {
         console.error('Error cargando estadísticas del dashboard', err);
+        setDashboardData(emptyDashboard());
       }
-      setDashboardData((prev) => ({
-        stats: {
-          totalStudents: apiStats.totalStudents ?? 0,
-          activePractices: prev.stats.activePractices ?? 0,
-          availableOpportunities: apiStats.availableOpportunities ?? 0,
-          registeredCompanies: apiStats.registeredCompanies ?? 0
-        },
-        charts: {
-          applicationsByMonth: Array.isArray(apiStats.applicationsByMonth) && apiStats.applicationsByMonth.length > 0
-            ? apiStats.applicationsByMonth
-            : [{ label: 'Sin datos', value: 0 }],
-          practiceStatus: prev.charts.practiceStatus,
-          applicationTrends: Array.isArray(apiStats.applicationTrends) && apiStats.applicationTrends.length > 1
-            ? apiStats.applicationTrends
-            : [{ label: 'N/D', value: 0 }, { label: 'N/D', value: 0 }]
-        }
-      }));
       setLoading(false);
     };
 
@@ -697,94 +737,149 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main
-        className={`dashboard-main${vistaActual === 'mis-aplicaciones' ? ' dashboard-main--mis-aplicaciones' : ''}${vistaActual === 'monitorias' ? ' dashboard-main--monitorias-list' : ''}${vistaActual === 'monitorias-revision' ? ' dashboard-main--monitorias-revision' : ''}${vistaActual === 'oportunidades-monitoria' ? ' dashboard-main--oportunidades-monitoria' : ''}${vistaActual === 'oportunidades-practica' ? ' dashboard-main--oportunidades-practica' : ''}${vistaActual === 'dashboard' && isEstudiante ? ' dashboard-main--home-estudiante' : ''}`}
+        className={`dashboard-main${vistaActual === 'mis-aplicaciones' ? ' dashboard-main--mis-aplicaciones' : ''}${vistaActual === 'monitorias' ? ' dashboard-main--monitorias-list' : ''}${vistaActual === 'monitorias-revision' ? ' dashboard-main--monitorias-revision' : ''}${vistaActual === 'oportunidades-monitoria' ? ' dashboard-main--oportunidades-monitoria' : ''}${vistaActual === 'oportunidades-practica' ? ' dashboard-main--oportunidades-practica' : ''}${vistaActual === 'dashboard' && isEstudiante ? ' dashboard-main--home-estudiante' : ''}${vistaActual === 'dashboard' && !isEstudiante ? ' dashboard-main--admin-dashboard' : ''}`}
       >
         {vistaActual === 'dashboard' && (
           <>
             {isEstudiante ? (
               <HomeEstudiante />
             ) : (
-              <div className="dashboard-content">
+              <div className="dashboard-content dashboard-content--admin-home">
             <div className="dashboard-welcome">
               <h2>Bienvenido/a, {user?.name}</h2>
-              <p>Aquí tienes un resumen de la actividad del sistema de gestión de prácticas</p>
+              <p>
+                {dashboardTab === 'practicas'
+                  ? 'Indicadores de prácticas profesionales (ofertas tipo práctica y postulaciones asociadas).'
+                  : 'Indicadores de monitorías, tutorías y mentorías (ofertas MTM y postulaciones).'}
+              </p>
             </div>
 
-            <div className="dashboard-stats">
-              {hasDASH_EST && (
-                <StatCard
-                  title="Total Estudiantes"
-                  value={dashboardData.stats.totalStudents.toLocaleString()}
-                  change="+12%"
-                  changeType="positive"
-                  icon={FiUsers}
-                  color="primary"
-                  loading={loading}
-                />
-              )}
-              {hasDASH_PRA && (
-                <StatCard
-                  title="Prácticas Activas"
-                  value={dashboardData.stats.activePractices}
-                  change="+5%"
-                  changeType="positive"
-                  icon={FiCheckCircle}
-                  color="success"
-                  loading={loading}
-                />
-              )}
-              {hasDASH_OPO && (
-                <StatCard
-                  title="Oportunidades Disponibles"
-                  value={dashboardData.stats.availableOpportunities}
-                  change="-2%"
-                  changeType="negative"
-                  icon={HiOutlineChartPie}
-                  color="warning"
-                  loading={loading}
-                />
-              )}
-              {hasDASH_EMP && (
-                <StatCard
-                  title="Empresas Registradas"
-                  value={dashboardData.stats.registeredCompanies}
-                  change="+8%"
-                  changeType="positive"
-                  icon={HiOutlineOfficeBuilding}
-                  color="info"
-                  loading={loading}
-                />
-              )}
+            <div className="dashboard-tabs" role="tablist" aria-label="Vista del dashboard">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={dashboardTab === 'practicas'}
+                className={`dashboard-tab-btn${dashboardTab === 'practicas' ? ' dashboard-tab-btn--active' : ''}`}
+                onClick={() => setDashboardTab('practicas')}
+              >
+                <HiOutlineAcademicCap style={{ marginRight: 8 }} />
+                Dashboard prácticas
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={dashboardTab === 'monitoria'}
+                className={`dashboard-tab-btn${dashboardTab === 'monitoria' ? ' dashboard-tab-btn--active' : ''}`}
+                onClick={() => setDashboardTab('monitoria')}
+              >
+                <FiBookOpen style={{ marginRight: 8 }} />
+                Dashboard monitoría
+              </button>
             </div>
-            <div className="dashboard-charts">
-              {hasDASH_POS && (
-                <SimpleChart
-                  title="Postulaciones por Mes"
-                  data={dashboardData.charts.applicationsByMonth}
-                  type="bar"
-                  height={250}
-                  loading={loading}
-                />
-              )}
-              {hasDASH_EDP && (
-                <SimpleChart
-                  title="Estado de Prácticas"
-                  data={dashboardData.charts.practiceStatus}
-                  type="pie"
-                  height={250}
-                  loading={loading}
-                />
-              )}
-              {hasDASH_TEN && (
-                <SimpleChart
-                  title="Tendencia de Postulaciones"
-                  data={dashboardData.charts.applicationTrends}
-                  type="line"
-                  height={250}
-                  loading={loading}
-                />
-              )}
-            </div>
+
+            {dashboardTab === 'practicas' ? (
+              <>
+                <div className="dashboard-stats">
+                  {hasDASH_EST && (
+                    <StatCard
+                      title="Total postulantes"
+                      value={dashboardData.shared.totalStudents.toLocaleString()}
+                      icon={FiUsers}
+                      color="primary"
+                      loading={loading}
+                    />
+                  )}
+                  {hasDASH_PRA && (
+                    <StatCard
+                      title="Oportunidades de práctica activas"
+                      value={dashboardData.practicas.oportunidadesActivas.toLocaleString()}
+                      icon={FiCheckCircle}
+                      color="success"
+                      loading={loading}
+                    />
+                  )}
+                  {hasDASH_OPO && (
+                    <StatCard
+                      title="Postulaciones (práctica)"
+                      value={dashboardData.practicas.totalPostulaciones.toLocaleString()}
+                      icon={HiOutlineChartPie}
+                      color="warning"
+                      loading={loading}
+                    />
+                  )}
+                  {hasDASH_EMP && (
+                    <StatCard
+                      title="Empresas registradas"
+                      value={dashboardData.shared.registeredCompanies.toLocaleString()}
+                      icon={HiOutlineOfficeBuilding}
+                      color="info"
+                      loading={loading}
+                    />
+                  )}
+                </div>
+                {(hasDASH_POS || hasDASH_EDP || hasDASH_TEN) && (
+                  <DashboardAnalytics
+                    tab="practicas"
+                    slice={dashboardData.practicas}
+                    loading={loading}
+                    hasPOS={hasDASH_POS}
+                    hasEDP={hasDASH_EDP}
+                    hasTEN={hasDASH_TEN}
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                <div className="dashboard-stats">
+                  {hasDASH_EST && (
+                    <StatCard
+                      title="Total postulantes"
+                      value={dashboardData.shared.totalStudents.toLocaleString()}
+                      icon={FiUsers}
+                      color="primary"
+                      loading={loading}
+                    />
+                  )}
+                  {hasDASH_PRA && (
+                    <StatCard
+                      title="Oportunidades MTM activas"
+                      value={dashboardData.monitoria.oportunidadesActivas.toLocaleString()}
+                      icon={FiCheckCircle}
+                      color="success"
+                      loading={loading}
+                    />
+                  )}
+                  {hasDASH_OPO && (
+                    <StatCard
+                      title="Postulaciones (monitoría)"
+                      value={dashboardData.monitoria.totalPostulaciones.toLocaleString()}
+                      icon={HiOutlineChartPie}
+                      color="warning"
+                      loading={loading}
+                    />
+                  )}
+                  {hasDASH_EMP && (
+                    <StatCard
+                      title="Empresas registradas"
+                      value={dashboardData.shared.registeredCompanies.toLocaleString()}
+                      icon={HiOutlineOfficeBuilding}
+                      color="info"
+                      loading={loading}
+                    />
+                  )}
+                </div>
+                {(hasDASH_POS || hasDASH_EDP || hasDASH_TEN) && (
+                  <DashboardAnalytics
+                    tab="monitoria"
+                    slice={dashboardData.monitoria}
+                    loading={loading}
+                    hasPOS={hasDASH_POS}
+                    hasEDP={hasDASH_EDP}
+                    hasTEN={hasDASH_TEN}
+                  />
+                )}
+              </>
+            )}
               </div>
             )}
           </>

@@ -395,6 +395,33 @@
   color: #374151;
 }
 
+.oportunidades-info--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.oportunidades-page-size-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.oportunidades-page-size-select {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+  background: #fff;
+  cursor: pointer;
+}
+
 /* ── Pestañas Prácticas / Monitorías ──────────────────────────────────────── */
 .oportunidades-tabs-bar {
   display: flex;

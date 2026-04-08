@@ -8,24 +8,46 @@ import api from '../../services/api';
 import '../styles/Oportunidades.css';
 
 /** Estados solo de práctica (flujo revisión): MTM no aplica — no consultar monitorías. */
-function shouldOmitMtmListado(estado, estadosRevision) {
-  const e = (estado && String(estado).trim()) || (estadosRevision && String(estadosRevision).trim()) || '';
+function shouldOmitMtmListado(estado) {
+  const e = (estado && String(estado).trim()) || '';
   if (!e) return false;
   return ['En Revisión', 'Revisada', 'Rechazada'].includes(e);
 }
 
 /** Mapea filtro de estado del listado al enum MTM (Borrador / Activa / Inactiva). */
-function mapEstadoToMtm(estado, estadosRevision) {
-  const e = (estado && String(estado).trim()) || (estadosRevision && String(estadosRevision).trim()) || '';
+function mapEstadoToMtm(estado) {
+  const e = (estado && String(estado).trim()) || '';
   if (!e) return undefined;
   const m = { Creada: 'Borrador', Activa: 'Activa', Cerrada: 'Inactiva', Vencida: 'Inactiva' };
   return m[e];
 }
 
+/** Valor enviado al API MTM: si ya es un estado real en BD, se usa tal cual; si no, compatibilidad con etiquetas antiguas. */
+function resolveMtmEstadoFilter(estado) {
+  const e = (estado && String(estado).trim()) || '';
+  if (!e) return undefined;
+  if (['Borrador', 'Activa', 'Inactiva'].includes(e)) return e;
+  return mapEstadoToMtm(e);
+}
+
+function createEmptyOportunidadesFilters() {
+  return {
+    numeroOportunidad: '',
+    nombreCargo: '',
+    empresa: '',
+    empresaConfidenciales: false,
+    fechaCierreDesde: '',
+    fechaCierreHasta: '',
+    formacionAcademica: '',
+    requisitos: '',
+    estado: '',
+    conPostulaciones: false
+  };
+}
+
 export default function Oportunidades({ onVolver }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [oportunidades, setOportunidades] = useState([]);
   const [companySearchResults, setCompanySearchResults] = useState([]);
   const [companySearchLoading, setCompanySearchLoading] = useState(false);
   const [vista, setVista] = useState('lista'); // lista | crear | detalle | editar
@@ -86,23 +108,31 @@ export default function Oportunidades({ onVolver }) {
   const [arlItems, setArlItems] = useState([]);
   const [selectedLinkageDescription, setSelectedLinkageDescription] = useState('');
   
-  // Estados para filtros, paginación y ordenamiento
-  const [filters, setFilters] = useState({
-    numeroOportunidad: '',
-    tipoOportunidad: '',
-    nombreCargo: '',
-    empresa: '',
-    empresaConfidenciales: false,
-    fechaCierreDesde: '',
-    fechaCierreHasta: '',
-    formacionAcademica: '',
-    estadosRevision: '',
-    requisitos: '',
-    estado: ''
-  });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
+  // Filtros independientes por pestaña (prácticas vs monitorías)
+  const [filtersPracticas, setFiltersPracticas] = useState(createEmptyOportunidadesFilters);
+  const [filtersMonitorias, setFiltersMonitorias] = useState(createEmptyOportunidadesFilters);
+  const filters = listaTab === 'practicas' ? filtersPracticas : filtersMonitorias;
+  const setFilters = (next) => {
+    if (listaTab === 'practicas') setFiltersPracticas(next);
+    else setFiltersMonitorias(next);
+  };
+  /** Paginación independiente por pestaña (prácticas vs MTM). */
+  const [pagePracticas, setPagePracticas] = useState(1);
+  const [pageMtm, setPageMtm] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalPagesPracticas, setTotalPagesPracticas] = useState(1);
+  const [totalPagesMtm, setTotalPagesMtm] = useState(1);
+  const [totalPracticas, setTotalPracticas] = useState(0);
+  const [totalMtm, setTotalMtm] = useState(0);
+  const [practicasList, setPracticasList] = useState([]);
+  const [mtmList, setMtmList] = useState([]);
+  /** Estados distintos en BD para el filtro (por pestaña). */
+  const [estadosPracticaOpts, setEstadosPracticaOpts] = useState([]);
+  const [estadosMtmOpts, setEstadosMtmOpts] = useState([]);
+  /** Lista y paginación según pestaña activa (totales vienen del backend). */
+  const oportunidades = listaTab === 'practicas' ? practicasList : mtmList;
+  const currentPage = listaTab === 'practicas' ? pagePracticas : pageMtm;
+  const totalPages = listaTab === 'practicas' ? totalPagesPracticas : totalPagesMtm;
   const [sortField, setSortField] = useState('fechaCreacion');
   const [sortDirection, setSortDirection] = useState('descendente');
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -250,71 +280,91 @@ export default function Oportunidades({ onVolver }) {
   const modulo = user?.modulo || localStorage.getItem('modulo');
   const isAdmin = modulo === 'administrativo';
 
-  const loadOportunidades = async () => {
+  const mapMtmRowForList = (op) => ({
+    ...op,
+    tipo: 'monitoria',
+    _isMTM: true,
+    estado: op.estado === 'Activa' ? 'Activa' : op.estado === 'Inactiva' ? 'Cerrada' : 'Creada',
+    postulaciones: op.postulaciones || [],
+    apoyoEconomico: null,
+    formacionAcademica: [],
+    company: op.company || null
+  });
+
+  const loadOportunidades = async (override) => {
     try {
       setLoading(true);
+      const fp = override?.fp ?? filtersPracticas;
+      const fm = override?.fm ?? filtersMonitorias;
+
       const params = {
-        page: currentPage,
-        limit: 10,
-        ...filters,
+        page: pagePracticas,
+        limit: pageSize,
+        ...fp,
         sortField: sortField,
         sortDirection: sortDirection === 'descendente' ? 'desc' : 'asc'
       };
-      
+      if (params.conPostulaciones) {
+        params.conPostulaciones = 'true';
+      } else {
+        delete params.conPostulaciones;
+      }
+
       Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
 
-      const tipoF = (filters.tipoOportunidad || '').trim();
-      const fetchPractica = tipoF !== 'monitoria';
-      const omitMtm = shouldOmitMtmListado(filters.estado, filters.estadosRevision);
-      const omitMtmFormacion = !!(filters.formacionAcademica && String(filters.formacionAcademica).trim());
-      const fetchMtm = tipoF !== 'practica' && !omitMtm && !omitMtmFormacion;
+      // Pestañas separan prácticas vs monitorías; siempre se cargan ambos listados salvo omisiones de negocio.
+      const fetchPractica = true;
+      const omitMtm = shouldOmitMtmListado(fp.estado);
+      const omitMtmFormacion = !!(fm.formacionAcademica && String(fm.formacionAcademica).trim());
+      const fetchMtm = !omitMtm && !omitMtmFormacion;
 
-      const mtmEstado = mapEstadoToMtm(filters.estado, filters.estadosRevision);
+      const mtmEstado = resolveMtmEstadoFilter(fm.estado);
       const mtmParams = {
-        limit: 100,
-        nombreCargo: (filters.nombreCargo || '').trim() || undefined,
-        empresa: (filters.empresa || '').trim() || undefined,
+        page: pageMtm,
+        limit: pageSize,
+        nombreCargo: (fm.nombreCargo || '').trim() || undefined,
+        empresa: (fm.empresa || '').trim() || undefined,
         estado: mtmEstado,
-        numeroOportunidad: (filters.numeroOportunidad || '').trim() || undefined,
-        fechaCierreDesde: filters.fechaCierreDesde || undefined,
-        fechaCierreHasta: filters.fechaCierreHasta || undefined,
-        requisitos: (filters.requisitos || '').trim() || undefined,
+        numeroOportunidad: (fm.numeroOportunidad || '').trim() || undefined,
+        fechaCierreDesde: fm.fechaCierreDesde || undefined,
+        fechaCierreHasta: fm.fechaCierreHasta || undefined,
+        requisitos: (fm.requisitos || '').trim() || undefined,
+        ...(fm.conPostulaciones ? { conPostulaciones: 'true' } : {}),
       };
       Object.keys(mtmParams).forEach((key) => {
         if (mtmParams[key] === undefined || mtmParams[key] === '') delete mtmParams[key];
       });
 
       let practRes = { data: { opportunities: [], totalPages: 1, total: 0, currentPage: 1 } };
-      let mtmRes = { data: { data: [] } };
+      let mtmRes = { data: { data: [], pagination: { total: 0, totalPages: 1 } } };
 
       if (fetchPractica && fetchMtm) {
         [practRes, mtmRes] = await Promise.all([
           api.get('/opportunities', { params }),
-          api.get('/oportunidades-mtm', { params: mtmParams }).catch(() => ({ data: { data: [] } }))
+          api.get('/oportunidades-mtm', { params: mtmParams }).catch(() => ({ data: { data: [], pagination: { total: 0, totalPages: 1 } } }))
         ]);
       } else if (fetchPractica) {
         practRes = await api.get('/opportunities', { params });
+        mtmRes = { data: { data: [], pagination: { total: 0, totalPages: 1 } } };
       } else if (fetchMtm) {
-        mtmRes = await api.get('/oportunidades-mtm', { params: mtmParams }).catch(() => ({ data: { data: [] } }));
+        practRes = { data: { opportunities: [], totalPages: 1, total: 0, currentPage: 1 } };
+        mtmRes = await api.get('/oportunidades-mtm', { params: mtmParams }).catch(() => ({ data: { data: [], pagination: { total: 0, totalPages: 1 } } }));
+      } else {
+        practRes = { data: { opportunities: [], totalPages: 1, total: 0, currentPage: 1 } };
+        mtmRes = { data: { data: [], pagination: { total: 0, totalPages: 1 } } };
       }
 
       const regular = practRes.data.opportunities || practRes.data.data || [];
-      const mtm = (mtmRes.data?.data || []).map(op => ({
-        ...op,
-        tipo: 'monitoria',
-        _isMTM: true,
-        // Normalizar campos para que las cards funcionen igual
-        estado: op.estado === 'Activa' ? 'Activa' : op.estado === 'Inactiva' ? 'Cerrada' : 'Creada',
-        postulaciones: op.postulaciones || [],
-        apoyoEconomico: null,
-        formacionAcademica: [],
-        company: op.company || null
-      }));
+      const mtm = (mtmRes.data?.data || []).map(mapMtmRowForList);
 
-      setOportunidades([...regular, ...mtm]);
-      setTotalPages(practRes.data.totalPages || 1);
-      setTotalRecords((practRes.data.total || 0) + mtm.length);
-      setCurrentPage(practRes.data.currentPage || 1);
+      setPracticasList(regular);
+      setTotalPracticas(practRes.data.total ?? 0);
+      setTotalPagesPracticas(practRes.data.totalPages || 1);
+
+      setMtmList(mtm);
+      const pagM = mtmRes.data?.pagination || {};
+      setTotalMtm(Number(pagM.total ?? 0));
+      setTotalPagesMtm(Number(pagM.totalPages || 1));
     } catch (e) {
       console.error('Error cargando oportunidades', e);
       await Swal.fire({
@@ -359,6 +409,28 @@ export default function Oportunidades({ onVolver }) {
       if (companySearchDebounceRef.current) clearTimeout(companySearchDebounceRef.current);
     };
   }, [isAdmin, companySearch]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [r1, r2] = await Promise.all([
+          api.get('/opportunities/meta/distinct-estados').catch(() => ({ data: { estados: [] } })),
+          api.get('/oportunidades-mtm/meta/distinct-estados').catch(() => ({ data: { estados: [] } })),
+        ]);
+        if (!cancelled) {
+          setEstadosPracticaOpts(Array.isArray(r1.data?.estados) ? r1.data.estados : []);
+          setEstadosMtmOpts(Array.isArray(r2.data?.estados) ? r2.data.estados : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setEstadosPracticaOpts([]);
+          setEstadosMtmOpts([]);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     // Cargar países desde backend (Country)
@@ -480,30 +552,28 @@ export default function Oportunidades({ onVolver }) {
 
   useEffect(() => {
     loadOportunidades();
-  }, [currentPage, sortField, sortDirection]);
+  }, [pagePracticas, pageMtm, pageSize, sortField, sortDirection]);
 
-  // Función para limpiar filtros
+  // Función para limpiar filtros (solo la pestaña activa)
   const handleClearFilters = () => {
-    setFilters({
-      numeroOportunidad: '',
-      tipoOportunidad: '',
-      nombreCargo: '',
-      empresa: '',
-      empresaConfidenciales: false,
-      fechaCierreDesde: '',
-      fechaCierreHasta: '',
-      formacionAcademica: '',
-      estadosRevision: '',
-      requisitos: '',
-      estado: ''
-    });
-    setCurrentPage(1);
-    loadOportunidades();
+    const cleared = createEmptyOportunidadesFilters();
+    if (listaTab === 'practicas') {
+      setFiltersPracticas(cleared);
+      setPagePracticas(1);
+      setPageMtm(1);
+      loadOportunidades({ fp: cleared });
+    } else {
+      setFiltersMonitorias(cleared);
+      setPagePracticas(1);
+      setPageMtm(1);
+      loadOportunidades({ fm: cleared });
+    }
   };
 
   // Función para aplicar filtros
   const handleApplyFilters = () => {
-    setCurrentPage(1);
+    setPagePracticas(1);
+    setPageMtm(1);
     loadOportunidades();
   };
   
@@ -4525,9 +4595,9 @@ export default function Oportunidades({ onVolver }) {
           };
           await api.put(`/oportunidades-mtm/${opp._id}`, payload);
           const { data: refreshed } = await api.get(`/oportunidades-mtm/${opp._id}`);
-          const updated = { ...refreshed, _isMTM: true };
+          const updated = mapMtmRowForList(refreshed);
           setOportunidadSeleccionada(updated);
-          setOportunidades(prev => prev.map(o => o._id === opp._id ? updated : o));
+          setMtmList(prev => prev.map(o => o._id === opp._id ? updated : o));
           setIsMtmEditing(false);
           setMtmEditData(null);
           Swal.fire({ icon: 'success', title: 'Guardado', text: 'La oportunidad fue actualizada.', timer: 1800, showConfirmButton: false });
@@ -4572,7 +4642,7 @@ export default function Oportunidades({ onVolver }) {
                       try {
                         await api.patch(`/oportunidades-mtm/${opp._id}/status`, { estado: 'Activa' });
                         setOportunidadSeleccionada(prev => ({ ...prev, estado: 'Activa' }));
-                        setOportunidades(prev => prev.map(o => o._id === opp._id ? { ...o, estado: 'Activa' } : o));
+                        setMtmList(prev => prev.map(o => o._id === opp._id ? { ...o, estado: 'Activa' } : o));
                       } catch (e) { Swal.fire('Error', e.response?.data?.message || 'No se pudo cambiar el estado', 'error'); }
                     }}>
                       Activar
@@ -7032,7 +7102,7 @@ export default function Oportunidades({ onVolver }) {
           <HiOutlineAcademicCap style={{ marginRight: 6 }} />
           Prácticas
           <span className="oportunidades-tab-count">
-            {oportunidades.filter(o => !o._isMTM).length}
+            {totalPracticas}
           </span>
         </button>
         <button
@@ -7042,14 +7112,33 @@ export default function Oportunidades({ onVolver }) {
           <FiBookOpen style={{ marginRight: 6 }} />
           Monitorías / Tutorías / Mentorías
           <span className="oportunidades-tab-count">
-            {oportunidades.filter(o => o._isMTM).length}
+            {totalMtm}
           </span>
         </button>
       </div>
 
       {/* Información de registros */}
-      <div className="oportunidades-info">
-        <p>Se encontraron {oportunidades.filter(o => listaTab === 'practicas' ? !o._isMTM : o._isMTM).length} registros.</p>
+      <div className="oportunidades-info oportunidades-info--row">
+        <p>Se encontraron {listaTab === 'practicas' ? totalPracticas : totalMtm} registros.</p>
+        <label className="oportunidades-page-size-label">
+          Registros por página
+          <select
+            className="oportunidades-page-size-select"
+            value={pageSize}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setPageSize(v);
+              setPagePracticas(1);
+              setPageMtm(1);
+            }}
+            aria-label="Registros por página"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </label>
       </div>
 
       {/* Filtros fijos compactos */}
@@ -7105,17 +7194,6 @@ export default function Oportunidades({ onVolver }) {
             />
           </div>
           <div className="filtro-item">
-            <label>Tipo</label>
-            <select
-              value={filters.tipoOportunidad}
-              onChange={e => setFilters({ ...filters, tipoOportunidad: e.target.value })}
-            >
-              <option value="">Todos</option>
-              <option value="practica">Práctica</option>
-              <option value="monitoria">Monitoría</option>
-            </select>
-          </div>
-          <div className="filtro-item">
             <label>Nombre del cargo</label>
             <input
               type="text"
@@ -7159,18 +7237,6 @@ export default function Oportunidades({ onVolver }) {
             />
           </div>
           <div className="filtro-item">
-            <label>Estado de revisión</label>
-            <select
-              value={filters.estadosRevision}
-              onChange={e => setFilters({ ...filters, estadosRevision: e.target.value })}
-            >
-              <option value="">Todos</option>
-              <option value="Creada">Creada</option>
-              <option value="En Revisión">En Revisión</option>
-              <option value="Revisada">Revisada</option>
-            </select>
-          </div>
-          <div className="filtro-item">
             <label>Requisitos</label>
             <input
               type="text"
@@ -7186,13 +7252,9 @@ export default function Oportunidades({ onVolver }) {
               onChange={e => setFilters({ ...filters, estado: e.target.value })}
             >
               <option value="">Todos</option>
-              <option value="Creada">Creada</option>
-              <option value="En Revisión">En Revisión</option>
-              <option value="Revisada">Revisada</option>
-              <option value="Activa">Activa</option>
-              <option value="Rechazada">Rechazada</option>
-              <option value="Cerrada">Cerrada</option>
-              <option value="Vencida">Vencida</option>
+              {(listaTab === 'practicas' ? estadosPracticaOpts : estadosMtmOpts).map((est) => (
+                <option key={est} value={est}>{est}</option>
+              ))}
             </select>
           </div>
           <div className="filtro-item filtro-item--checkbox">
@@ -7205,6 +7267,16 @@ export default function Oportunidades({ onVolver }) {
               Empresas confidenciales
             </label>
           </div>
+          <div className="filtro-item filtro-item--checkbox">
+            <label className="filtro-checkbox-label">
+              <input
+                type="checkbox"
+                checked={filters.conPostulaciones}
+                onChange={e => setFilters({ ...filters, conPostulaciones: e.target.checked })}
+              />
+              Con postulaciones
+            </label>
+          </div>
         </div>
       </div>
 
@@ -7215,13 +7287,13 @@ export default function Oportunidades({ onVolver }) {
             <div className="loading-spinner"></div>
             <p>Cargando oportunidades...</p>
           </div>
-        ) : oportunidades.filter(o => listaTab === 'practicas' ? !o._isMTM : o._isMTM).length === 0 ? (
+        ) : (listaTab === 'practicas' ? totalPracticas : totalMtm) === 0 ? (
           <div className="empty-state">
             <p>No hay oportunidades de {listaTab === 'practicas' ? 'prácticas' : 'monitorías'} registradas</p>
           </div>
         ) : (
           <div className="oportunidades-grid">
-            {oportunidades.filter(o => listaTab === 'practicas' ? !o._isMTM : o._isMTM).map(oportunidad => {
+            {oportunidades.map(oportunidad => {
               const estado = oportunidad.estado || oportunidad.status || 'Creada';
               const isActiva = estado === 'Activa' || estado === 'activa' || estado === 'published';
               const numPostulantes = oportunidad.aplicacionesCount ?? oportunidad.postulaciones?.length ?? 0;
@@ -7411,28 +7483,32 @@ export default function Oportunidades({ onVolver }) {
         )}
         
         {/* Paginación */}
-        {!loading && oportunidades.length > 0 && (
+        {!loading && (listaTab === 'practicas' ? totalPracticas : totalMtm) > 0 && (
           <div className="pagination-container">
             <div className="pagination-info">
-              <span>Página {currentPage} de {totalPages}</span>
+              <span>Página {currentPage} de {Math.max(1, totalPages)}</span>
             </div>
             <div className="pagination-controls">
               <button
                 className="pagination-btn"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                onClick={() => {
+                  if (listaTab === 'practicas') setPagePracticas((p) => Math.max(1, p - 1));
+                  else setPageMtm((p) => Math.max(1, p - 1));
+                }}
                 disabled={currentPage === 1}
               >
                 Anterior
               </button>
               <div className="pagination-numbers">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                {Array.from({ length: Math.min(5, Math.max(1, totalPages)) }, (_, i) => {
+                  const tp = Math.max(1, totalPages);
                   let pageNum;
-                  if (totalPages <= 5) {
+                  if (tp <= 5) {
                     pageNum = i + 1;
                   } else if (currentPage <= 3) {
                     pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
+                  } else if (currentPage >= tp - 2) {
+                    pageNum = tp - 4 + i;
                   } else {
                     pageNum = currentPage - 2 + i;
                   }
@@ -7440,7 +7516,10 @@ export default function Oportunidades({ onVolver }) {
                     <button
                       key={pageNum}
                       className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
-                      onClick={() => setCurrentPage(pageNum)}
+                      onClick={() => {
+                        if (listaTab === 'practicas') setPagePracticas(pageNum);
+                        else setPageMtm(pageNum);
+                      }}
                     >
                       {pageNum}
                     </button>
@@ -7449,8 +7528,11 @@ export default function Oportunidades({ onVolver }) {
               </div>
               <button
                 className="pagination-btn"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
+                onClick={() => {
+                  if (listaTab === 'practicas') setPagePracticas((p) => Math.min(totalPagesPracticas, p + 1));
+                  else setPageMtm((p) => Math.min(totalPagesMtm, p + 1));
+                }}
+                disabled={currentPage === totalPages || totalPages < 1}
               >
                 Siguiente
               </button>

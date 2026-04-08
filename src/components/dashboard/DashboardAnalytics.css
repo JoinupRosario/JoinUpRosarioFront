@@ -1,0 +1,107 @@
+.dashboard-analytics {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  /* Complementa padding del contenedor admin; evita quedar pegado al footer */
+  margin-bottom: 0;
+  padding-bottom: 1rem;
+}
+
+.dashboard-analytics__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.dashboard-analytics__grid--pie {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+}
+
+.dashboard-chart-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px 22px 18px;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.dashboard-chart-card--compact {
+  padding: 16px 18px 14px;
+}
+
+.dashboard-chart-card__title {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.dashboard-chart-card__hint {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.dashboard-chart-card__plot {
+  width: 100%;
+  min-height: 200px;
+}
+
+.dashboard-chart-card__plot--pie {
+  min-height: 280px;
+}
+
+.dashboard-chart-card__skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  background-size: 200% 100%;
+  animation: dashboard-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes dashboard-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.dashboard-chart-card__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.dashboard-recharts-tooltip {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  font-size: 13px;
+}
+
+.dashboard-recharts-tooltip__label {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #0f172a;
+}
+
+.dashboard-recharts-tooltip__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-chart-card__plot--pie {
+    min-height: 320px;
+  }
+}

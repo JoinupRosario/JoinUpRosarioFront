@@ -8,7 +8,8 @@ const SimpleChart = ({
   height = 200,
   loading = false 
 }) => {
-  const maxValue = Math.max(...data.map(item => item.value));
+  const maxValue = Math.max(...data.map(item => item.value), 1);
+  const lineDenom = Math.max((data?.length || 1) - 1, 1);
   
   const renderBarChart = () => (
     <div className="chart-container">
@@ -32,6 +33,13 @@ const SimpleChart = ({
 
   const renderPieChart = () => {
     const total = data.reduce((sum, item) => sum + item.value, 0);
+    if (total === 0) {
+      return (
+        <div className="chart-container chart-empty-msg" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120, color: '#64748b', fontSize: 14 }}>
+          Sin datos para mostrar
+        </div>
+      );
+    }
     let cumulativePercentage = 0;
     
     return (
@@ -95,14 +103,14 @@ const SimpleChart = ({
             stroke="var(--primary-color)"
             strokeWidth="2"
             points={data.map((item, index) => 
-              `${(index / (data.length - 1)) * 100},${100 - (item.value / maxValue) * 100}`
+              `${(index / lineDenom) * 100},${100 - (item.value / maxValue) * 100}`
             ).join(' ')}
             className="line-path"
           />
           {data.map((item, index) => (
             <circle
               key={index}
-              cx={(index / (data.length - 1)) * 100}
+              cx={(index / lineDenom) * 100}
               cy={100 - (item.value / maxValue) * 100}
               r="2"
               fill="var(--primary-color)"
