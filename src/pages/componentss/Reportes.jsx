@@ -353,7 +353,7 @@ export default function Reportes({ onVolver }) {
             return (
               <div 
                 key={index} 
-                className="reporte-item"
+                className={`reporte-item reporte-item--tone-${index % 6}`}
                 onClick={() => handleReporteClick(reporte)}
                 title={reporte.descripcion}
               >

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   FiPlus,
   FiEdit,
@@ -6,7 +6,6 @@ import {
   FiCheck,
   FiX,
   FiSearch,
-  FiFilter,
   FiArrowLeft,
   FiUsers,
   FiBook
@@ -29,7 +28,7 @@ const Roles = ({ onVolver }) => {
   const [selectedRol, setSelectedRol] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
-  const [filterEstado, setFilterEstado] = useState('todos');
+  const [filterEstado, setFilterEstado] = useState('activos');
   const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, pages: 0 });
 
   const [formData, setFormData] = useState({
@@ -38,6 +37,26 @@ const Roles = ({ onVolver }) => {
   });
 
   const [permisosSeleccionados, setPermisosSeleccionados] = useState({});
+  /** Modal crear/editar rol (solo nombre y estado) */
+  const [rolModalOpen, setRolModalOpen] = useState(false);
+
+  const closeModalRol = useCallback(() => {
+    setRolModalOpen(false);
+    setSelectedRol(null);
+    setFormData({ nombre: '', estado: true });
+  }, []);
+
+  const openModalCrearRol = () => {
+    setSelectedRol(null);
+    setFormData({ nombre: '', estado: true });
+    setRolModalOpen(true);
+  };
+
+  const openModalEditarRol = (rol) => {
+    setSelectedRol(rol);
+    setFormData({ nombre: rol.nombre, estado: rol.estado });
+    setRolModalOpen(true);
+  };
 
   // Configuración personalizada de SweetAlert2
   const showAlert = (icon, title, text, confirmButtonText = 'Aceptar') => {
@@ -127,6 +146,15 @@ const Roles = ({ onVolver }) => {
     cargarRoles({ page: 1 });
   }, [searchDebounced, filterEstado]);
 
+  useEffect(() => {
+    if (!rolModalOpen) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeModalRol();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [rolModalOpen, closeModalRol]);
+
   const cargarPermisos = async () => {
     try {
       const response = await api.get('/roles/permisos/todos');
@@ -168,9 +196,7 @@ const Roles = ({ onVolver }) => {
         if (response.data.success) {
           await showSuccess('Éxito', 'Rol actualizado correctamente');
           cargarRoles();
-          setVistaActual('buscar');
-          setSelectedRol(null);
-          setFormData({ nombre: '', estado: true });
+          closeModalRol();
         }
       } else {
         // Crear nuevo rol
@@ -182,8 +208,7 @@ const Roles = ({ onVolver }) => {
         if (response.data.success) {
           await showSuccess('Éxito', 'Rol creado correctamente');
           cargarRoles();
-          setVistaActual('buscar');
-          setFormData({ nombre: '', estado: true });
+          closeModalRol();
         }
       }
     } catch (error) {
@@ -346,57 +371,67 @@ const Roles = ({ onVolver }) => {
   // Renderizar vista de Búsqueda (Lista de roles)
   const renderBuscarRol = () => (
     <div className="roles-content">
-      <div className="roles-section">
-        <div className="roles-page-header">
-          <div className="roles-page-header-top">
-            <div className="roles-page-header-actions">
-              <button className="btn-volver" onClick={onVolver}>
-                <FiArrowLeft className="btn-icon" />
-                Volver
-              </button>
-              {canCrearRol && (
-                <button
-                  className="btn-guardar"
-                  onClick={() => {
-                    setFormData({ nombre: '', estado: true });
-                    setSelectedRol(null);
-                    setVistaActual('crear');
-                  }}
-                >
-                  <FiPlus className="btn-icon" />
-                  Crear Rol
+      <div className="roles-page-shell">
+        <div className="roles-panel">
+          <div className="roles-page-header">
+            <div className="roles-page-header-top">
+              <div className="roles-page-header-actions">
+                <button type="button" className="btn-volver" onClick={onVolver}>
+                  <FiArrowLeft className="btn-icon" />
+                  Volver
                 </button>
-              )}
+                {canCrearRol && (
+                  <button type="button" className="btn-guardar" onClick={openModalCrearRol}>
+                    <FiPlus className="btn-icon" />
+                    Crear Rol
+                  </button>
+                )}
+              </div>
+              <div className="roles-page-heading">
+                <h2 className="roles-page-title">Gestión de Roles</h2>
+                <p className="roles-page-subtitle">Busque, filtre y administre roles del sistema</p>
+              </div>
             </div>
-            <h2 className="roles-page-title">Gestión de Roles</h2>
-          </div>
-          <div className="roles-filters">
-            <div className="search-box">
-              <FiSearch className="search-icon" />
-              <input
-                type="text"
-                placeholder="Buscar roles..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-            </div>
-            <div className="filter-group">
-              <FiFilter className="filter-icon" />
-              <select
-                value={filterEstado}
-                onChange={(e) => setFilterEstado(e.target.value)}
-                className="filter-select"
+            <div className="roles-filters" role="search">
+              <div
+                className="roles-estado-tabs"
+                role="tablist"
+                aria-label="Filtrar roles por estado"
               >
-                <option value="todos">Todos los estados</option>
-                <option value="activos">Activos</option>
-                <option value="inactivos">Inactivos</option>
-              </select>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={filterEstado === 'activos'}
+                  className={`roles-estado-tab${filterEstado === 'activos' ? ' roles-estado-tab--active' : ''}`}
+                  onClick={() => setFilterEstado('activos')}
+                >
+                  Activos
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={filterEstado === 'inactivos'}
+                  className={`roles-estado-tab${filterEstado === 'inactivos' ? ' roles-estado-tab--active' : ''}`}
+                  onClick={() => setFilterEstado('inactivos')}
+                >
+                  Inactivos
+                </button>
+              </div>
+              <div className="search-box">
+                <FiSearch className="search-icon" aria-hidden />
+                <input
+                  type="search"
+                  placeholder="Buscar por nombre de rol…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                  autoComplete="off"
+                  aria-label="Buscar por nombre de rol"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Lista de Roles (grid 2 columnas) */}
         <div className="roles-list">
           {loading ? (
             <div className="loading-container">
@@ -410,79 +445,103 @@ const Roles = ({ onVolver }) => {
               <p>{pagination.total === 0 ? 'No hay roles creados todavía.' : 'Intenta con otros términos de búsqueda o filtros.'}</p>
             </div>
           ) : (
-            roles.map(rol => (
-              <div key={rol._id} className="role-item">
-                <div className="role-info">
-                  <span className="role-name">{rol.nombre}</span>
-                  <span className={`role-status ${rol.estado ? 'active' : 'inactive'}`}>
-                    {rol.estado ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
-                <div className="role-actions">
-                  {canEditarRol && (
-                    <button
-                      className="btn-action btn-permisos"
-                      onClick={() => abrirGestionPermisos(rol)}
-                      title="Asociar permisos"
-                    >
-                      <FiKey className="btn-icon" />
-                      Asociar Permisos
-                    </button>
-                  )}
-
-                  <button
-                    className="btn-action btn-outline"
-                    onClick={() => showFuncionalidadEnDesarrollo('Asociar Usuarios')}
-                    title="Asociar usuarios"
-                  >
-                    <FiUsers className="btn-icon" />
-                    Asociar Usuarios
-                  </button>
-
-                  <button
-                    className="btn-action btn-outline"
-                    onClick={() => showFuncionalidadEnDesarrollo('Reglas para Oportunidad')}
-                    title="Reglas para oportunidad"
-                  >
-                    <FiBook className="btn-icon" />
-                    Reglas Oportunidad
-                  </button>
-
-                  {canEditarRol && (
-                    <button
-                      className="btn-action btn-outline"
-                      onClick={() => {
-                        setFormData({
-                          nombre: rol.nombre,
-                          estado: rol.estado
-                        });
-                        setSelectedRol(rol);
-                        setVistaActual('crear');
-                      }}
-                      title="Editar rol"
-                    >
-                      <FiEdit className="btn-icon" />
-                      Editar
-                    </button>
-                  )}
-
-                  {canCambiarEstadoRol && (
-                    <button
-                      className={`btn-action ${rol.estado ? 'btn-warning' : 'btn-success'}`}
-                      onClick={() => toggleEstadoRol(rol._id, !rol.estado)}
-                      title={rol.estado ? 'Desactivar rol' : 'Activar rol'}
-                    >
-                      {rol.estado ? <FiX className="btn-icon" /> : <FiCheck className="btn-icon" />}
-                      {rol.estado ? 'Desactivar' : 'Activar'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
+            <div className="roles-table-wrap">
+              <table className="roles-table">
+                <thead>
+                  <tr>
+                    <th scope="col" className="roles-table__th roles-table__th--name">
+                      Rol
+                    </th>
+                    <th scope="col" className="roles-table__th roles-table__th--estado">
+                      Estado
+                    </th>
+                    <th scope="col" className="roles-table__th roles-table__th--acciones">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roles.map((rol) => (
+                    <tr key={rol._id} className="roles-table__row">
+                      <td className="roles-table__td roles-table__td--name">
+                        <span className="roles-table__name" title={rol.nombre}>
+                          {rol.nombre}
+                        </span>
+                      </td>
+                      <td className="roles-table__td roles-table__td--estado">
+                        <span className={`role-status role-status--table ${rol.estado ? 'active' : 'inactive'}`}>
+                          {rol.estado ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                      <td className="roles-table__td roles-table__td--acciones">
+                        <div className="roles-table__actions">
+                          {canEditarRol && (
+                            <button
+                              type="button"
+                              className="roles-table__btn roles-table__btn--primary"
+                              onClick={() => abrirGestionPermisos(rol)}
+                              title="Asociar permisos"
+                            >
+                              <FiKey className="roles-table__btn-icon" aria-hidden />
+                              Permisos
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="roles-table__btn roles-table__btn--ghost"
+                            onClick={() => showFuncionalidadEnDesarrollo('Asociar Usuarios')}
+                            title="Asociar usuarios"
+                          >
+                            <FiUsers className="roles-table__btn-icon" aria-hidden />
+                            Usuarios
+                          </button>
+                          <button
+                            type="button"
+                            className="roles-table__btn roles-table__btn--ghost"
+                            onClick={() => showFuncionalidadEnDesarrollo('Reglas para Oportunidad')}
+                            title="Reglas para oportunidad"
+                          >
+                            <FiBook className="roles-table__btn-icon" aria-hidden />
+                            Reglas
+                          </button>
+                          {canEditarRol && (
+                            <button
+                              type="button"
+                              className="roles-table__btn roles-table__btn--ghost"
+                              onClick={() => openModalEditarRol(rol)}
+                              title="Editar nombre y estado del rol"
+                            >
+                              <FiEdit className="roles-table__btn-icon" aria-hidden />
+                              Editar
+                            </button>
+                          )}
+                          {canCambiarEstadoRol && (
+                            <div
+                              className="roles-table__switch-cell"
+                              title={rol.estado ? 'Rol activo — pulse para desactivar' : 'Rol inactivo — pulse para activar'}
+                            >
+                              <span className="roles-table__switch-label">{rol.estado ? 'Activo' : 'Inactivo'}</span>
+                              <button
+                                type="button"
+                                className={`toggle-switch toggle-switch--table ${rol.estado ? 'toggle-switch--on' : ''}`}
+                                onClick={() => toggleEstadoRol(rol._id, !rol.estado)}
+                                aria-pressed={rol.estado}
+                                aria-label={rol.estado ? 'Desactivar rol' : 'Activar rol'}
+                              >
+                                <span className="toggle-thumb" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
-        {/* Paginación */}
         {!loading && pagination.pages > 0 && (
           <div className="roles-pagination">
             <div className="roles-pagination-left">
@@ -524,67 +583,80 @@ const Roles = ({ onVolver }) => {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
 
-  // Renderizar vista de Crear/Editar Rol
-  const renderCrearRol = () => (
-    <div className="roles-content">
-      <div className="roles-section">
-        <div className="configuracion-actions" style={{ marginBottom: 24 }}>
-          <button className="btn-volver" onClick={() => setVistaActual('buscar')}>
-            <FiArrowLeft className="btn-icon" />
-            Volver
+  const renderModalRol = () => (
+    <div
+      className="roles-modal-backdrop"
+      role="presentation"
+      onClick={closeModalRol}
+    >
+      <div
+        className="roles-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="roles-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="roles-modal__header">
+          <h3 id="roles-modal-title" className="roles-modal__title">
+            {selectedRol ? 'Editar rol' : 'Nuevo rol'}
+          </h3>
+          <button type="button" className="roles-modal__close" onClick={closeModalRol} aria-label="Cerrar">
+            <FiX size={22} />
           </button>
-          {(selectedRol ? canEditarRol : canCrearRol) && (
-            <button className="btn-guardar" onClick={handleCrearRol}>
-              <FiCheck className="btn-icon" />
-              {selectedRol ? 'Actualizar Rol' : 'Crear Rol'}
-            </button>
-          )}
         </div>
-
-        <div className="role-form-container">
-          <h2 className="role-form-title">
-            {selectedRol ? 'Editar rol' : 'Crear nuevo rol'}
-          </h2>
-          <p className="role-form-desc">
-            {selectedRol
-              ? 'Modifica los datos del rol seleccionado.'
-              : 'Completa los datos para crear un nuevo rol en el sistema.'}
-          </p>
-          <div className="form-section">
-            <div className="form-group">
-              <label className="form-label">Nombre del rol</label>
-              <input
-                type="text"
-                value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                className="form-input"
-                required
-                placeholder="Ej: Coordinador de prácticas"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Estado</label>
-              <div className="toggle-row">
-                <span className={`toggle-label ${!formData.estado ? 'toggle-label--off' : ''}`}>
-                  {formData.estado ? 'Activo' : 'Inactivo'}
-                </span>
-                <button
-                  type="button"
-                  className={`toggle-switch ${formData.estado ? 'toggle-switch--on' : ''}`}
-                  onClick={() => setFormData({ ...formData, estado: !formData.estado })}
-                  aria-label="Cambiar estado"
-                >
-                  <span className="toggle-thumb" />
-                </button>
-              </div>
+        <p className="roles-modal__hint">
+          {selectedRol ? 'Modifique el nombre y el estado del rol.' : 'Defina el nombre y el estado del nuevo rol.'}
+        </p>
+        <form className="roles-modal__form" onSubmit={handleCrearRol}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="roles-modal-nombre">
+              Nombre del rol
+            </label>
+            <input
+              id="roles-modal-nombre"
+              type="text"
+              value={formData.nombre}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              className="form-input"
+              required
+              placeholder="Ej: Coordinador de prácticas"
+              autoComplete="off"
+              autoFocus
+            />
+          </div>
+          <div className="form-group">
+            <span className="form-label">Estado</span>
+            <div className="toggle-row">
+              <span className={`toggle-label ${!formData.estado ? 'toggle-label--off' : ''}`}>
+                {formData.estado ? 'Activo' : 'Inactivo'}
+              </span>
+              <button
+                type="button"
+                className={`toggle-switch ${formData.estado ? 'toggle-switch--on' : ''}`}
+                onClick={() => setFormData({ ...formData, estado: !formData.estado })}
+                aria-label="Cambiar estado del rol"
+              >
+                <span className="toggle-thumb" />
+              </button>
             </div>
           </div>
-        </div>
+          <div className="roles-modal__footer">
+            <button type="button" className="roles-modal__btn roles-modal__btn--ghost" onClick={closeModalRol}>
+              Cancelar
+            </button>
+            {(selectedRol ? canEditarRol : canCrearRol) && (
+              <button type="submit" className="roles-modal__btn roles-modal__btn--primary">
+                <FiCheck className="btn-icon" aria-hidden />
+                {selectedRol ? 'Guardar' : 'Crear rol'}
+              </button>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -702,8 +774,8 @@ const Roles = ({ onVolver }) => {
   return (
     <>
       {vistaActual === 'buscar' && renderBuscarRol()}
-      {vistaActual === 'crear' && renderCrearRol()}
       {vistaActual === 'permisos' && renderAsociarPermisos()}
+      {rolModalOpen && renderModalRol()}
     </>
   );
 };

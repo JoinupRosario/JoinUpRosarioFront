@@ -15,6 +15,12 @@ const ESTADO_LABEL = {
   en_ajuste: 'En ajuste',
 };
 
+function labelEstadoLegalizacion(k) {
+  if (k == null || k === '') return '';
+  const key = String(k);
+  return ESTADO_LABEL[key] ?? key.replace(/_/g, ' ');
+}
+
 export default function AdminLegalizacionPracticas() {
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
@@ -24,18 +30,32 @@ export default function AdminLegalizacionPracticas() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState(null);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroPeriodo, setFiltroPeriodo] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [page, setPage] = useState(1);
+  const [metaPeriodos, setMetaPeriodos] = useState([]);
+  const [metaEstados, setMetaEstados] = useState([]);
   const limit = 20;
+
+  useEffect(() => {
+    api
+      .get('/legalizaciones-practica/admin/meta/filtros')
+      .then((r) => {
+        setMetaPeriodos(Array.isArray(r.data?.periodos) ? r.data.periodos : []);
+        setMetaEstados(Array.isArray(r.data?.estados) ? r.data.estados : []);
+      })
+      .catch(() => {
+        setMetaPeriodos([]);
+        setMetaEstados([]);
+      });
+  }, []);
 
   const fetchList = useCallback(() => {
     setLoading(true);
     const params = { page, limit };
     if (filtroEstado) params.estado = filtroEstado;
-    if (filtroPeriodo.trim()) params.periodo = filtroPeriodo.trim();
+    if (filtroPeriodo) params.periodo = filtroPeriodo;
     if (busqueda.trim()) params.search = busqueda.trim();
     api
       .get('/legalizaciones-practica/admin/list', { params })
@@ -53,10 +73,6 @@ export default function AdminLegalizacionPracticas() {
   useEffect(() => {
     fetchList();
   }, [fetchList]);
-
-  useEffect(() => {
-    api.get('/legalizaciones-practica/admin/estadisticas').then((r) => setStats(r.data)).catch(() => setStats(null));
-  }, []);
 
   const verRevision = (row) => {
     if (!row.postulacionId) return;
@@ -81,7 +97,7 @@ export default function AdminLegalizacionPracticas() {
       row.periodo ?? '',
       row.empresa ?? '',
       row.practicaAutogestionada ? 'Sí' : 'No',
-      ESTADO_LABEL[row.estadoLegalizacion] ?? row.estadoLegalizacion ?? '',
+      labelEstadoLegalizacion(row.estadoLegalizacion),
     ]);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -95,20 +111,6 @@ export default function AdminLegalizacionPracticas() {
       <header className="admlegmtm__hero">
         <div>
           <h2>Legalizaciones de prácticas</h2>
-          <p>Tablero de gestión: revise documentación, apruebe o solicite ajustes. Exporte y consulte estadísticas por estado.</p>
-          {stats?.porEstado && (
-            <p className="admlegmtm__hero-stats">
-              Totales:{' '}
-              {Object.entries(stats.porEstado).map(([k, v]) => (
-                <span key={k} className="admlegmtm__hero-stats-item">
-                  <strong>{ESTADO_LABEL[k] || k}:</strong> {v}
-                </span>
-              ))}
-              <span className="admlegmtm__hero-stats-item">
-                | <strong>Total registros:</strong> {stats.total ?? 0}
-              </span>
-            </p>
-          )}
         </div>
         <div className="admlegmtm__hero-actions">
           {(hasCLPA || isLeader) && (
@@ -133,14 +135,19 @@ export default function AdminLegalizacionPracticas() {
             <span className="admlegmtm__label">Estado legalización</span>
             <select value={filtroEstado} onChange={(e) => { setFiltroEstado(e.target.value); setPage(1); }} className="admlegmtm__control">
               <option value="">Todos</option>
-              {Object.entries(ESTADO_LABEL).map(([k, lab]) => (
-                <option key={k} value={k}>{lab}</option>
+              {metaEstados.map((k) => (
+                <option key={String(k)} value={String(k)}>{labelEstadoLegalizacion(k)}</option>
               ))}
             </select>
           </label>
           <label className="admlegmtm__field">
             <span className="admlegmtm__label">Periodo</span>
-            <input className="admlegmtm__control" placeholder="Ej. 2025-1" value={filtroPeriodo} onChange={(e) => { setFiltroPeriodo(e.target.value); setPage(1); }} />
+            <select value={filtroPeriodo} onChange={(e) => { setFiltroPeriodo(e.target.value); setPage(1); }} className="admlegmtm__control">
+              <option value="">Todos</option>
+              {metaPeriodos.map((p) => (
+                <option key={String(p)} value={String(p)}>{p}</option>
+              ))}
+            </select>
           </label>
           <label className="admlegmtm__field" style={{ gridColumn: 'span 2' }}>
             <span className="admlegmtm__label">Buscar</span>
@@ -154,8 +161,9 @@ export default function AdminLegalizacionPracticas() {
       ) : !data.length ? (
         <p className="empty-state">No hay legalizaciones con los filtros actuales.</p>
       ) : (
-        <div className="oportunidades-section">
-          <table className="postulants-table" style={{ minWidth: 960 }}>
+        <div className="admlegmtm__list">
+          <div className="admlegmtm__tableScroll">
+            <table className="admlegmtm__table">
             <thead>
               <tr>
                 <th>Nº identidad</th>
@@ -181,9 +189,9 @@ export default function AdminLegalizacionPracticas() {
                   <td>{row.periodo ?? '—'}</td>
                   <td>{row.empresa ?? '—'}</td>
                   <td>{row.practicaAutogestionada ? 'Sí' : 'No'}</td>
-                  <td>{ESTADO_LABEL[row.estadoLegalizacion] ?? row.estadoLegalizacion ?? '—'}</td>
+                  <td>{labelEstadoLegalizacion(row.estadoLegalizacion) || '—'}</td>
                   <td>
-                    <button type="button" className="btn-secondary" style={{ fontSize: 12 }} onClick={() => verRevision(row)}>
+                    <button type="button" className="admlegmtm__btn admlegmtm__btn--row" onClick={() => verRevision(row)}>
                       Revisar
                     </button>
                   </td>
@@ -191,10 +199,19 @@ export default function AdminLegalizacionPracticas() {
               ))}
             </tbody>
           </table>
-          <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button type="button" className="btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</button>
-            <span>Página {page} — {total} registro(s)</span>
-            <button type="button" className="btn-secondary" disabled={page * limit >= total} onClick={() => setPage((p) => p + 1)}>Siguiente</button>
+          </div>
+          <div className="admlegmtm__pager">
+            <p className="admlegmtm__pager-summary">
+              Página {page} de {Math.max(1, Math.ceil(total / limit))} — {total} registro(s)
+            </p>
+            <div className="admlegmtm__pager-row">
+              <button type="button" className="admlegmtm__btn admlegmtm__btn--pager" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                Anterior
+              </button>
+              <button type="button" className="admlegmtm__btn admlegmtm__btn--pager" disabled={page * limit >= total} onClick={() => setPage((p) => p + 1)}>
+                Siguiente
+              </button>
+            </div>
           </div>
         </div>
       )}

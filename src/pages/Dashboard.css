@@ -1,5 +1,9 @@
 /* Dashboard Container */
 .dashboard-container {
+  /* Menú lateral y overlay: encajan entre header y footer (position: fixed) */
+  --dashboard-sidebar-top: 86px;
+  --dashboard-sidebar-bottom: 52px;
+
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -182,14 +186,15 @@
   transform: scale(1.05);
 }
 
-/* Sidebar Menu */
+/* Sidebar Menu: entre header y footer (no cubre franja superior ni inferior) */
 .sidebar-menu {
   position: fixed;
-  top: 70px;
+  top: var(--dashboard-sidebar-top);
+  bottom: var(--dashboard-sidebar-bottom);
   right: -350px;
   width: 320px;
-  height: calc(100dvh - 70px);
-  max-height: calc(100dvh - 70px);
+  height: auto;
+  max-height: none;
   background: linear-gradient(180deg, #8b1538 0%, #a01e3a 50%, #c41e3a 100%);
   color: white;
   transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -303,13 +308,15 @@
   font-size: 24px;
 }
 
-/* Overlay */
+/* Overlay: misma franja vertical que el menú (clic fuera sin tapar header/footer) */
 .menu-overlay {
   position: fixed;
-  top: 0;
+  top: var(--dashboard-sidebar-top);
   left: 0;
-  width: 100%;
-  height: 100vh;
+  right: 0;
+  bottom: var(--dashboard-sidebar-bottom);
+  width: auto;
+  height: auto;
   background-color: transparent;
   z-index: 999;
   transition: opacity 0.3s;
@@ -377,6 +384,80 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
+}
+
+/* Legalizaciones prácticas (listado): ancho útil completo, sin márgenes laterales del contenedor */
+.dashboard-main.dashboard-main--legalizaciones-practica-list {
+  align-items: stretch;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.dashboard-main.dashboard-main--legalizaciones-practica-list > .dashboard-content {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 16px 16px 24px;
+  box-sizing: border-box;
+}
+
+/* Gestión de roles: ancho útil completo, sin franjas grises laterales */
+.dashboard-main.dashboard-main--roles {
+  align-items: stretch;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.dashboard-main.dashboard-main--roles > .roles-content {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Configuración (menú de tarjetas): ancho útil completo, sin franjas grises laterales */
+.dashboard-main.dashboard-main--configuracion {
+  align-items: stretch;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.dashboard-main.dashboard-main--configuracion > .configuracion-content {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Reportes: ancho útil completo */
+.dashboard-main.dashboard-main--reportes {
+  align-items: stretch;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.dashboard-main.dashboard-main--reportes > .reportes-content {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 768px) {
+  .dashboard-main.dashboard-main--configuracion {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .dashboard-main.dashboard-main--reportes {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .dashboard-main.dashboard-main--legalizaciones-practica-list > .dashboard-content {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -556,6 +637,11 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .dashboard-container {
+    --dashboard-sidebar-top: 62px;
+    --dashboard-sidebar-bottom: 50px;
+  }
+
   .dashboard-header {
     padding: 8px 12px;
     min-height: 60px;
@@ -642,9 +728,6 @@
   .sidebar-menu {
     width: 280px;
     right: -280px;
-    top: 60px;
-    height: calc(100dvh - 60px);
-    max-height: calc(100dvh - 60px);
   }
 
   .dashboard-main {
@@ -701,6 +784,11 @@
 }
 
 @media (max-width: 480px) {
+  .dashboard-container {
+    --dashboard-sidebar-top: 56px;
+    --dashboard-sidebar-bottom: 50px;
+  }
+
   .dashboard-header {
     padding: 6px 10px;
     min-height: 55px;
@@ -759,7 +847,5 @@
   .sidebar-menu {
     width: 100%;
     right: -100%;
-    top: 55px;
-    height: calc(100vh - 55px - 50px);
   }
 }

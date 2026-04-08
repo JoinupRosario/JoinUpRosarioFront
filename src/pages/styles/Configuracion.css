@@ -58,8 +58,19 @@
 }
 
 .configuracion-section {
-  padding: 20px;
+  padding: 12px 16px 20px;
   min-height: 100%;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .configuracion-section {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
 }
 
 .section-header h3 {
@@ -73,9 +84,10 @@
   margin-top: 15px;
   border-top: 2px solid #c41e3a;
   padding-top: 12px;
-  max-width: 1000px;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;

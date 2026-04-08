@@ -141,6 +141,8 @@ export default function Dashboard() {
   const hasDASH_POS = hasPermission('DASH_POS');   // Postulaciones por Mes
   const hasDASH_EDP = hasPermission('DASH_EDP');   // Estado de Prácticas
   const hasDASH_TEN = hasPermission('DASH_TEN');   // Tendencia de Postulaciones
+  /** Pestaña «Dashboard monitoría» e indicadores MTM en /dashboard (admin). */
+  const hasDASH_MON = hasPermission('DASH_MON');
   const hasCFAPER = hasPermission('CFAPER');       // Configuración personal
 
   // ID del postulante del usuario estudiante (para enlace "Mi perfil")
@@ -506,6 +508,11 @@ export default function Dashboard() {
     loadDashboardData();
   }, [isEstudiante]);
 
+  useEffect(() => {
+    if (isEstudiante || hasDASH_MON) return;
+    if (dashboardTab === 'monitoria') setDashboardTab('practicas');
+  }, [isEstudiante, hasDASH_MON, dashboardTab]);
+
   const menuItemsAdmin = [
     { text: 'Usuarios', Icon: FiUsers, vista: 'usuarios' },
     { text: 'Entidades', Icon: HiOutlineOfficeBuilding, vista: 'entidades' },
@@ -737,7 +744,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main
-        className={`dashboard-main${vistaActual === 'mis-aplicaciones' ? ' dashboard-main--mis-aplicaciones' : ''}${vistaActual === 'monitorias' ? ' dashboard-main--monitorias-list' : ''}${vistaActual === 'monitorias-revision' ? ' dashboard-main--monitorias-revision' : ''}${vistaActual === 'oportunidades-monitoria' ? ' dashboard-main--oportunidades-monitoria' : ''}${vistaActual === 'oportunidades-practica' ? ' dashboard-main--oportunidades-practica' : ''}${vistaActual === 'dashboard' && isEstudiante ? ' dashboard-main--home-estudiante' : ''}${vistaActual === 'dashboard' && !isEstudiante ? ' dashboard-main--admin-dashboard' : ''}`}
+        className={`dashboard-main${vistaActual === 'mis-aplicaciones' ? ' dashboard-main--mis-aplicaciones' : ''}${vistaActual === 'monitorias' ? ' dashboard-main--monitorias-list' : ''}${vistaActual === 'monitorias-revision' ? ' dashboard-main--monitorias-revision' : ''}${vistaActual === 'oportunidades-monitoria' ? ' dashboard-main--oportunidades-monitoria' : ''}${vistaActual === 'oportunidades-practica' ? ' dashboard-main--oportunidades-practica' : ''}${vistaActual === 'legalizaciones' ? ' dashboard-main--legalizaciones-practica-list' : ''}${vistaActual === 'roles' ? ' dashboard-main--roles' : ''}${vistaActual === 'configuracion' ? ' dashboard-main--configuracion' : ''}${vistaActual === 'reportes' ? ' dashboard-main--reportes' : ''}${vistaActual === 'dashboard' && isEstudiante ? ' dashboard-main--home-estudiante' : ''}${vistaActual === 'dashboard' && !isEstudiante ? ' dashboard-main--admin-dashboard' : ''}`}
       >
         {vistaActual === 'dashboard' && (
           <>
@@ -748,9 +755,9 @@ export default function Dashboard() {
             <div className="dashboard-welcome">
               <h2>Bienvenido/a, {user?.name}</h2>
               <p>
-                {dashboardTab === 'practicas'
-                  ? 'Indicadores de prácticas profesionales (ofertas tipo práctica y postulaciones asociadas).'
-                  : 'Indicadores de monitorías, tutorías y mentorías (ofertas MTM y postulaciones).'}
+                {hasDASH_MON && dashboardTab === 'monitoria'
+                  ? 'Indicadores de monitorías, tutorías y mentorías (ofertas MTM y postulaciones).'
+                  : 'Indicadores de prácticas profesionales (ofertas tipo práctica y postulaciones asociadas).'}
               </p>
             </div>
 
@@ -765,6 +772,7 @@ export default function Dashboard() {
                 <HiOutlineAcademicCap style={{ marginRight: 8 }} />
                 Dashboard prácticas
               </button>
+              {hasDASH_MON && (
               <button
                 type="button"
                 role="tab"
@@ -775,9 +783,10 @@ export default function Dashboard() {
                 <FiBookOpen style={{ marginRight: 8 }} />
                 Dashboard monitoría
               </button>
+              )}
             </div>
 
-            {dashboardTab === 'practicas' ? (
+            {dashboardTab === 'practicas' || !hasDASH_MON ? (
               <>
                 <div className="dashboard-stats">
                   {hasDASH_EST && (
@@ -828,7 +837,7 @@ export default function Dashboard() {
                   />
                 )}
               </>
-            ) : (
+            ) : hasDASH_MON ? (
               <>
                 <div className="dashboard-stats">
                   {hasDASH_EST && (
@@ -879,7 +888,7 @@ export default function Dashboard() {
                   />
                 )}
               </>
-            )}
+            ) : null}
               </div>
             )}
           </>

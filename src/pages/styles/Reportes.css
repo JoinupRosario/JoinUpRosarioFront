@@ -1,9 +1,21 @@
+/* Paleta de tarjetas (gama roja institucional); tonos rotan con reporte-item--tone-0 … --tone-5 */
 .reportes-content {
+  --reporte-rojo: #c41e3a;
+  --reporte-burgundy: #8b1538;
+  --reporte-vino: #722f37;
+  --reporte-ladrillo: #a31d35;
+  --reporte-coral: #c44d5c;
+  --reporte-oscuro: #6d1328;
+
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  background-color: white;
+  background-color: #f5f5f5;
   max-height: calc(100vh - 70px - 50px);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .reportes-content::-webkit-scrollbar {
@@ -24,8 +36,19 @@
 }
 
 .reportes-section {
-  padding: 30px;
+  padding: 12px 16px 24px;
   min-height: 100%;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .reportes-section {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
 }
 
 .reportes-header {
@@ -86,16 +109,16 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
-  max-width: 1400px;
+  width: 100%;
+  max-width: none;
 }
 
 .reporte-item {
-  background: linear-gradient(135deg, #c41e3a 0%, #a01730 100%);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s, border-color 0.3s;
   border: 2px solid transparent;
   min-height: 120px;
   display: flex;
@@ -104,6 +127,31 @@
   align-items: center;
   position: relative;
   overflow: hidden;
+}
+
+/* Variantes de tono (rotan por índice): misma familia cromática, menos monotonía */
+.reporte-item--tone-0 {
+  background: linear-gradient(145deg, var(--reporte-rojo) 0%, var(--reporte-burgundy) 100%);
+}
+
+.reporte-item--tone-1 {
+  background: linear-gradient(145deg, #9e1e32 0%, var(--reporte-oscuro) 100%);
+}
+
+.reporte-item--tone-2 {
+  background: linear-gradient(145deg, var(--reporte-burgundy) 0%, #5a0f24 100%);
+}
+
+.reporte-item--tone-3 {
+  background: linear-gradient(145deg, #d63650 0%, #9e2238 100%);
+}
+
+.reporte-item--tone-4 {
+  background: linear-gradient(145deg, var(--reporte-ladrillo) 0%, #6d1526 100%);
+}
+
+.reporte-item--tone-5 {
+  background: linear-gradient(145deg, var(--reporte-vino) 0%, #4a1a20 100%);
 }
 
 .reporte-item::before {
@@ -120,8 +168,36 @@
 
 .reporte-item:hover {
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 8px 25px rgba(196, 30, 58, 0.3);
-  border-color: #8b1428;
+}
+
+.reporte-item--tone-0:hover {
+  box-shadow: 0 10px 28px rgba(196, 30, 58, 0.38);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.reporte-item--tone-1:hover {
+  box-shadow: 0 10px 28px rgba(110, 19, 40, 0.4);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.reporte-item--tone-2:hover {
+  box-shadow: 0 10px 28px rgba(139, 21, 56, 0.38);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.reporte-item--tone-3:hover {
+  box-shadow: 0 10px 28px rgba(214, 54, 80, 0.35);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.reporte-item--tone-4:hover {
+  box-shadow: 0 10px 28px rgba(163, 29, 53, 0.38);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.reporte-item--tone-5:hover {
+  box-shadow: 0 10px 28px rgba(114, 47, 55, 0.4);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .reporte-item:hover::before {
