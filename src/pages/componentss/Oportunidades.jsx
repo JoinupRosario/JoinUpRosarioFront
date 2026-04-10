@@ -14,11 +14,11 @@ function shouldOmitMtmListado(estado) {
   return ['En Revisión', 'Revisada', 'Rechazada'].includes(e);
 }
 
-/** Mapea filtro de estado del listado al enum MTM (Borrador / Activa / Inactiva). */
+/** Mapea filtro de estado del listado al enum MTM (Creada / Activa / Inactiva). */
 function mapEstadoToMtm(estado) {
   const e = (estado && String(estado).trim()) || '';
   if (!e) return undefined;
-  const m = { Creada: 'Borrador', Activa: 'Activa', Cerrada: 'Inactiva', Vencida: 'Inactiva' };
+  const m = { Creada: 'Creada', Activa: 'Activa', Cerrada: 'Inactiva', Vencida: 'Inactiva' };
   return m[e];
 }
 
@@ -26,7 +26,8 @@ function mapEstadoToMtm(estado) {
 function resolveMtmEstadoFilter(estado) {
   const e = (estado && String(estado).trim()) || '';
   if (!e) return undefined;
-  if (['Borrador', 'Activa', 'Inactiva'].includes(e)) return e;
+  if (e === 'Borrador') return 'Creada';
+  if (['Creada', 'Activa', 'Inactiva'].includes(e)) return e;
   return mapEstadoToMtm(e);
 }
 
@@ -4544,7 +4545,7 @@ export default function Oportunidades({ onVolver }) {
       const estadoDisplay =
         opp.estado === 'Inactiva'
           ? 'Cerrada'
-          : opp.estado === 'Borrador'
+          : opp.estado === 'Creada' || opp.estado === 'Borrador'
             ? 'Creada'
             : (opp.estado || 'Creada');
       const estadoColors = { Creada: '#6b7280', Borrador: '#6b7280', Activa: '#16a34a', Inactiva: '#dc2626', Cerrada: '#374151' };
@@ -4637,7 +4638,7 @@ export default function Oportunidades({ onVolver }) {
                   <button className="btn-editar-header" onClick={handleActivarMtmEdicion}>
                     <FiEdit className="btn-icon" /> Editar
                   </button>
-                  {opp.estado === 'Borrador' && (
+                  {(opp.estado === 'Creada' || opp.estado === 'Borrador') && (
                     <button className="btn-guardar-header" onClick={async () => {
                       try {
                         await api.patch(`/oportunidades-mtm/${opp._id}/status`, { estado: 'Activa' });

@@ -9,6 +9,7 @@ import '../styles/Oportunidades.css';
 function badgeClassPorCodigoLegalizacion(codigo) {
   if (codigo == null || codigo === '') return 'legaliz-mtm-badge legaliz-mtm-badge--pendiente';
   const map = {
+    creada: 'legaliz-mtm-badge legaliz-mtm-badge--borrador',
     borrador: 'legaliz-mtm-badge legaliz-mtm-badge--borrador',
     en_revision: 'legaliz-mtm-badge legaliz-mtm-badge--revision',
     aprobada: 'legaliz-mtm-badge legaliz-mtm-badge--aprobada',
@@ -25,9 +26,10 @@ function etiquetaCortaLegalizacion(codigo, etiquetaLarga) {
     return t || 'Pendiente de iniciar';
   }
   const cortas = {
-    borrador: 'Borrador',
+    creada: 'Creada',
+    borrador: 'Creada',
     en_revision: 'En revisión',
-    aprobada: 'Aprobada',
+    aprobada: 'Legalizada',
     rechazada: 'Rechazada',
     en_ajuste: 'En ajuste',
   };
@@ -57,7 +59,9 @@ export default function LegalizacionesMonitorias() {
   };
 
   const legalizacionAprobada = (row) =>
-    row?.estadoLegalizacionCodigo === 'aprobada' || row?.estadoLegalizacion === 'Aprobada';
+    row?.estadoLegalizacionCodigo === 'aprobada' ||
+    row?.estadoLegalizacion === 'Legalizada' ||
+    row?.estadoLegalizacion === 'Aprobada';
   const planAprobado = (row) => row?.planAprobado === true;
 
   const ejecutarAccion = (row, accion) => {

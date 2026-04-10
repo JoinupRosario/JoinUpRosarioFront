@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import { FiX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import './ForcePasswordChangeModal.css';
@@ -16,8 +17,14 @@ export default function ForcePasswordChangeModal() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  /** Cierre opcional en esta sesión; al volver a iniciar sesión el modal puede mostrarse de nuevo. */
+  const [cerradoOpcional, setCerradoOpcional] = useState(false);
 
-  if (!user?.debeCambiarPassword) {
+  useEffect(() => {
+    setCerradoOpcional(false);
+  }, [user?._id]);
+
+  if (!user?.debeCambiarPassword || cerradoOpcional) {
     return null;
   }
 
@@ -85,6 +92,16 @@ export default function ForcePasswordChangeModal() {
   return (
     <div className="force-password-overlay" role="dialog" aria-modal="true" aria-labelledby="force-password-title">
       <div className="force-password-card">
+        <button
+          type="button"
+          className="force-password-close"
+          onClick={() => setCerradoOpcional(true)}
+          disabled={submitting}
+          aria-label="Cerrar por ahora (puedes cambiar la contraseña más tarde desde tu perfil si aplica)"
+          title="Cerrar por ahora"
+        >
+          <FiX aria-hidden size={22} />
+        </button>
         <h2 id="force-password-title" className="force-password-title">
           Cambiar contraseña obligatorio
         </h2>

@@ -94,19 +94,20 @@
   .plan-trabajo-mtm-vista .planmtm-est__editor-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem 1rem;
-    align-items: stretch;
+    align-items: start;
   }
 
   .plan-trabajo-mtm-vista .planmtm-est__editor-grid .legalizacion-mtm__section {
     margin-bottom: 0;
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    min-height: auto;
   }
 
+  /* Sin flex:1 — evita cajas bajas con scroll interno; la altura la define el contenido + data-plan-autosize */
   .plan-trabajo-mtm-vista .planmtm-est__editor-grid .legalizacion-mtm__section .planmtm-est__textarea {
-    flex: 1;
-    min-height: 72px;
+    flex: none;
+    width: 100%;
   }
 }
 
@@ -316,8 +317,27 @@
 }
 
 .plan-trabajo-mtm-vista.planmtm-estudiante .legalizacion-mtm__section .form-textarea.planmtm-est__textarea {
-  min-height: 68px;
+  min-height: 88px;
   padding: 0.55rem 0.75rem;
+}
+
+.plan-trabajo-mtm-vista .planmtm-est__textarea--justificacion {
+  min-height: 120px;
+}
+
+.plan-trabajo-mtm-vista .planmtm-est__textarea--objetivo {
+  min-height: 96px;
+}
+
+.plan-trabajo-mtm-vista .planmtm-est__textarea--objetivos {
+  min-height: 120px;
+}
+
+/* Autosize: sin barra vertical mientras cabe en la altura calculada */
+.plan-trabajo-mtm-vista textarea[data-plan-autosize='1'] {
+  overflow-y: hidden;
+  max-height: none;
+  box-sizing: border-box;
 }
 
 .planmtm-estudiante .legalizacion-mtm__section .form-textarea:focus {
@@ -356,13 +376,40 @@
 }
 
 .planmtm-estudiante .planmtm-est__actividades-table td {
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .planmtm-estudiante .planmtm-est__actividades-table .form-input {
   border-radius: 6px;
   width: 100%;
   box-sizing: border-box;
+}
+
+.planmtm-estudiante .planmtm-est__actividades-table .planmtm-est__actividad-textarea {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  min-height: 4.5rem;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.planmtm-estudiante .planmtm-est__actividades-table .planmtm-est__actividad-textarea--largo {
+  min-height: 7.5rem;
+}
+
+.planmtm-estudiante .planmtm-est__actividades-table .planmtm-est__actividad-textarea:disabled {
+  background: #f9fafb;
+  color: #374151;
+  resize: none;
+  opacity: 1;
 }
 
 .planmtm-est__actividades-actions {

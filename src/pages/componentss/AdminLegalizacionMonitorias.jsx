@@ -6,17 +6,33 @@ import Swal from 'sweetalert2';
 import api from '../../services/api';
 import './AdminLegalizacionMonitorias.css';
 
-/** Claves = `estadoMTM` del API (incl. alias usados en getLegalizacionesMTMAdmin). */
+/** Claves = `estadoMTM` del listado (derivado de `LegalizacionMTM.estado` en backend). */
 const ESTADO_LABEL = {
-  borrador: 'Pendiente de envío',
+  creada: 'Creada',
   en_revision: 'En revisión',
   aprobada: 'Legalizada',
   rechazada: 'Anulada',
   en_ajuste: 'En ajuste',
   legalizada: 'Legalizada',
   anulada: 'Anulada',
-  aceptada: 'Pendiente de envío',
+  aceptada: 'Creada',
 };
+
+/** Etiquetas para valores reales de BD en filtro (`LegalizacionMTM.estado`). */
+const ESTADO_BD_FILTRO_LABEL = {
+  creada: 'Creada',
+  borrador: 'Borrador',
+  en_revision: 'En revisión',
+  aprobada: 'Legalizada',
+  rechazada: 'Anulada',
+  en_ajuste: 'En ajuste',
+};
+
+function labelEstadoLegalizacionBdFiltro(codigo) {
+  if (codigo == null || codigo === '') return '';
+  const k = String(codigo);
+  return ESTADO_BD_FILTRO_LABEL[k] ?? k.replace(/_/g, ' ');
+}
 
 function buildListParams({ filtroEstado, filtroPeriodo, filtroPrograma, busqueda, page, limit }) {
   const params = { page, limit };
@@ -34,7 +50,9 @@ export default function AdminLegalizacionMonitorias() {
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [programasMeta, setProgramasMeta] = useState([]);
+  const [metaEstados, setMetaEstados] = useState([]);
+  const [metaPeriodos, setMetaPeriodos] = useState([]);
+  const [metaProgramas, setMetaProgramas] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroPeriodo, setFiltroPeriodo] = useState('');
   const [busquedaInput, setBusquedaInput] = useState('');
@@ -43,6 +61,21 @@ export default function AdminLegalizacionMonitorias() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const prevBusquedaRef = useRef(busqueda);
+
+  useEffect(() => {
+    api
+      .get('/oportunidades-mtm/legalizaciones-admin/meta/filtros')
+      .then((r) => {
+        setMetaEstados(Array.isArray(r.data?.estados) ? r.data.estados : []);
+        setMetaPeriodos(Array.isArray(r.data?.periodos) ? r.data.periodos : []);
+        setMetaProgramas(Array.isArray(r.data?.programas) ? r.data.programas : []);
+      })
+      .catch(() => {
+        setMetaEstados([]);
+        setMetaPeriodos([]);
+        setMetaProgramas([]);
+      });
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setBusqueda(busquedaInput.trim()), 400);
@@ -72,7 +105,6 @@ export default function AdminLegalizacionMonitorias() {
         setData(r.data?.data ?? []);
         setTotal(r.data?.total ?? 0);
         setTotalPages(Math.max(1, r.data?.totalPages ?? 1));
-        if (Array.isArray(r.data?.programas)) setProgramasMeta(r.data.programas);
       })
       .catch(() => {
         setData([]);
@@ -124,7 +156,7 @@ export default function AdminLegalizacionMonitorias() {
           Swal.fire({ icon: 'warning', title: 'Sin datos', text: 'No hay registros para exportar.', confirmButtonColor: '#c41e3a' });
           return;
         }
-        const headers = ['Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Código MTM', 'Nombre MTM', 'Periodo', 'Coordinador', 'Estado alumno', 'Estado MTM'];
+        const headers = ['Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Código MTM', 'Nombre MTM', 'Periodo', 'Coordinador', 'Estado MTM'];
         const rows = list.map((row) => [
           row.numeroIdentidad ?? '',
           row.nombre ?? '',
@@ -134,7 +166,6 @@ export default function AdminLegalizacionMonitorias() {
           row.nombreMTM ?? '',
           row.periodo ?? '',
           row.coordinador ?? '',
-          row.estadoAlumnoMTM ?? '',
           ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '',
         ]);
         const wb = XLSX.utils.book_new();
@@ -169,7 +200,7 @@ export default function AdminLegalizacionMonitorias() {
         <div className="admlegmtm__filters-title">Filtros</div>
         <div className="admlegmtm__filters-grid">
           <label className="admlegmtm__field">
-            <span className="admlegmtm__label">Estado</span>
+            <span className="admlegmtm__label">Estado legalización</span>
             <select
               value={filtroEstado}
               onChange={(e) => {
@@ -179,25 +210,30 @@ export default function AdminLegalizacionMonitorias() {
               className="admlegmtm__control"
             >
               <option value="">Todos los estados</option>
-              {Object.entries(ESTADO_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+              {metaEstados.map((codigo) => (
+                <option key={String(codigo)} value={String(codigo)}>
+                  {labelEstadoLegalizacionBdFiltro(codigo)}
+                </option>
               ))}
             </select>
           </label>
           <label className="admlegmtm__field">
             <span className="admlegmtm__label">Periodo</span>
-            <input
-              type="text"
+            <select
               value={filtroPeriodo}
               onChange={(e) => {
                 setFiltroPeriodo(e.target.value);
                 setPage(1);
               }}
-              placeholder="Ej. 2025-1"
               className="admlegmtm__control"
-            />
+            >
+              <option value="">Todos los periodos</option>
+              {metaPeriodos.map((p) => (
+                <option key={String(p)} value={String(p)}>{p}</option>
+              ))}
+            </select>
           </label>
-          <label className="admlegmtm__field">
+          <label className="admlegmtm__field admlegmtm__field--programa">
             <span className="admlegmtm__label">Programa</span>
             <select
               value={filtroPrograma}
@@ -205,10 +241,10 @@ export default function AdminLegalizacionMonitorias() {
                 setFiltroPrograma(e.target.value);
                 setPage(1);
               }}
-              className="admlegmtm__control"
+              className="admlegmtm__control admlegmtm__control--programa"
             >
               <option value="">Todos los programas</option>
-              {programasMeta.map((p) => (
+              {metaProgramas.map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
@@ -254,7 +290,6 @@ export default function AdminLegalizacionMonitorias() {
                   <th scope="col">Nombre MTM</th>
                   <th scope="col">Periodo</th>
                   <th scope="col">Coordinador</th>
-                  <th scope="col">Estado alumno</th>
                   <th scope="col">Estado MTM</th>
                   <th scope="col">Acciones</th>
                 </tr>
@@ -270,7 +305,6 @@ export default function AdminLegalizacionMonitorias() {
                     <td>{row.nombreMTM ?? '—'}</td>
                     <td>{row.periodo ?? '—'}</td>
                     <td>{row.coordinador ?? '—'}</td>
-                    <td>{row.estadoAlumnoMTM ?? '—'}</td>
                     <td>{ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '—'}</td>
                     <td>
                       <button

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
@@ -7,7 +7,7 @@ import '../styles/Oportunidades.css';
 import './PlanDeTrabajoEstudiante.css';
 
 const ESTADO_LABEL = {
-  borrador: 'Borrador',
+  borrador: 'En edición',
   enviado_revision: 'Enviado a revisión',
   aprobado: 'Aprobado',
   rechazado: 'Rechazado',
@@ -32,6 +32,17 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
   const [saving, setSaving] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [previewPlan, setPreviewPlan] = useState({ open: false, url: null, title: '' });
+  const planBodyRef = useRef(null);
+
+  const ajustarAlturaTextareasPlan = useCallback(() => {
+    const root = planBodyRef.current;
+    if (!root) return;
+    root.querySelectorAll('textarea[data-plan-autosize="1"]').forEach((el) => {
+      const min = parseFloat(getComputedStyle(el).minHeight) || 48;
+      el.style.height = '0px';
+      el.style.height = `${Math.max(min, el.scrollHeight)}px`;
+    });
+  }, []);
 
   const [form, setForm] = useState({
     justificacion: '',
@@ -91,6 +102,18 @@ export default function PlanDeTrabajoMTM({ onVolver }) {
       })
       .finally(() => setLoading(false));
   }, [postulacionId]);
+
+  useLayoutEffect(() => {
+    if (loading || !yaExiste) return;
+    ajustarAlturaTextareasPlan();
+  }, [loading, yaExiste, form.justificacion, form.objetivoGeneral, form.objetivosEspecificos, form.actividades, ajustarAlturaTextareasPlan]);
+
+  useEffect(() => {
+    if (loading || !yaExiste) return;
+    const onResize = () => ajustarAlturaTextareasPlan();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [loading, yaExiste, ajustarAlturaTextareasPlan]);
 
   const handleCrear = () => {
     setCreando(true);
@@ -296,7 +319,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
       )}
 
       {datos && (
-        <div className="legalizacion-mtm__body">
+        <div className="legalizacion-mtm__body" ref={planBodyRef}>
           <section className="legalizacion-mtm__section">
             <h3 className="legalizacion-mtm__section-title">Datos básicos de la MTM</h3>
             <dl className="legalizacion-mtm__grid planmtm-est__dl-datos">
@@ -318,8 +341,9 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                 <section className="legalizacion-mtm__section">
                   <h3 className="legalizacion-mtm__section-title">Justificación de la monitoría académica</h3>
                   <textarea
-                    className="form-textarea planmtm-est__textarea"
-                    rows={3}
+                    className="form-textarea planmtm-est__textarea planmtm-est__textarea--justificacion"
+                    data-plan-autosize="1"
+                    rows={4}
                     value={form.justificacion}
                     onChange={(e) => setForm((f) => ({ ...f, justificacion: e.target.value }))}
                     disabled={!puedeEditar}
@@ -329,8 +353,9 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                 <section className="legalizacion-mtm__section">
                   <h3 className="legalizacion-mtm__section-title">Objetivo general</h3>
                   <textarea
-                    className="form-textarea planmtm-est__textarea"
-                    rows={2}
+                    className="form-textarea planmtm-est__textarea planmtm-est__textarea--objetivo"
+                    data-plan-autosize="1"
+                    rows={3}
                     value={form.objetivoGeneral}
                     onChange={(e) => setForm((f) => ({ ...f, objetivoGeneral: e.target.value }))}
                     disabled={!puedeEditar}
@@ -340,8 +365,9 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                 <section className="legalizacion-mtm__section">
                   <h3 className="legalizacion-mtm__section-title">Objetivos específicos</h3>
                   <textarea
-                    className="form-textarea planmtm-est__textarea"
-                    rows={3}
+                    className="form-textarea planmtm-est__textarea planmtm-est__textarea--objetivos"
+                    data-plan-autosize="1"
+                    rows={4}
                     value={form.objetivosEspecificos}
                     onChange={(e) => setForm((f) => ({ ...f, objetivosEspecificos: e.target.value }))}
                     disabled={!puedeEditar}
@@ -376,9 +402,10 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                             />
                           </td>
                           <td>
-                            <input
-                              type="text"
-                              className="form-input"
+                            <textarea
+                              className="form-textarea planmtm-est__actividad-textarea"
+                              data-plan-autosize="1"
+                              rows={3}
                               value={a.tema}
                               onChange={(e) => updateActividad(idx, 'tema', e.target.value)}
                               disabled={!puedeEditar}
@@ -386,13 +413,14 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                             />
                           </td>
                           <td>
-                            <input
-                              type="text"
-                              className="form-input"
+                            <textarea
+                              className="form-textarea planmtm-est__actividad-textarea planmtm-est__actividad-textarea--largo"
+                              data-plan-autosize="1"
+                              rows={5}
                               value={a.estrategiasMetodologias}
                               onChange={(e) => updateActividad(idx, 'estrategiasMetodologias', e.target.value)}
                               disabled={!puedeEditar}
-                              placeholder="Estrategias y actividades"
+                              placeholder="Estrategias, metodologías y actividades"
                             />
                           </td>
                           {puedeEditar && (

@@ -302,7 +302,7 @@ export default function Reportes({ onVolver }) {
       ['Generado', d.generadoAt ? new Date(d.generadoAt).toLocaleString('es-CO') : ''],
       [''],
       ['Total legalizaciones', d.total ?? 0],
-      ['Borrador', d.borrador ?? 0],
+      ['Creada', d.creada ?? d.borrador ?? 0],
       ['En revisión', d.en_revision ?? 0],
       ['Aprobada', d.aprobada ?? 0],
       ['Rechazada', d.rechazada ?? 0],
@@ -311,8 +311,8 @@ export default function Reportes({ onVolver }) {
     const ws1 = XLSX.utils.aoa_to_sheet(resumenRows);
     XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
     if (d.porPeriodo && d.porPeriodo.length > 0) {
-      const headers = ['Periodo', 'Total', 'Borrador', 'En revisión', 'Aprobada', 'Rechazada', 'En ajuste'];
-      const rows = d.porPeriodo.map((p) => [p.periodo, p.total, p.borrador, p.en_revision, p.aprobada, p.rechazada, p.en_ajuste]);
+      const headers = ['Periodo', 'Total', 'Creada', 'En revisión', 'Aprobada', 'Rechazada', 'En ajuste'];
+      const rows = d.porPeriodo.map((p) => [p.periodo, p.total, p.creada ?? p.borrador ?? 0, p.en_revision, p.aprobada, p.rechazada, p.en_ajuste]);
       const ws2 = XLSX.utils.aoa_to_sheet([headers, ...rows]);
       XLSX.utils.book_append_sheet(wb, ws2, 'Por periodo');
     }
@@ -450,7 +450,7 @@ export default function Reportes({ onVolver }) {
                     <h4>Resumen por estado</h4>
                     <div className="reportes-mtm-cards">
                       <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.total ?? 0}</span><span className="reportes-mtm-card-label">Total</span></div>
-                      <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.borrador ?? 0}</span><span className="reportes-mtm-card-label">Borrador</span></div>
+                      <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.creada ?? modalLegalizacion.data.borrador ?? 0}</span><span className="reportes-mtm-card-label">Creada</span></div>
                       <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.en_revision ?? 0}</span><span className="reportes-mtm-card-label">En revisión</span></div>
                       <div className="reportes-mtm-card highlight"><span className="reportes-mtm-card-value">{modalLegalizacion.data.aprobada ?? 0}</span><span className="reportes-mtm-card-label">Aprobada</span></div>
                       <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.rechazada ?? 0}</span><span className="reportes-mtm-card-label">Rechazada</span></div>
@@ -465,7 +465,7 @@ export default function Reportes({ onVolver }) {
                           <tr>
                             <th>Periodo</th>
                             <th>Total</th>
-                            <th>Borrador</th>
+                            <th>Creada</th>
                             <th>En revisión</th>
                             <th>Aprobada</th>
                             <th>Rechazada</th>
@@ -477,7 +477,7 @@ export default function Reportes({ onVolver }) {
                             <tr key={i}>
                               <td>{p.periodo}</td>
                               <td>{p.total}</td>
-                              <td>{p.borrador}</td>
+                              <td>{p.creada ?? p.borrador ?? 0}</td>
                               <td>{p.en_revision}</td>
                               <td>{p.aprobada}</td>
                               <td>{p.rechazada}</td>

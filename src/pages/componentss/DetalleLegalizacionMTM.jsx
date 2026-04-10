@@ -7,7 +7,7 @@ import api from '../../services/api';
 import '../styles/Oportunidades.css';
 import './DetalleLegalizacionEstudiante.css';
 
-const LIST_IDS = { EPS: 'L_EPS', BANCO: 'L_BANCO' };
+const LIST_IDS = { EPS: 'L_EPS', BANCO: 'L_FINANCIAL_BANK' };
 const TIPO_CUENTA_OPCIONES = [{ value: 'Ahorros', label: 'Ahorros' }, { value: 'Corriente', label: 'Corriente' }];
 const MAX_FILE_MB = 5;
 
@@ -156,9 +156,9 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
     }
   };
 
-  const isBorrador = legalizacion?.estado === 'borrador';
+  const isCreada = legalizacion?.estado === 'creada' || legalizacion?.estado === 'borrador';
   const enAjuste = legalizacion?.estado === 'en_ajuste';
-  const puedeEditar = isBorrador || enAjuste;
+  const puedeEditar = isCreada || enAjuste;
   const docs = legalizacion?.documentos || {};
   const obligatorias = definicionesDocumentos.filter((d) => d.documentMandatory);
   const algunArchivoSubido = definicionesDocumentos.some((d) => docs[defIdStr(d)]?.key);
@@ -307,7 +307,7 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
           </button>
           <h2 className="legalizacion-mtm__title">Detalle de la oportunidad — Legalización</h2>
         </div>
-        {(isBorrador || enAjuste) && (
+        {(isCreada || enAjuste) && (
           <div className="legalizacion-mtm__topbar-actions">
             <button
               type="button"
@@ -326,10 +326,10 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
         )}
       </header>
 
-      {!isBorrador && legalizacion?.estado !== 'borrador' && (
+      {!isCreada && (
         <p className={`legalizacion-mtm__estado legalizacion-mtm__estado--${legalizacion?.estado === 'aprobada' ? 'ok' : legalizacion?.estado === 'rechazada' ? 'error' : legalizacion?.estado === 'en_ajuste' ? 'error' : 'revision'}`}>
           {legalizacion?.estado === 'en_revision' && 'Estado: En revisión por la coordinación.'}
-          {legalizacion?.estado === 'aprobada' && 'Estado: Aprobada.'}
+          {legalizacion?.estado === 'aprobada' && 'Estado: Legalizada.'}
           {legalizacion?.estado === 'rechazada' && `Estado: Rechazada. ${legalizacion.rechazoMotivo || ''}`}
           {legalizacion?.estado === 'en_ajuste' && (
             <>Estado: En ajuste. Debe corregir los documentos indicados como rechazados y volver a enviar a revisión. {legalizacion.rechazoMotivo && `Motivo: ${legalizacion.rechazoMotivo}`}</>

@@ -56,7 +56,7 @@ const VIEW_TO_LIST_ID = {
   'activities': 'L_MONITORING_ACTIVITY',
   'institutions': 'L_UNIVERSITIES',
   'eps': 'L_EPS',
-  'banks': 'L_BANCO',
+  'banks': 'L_FINANCIAL_BANK',
   'dedicacionHorasMTM': 'L_DEDICATON_HOURS',
   'valorPorHoraMTM': 'L_REMUNERATION_HOURS_PER_WEEK',
   'tipoVinculacionMTM': 'L_CONTRACT_TYPE_STUDY_WORKING',

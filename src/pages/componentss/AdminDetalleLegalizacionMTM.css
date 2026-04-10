@@ -1116,3 +1116,34 @@
   margin: 0 0 1rem;
   line-height: 1.5;
 }
+
+/* Plan de trabajo (admin): texto migrado con exceso de saltos de línea */
+.admrevmtm-plan-dl .admrevmtm-plan-text {
+  white-space: pre-line;
+  line-height: 1.42;
+  margin: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.admrevmtm-plan-table-wrap.admrevmtm__table-wrap {
+  margin-top: 0.25rem;
+}
+
+.admrevmtm-plan-table .admrevmtm-plan-cell {
+  vertical-align: top;
+  line-height: 1.4;
+  white-space: pre-line;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 36rem;
+}
+
+.admrevmtm-plan-table .admrevmtm-plan-cell--fecha {
+  white-space: nowrap;
+  max-width: none;
+}
+
+.admrevmtm-plan-table .admrevmtm-plan-cell--estrategias {
+  max-width: min(42rem, 100%);
+}

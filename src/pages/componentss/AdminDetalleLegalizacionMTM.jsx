@@ -19,6 +19,21 @@ function defIdStr(d) {
   return d?._id != null ? String(d._id) : '';
 }
 
+/**
+ * Plan migrado desde legado con muchos saltos de línea sueltos: compacta sin perder párrafos
+ * (bloques separados por 2+ saltos se conservan; dentro de cada bloque, \n → espacio).
+ */
+function normalizarTextoPlanTrabajoMostrar(raw) {
+  if (raw == null) return '';
+  let s = String(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  if (!s) return '';
+  return s
+    .split(/\n{2,}/)
+    .map((block) => block.replace(/\n+/g, ' ').replace(/[ \t\f\v]+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   const location = useLocation();
   const postulacionId = useMemo(() => postulacionIdFromRevisionPath(location.pathname), [location.pathname]);
@@ -306,7 +321,7 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
       .finally(() => setRechazando(false));
   };
 
-  const PLAN_ESTADO_LABEL = { borrador: 'Borrador', enviado_revision: 'Enviado a revisión', aprobado: 'Aprobado', rechazado: 'Rechazado' };
+  const PLAN_ESTADO_LABEL = { borrador: 'En edición', enviado_revision: 'Enviado a revisión', aprobado: 'Aprobado', rechazado: 'Rechazado' };
 
   const descargarPDFPlan = (pt) => {
     if (!pt) return;
@@ -383,7 +398,8 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
   };
 
   const estadoLabel = {
-    borrador: 'Pendiente',
+    creada: 'Creada',
+    borrador: 'Creada',
     en_revision: 'En revisión',
     aprobada: 'Legalizada',
     rechazada: 'Anulada',
@@ -744,26 +760,41 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                     {planTrabajo.estado === 'rechazado' && planTrabajo.rechazoMotivo && (
                       <p style={{ fontSize: 13, color: '#dc2626', marginBottom: 12 }}><strong>Motivo rechazo:</strong> {planTrabajo.rechazoMotivo}</p>
                     )}
-                    <dl className="legalizacion-mtm__grid" style={{ marginBottom: 12 }}>
-                      <dt>Justificación</dt><dd style={{ whiteSpace: 'pre-wrap' }}>{planTrabajo.justificacion || '—'}</dd>
-                      <dt>Objetivo general</dt><dd style={{ whiteSpace: 'pre-wrap' }}>{planTrabajo.objetivoGeneral || '—'}</dd>
-                      <dt>Objetivos específicos</dt><dd style={{ whiteSpace: 'pre-wrap' }}>{planTrabajo.objetivosEspecificos || '—'}</dd>
+                    <dl className="legalizacion-mtm__grid admrevmtm-plan-dl" style={{ marginBottom: 12 }}>
+                      <dt>Justificación</dt>
+                      <dd className="admrevmtm-plan-text">{normalizarTextoPlanTrabajoMostrar(planTrabajo.justificacion) || '—'}</dd>
+                      <dt>Objetivo general</dt>
+                      <dd className="admrevmtm-plan-text">{normalizarTextoPlanTrabajoMostrar(planTrabajo.objetivoGeneral) || '—'}</dd>
+                      <dt>Objetivos específicos</dt>
+                      <dd className="admrevmtm-plan-text">{normalizarTextoPlanTrabajoMostrar(planTrabajo.objetivosEspecificos) || '—'}</dd>
                     </dl>
                     {planTrabajo.actividades?.length > 0 && (
                       <div>
                         <strong style={{ display: 'block', marginBottom: 8 }}>Actividades</strong>
-                        <table className="postulants-table" style={{ minWidth: 400 }}>
-                          <thead><tr><th>Fecha</th><th>Tema</th><th>Estrategias y actividades</th></tr></thead>
-                          <tbody>
-                            {planTrabajo.actividades.map((a, i) => (
-                              <tr key={i}>
-                                <td>{a.fecha ? new Date(a.fecha).toLocaleDateString('es-CO') : '—'}</td>
-                                <td>{a.tema || '—'}</td>
-                                <td style={{ whiteSpace: 'pre-wrap' }}>{a.estrategiasMetodologias || '—'}</td>
+                        <div className="admrevmtm__table-wrap admrevmtm-plan-table-wrap">
+                          <table className="postulants-table admrevmtm-plan-table">
+                            <thead>
+                              <tr>
+                                <th>Fecha</th>
+                                <th>Tema</th>
+                                <th>Estrategias y actividades</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {planTrabajo.actividades.map((a, i) => (
+                                <tr key={i}>
+                                  <td className="admrevmtm-plan-cell admrevmtm-plan-cell--fecha">
+                                    {a.fecha ? new Date(a.fecha).toLocaleDateString('es-CO') : '—'}
+                                  </td>
+                                  <td className="admrevmtm-plan-cell">{normalizarTextoPlanTrabajoMostrar(a.tema) || '—'}</td>
+                                  <td className="admrevmtm-plan-cell admrevmtm-plan-cell--estrategias">
+                                    {normalizarTextoPlanTrabajoMostrar(a.estrategiasMetodologias) || '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                   </>

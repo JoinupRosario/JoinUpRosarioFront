@@ -14,9 +14,9 @@ import '../styles/OportunidadesMTM.css';
 const badgeClass = (estado) =>
   estado === 'Activa' ? 'mtm-badge mtm-badge-activa' :
   estado === 'Inactiva' ? 'mtm-badge mtm-badge-inactiva' :
-  'mtm-badge mtm-badge-borrador';
+  'mtm-badge mtm-badge-creada';
 
-/** Etiqueta en UI: el backend sigue usando "Borrador" hasta activar. */
+/** Alineado a UrJobs: CREATED → Creada (histórico «Borrador» se normaliza con seed). */
 const mtmEstadoLabel = (estado) =>
   estado === 'Borrador' ? 'Creada' : estado || '—';
 
@@ -636,7 +636,7 @@ export default function OportunidadesMTM({ onVolver }) {
         </div>
         <select className="mtm-filter-select" value={filterEstado} onChange={e => setFilterEstado(e.target.value)}>
           <option value="">Todos los estados</option>
-          <option value="Borrador">Creada</option>
+          <option value="Creada">Creada</option>
           <option value="Activa">Activa</option>
           <option value="Inactiva">Inactiva</option>
         </select>
@@ -1138,7 +1138,7 @@ export default function OportunidadesMTM({ onVolver }) {
           {/* Acciones de estado */}
           {isAdmin && (
             <div className="mtm-detail-actions">
-              {op.estado === 'Borrador' && (
+              {(op.estado === 'Creada' || op.estado === 'Borrador') && (
                 <button className="mtm-btn-success" onClick={() => handleChangeStatus(op, 'Activa')}>
                   <FiCheck size={14} /> Activar
                 </button>

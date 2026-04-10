@@ -170,9 +170,20 @@
 
 .admlegmtm__filters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
   align-items: end;
+}
+
+/* Programa: ancho acotado (evita barra gigante); el desplegable sigue al ancho del control */
+.admlegmtm__field--programa {
+  max-width: min(100%, 380px);
+  min-width: 0;
+}
+
+.admlegmtm__control--programa {
+  width: 100%;
+  max-width: 100%;
 }
 
 .admlegmtm__filters-grid > .admlegmtm__btn--ghost {

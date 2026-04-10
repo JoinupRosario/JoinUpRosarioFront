@@ -219,7 +219,8 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.mtm-badge-borrador  { background: #f3f4f6; color: #6b7280; }
+.mtm-badge-borrador,
+.mtm-badge-creada  { background: #f3f4f6; color: #6b7280; }
 .mtm-badge-activa    { background: #d1fae5; color: #065f46; }
 .mtm-badge-inactiva  { background: #fee2e2; color: #991b1b; }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
 import '../styles/Oportunidades.css';
 import './SeguimientosEstudianteMTM.css';
 
@@ -15,6 +16,18 @@ const ESTADO_LABEL = {
   aprobado: 'Aprobado',
   rechazado: 'Rechazado',
 };
+
+/** Texto migrado con muchos \\n sueltos: compacta párrafos para listado de seguimientos. */
+function normalizarTextoSeguimientoMostrar(raw) {
+  if (raw == null) return '';
+  let s = String(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  if (!s) return '';
+  return s
+    .split(/\n{2,}/)
+    .map((block) => block.replace(/\n+/g, ' ').replace(/[ \t\f\v]+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
 
 const defaultForm = () => ({
   fecha: '',
@@ -52,6 +65,7 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
   const [seleccionadosMasivo, setSeleccionadosMasivo] = useState(new Set()); // IDs para aprobación/rechazo masivo
   const [accionMasivaLoading, setAccionMasivaLoading] = useState(false);
   const [actividadesPlan, setActividadesPlan] = useState([]); // Actividades del plan de trabajo para el select
+  const [previewSoporte, setPreviewSoporte] = useState({ open: false, url: null, title: '' });
 
   const load = () => {
     if (!postulacionId || !isValidPostulacionId(postulacionId)) return;
@@ -203,7 +217,17 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
     if (!seg.documentoSoporte?.key) return;
     const urlPath = isAdmin ? 'documento/url-admin' : 'documento/url';
     api.get(`/oportunidades-mtm/seguimientos/${postulacionId}/${seg._id}/${urlPath}`)
-      .then((r) => window.open(r.data?.url, '_blank'))
+      .then((r) => {
+        if (r.data?.url) {
+          setPreviewSoporte({
+            open: true,
+            url: r.data.url,
+            title: seg.documentoSoporte?.originalName || 'Documento de soporte',
+          });
+        } else {
+          Swal.fire({ icon: 'warning', title: 'No disponible', text: 'No se pudo cargar el documento.', confirmButtonColor: '#c41e3a' });
+        }
+      })
       .catch((err) => Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo abrir.', confirmButtonColor: '#c41e3a' }));
   };
 
@@ -508,26 +532,24 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
               : 'No hay seguimientos. Registre una actividad arriba.'}
           </p>
         ) : (
-          <div className={`seguimientos-mtm-list ${compact ? '' : 'segmtm-est__list'}`} style={compact ? { display: 'flex', flexDirection: 'column', gap: 8 } : undefined}>
+          <div
+            className={`seguimientos-mtm-list segmtm-est__list${compact ? ' segmtm-est__list--compact' : ''}`}
+          >
             {list.map((seg) => {
               const canEdit = seg.estado === 'pendiente_revision';
               const estadoLabel = ESTADO_LABEL[seg.estado] || seg.estado;
+              const estadoCard =
+                seg.estado === 'aprobado' ? 'segmtm-est__card--ok' : seg.estado === 'rechazado' ? 'segmtm-est__card--err' : 'segmtm-est__card--pend';
+              const comentarioTxt = normalizarTextoSeguimientoMostrar(seg.comentarios || seg.descripcion);
               return (
                 <div
                   key={seg._id}
-                  className={compact ? undefined : 'segmtm-est__card'}
-                  style={{
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 8,
-                    padding: compact ? 12 : undefined,
-                    background: '#fff',
-                    borderLeft: seg.estado === 'aprobado' ? '4px solid #16a34a' : seg.estado === 'rechazado' ? '4px solid #dc2626' : '4px solid #f59e0b',
-                  }}
+                  className={`segmtm-est__card ${estadoCard}${compact ? ' segmtm-est__card--compact' : ''}`}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <div className="segmtm-est__card-head">
+                    <div className="segmtm-est__card-head-main">
                       {isAdmin && seg.estado === 'pendiente_revision' && (
-                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                        <label className="segmtm-est__card-check">
                           <input
                             type="checkbox"
                             checked={seleccionadosMasivo.has(seg._id)}
@@ -535,74 +557,88 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
                           />
                         </label>
                       )}
-                      <div>
-                      <span style={{ fontWeight: 600, marginRight: 8 }}>{seg.tipoActividad || seg.tipo || '—'}</span>
-                      <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>
-                        {seg.fecha ? new Date(seg.fecha).toLocaleDateString('es-CO', { timeZone: 'UTC' }) : '—'}
-                      </span>
-                      <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 6, fontSize: 12, background: seg.estado === 'aprobado' ? '#dcfce7' : seg.estado === 'rechazado' ? '#fee2e2' : '#fef3c7', color: seg.estado === 'aprobado' ? '#166534' : seg.estado === 'rechazado' ? '#991b1b' : '#92400e' }}>
-                        {estadoLabel}
-                      </span>
+                      <div className="segmtm-est__card-titles">
+                        <span className="segmtm-est__card-tipo">{seg.tipoActividad || seg.tipo || '—'}</span>
+                        <span className="segmtm-est__card-fecha">
+                          {seg.fecha ? new Date(seg.fecha).toLocaleDateString('es-CO', { timeZone: 'UTC' }) : '—'}
+                        </span>
+                        <span className={`segmtm-est__card-badge segmtm-est__card-badge--${seg.estado === 'aprobado' ? 'ok' : seg.estado === 'rechazado' ? 'err' : 'pend'}`}>
+                          {estadoLabel}
+                        </span>
                       </div>
                     </div>
                     {canEdit && !isAdmin && (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button type="button" className="btn-secondary" style={{ fontSize: 12 }} onClick={() => handleEdit(seg)}>Editar</button>
-                        <button type="button" className="btn-secondary" style={{ fontSize: 12, color: '#dc2626' }} onClick={() => handleDelete(seg)}>Eliminar</button>
+                      <div className="segmtm-est__card-actions">
+                        <button type="button" className="btn-secondary segmtm-est__btn-xs" onClick={() => handleEdit(seg)}>Editar</button>
+                        <button type="button" className="btn-secondary segmtm-est__btn-xs segmtm-est__btn-danger" onClick={() => handleDelete(seg)}>Eliminar</button>
                       </div>
                     )}
                     {isAdmin && seg.estado === 'pendiente_revision' && (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button type="button" className="btn-guardar" style={{ fontSize: 12 }} disabled={accionSeguimientoId === seg._id} onClick={() => handleAprobar(seg)}>
+                      <div className="segmtm-est__card-actions">
+                        <button type="button" className="btn-guardar segmtm-est__btn-xs" disabled={accionSeguimientoId === seg._id} onClick={() => handleAprobar(seg)}>
                           {accionSeguimientoId === seg._id ? '...' : 'Aprobar'}
                         </button>
-                        <button type="button" className="btn-secondary" style={{ fontSize: 12, color: '#dc2626' }} disabled={accionSeguimientoId === seg._id} onClick={() => handleRechazar(seg)}>Rechazar</button>
+                        <button type="button" className="btn-secondary segmtm-est__btn-xs segmtm-est__btn-danger" disabled={accionSeguimientoId === seg._id} onClick={() => handleRechazar(seg)}>Rechazar</button>
                       </div>
                     )}
                   </div>
-                  <div style={{ marginTop: 8, fontSize: 14, color: '#374151' }}>
-                    {seg.numeroEstudiantesConvocados != null && <span style={{ marginRight: 12 }}>Convocados: {seg.numeroEstudiantesConvocados}</span>}
-                    {seg.numeroEstudiantesAtendidos != null && <span style={{ marginRight: 12 }}>Atendidos: {seg.numeroEstudiantesAtendidos}</span>}
+                  <div className="segmtm-est__card-stats">
+                    {seg.numeroEstudiantesConvocados != null && <span>Convocados: {seg.numeroEstudiantesConvocados}</span>}
+                    {seg.numeroEstudiantesAtendidos != null && <span>Atendidos: {seg.numeroEstudiantesAtendidos}</span>}
                     {seg.cantidadHoras != null && <span>Horas: {seg.cantidadHoras}</span>}
                   </div>
-                  {(seg.comentarios || seg.descripcion) && (
-                    <p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{seg.comentarios || seg.descripcion}</p>
-                  )}
+                  {comentarioTxt ? (
+                    <p className="segmtm-est__comentarios">{comentarioTxt}</p>
+                  ) : null}
                   {seg.estado === 'rechazado' && seg.rechazoMotivo && (
-                    <p style={{ marginTop: 6, fontSize: 13, color: '#b91c1c' }}>Motivo rechazo: {seg.rechazoMotivo}</p>
+                    <p className="segmtm-est__rechazo-motivo">Motivo rechazo: {seg.rechazoMotivo}</p>
                   )}
-                  {/* Estados y responsables visibles */}
-                  <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #f3f4f6', fontSize: 12, color: '#6b7280', display: 'flex', flexWrap: 'wrap', gap: '12px 16px' }}>
+                  <div className="segmtm-est__card-audit">
                     {seg.creadoPor?.name && (
-                      <span>Registrado por: <strong style={{ color: '#374151' }}>{seg.creadoPor.name}</strong></span>
+                      <span>Registrado por: <strong>{seg.creadoPor.name}</strong></span>
                     )}
                     {seg.estado === 'aprobado' && (seg.aprobadoPor?.name || seg.aprobadoAt) && (
-                      <span style={{ color: '#166534' }}>
+                      <span className="segmtm-est__card-audit--ok">
                         Aprobado por: <strong>{seg.aprobadoPor?.name || '—'}</strong>
                         {seg.aprobadoAt && <> el {new Date(seg.aprobadoAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}</>}
                       </span>
                     )}
                     {seg.estado === 'rechazado' && seg.rechazadoAt && (
-                      <span style={{ color: '#991b1b' }}>
+                      <span className="segmtm-est__card-audit--err">
                         Rechazado el {new Date(seg.rechazadoAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
                     )}
                   </div>
-                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div className="segmtm-est__card-doc">
+                    <div className="segmtm-est__card-doc-title">Documento de soporte</div>
                     {seg.documentoSoporte?.key ? (
-                      <button type="button" className="btn-secondary" style={{ fontSize: 12 }} onClick={() => (isAdmin ? downloadDocAdmin(seg) : openDocUrl(seg))}>
-                        {isAdmin ? 'Descargar documento soporte' : 'Ver documento soporte'}
-                      </button>
-                    ) : canEdit && !isAdmin && (
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        style={{ fontSize: 12 }}
-                        disabled={uploadingDocId === seg._id}
-                        onClick={() => triggerUploadDoc(seg._id)}
-                      >
-                        {uploadingDocId === seg._id ? 'Subiendo...' : 'Subir documento soporte (PDF)'}
-                      </button>
+                      <div className="segmtm-est__card-doc-row">
+                        <span className="segmtm-est__card-doc-name">
+                          {seg.documentoSoporte?.originalName || 'Archivo adjunto'}
+                        </span>
+                        <button type="button" className="btn-secondary segmtm-est__btn-xs" onClick={() => openDocUrl(seg)}>
+                          Ver
+                        </button>
+                        {isAdmin && (
+                          <button type="button" className="btn-secondary segmtm-est__btn-xs" onClick={() => downloadDocAdmin(seg)}>
+                            Descargar
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="segmtm-est__card-doc-row">
+                        <span className="segmtm-est__card-doc-empty">Sin documento adjunto</span>
+                        {canEdit && !isAdmin && (
+                          <button
+                            type="button"
+                            className="btn-secondary segmtm-est__btn-xs"
+                            disabled={uploadingDocId === seg._id}
+                            onClick={() => triggerUploadDoc(seg._id)}
+                          >
+                            {uploadingDocId === seg._id ? 'Subiendo...' : 'Subir documento soporte (PDF)'}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -611,6 +647,13 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
           </div>
         )}
       </section>
+
+      <PdfPreviewModal
+        open={previewSoporte.open}
+        onClose={() => setPreviewSoporte({ open: false, url: null, title: '' })}
+        title={previewSoporte.title}
+        url={previewSoporte.url}
+      />
     </div>
   );
 }
