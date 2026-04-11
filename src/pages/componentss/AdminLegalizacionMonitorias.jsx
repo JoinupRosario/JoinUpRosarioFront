@@ -11,6 +11,7 @@ const ESTADO_LABEL = {
   creada: 'Creada',
   en_revision: 'En revisión',
   aprobada: 'Legalizada',
+  finalizada: 'Finalizada',
   rechazada: 'Anulada',
   en_ajuste: 'En ajuste',
   legalizada: 'Legalizada',
@@ -24,6 +25,7 @@ const ESTADO_BD_FILTRO_LABEL = {
   borrador: 'Borrador',
   en_revision: 'En revisión',
   aprobada: 'Legalizada',
+  finalizada: 'Finalizada',
   rechazada: 'Anulada',
   en_ajuste: 'En ajuste',
 };

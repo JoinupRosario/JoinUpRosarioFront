@@ -13,6 +13,7 @@ function badgeClassPorCodigoLegalizacion(codigo) {
     borrador: 'legaliz-mtm-badge legaliz-mtm-badge--borrador',
     en_revision: 'legaliz-mtm-badge legaliz-mtm-badge--revision',
     aprobada: 'legaliz-mtm-badge legaliz-mtm-badge--aprobada',
+    finalizada: 'legaliz-mtm-badge legaliz-mtm-badge--aprobada',
     rechazada: 'legaliz-mtm-badge legaliz-mtm-badge--rechazada',
     en_ajuste: 'legaliz-mtm-badge legaliz-mtm-badge--ajuste',
   };
@@ -30,6 +31,7 @@ function etiquetaCortaLegalizacion(codigo, etiquetaLarga) {
     borrador: 'Creada',
     en_revision: 'En revisión',
     aprobada: 'Legalizada',
+    finalizada: 'Finalizada',
     rechazada: 'Rechazada',
     en_ajuste: 'En ajuste',
   };
@@ -60,7 +62,9 @@ export default function LegalizacionesMonitorias() {
 
   const legalizacionAprobada = (row) =>
     row?.estadoLegalizacionCodigo === 'aprobada' ||
+    row?.estadoLegalizacionCodigo === 'finalizada' ||
     row?.estadoLegalizacion === 'Legalizada' ||
+    row?.estadoLegalizacion === 'Finalizada' ||
     row?.estadoLegalizacion === 'Aprobada';
   const planAprobado = (row) => row?.planAprobado === true;
 

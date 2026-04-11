@@ -327,9 +327,10 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
       </header>
 
       {!isCreada && (
-        <p className={`legalizacion-mtm__estado legalizacion-mtm__estado--${legalizacion?.estado === 'aprobada' ? 'ok' : legalizacion?.estado === 'rechazada' ? 'error' : legalizacion?.estado === 'en_ajuste' ? 'error' : 'revision'}`}>
+        <p className={`legalizacion-mtm__estado legalizacion-mtm__estado--${legalizacion?.estado === 'aprobada' || legalizacion?.estado === 'finalizada' ? 'ok' : legalizacion?.estado === 'rechazada' ? 'error' : legalizacion?.estado === 'en_ajuste' ? 'error' : 'revision'}`}>
           {legalizacion?.estado === 'en_revision' && 'Estado: En revisión por la coordinación.'}
           {legalizacion?.estado === 'aprobada' && 'Estado: Legalizada.'}
+          {legalizacion?.estado === 'finalizada' && 'Estado: Finalizada.'}
           {legalizacion?.estado === 'rechazada' && `Estado: Rechazada. ${legalizacion.rechazoMotivo || ''}`}
           {legalizacion?.estado === 'en_ajuste' && (
             <>Estado: En ajuste. Debe corregir los documentos indicados como rechazados y volver a enviar a revisión. {legalizacion.rechazoMotivo && `Motivo: ${legalizacion.rechazoMotivo}`}</>

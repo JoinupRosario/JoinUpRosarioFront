@@ -19,6 +19,24 @@ function defIdStr(d) {
   return d?._id != null ? String(d._id) : '';
 }
 
+/** Código de estado en BD (minúsculas); tolera mayúsculas o etiquetas legibles por error de migración. */
+function normalizarCodigoEstadoLegalizacionMtm(raw) {
+  if (raw == null) return '';
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return '';
+  if (s === 'finalizada' || s === 'aprobada' || s === 'legalizada') return s === 'legalizada' ? 'aprobada' : s;
+  if (s === 'creada' || s === 'borrador') return 'creada';
+  if (s === 'en_revision' || s === 'en revisión' || s.replace(/\s/g, '_') === 'en_revision') return 'en_revision';
+  if (s === 'rechazada' || s === 'anulada') return 'rechazada';
+  if (s === 'en_ajuste' || s.replace(/\s/g, '_') === 'en_ajuste') return 'en_ajuste';
+  return s;
+}
+
+function legalizacionMtmPermitePlanTrabajoAdmin(estadoRaw) {
+  const e = normalizarCodigoEstadoLegalizacionMtm(estadoRaw);
+  return e === 'aprobada' || e === 'finalizada';
+}
+
 /**
  * Plan migrado desde legado con muchos saltos de línea sueltos: compacta sin perder párrafos
  * (bloques separados por 2+ saltos se conservan; dentro de cada bloque, \n → espacio).
@@ -77,7 +95,8 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   }, [postulacionId]);
 
   useEffect(() => {
-    if (!postulacionId || legalizacion?.estado !== 'aprobada') {
+    const legOk = legalizacionMtmPermitePlanTrabajoAdmin(legalizacion?.estado);
+    if (!postulacionId || !legOk) {
       setPlanTrabajo(null);
       return;
     }
@@ -88,12 +107,14 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
       .finally(() => setLoadingPlan(false));
   }, [postulacionId, legalizacion?.estado]);
 
-  /** Link de asistencia y pestaña Seguimientos: solo si el plan de trabajo ya está aprobado. */
+  /** Estudiante: solo con plan aprobado. Admin: también con legalización finalizada/aprobada (revisión de datos migrados). */
   const planTrabajoAprobadoParaSeguimientos = planTrabajo?.estado === 'aprobado';
+  const mostrarTabSeguimientosAdmin =
+    planTrabajoAprobadoParaSeguimientos || legalizacionMtmPermitePlanTrabajoAdmin(legalizacion?.estado);
 
   useEffect(() => {
-    if (tabActiva === 'seguimientos' && !planTrabajoAprobadoParaSeguimientos) setTabActiva('datos');
-  }, [tabActiva, planTrabajoAprobadoParaSeguimientos]);
+    if (tabActiva === 'seguimientos' && !mostrarTabSeguimientosAdmin) setTabActiva('datos');
+  }, [tabActiva, mostrarTabSeguimientosAdmin]);
 
   const exportarReporteAsistenciaEstaMonitoria = () => {
     if (!postulacionId) return;
@@ -402,11 +423,12 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
     borrador: 'Creada',
     en_revision: 'En revisión',
     aprobada: 'Legalizada',
+    finalizada: 'Finalizada',
     rechazada: 'Anulada',
     en_ajuste: 'En ajuste',
   };
-  const enRevision = legalizacion?.estado === 'en_revision';
-  const legalizacionAprobada = legalizacion?.estado === 'aprobada';
+  const enRevision = normalizarCodigoEstadoLegalizacionMtm(legalizacion?.estado) === 'en_revision';
+  const legalizacionAprobada = legalizacionMtmPermitePlanTrabajoAdmin(legalizacion?.estado);
   const planEnRevision = planTrabajo?.estado === 'enviado_revision';
   const docs = legalizacion?.documentos || {};
   const rawDocumentosMap = legalizacion?.documentos;
@@ -464,8 +486,8 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
         </div>
         <div className="legalizacion-mtm__topbar-actions">
           {legalizacion?.estado && (
-            <span className={`legalizacion-mtm__estado legalizacion-mtm__estado--${legalizacion.estado === 'aprobada' ? 'ok' : legalizacion.estado === 'rechazada' ? 'error' : 'revision'}`}>
-              Estado: {estadoLabel[legalizacion.estado] ?? legalizacion.estado}
+            <span className={`legalizacion-mtm__estado legalizacion-mtm__estado--${legalizacionAprobada ? 'ok' : normalizarCodigoEstadoLegalizacionMtm(legalizacion.estado) === 'rechazada' ? 'error' : 'revision'}`}>
+              Estado: {estadoLabel[normalizarCodigoEstadoLegalizacionMtm(legalizacion.estado)] ?? legalizacion.estado}
             </span>
           )}
           {enRevision && (
@@ -522,7 +544,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                 Plan de trabajo
               </button>
             )}
-            {planTrabajoAprobadoParaSeguimientos && (
+            {mostrarTabSeguimientosAdmin && (
               <button
                 type="button"
                 className={`legalizacion-mtm__tab ${tabActiva === 'seguimientos' ? 'legalizacion-mtm__tab--active' : ''}`}
@@ -575,7 +597,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                     <dt>Asignaturas</dt><dd>{oportunidad?.asignaturas?.length ? oportunidad.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ') : '—'}</dd>
                   </dl>
                 </section>
-                {planTrabajoAprobadoParaSeguimientos && (
+                {mostrarTabSeguimientosAdmin && (
                   <section className="legalizacion-mtm__section">
                     <h3 className="legalizacion-mtm__section-title">Link de asistencia</h3>
                     <p className="legalizacion-mtm__hint">Un único link por MTM para todo el semestre. Compártalo con los estudiantes para que registren su asistencia a los espacios.</p>
@@ -724,7 +746,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
               </section>
             )}
 
-            {tabActiva === 'seguimientos' && planTrabajoAprobadoParaSeguimientos && (
+            {tabActiva === 'seguimientos' && mostrarTabSeguimientosAdmin && (
               <section className="legalizacion-mtm__section">
                 <SeguimientosMTM compact isAdmin postulacionId={postulacionId} />
               </section>
