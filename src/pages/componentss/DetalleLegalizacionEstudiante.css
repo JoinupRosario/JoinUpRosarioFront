@@ -188,3 +188,107 @@
   margin: 0 auto;
   object-fit: contain;
 }
+
+/* ── Tarjetas «Datos generales» (vista estudiante MTM), misma línea visual que revisión admin ── */
+.legmtm-estudiante .legmtm-est__panel-card.legalizacion-mtm__section {
+  position: relative;
+  border-radius: 16px;
+  padding: 1.45rem 1.5rem 1.55rem;
+  border: 1px solid #e8ecf1;
+  border-top: none;
+  box-shadow:
+    0 4px 16px rgba(15, 23, 42, 0.06),
+    0 1px 3px rgba(15, 23, 42, 0.04);
+  background: #fff;
+  overflow: hidden;
+}
+
+.legmtm-estudiante .legmtm-est__panel-card.legalizacion-mtm__section::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #c41e3a 0%, #e11d48 55%, #f43f5e 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+.legmtm-estudiante .legmtm-est__panel-card .legalizacion-mtm__section-title.legmtm-est__panel-card__title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-top: 0;
+  margin-bottom: 1.1rem;
+  padding-top: 0.15rem;
+  padding-bottom: 0;
+  border-bottom: none;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.legmtm-est__panel-card__kicker {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #c41e3a;
+  line-height: 1.2;
+}
+
+.legmtm-est__panel-card__title-main {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #eef2f6;
+  font-size: 1.06rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+  line-height: 1.28;
+  text-align: start;
+}
+
+.legmtm-estudiante .legmtm-est__grid-admrev {
+  display: grid;
+  grid-template-columns: minmax(9.25rem, 26%) minmax(0, 1fr);
+  column-gap: 1.1rem;
+  row-gap: 0.55rem;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .legmtm-estudiante .legmtm-est__grid-admrev {
+    grid-template-columns: minmax(10rem, 28%) minmax(0, 1fr);
+    column-gap: 1.25rem;
+  }
+}
+
+.legmtm-estudiante .legmtm-est__panel-card .legmtm-est__grid-admrev dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  line-height: 1.35;
+  padding-top: 0.12em;
+}
+
+.legmtm-estudiante .legmtm-est__panel-card .legmtm-est__grid-admrev dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #0f172a;
+  line-height: 1.45;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* Práctica estudiante: botón «Ver funciones» alineado con grid */
+.legmtm-estudiante .legmtm-est__funciones-dd {
+  margin: 0;
+  min-width: 0;
+}

@@ -338,16 +338,38 @@
   letter-spacing: 0.5px;
 }
 
+.users-table__th--check,
+.users-table__td--check {
+  text-align: center;
+  width: 44px;
+  box-sizing: border-box;
+}
+
 .users-table td {
   padding: 10px 12px;
   border-bottom: 1px solid #f0f0f0;
   font-size: 13px;
   vertical-align: middle;
+  text-align: left;
 }
 
-/* Centrar contenido en la columna ROLES */
-.users-table td:nth-child(7) {
-  text-align: center;
+.users-table__td--phone {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.users-table__th--estado,
+.users-table__td--estado {
+  text-align: left;
+  vertical-align: middle;
+}
+
+.users-table__td--estado .switch-container--table,
+.users-table__td--estado .switch-container--text-only {
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
 }
 
 .users-table tr:hover {
@@ -461,27 +483,30 @@
 }
 
 .slider:hover {
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
 }
 
 input:checked+.slider:hover {
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  box-shadow: 0 1px 5px rgba(51, 65, 85, 0.35);
 }
 
 .status-text {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  min-width: 40px;
-  text-align: center;
+  letter-spacing: 0.04em;
+  text-align: left;
 }
 
+/* Activo / inactivo: pizarra (sin verde chillón) */
 .status-text.active {
-  color: #10b981;
+  color: #334155;
+  font-weight: 700;
 }
 
 .status-text.inactive {
-  color: #ef4444;
+  color: #94a3b8;
+  font-weight: 600;
 }
 
 /* Switch de estado de usuario */
@@ -489,7 +514,27 @@ input:checked+.slider:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  justify-content: center;
+  justify-content: flex-start;
+}
+
+.switch-container--table {
+  justify-content: flex-start;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  min-height: 28px;
+  gap: 10px;
+}
+
+.users-table__td--estado .switch {
+  flex-shrink: 0;
+}
+
+.users-table__td--estado .status-text {
+  line-height: 1.2;
+}
+
+.switch-container--text-only {
+  padding-left: 2px;
 }
 
 .switch {
@@ -512,7 +557,7 @@ input:checked+.slider:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: #cbd5e1;
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -531,11 +576,42 @@ input:checked+.slider:hover {
 }
 
 input:checked+.slider {
-  background-color: #10b981;
+  background-color: #64748b;
 }
 
 input:checked+.slider:before {
   transform: translateX(22px);
+}
+
+/* Tabla usuarios: mayor especificidad para que otros CSS no reintroduzcan verde/rojo */
+.users-table .slider {
+  background-color: #cbd5e1;
+}
+
+.users-table input:checked + .slider {
+  background-color: #64748b;
+}
+
+.users-table input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.users-table .slider:hover {
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.users-table input:checked + .slider:hover {
+  box-shadow: 0 1px 5px rgba(51, 65, 85, 0.35);
+}
+
+.users-table .status-text.active {
+  color: #334155;
+  font-weight: 700;
+}
+
+.users-table .status-text.inactive {
+  color: #94a3b8;
+  font-weight: 600;
 }
 
 .user-status.active {
@@ -613,16 +689,37 @@ input:checked+.slider:before {
   border-color: #9ca3af;
 }
 
-/* Lista de Roles en tabla */
+/*
+ * Roles en tabla: el contenedor mide lo que ocupa el badge más ancho (p. ej. "Docente monitor")
+ * y todos los badges de esa fila comparten esa misma anchura (p. ej. "DAF" no queda más angosto).
+ */
+.users-table .roles-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: fit-content;
+  max-width: min(22rem, 100%);
+  box-sizing: border-box;
+}
+
+.users-table__td--roles {
+  text-align: left;
+  vertical-align: middle;
+}
+
+.users-table__th--roles {
+  text-align: left;
+}
+
 .roles-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   margin: 0 !important;
   padding: 0 !important;
 }
@@ -642,24 +739,42 @@ input:checked+.slider:before {
 }
 
 .rol-tag {
-  background: #e8f5e8;
-  color: #2e7d32;
-  padding: 3px 6px;
-  border-radius: 10px;
-  font-size: 10px;
-  font-weight: 500;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  line-height: 1;
+  justify-content: flex-start;
+  line-height: 1.3;
   vertical-align: middle;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  min-height: 26px;
+  width: auto;
+  max-width: 18rem;
+}
+
+.users-table .rol-tag {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.users-table .no-roles {
+  align-self: flex-start;
 }
 
 .no-roles {
-  color: #6b7280;
+  color: #64748b;
   font-style: italic;
   font-size: 11px;
+  font-weight: 500;
 }
 
 /* ---------- Formulario de Crear Usuario (diseño actualizado) ---------- */
@@ -906,6 +1021,220 @@ input:checked+.slider:before {
   max-width: none;
   width: 100%;
   margin: 0;
+}
+
+/* Asociar programas: ancho completo, tabla y paginación alineadas */
+.programas-asignar {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.programas-asignar-card {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.programas-asignar-toolbar {
+  margin-bottom: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  border-bottom: 1px solid #eef2f6 !important;
+  background: #f8fafc !important;
+  flex-wrap: wrap;
+  gap: 12px !important;
+  align-items: center;
+}
+
+.programas-asignar-toolbar .search-box {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.programas-asignar-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.btn-programas-sec {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-programas-sec:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #1f2937;
+}
+
+.btn-programas-sec:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.programas-asignar-table {
+  margin-bottom: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.programas-asignar-table .roles-table-header {
+  padding: 12px 18px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #475569;
+}
+
+.programas-asignar-table .rol-table-row {
+  padding: 12px 18px;
+  align-items: center;
+}
+
+.programas-asignar-table .rol-name {
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: #1f2937;
+  text-transform: none;
+}
+
+.programas-asignar-meta {
+  color: #64748b;
+  margin-left: 6px;
+  font-weight: 500;
+}
+
+.programas-asignar-level {
+  color: #94a3b8;
+  font-size: 12px;
+  margin-left: 4px;
+  font-weight: 500;
+}
+
+.programas-asignar-table .rol-col-estado {
+  width: 112px;
+  min-width: 112px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.rol-switch-container--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Interruptor asignar programa: neutro (sin rojo institucional en “on”) */
+.rol-switch--neutral input:checked + .rol-slider {
+  background-color: #64748b;
+  border-color: #475569;
+}
+
+.rol-switch--neutral input:checked + .rol-slider:hover {
+  box-shadow: 0 1px 5px rgba(51, 65, 85, 0.35);
+}
+
+.rol-switch--neutral .rol-slider:hover {
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.programas-asignar-loading,
+.programas-asignar-empty {
+  padding: 28px 20px !important;
+}
+
+.programas-asignar-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #f8fafc;
+  border-top: 1px solid #eef2f6;
+}
+
+.programas-asignar-pagination-info {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.programas-asignar-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.programas-asignar-page-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  padding: 0 4px;
+}
+
+@media (max-width: 768px) {
+  .programas-asignar-toolbar {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .programas-asignar-toolbar .search-box {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .programas-asignar-bulk {
+    width: 100%;
+  }
+
+  .btn-programas-sec {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .programas-asignar-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .programas-asignar-pagination-controls {
+    justify-content: space-between;
+  }
+
+  .programas-asignar-table .rol-table-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .programas-asignar-table .rol-col-estado {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
 }
 
 .roles-toolbar {
@@ -1425,8 +1754,13 @@ input:checked+.slider:before {
 
   .switch-container {
     flex-direction: row;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 8px;
+  }
+
+  .switch-container--table {
+    flex-direction: row;
+    justify-content: flex-start;
   }
 
   .status-text {
@@ -1615,23 +1949,12 @@ input:checked+.slider:before {
   }
 }
 
-.switch-container {
-  flex-direction: column;
-  gap: 8px;
-}
-
-.status-text {
-  font-size: 11px;
-}
-
 .users-table {
   min-width: 800px;
-  /* Aún más pequeño para pantallas muy pequeñas */
 }
 
 .users-table th,
 .users-table td {
   padding: 8px 12px;
-  /* Reducir padding en móviles */
   font-size: 13px;
 }

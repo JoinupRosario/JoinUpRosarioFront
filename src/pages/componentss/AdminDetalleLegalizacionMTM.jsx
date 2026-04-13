@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { FiArrowLeft } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
@@ -474,7 +475,10 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
     <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full admrevmtm">
       <header className="legalizacion-mtm__topbar">
         <div className="legalizacion-mtm__topbar-left">
-          <button type="button" className="legalizacion-mtm__back" onClick={onVolver}>← Volver</button>
+          <button type="button" className="btn-volver" onClick={onVolver}>
+            <FiArrowLeft className="btn-icon" aria-hidden />
+            Volver
+          </button>
           <div>
             <h2 className="legalizacion-mtm__title">Revisión de legalización</h2>
             <p className="admrevmtm__subtitle">
@@ -558,48 +562,57 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
           <div className="legalizacion-mtm__body">
             {tabActiva === 'datos' && (
               <div className="legalizacion-mtm__panels">
-                <section className="legalizacion-mtm__section">
-                  <h3 className="legalizacion-mtm__section-title">Datos del estudiante</h3>
-                  <dl className="legalizacion-mtm__grid">
-                    <dt>Nombre</dt><dd>{estudiante?.nombre ?? '—'}</dd>
-                    <dt>Correo institucional</dt><dd>{estudiante?.correoInstitucional ?? '—'}</dd>
-                    <dt>Correo alterno</dt><dd>{estudiante?.correoAlterno ?? '—'}</dd>
-                    <dt>Identificación</dt><dd>{estudiante?.identificacion ?? '—'}</dd>
-                    <dt>Celular</dt><dd>{estudiante?.celular ?? '—'}</dd>
-                    <dt>Dirección</dt><dd>{estudiante?.direccion ?? '—'}</dd>
-                    <dt>Localidad / Barrio</dt><dd>{estudiante?.localidadBarrio ?? '—'}</dd>
-                    <dt>Facultad</dt><dd>{estudiante?.facultad ?? '—'}</dd>
-                    <dt>Programa</dt><dd>{estudiante?.programa ?? '—'}</dd>
-                    <dt>EPS</dt><dd>{legalizacion?.eps?.value ?? legalizacion?.eps?.description ?? '—'}</dd>
-                    <dt>Tipo de cuenta</dt><dd>{legalizacion?.tipoCuentaValor ?? legalizacion?.tipoCuenta?.value ?? '—'}</dd>
-                    <dt>Banco</dt><dd>{legalizacion?.banco?.value ?? legalizacion?.banco?.description ?? '—'}</dd>
-                    <dt>Número de cuenta</dt><dd>{legalizacion?.numeroCuenta ?? '—'}</dd>
+                <section className="legalizacion-mtm__section admrevmtm-panel-card" lang="es">
+                  <h3 className="legalizacion-mtm__section-title admrevmtm-panel-card__title">
+                    <span className="admrevmtm-panel-card__kicker">Estudiante</span>
+                    <span className="admrevmtm-panel-card__title-main">Datos del estudiante</span>
+                  </h3>
+                  <dl className="legalizacion-mtm__grid legalizacion-mtm__grid--admrev">
+                    <dt>Nombre</dt><dd className="admrevmtm-dd-value">{estudiante?.nombre ?? '—'}</dd>
+                    <dt>Correo institucional</dt><dd className="admrevmtm-dd-value">{estudiante?.correoInstitucional ?? '—'}</dd>
+                    <dt>Correo alterno</dt><dd className="admrevmtm-dd-value">{estudiante?.correoAlterno ?? '—'}</dd>
+                    <dt>Identificación</dt><dd className="admrevmtm-dd-value">{estudiante?.identificacion ?? '—'}</dd>
+                    <dt>Celular</dt><dd className="admrevmtm-dd-value">{estudiante?.celular ?? '—'}</dd>
+                    <dt>Dirección</dt><dd className="admrevmtm-dd-value">{estudiante?.direccion ?? '—'}</dd>
+                    <dt>Localidad / Barrio</dt><dd className="admrevmtm-dd-value">{estudiante?.localidadBarrio ?? '—'}</dd>
+                    <dt>Facultad</dt><dd className="admrevmtm-dd-value">{estudiante?.facultad ?? '—'}</dd>
+                    <dt>Programa</dt><dd className="admrevmtm-dd-value">{estudiante?.programa ?? '—'}</dd>
+                    <dt>EPS</dt><dd className="admrevmtm-dd-value">{legalizacion?.eps?.value ?? legalizacion?.eps?.description ?? '—'}</dd>
+                    <dt>Tipo de cuenta</dt><dd className="admrevmtm-dd-value">{legalizacion?.tipoCuentaValor ?? legalizacion?.tipoCuenta?.value ?? '—'}</dd>
+                    <dt>Banco</dt><dd className="admrevmtm-dd-value">{legalizacion?.banco?.value ?? legalizacion?.banco?.description ?? '—'}</dd>
+                    <dt>Número de cuenta</dt><dd className="admrevmtm-dd-value">{legalizacion?.numeroCuenta ?? '—'}</dd>
                   </dl>
                 </section>
-                <section className="legalizacion-mtm__section">
-                  <h3 className="legalizacion-mtm__section-title">Datos de la monitoría</h3>
-                  <dl className="legalizacion-mtm__grid">
-                    <dt>Nombre MTM</dt><dd>{oportunidad?.nombreCargo ?? '—'}</dd>
-                    <dt>Periodo</dt><dd>{oportunidad?.periodo?.codigo ?? '—'}</dd>
+                <section className="legalizacion-mtm__section admrevmtm-panel-card" lang="es">
+                  <h3 className="legalizacion-mtm__section-title admrevmtm-panel-card__title">
+                    <span className="admrevmtm-panel-card__kicker">Monitoría</span>
+                    <span className="admrevmtm-panel-card__title-main">Datos de la monitoría</span>
+                  </h3>
+                  <dl className="legalizacion-mtm__grid legalizacion-mtm__grid--admrev">
+                    <dt>Nombre MTM</dt><dd className="admrevmtm-dd-value">{oportunidad?.nombreCargo ?? '—'}</dd>
+                    <dt>Periodo</dt><dd className="admrevmtm-dd-value">{oportunidad?.periodo?.codigo ?? '—'}</dd>
                     <dt>Coordinador</dt>
-                    <dd>
+                    <dd className="admrevmtm-dd-value">
                       {oportunidad?.profesorResponsable
                         ? [oportunidad.profesorResponsable.nombres, oportunidad.profesorResponsable.apellidos].filter(Boolean).join(' ')
                         : (oportunidad?.nombreProfesor && String(oportunidad.nombreProfesor).trim()) || '—'}
                     </dd>
-                    <dt>Correo coordinador</dt><dd>{oportunidad?.profesorResponsable?.user?.email ?? '—'}</dd>
-                    <dt>Categoría</dt><dd>{oportunidad?.categoria?.value ?? oportunidad?.categoria?.description ?? '—'}</dd>
-                    <dt>Número de horas a la semana</dt><dd>{oportunidad?.dedicacionHoras?.value ?? oportunidad?.dedicacionHoras?.description ?? '—'}</dd>
-                    {oportunidad?.limiteHoras != null && <><dt>Límite de horas</dt><dd>{oportunidad.limiteHoras}</dd></>}
-                    {oportunidad?.centroCosto && <><dt>Centro de costo</dt><dd>{oportunidad.centroCosto}</dd></>}
-                    {oportunidad?.codigoCPS && <><dt>Código CPS</dt><dd>{oportunidad.codigoCPS}</dd></>}
-                    <dt>Valor por hora</dt><dd>{oportunidad?.valorPorHora?.value ?? oportunidad?.valorPorHora?.description ?? '—'}</dd>
-                    <dt>Asignaturas</dt><dd>{oportunidad?.asignaturas?.length ? oportunidad.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ') : '—'}</dd>
+                    <dt>Correo coordinador</dt><dd className="admrevmtm-dd-value">{oportunidad?.profesorResponsable?.user?.email ?? '—'}</dd>
+                    <dt>Categoría</dt><dd className="admrevmtm-dd-value">{oportunidad?.categoria?.value ?? oportunidad?.categoria?.description ?? '—'}</dd>
+                    <dt>Número de horas a la semana</dt><dd className="admrevmtm-dd-value">{oportunidad?.dedicacionHoras?.value ?? oportunidad?.dedicacionHoras?.description ?? '—'}</dd>
+                    {oportunidad?.limiteHoras != null && <><dt>Límite de horas</dt><dd className="admrevmtm-dd-value">{oportunidad.limiteHoras}</dd></>}
+                    {oportunidad?.centroCosto && <><dt>Centro de costo</dt><dd className="admrevmtm-dd-value">{oportunidad.centroCosto}</dd></>}
+                    {oportunidad?.codigoCPS && <><dt>Código CPS</dt><dd className="admrevmtm-dd-value">{oportunidad.codigoCPS}</dd></>}
+                    <dt>Valor por hora</dt><dd className="admrevmtm-dd-value">{oportunidad?.valorPorHora?.value ?? oportunidad?.valorPorHora?.description ?? '—'}</dd>
+                    <dt>Asignaturas</dt><dd className="admrevmtm-dd-value">{oportunidad?.asignaturas?.length ? oportunidad.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ') : '—'}</dd>
                   </dl>
                 </section>
-                {mostrarTabSeguimientosAdmin && (
-                  <section className="legalizacion-mtm__section">
-                    <h3 className="legalizacion-mtm__section-title">Link de asistencia</h3>
+                {planTrabajoAprobadoParaSeguimientos && (
+                  <section className="legalizacion-mtm__section admrevmtm-panel-card" lang="es">
+                    <h3 className="legalizacion-mtm__section-title admrevmtm-panel-card__title">
+                      <span className="admrevmtm-panel-card__kicker">Asistencia</span>
+                      <span className="admrevmtm-panel-card__title-main">Link de asistencia</span>
+                    </h3>
                     <p className="legalizacion-mtm__hint">Un único link por MTM para todo el semestre. Compártalo con los estudiantes para que registren su asistencia a los espacios.</p>
                     <button
                       type="button"

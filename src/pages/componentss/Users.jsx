@@ -664,15 +664,15 @@ const Users = ({ onVolver }) => {
             <table className="users-table">
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th className="users-table__th users-table__th--check">#</th>
                   <th>NOMBRES</th>
                   <th>APELLIDOS</th>
                   <th>IDENTIFICACIÓN</th>
                   <th>USUARIO</th>
-                  <th>ROLES</th>
+                  <th className="users-table__th users-table__th--roles">ROLES</th>
                   {!HIDE_SUCURSALES_UI && <th>SEDE</th>}
-                  <th>CELULAR</th>
-                  <th>ESTADO</th>
+                  <th className="users-table__th users-table__th--phone">CELULAR</th>
+                  <th className="users-table__th users-table__th--estado">ESTADO</th>
                 </tr>
               </thead>
               <tbody>
@@ -683,7 +683,7 @@ const Users = ({ onVolver }) => {
                     style={{ cursor: (canVUSU || canEDUS) ? 'pointer' : 'default' }}
                     className={(canVUSU || canEDUS) ? 'table-row-clickable' : ''}
                   >
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <td className="users-table__td users-table__td--check" onClick={(e) => e.stopPropagation()}>
                       <div className="user-selection">
                         <input
                           type="checkbox"
@@ -697,12 +697,14 @@ const Users = ({ onVolver }) => {
                     <td>{user.apellidos}</td>
                     <td>{user.identificacion}</td>
                     <td>{user.user?.email}</td>
-                    <td>
+                    <td className="users-table__td users-table__td--roles">
                       <div className="roles-list">
                         {user.roles && user.roles.length > 0 ? (
                           user.roles.map((rolObj, index) => (
                             rolObj.estado && (
-                              <span key={index} className="rol-tag">• {rolObj.rol?.nombre}</span>
+                              <span key={index} className="rol-tag" title={rolObj.rol?.nombre || ''}>
+                                {rolObj.rol?.nombre}
+                              </span>
                             )
                           ))
                         ) : (
@@ -717,10 +719,10 @@ const Users = ({ onVolver }) => {
                         : (user.sucursal?.nombre || '-')}
                     </td>
                     )}
-                    <td>{user.phone || '-'}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <td className="users-table__td users-table__td--phone">{user.phone || '-'}</td>
+                    <td className="users-table__td users-table__td--estado" onClick={(e) => e.stopPropagation()}>
                       {canCEUS ? (
-                        <div className="switch-container">
+                        <div className="switch-container switch-container--table">
                           <label className="switch">
                             <input
                               type="checkbox"
@@ -734,9 +736,11 @@ const Users = ({ onVolver }) => {
                           </span>
                         </div>
                       ) : (
-                        <span className={`status-text ${user.estado ? 'active' : 'inactive'}`}>
-                          {user.estado ? 'Activo' : 'Inactivo'}
-                        </span>
+                        <div className="switch-container switch-container--table switch-container--text-only">
+                          <span className={`status-text ${user.estado ? 'active' : 'inactive'}`}>
+                            {user.estado ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -1275,7 +1279,7 @@ const Users = ({ onVolver }) => {
             </div>
           </div>
 
-          <div className="roles-container">
+          <div className="roles-container programas-asignar">
             <div className="roles-header-info">
               <h2 className="user-title">{selectedUser?.nombres} {selectedUser?.apellidos}</h2>
               <div className="roles-stats">
@@ -1287,121 +1291,119 @@ const Users = ({ onVolver }) => {
               </div>
             </div>
 
-            <div className="users-filters" style={{ marginBottom: 16 }}>
-              <div className="search-box">
-                <FiSearch className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre, código o nivel..."
-                  value={programSearchTerm}
-                  onChange={(e) => setProgramSearchTerm(e.target.value)}
-                  className="search-input"
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn-volver"
-                  onClick={() => {
-                    setAsociarTodosActivos(true);
-                  }}
-                  style={{ padding: '6px 12px', fontSize: 12 }}
-                >
-                  Seleccionar todos (ACTIVE)
-                </button>
-                <button
-                  type="button"
-                  className="btn-volver"
-                  onClick={() => {
-                    setAsociarTodosActivos(false);
-                    setProgramasSeleccionados({});
-                  }}
-                  style={{ padding: '6px 12px', fontSize: 12 }}
-                >
-                  Deseleccionar todos
-                </button>
-              </div>
-            </div>
-
-            <div className="roles-layout">
-              <div className="roles-table">
-                <div className="roles-table-header">
-                  <div className="rol-col rol-col-nombre">PROGRAMA</div>
-                  <div className="rol-col rol-col-estado">ASIGNAR</div>
+            <div className="programas-asignar-card">
+              <div className="users-filters programas-asignar-toolbar">
+                <div className="search-box">
+                  <FiSearch className="search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre, código o nivel..."
+                    value={programSearchTerm}
+                    onChange={(e) => setProgramSearchTerm(e.target.value)}
+                    className="search-input"
+                  />
                 </div>
-                <div className="roles-table-body">
-                  {loadingPrograms ? (
-                    <div className="loading-container" style={{ padding: 24 }}>
-                      <div className="loading-spinner"></div>
-                      <p>Cargando programas...</p>
-                    </div>
-                  ) : programs.length === 0 ? (
-                    <div className="empty-state" style={{ padding: 24 }}>
-                      <p>{programSearchQuery ? 'No hay programas que coincidan con la búsqueda.' : 'No hay programas con estado ACTIVE.'}</p>
-                    </div>
-                  ) : (
-                    programs.map(program => (
-                      <div key={program._id} className="rol-table-row">
-                        <div className="rol-col rol-col-nombre">
-                          <span className="rol-name">
-                            {program.name}
-                            {program.code && <span style={{ color: '#6b7280', marginLeft: 6 }}>({program.code})</span>}
-                            {program.level && <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 4 }}> · {program.level}</span>}
-                          </span>
-                        </div>
-                        <div className="rol-col rol-col-estado">
-                          <div className="rol-switch-container">
-                            <label className="rol-switch">
-                              <input
-                                type="checkbox"
-                                checked={asociarTodosActivos || !!programasSeleccionados[program._id]}
-                                disabled={asociarTodosActivos}
-                                onChange={() => setProgramasSeleccionados(prev => ({
-                                  ...prev,
-                                  [program._id]: !prev[program._id]
-                                }))}
-                              />
-                              <span className="rol-slider"></span>
-                            </label>
+                <div className="programas-asignar-bulk">
+                  <button
+                    type="button"
+                    className="btn-programas-sec"
+                    onClick={() => {
+                      setAsociarTodosActivos(true);
+                    }}
+                  >
+                    Seleccionar todos (ACTIVE)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-programas-sec"
+                    onClick={() => {
+                      setAsociarTodosActivos(false);
+                      setProgramasSeleccionados({});
+                    }}
+                  >
+                    Deseleccionar todos
+                  </button>
+                </div>
+              </div>
+
+              <div className="roles-layout roles-layout--wide">
+                <div className="roles-table programas-asignar-table">
+                  <div className="roles-table-header">
+                    <div className="rol-col rol-col-nombre">Programa</div>
+                    <div className="rol-col rol-col-estado">Asignar</div>
+                  </div>
+                  <div className="roles-table-body">
+                    {loadingPrograms ? (
+                      <div className="loading-container programas-asignar-loading">
+                        <div className="loading-spinner"></div>
+                        <p>Cargando programas...</p>
+                      </div>
+                    ) : programs.length === 0 ? (
+                      <div className="empty-state programas-asignar-empty">
+                        <p>{programSearchQuery ? 'No hay programas que coincidan con la búsqueda.' : 'No hay programas con estado ACTIVE.'}</p>
+                      </div>
+                    ) : (
+                      programs.map(program => (
+                        <div key={program._id} className="rol-table-row">
+                          <div className="rol-col rol-col-nombre">
+                            <span className="rol-name">
+                              {program.name}
+                              {program.code && <span className="programas-asignar-meta">({program.code})</span>}
+                              {program.level && <span className="programas-asignar-level"> · {program.level}</span>}
+                            </span>
+                          </div>
+                          <div className="rol-col rol-col-estado">
+                            <div className="rol-switch-container rol-switch-container--row">
+                              <label className="rol-switch rol-switch--neutral">
+                                <input
+                                  type="checkbox"
+                                  checked={asociarTodosActivos || !!programasSeleccionados[program._id]}
+                                  disabled={asociarTodosActivos}
+                                  onChange={() => setProgramasSeleccionados(prev => ({
+                                    ...prev,
+                                    [program._id]: !prev[program._id]
+                                  }))}
+                                />
+                                <span className="rol-slider"></span>
+                              </label>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {!loadingPrograms && totalProgramas > 0 && (
-              <div className="users-filters" style={{ marginTop: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <span style={{ fontSize: 13, color: '#6b7280' }}>
-                  Mostrando {start}-{end} de {totalProgramas} programas
-                </span>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn-volver"
-                    disabled={page <= 1 || loadingPrograms}
-                    onClick={() => setProgramCurrentPage(p => Math.max(1, p - 1))}
-                    style={{ padding: '6px 12px', fontSize: 12 }}
-                  >
-                    Anterior
-                  </button>
-                  <span style={{ fontSize: 13 }}>
-                    Página {page} de {totalPages}
+              {!loadingPrograms && totalProgramas > 0 && (
+                <div className="programas-asignar-pagination">
+                  <span className="programas-asignar-pagination-info">
+                    Mostrando {start}-{end} de {totalProgramas} programas
                   </span>
-                  <button
-                    type="button"
-                    className="btn-volver"
-                    disabled={page >= totalPages || loadingPrograms}
-                    onClick={() => setProgramCurrentPage(p => Math.min(totalPages, p + 1))}
-                    style={{ padding: '6px 12px', fontSize: 12 }}
-                  >
-                    Siguiente
-                  </button>
+                  <div className="programas-asignar-pagination-controls">
+                    <button
+                      type="button"
+                      className="btn-programas-sec"
+                      disabled={page <= 1 || loadingPrograms}
+                      onClick={() => setProgramCurrentPage(p => Math.max(1, p - 1))}
+                    >
+                      Anterior
+                    </button>
+                    <span className="programas-asignar-page-label">
+                      Página {page} de {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-programas-sec"
+                      disabled={page >= totalPages || loadingPrograms}
+                      onClick={() => setProgramCurrentPage(p => Math.min(totalPages, p + 1))}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

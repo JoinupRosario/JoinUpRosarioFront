@@ -4,6 +4,7 @@ import { FiDownload } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import LegalizacionProgramasBadge from '../../components/legalizacion/LegalizacionProgramasBadge';
 import '../styles/Oportunidades.css';
 
 function badgeClass(codigo) {
@@ -131,7 +132,6 @@ export default function LegalizacionesPracticas() {
                 <th>Nº identidad</th>
                 <th>Nombre</th>
                 <th>Apellido</th>
-                <th>Programa</th>
                 <th>Práctica (cargo)</th>
                 <th>Periodo</th>
                 <th>Empresa</th>
@@ -140,6 +140,7 @@ export default function LegalizacionesPracticas() {
                 <th>Inicio</th>
                 <th>Fin</th>
                 <th>Estado legalización</th>
+                <th>Programas</th>
                 <th className="legaliz-mtm-th-acciones">Acciones</th>
               </tr>
             </thead>
@@ -149,7 +150,6 @@ export default function LegalizacionesPracticas() {
                   <td className="legaliz-mtm-mono">{row.numeroIdentidad ?? '—'}</td>
                   <td>{row.nombre ?? '—'}</td>
                   <td>{row.apellido ?? '—'}</td>
-                  <td>{row.programa ?? '—'}</td>
                   <td className="legaliz-mtm-nombre-cargo">{row.nombrePractica ?? '—'}</td>
                   <td>{row.periodo ?? '—'}</td>
                   <td className="legaliz-mtm-nombre-cargo">{row.empresa ?? '—'}</td>
@@ -161,6 +161,9 @@ export default function LegalizacionesPracticas() {
                     <span className={badgeClass(row.estadoLegalizacionCodigo)} title={row.estadoLegalizacion}>
                       {etiquetaCorta(row.estadoLegalizacionCodigo, row.estadoLegalizacion)}
                     </span>
+                  </td>
+                  <td>
+                    <LegalizacionProgramasBadge row={row} variant="student" />
                   </td>
                   <td>
                     <div className="legaliz-mtm-actions">

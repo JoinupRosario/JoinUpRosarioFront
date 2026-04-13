@@ -1,0 +1,93 @@
+/* =============================================================================
+   Interruptores y toggles — paleta neutra unificada en toda la plataforma.
+   Importar al final de main.jsx para que prevalezca sobre CSS por vista.
+   ============================================================================= */
+
+/* --- Checkbox + span.slider (Usuarios, Postulantes, Ubicaciones, Programas, Sucursales, Perfil) --- */
+.switch .slider {
+  background-color: #cbd5e1;
+}
+
+.switch input:checked + .slider {
+  background-color: #64748b;
+}
+
+.switch input:focus + .slider {
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.35);
+}
+
+.switch .slider:hover,
+.switch input:checked + .slider:hover {
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+/* --- rol-switch + rol-slider (Oportunidades, Usuarios roles/programas, Config. personal) --- */
+.rol-switch .rol-slider {
+  background-color: #cbd5e1;
+  border-color: #94a3b8;
+}
+
+.rol-switch input:checked + .rol-slider {
+  background-color: #64748b;
+  border-color: #475569;
+}
+
+.rol-slider:hover,
+.rol-switch input:checked + .rol-slider:hover {
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.rol-switch input:disabled + .rol-slider {
+  opacity: 0.5;
+}
+
+/* Variante explícita (mismos valores; por si alguna hoja la usa sola) */
+.rol-switch--neutral .rol-slider {
+  background-color: #cbd5e1;
+  border-color: #94a3b8;
+}
+
+.rol-switch--neutral input:checked + .rol-slider {
+  background-color: #64748b;
+  border-color: #475569;
+}
+
+/* --- Roles: toggle nativo (button) --- */
+.toggle-switch {
+  background: #cbd5e1;
+}
+
+.toggle-switch--on,
+.toggle-switch.toggle-switch--on {
+  background: #64748b;
+}
+
+/* Etiquetas junto al toggle en formulario de rol */
+.toggle-label {
+  color: #475569;
+}
+
+.toggle-label--off {
+  color: #94a3b8;
+}
+
+/* --- Textos Activo / Inactivo junto a switches --- */
+.status-text.active {
+  color: #334155;
+  font-weight: 700;
+}
+
+.status-text.inactive {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.rol-status-text.active {
+  color: #334155;
+  font-weight: 700;
+}
+
+.rol-status-text.inactive {
+  color: #94a3b8;
+  font-weight: 600;
+}

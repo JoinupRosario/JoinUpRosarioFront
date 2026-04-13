@@ -1,15 +1,63 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FiArrowLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
 import '../styles/Oportunidades.css';
 import './DetalleLegalizacionEstudiante.css';
+import './AdminDetalleLegalizacionMTM.css';
 
 const MAX_FILE_MB = 5;
 
 function defIdStr(d) {
   return d?._id != null ? String(d._id) : '';
+}
+
+function TextDetailModalProse({ text }) {
+  const raw = text == null || String(text).trim() === '' ? '—' : String(text);
+  const lines = raw.split(/\r?\n/);
+  return (
+    <div className="admrevmtm-text-modal__prose">
+      {lines.map((line, i) => {
+        const row = line.replace(/\s+$/, '');
+        if (row === '') {
+          return <p key={i} className="admrevmtm-text-modal__para admrevmtm-text-modal__para--blank" aria-hidden="true" />;
+        }
+        return (
+          <p key={i} className="admrevmtm-text-modal__para">
+            {row}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function TextDetailModal({ title, text, onClose }) {
+  return (
+    <div className="admrevmtm-text-modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="admrevmtm-text-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="legprac-text-modal-title"
+      >
+        <header className="admrevmtm-text-modal__header">
+          <h2 id="legprac-text-modal-title" className="admrevmtm-text-modal__title">
+            {title || 'Detalle'}
+          </h2>
+          <button type="button" className="admrevmtm-text-modal__close" onClick={onClose} aria-label="Cerrar">
+            <FiX size={22} />
+          </button>
+        </header>
+        <div className="admrevmtm-text-modal__body" lang="es">
+          <TextDetailModalProse text={text} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Coincide con backend esAcuerdoDeVinculacion (normaliza tildes). */
@@ -58,6 +106,10 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
   const [generandoAcuerdoVinculacion, setGenerandoAcuerdoVinculacion] = useState(false);
   const [certificacion, setCertificacion] = useState(null);
   const [cargandoCert, setCargandoCert] = useState(false);
+  const [textDetailModal, setTextDetailModal] = useState({ open: false, title: '', text: '' });
+
+  const openTextDetail = (title, text) => setTextDetailModal({ open: true, title, text: String(text ?? '') });
+  const closeTextDetail = () => setTextDetailModal({ open: false, title: '', text: '' });
 
   const load = () => {
     if (!postulacionId) return;
@@ -327,7 +379,10 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
     <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full legmtm-estudiante">
       <header className="legalizacion-mtm__topbar">
         <div className="legalizacion-mtm__topbar-left">
-          <button type="button" className="legalizacion-mtm__back" onClick={onVolver}>← Volver</button>
+          <button type="button" className="btn-volver" onClick={onVolver}>
+            <FiArrowLeft className="btn-icon" aria-hidden />
+            Volver
+          </button>
           <h2 className="legalizacion-mtm__title">Legalización de práctica — Detalle</h2>
         </div>
         <div className="legalizacion-mtm__topbar-actions">
@@ -564,9 +619,12 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
       <div className="legalizacion-mtm__body">
         {tabActiva === 'datos' && (
           <div className="legalizacion-mtm__panels">
-            <section className="legalizacion-mtm__section">
-              <h3 className="legalizacion-mtm__section-title">Datos del estudiante</h3>
-              <dl className="legalizacion-mtm__grid">
+            <section className="legalizacion-mtm__section legmtm-est__panel-card" lang="es">
+              <h3 className="legalizacion-mtm__section-title legmtm-est__panel-card__title">
+                <span className="legmtm-est__panel-card__kicker">Estudiante</span>
+                <span className="legmtm-est__panel-card__title-main">Datos del estudiante</span>
+              </h3>
+              <dl className="legalizacion-mtm__grid legmtm-est__grid-admrev">
                 <dt>Nombre</dt><dd>{estudiante?.nombre ?? '—'}</dd>
                 <dt>Correo institucional</dt><dd>{estudiante?.correoInstitucional ?? '—'}</dd>
                 <dt>Correo alterno</dt><dd>{estudiante?.correoAlterno ?? '—'}</dd>
@@ -579,9 +637,12 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
                 <dt>Créditos aprobados</dt><dd>{estudiante?.creditosAprobados ?? '—'}</dd>
               </dl>
             </section>
-            <section className="legalizacion-mtm__section">
-              <h3 className="legalizacion-mtm__section-title">Datos de la entidad</h3>
-              <dl className="legalizacion-mtm__grid">
+            <section className="legalizacion-mtm__section legmtm-est__panel-card" lang="es">
+              <h3 className="legalizacion-mtm__section-title legmtm-est__panel-card__title">
+                <span className="legmtm-est__panel-card__kicker">Entidad</span>
+                <span className="legmtm-est__panel-card__title-main">Datos de la entidad</span>
+              </h3>
+              <dl className="legalizacion-mtm__grid legmtm-est__grid-admrev">
                 <dt>NIT</dt><dd>{entidad?.nit ?? '—'}</dd>
                 <dt>Razón social</dt><dd>{entidad?.razonSocial ?? '—'}</dd>
                 <dt>Representante — nombres</dt><dd>{entidad?.representanteNombres ?? '—'}</dd>
@@ -596,9 +657,12 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
                 <dt>Tutor — correo</dt><dd>{entidad?.tutorEmail ?? '—'}</dd>
               </dl>
             </section>
-            <section className="legalizacion-mtm__section">
-              <h3 className="legalizacion-mtm__section-title">Datos de la práctica</h3>
-              <dl className="legalizacion-mtm__grid">
+            <section className="legalizacion-mtm__section legmtm-est__panel-card" lang="es">
+              <h3 className="legalizacion-mtm__section-title legmtm-est__panel-card__title">
+                <span className="legmtm-est__panel-card__kicker">Práctica</span>
+                <span className="legmtm-est__panel-card__title-main">Datos de la práctica</span>
+              </h3>
+              <dl className="legalizacion-mtm__grid legmtm-est__grid-admrev">
                 <dt>Cargo / nombre práctica</dt><dd>{oportunidadResumen?.nombreCargo ?? '—'}</dd>
                 <dt>Periodo académico</dt><dd>{oportunidadResumen?.periodo ?? '—'}</dd>
                 <dt>Tipo de vinculación</dt><dd>{oportunidadResumen?.tipoVinculacion?.value ?? oportunidadResumen?.tipoVinculacion?.description ?? '—'}</dd>
@@ -616,7 +680,21 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
                 <dt>ARL</dt><dd>{practica?.arl ?? '—'}</dd>
                 <dt>País</dt><dd>{practica?.pais ?? '—'}</dd>
                 <dt>Ciudad</dt><dd>{practica?.ciudad ?? '—'}</dd>
-                <dt>Funciones</dt><dd style={{ gridColumn: '2 / -1' }}>{oportunidadResumen?.funciones ?? '—'}</dd>
+                <dt>Funciones</dt>
+                <dd className="legmtm-est__funciones-dd" style={{ gridColumn: '2 / -1' }}>
+                  {oportunidadResumen?.funciones && String(oportunidadResumen.funciones).trim() ? (
+                    <button
+                      type="button"
+                      className="admrevmtm-longtext-btn"
+                      onClick={() => openTextDetail('Funciones', oportunidadResumen.funciones)}
+                    >
+                      <span>Ver funciones</span>
+                      <FiChevronRight className="admrevmtm-longtext-btn__icon" aria-hidden />
+                    </button>
+                  ) : (
+                    '—'
+                  )}
+                </dd>
               </dl>
             </section>
           </div>
@@ -710,6 +788,9 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
         url={previewPdf.url}
         showPrintButton
       />
+      {textDetailModal.open && (
+        <TextDetailModal title={textDetailModal.title} text={textDetailModal.text} onClose={closeTextDetail} />
+      )}
     </div>
   );
 }

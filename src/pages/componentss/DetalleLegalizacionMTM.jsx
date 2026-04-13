@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { FiEye, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiEye, FiX } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
@@ -302,8 +302,9 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
     <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full legmtm-estudiante">
       <header className="legalizacion-mtm__topbar">
         <div className="legalizacion-mtm__topbar-left">
-          <button type="button" className="legalizacion-mtm__back" onClick={onVolver}>
-            ← Volver
+          <button type="button" className="btn-volver" onClick={onVolver}>
+            <FiArrowLeft className="btn-icon" aria-hidden />
+            Volver
           </button>
           <h2 className="legalizacion-mtm__title">Detalle de la oportunidad — Legalización</h2>
         </div>
@@ -358,9 +359,12 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
       <div className="legalizacion-mtm__body">
         {tabActiva === 'datos' && (
           <div className="legalizacion-mtm__panels">
-            <section className="legalizacion-mtm__section">
-              <h3 className="legalizacion-mtm__section-title">Datos del estudiante</h3>
-              <dl className="legalizacion-mtm__grid">
+            <section className="legalizacion-mtm__section legmtm-est__panel-card" lang="es">
+              <h3 className="legalizacion-mtm__section-title legmtm-est__panel-card__title">
+                <span className="legmtm-est__panel-card__kicker">Estudiante</span>
+                <span className="legmtm-est__panel-card__title-main">Datos del estudiante</span>
+              </h3>
+              <dl className="legalizacion-mtm__grid legmtm-est__grid-admrev">
                 <dt>Nombre</dt>
                 <dd>{estudiante?.nombre ?? '—'}</dd>
                 <dt>Correo institucional</dt>
@@ -382,9 +386,12 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
               </dl>
             </section>
 
-            <section className="legalizacion-mtm__section">
-              <h3 className="legalizacion-mtm__section-title">Datos de la monitoría</h3>
-              <dl className="legalizacion-mtm__grid">
+            <section className="legalizacion-mtm__section legmtm-est__panel-card" lang="es">
+              <h3 className="legalizacion-mtm__section-title legmtm-est__panel-card__title">
+                <span className="legmtm-est__panel-card__kicker">Monitoría</span>
+                <span className="legmtm-est__panel-card__title-main">Datos de la monitoría</span>
+              </h3>
+              <dl className="legalizacion-mtm__grid legmtm-est__grid-admrev">
                 <dt>Nombre de la MTM</dt>
                 <dd>{oportunidad?.nombreCargo ?? '—'}</dd>
                 <dt>Periodo</dt>
@@ -444,8 +451,11 @@ export default function DetalleLegalizacionMTM({ onVolver }) {
               )}
             </section>
 
-            <section className="legalizacion-mtm__section">
-              <h3 className="legalizacion-mtm__section-title">Datos bancarios</h3>
+            <section className="legalizacion-mtm__section legmtm-est__panel-card" lang="es">
+              <h3 className="legalizacion-mtm__section-title legmtm-est__panel-card__title">
+                <span className="legmtm-est__panel-card__kicker">Pago</span>
+                <span className="legmtm-est__panel-card__title-main">Datos bancarios</span>
+              </h3>
               <p className="legalizacion-mtm__hint">
                 EPS, tipo de cuenta, banco y número de cuenta. Estos datos se <strong>guardan automáticamente</strong> al pulsar{' '}
                 <strong>Enviar a revisión</strong> (junto con el envío a coordinación).

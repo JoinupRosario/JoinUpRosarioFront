@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FiChevronRight, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
@@ -112,9 +112,6 @@ function DefinitionDd({
 }) {
   const raw = value == null ? '' : String(value).trim();
   if (!raw) return <dd className={`admrevmtm-dd-value ${className}`}>—</dd>;
-  if (raw.length <= threshold) {
-    return <dd className={`admrevmtm-dd-value ${className}`}>{raw}</dd>;
-  }
   if (expandOnly) {
     return (
       <dd className={`admrevmtm-dd-value admrevmtm-dd-value--collapsible admrevmtm-dd-value--expand-only ${className}`}>
@@ -124,6 +121,9 @@ function DefinitionDd({
         </button>
       </dd>
     );
+  }
+  if (raw.length <= threshold) {
+    return <dd className={`admrevmtm-dd-value ${className}`}>{raw}</dd>;
   }
   const preview = `${raw.slice(0, threshold).trim()}…`;
   return (
@@ -524,7 +524,10 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
     <div className="dashboard-content legalizacion-mtm legalizacion-mtm--full admrevmtm">
       <header className="legalizacion-mtm__topbar">
         <div className="legalizacion-mtm__topbar-left">
-          <button type="button" className="legalizacion-mtm__back" onClick={onVolver}>← Volver</button>
+          <button type="button" className="btn-volver" onClick={onVolver}>
+            <FiArrowLeft className="btn-icon" aria-hidden />
+            Volver
+          </button>
           <div>
             <h2 className="legalizacion-mtm__title">Revisión de legalización</h2>
             <p className="admrevmtm__subtitle">
@@ -852,7 +855,6 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
                   label="Funciones"
                   value={oportunidadResumen?.funciones}
                   onOpenDetail={openTextDetail}
-                  threshold={280}
                   className="admrevmtm-dd--full-width"
                   expandLabel="Ver funciones"
                   expandOnly

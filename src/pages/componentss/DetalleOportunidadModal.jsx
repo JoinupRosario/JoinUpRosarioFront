@@ -1,4 +1,6 @@
-import { FiX, FiSend } from 'react-icons/fi';
+import { useEffect, useState } from 'react';
+import { FiX, FiSend, FiChevronRight } from 'react-icons/fi';
+import LongTextSubModal from '../../components/common/LongTextSubModal';
 import '../styles/Oportunidades.css';
 
 function formatDate(value) {
@@ -77,6 +79,12 @@ function getCiudadLabel(ciudad) {
  * @param {() => void} [onAplicar] - Si se pasa y la oferta está Activa, se muestra botón "Aplicar"
  */
 export default function DetalleOportunidadModal({ detalle, loading, onClose, onAplicar }) {
+  const [longModal, setLongModal] = useState(null);
+
+  useEffect(() => {
+    setLongModal(null);
+  }, [detalle?._id, loading]);
+
   const show = detalle !== null || loading;
   if (!show) return null;
 
@@ -97,7 +105,12 @@ export default function DetalleOportunidadModal({ detalle, loading, onClose, onA
               </button>
             </div>
             <div className="ofertas-afines-detalle-modal__body">
-              <dl className="ofertas-afines-detalle-modal__grid">
+              <section className="ofertas-afines-detalle-modal__data-card" aria-label="Datos de la oportunidad">
+                <div className="ofertas-afines-detalle-modal__data-card-head">
+                  <span className="ofertas-afines-detalle-modal__data-card-kicker">Práctica</span>
+                  <span className="ofertas-afines-detalle-modal__data-card-title">Datos de la oportunidad</span>
+                </div>
+                <dl className="ofertas-afines-detalle-modal__grid">
                 <dt>Id</dt>
                 <dd>{detalle._id ? String(detalle._id).slice(-6) : '—'}</dd>
                 <dt>Nombre de oportunidad</dt>
@@ -134,7 +147,8 @@ export default function DetalleOportunidadModal({ detalle, loading, onClose, onA
                 <dd>{getAreaDesempenoLabel(detalle.areaDesempeno)}</dd>
                 <dt>Promedio mínimo requerido</dt>
                 <dd>{detalle.promedioMinimoRequerido ?? '—'}</dd>
-              </dl>
+                </dl>
+              </section>
               {detalle.enlacesFormatoEspecificos && (
                 <section className="ofertas-afines-detalle-modal__block">
                   <h4 className="ofertas-afines-detalle-modal__label">Enlaces o formato específicos de aplicación</h4>
@@ -184,15 +198,37 @@ export default function DetalleOportunidadModal({ detalle, loading, onClose, onA
                 </section>
               )}
               {detalle.funciones && (
-                <section className="ofertas-afines-detalle-modal__block">
-                  <h4 className="ofertas-afines-detalle-modal__label">Funciones</h4>
-                  <p className="ofertas-afines-detalle-modal__text">{detalle.funciones}</p>
+                <section className="ofertas-afines-detalle-modal__data-card" aria-label="Funciones">
+                  <div className="ofertas-afines-detalle-modal__data-card-head">
+                    <span className="ofertas-afines-detalle-modal__data-card-kicker">Detalle</span>
+                    <span className="ofertas-afines-detalle-modal__data-card-title">Funciones</span>
+                  </div>
+                  <div className="ofertas-afines-detalle-modal__long-block">
+                    <button
+                      type="button"
+                      className="ofertas-afines-detalle-modal__long-btn"
+                      onClick={() => setLongModal({ title: 'Funciones', text: detalle.funciones })}
+                    >
+                      Ver funciones <FiChevronRight size={16} aria-hidden />
+                    </button>
+                  </div>
                 </section>
               )}
               {detalle.requisitos && (
-                <section className="ofertas-afines-detalle-modal__block">
-                  <h4 className="ofertas-afines-detalle-modal__label">Requisitos</h4>
-                  <p className="ofertas-afines-detalle-modal__text">{detalle.requisitos}</p>
+                <section className="ofertas-afines-detalle-modal__data-card" aria-label="Requisitos">
+                  <div className="ofertas-afines-detalle-modal__data-card-head">
+                    <span className="ofertas-afines-detalle-modal__data-card-kicker">Detalle</span>
+                    <span className="ofertas-afines-detalle-modal__data-card-title">Requisitos</span>
+                  </div>
+                  <div className="ofertas-afines-detalle-modal__long-block">
+                    <button
+                      type="button"
+                      className="ofertas-afines-detalle-modal__long-btn"
+                      onClick={() => setLongModal({ title: 'Requisitos', text: detalle.requisitos })}
+                    >
+                      Ver requisitos <FiChevronRight size={16} aria-hidden />
+                    </button>
+                  </div>
                 </section>
               )}
             </div>
@@ -205,6 +241,12 @@ export default function DetalleOportunidadModal({ detalle, loading, onClose, onA
             )}
           </>
         ) : null}
+        <LongTextSubModal
+          open={longModal != null}
+          title={longModal?.title}
+          text={longModal?.text}
+          onClose={() => setLongModal(null)}
+        />
       </div>
     </div>
   );

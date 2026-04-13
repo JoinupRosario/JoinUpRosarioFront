@@ -4,6 +4,7 @@ import { FiDownload } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import LegalizacionProgramasBadge from '../../components/legalizacion/LegalizacionProgramasBadge';
 import './AdminLegalizacionMonitorias.css';
 
 /** Claves = `estadoMTM` del listado (derivado de `LegalizacionMTM.estado` en backend). */
@@ -287,12 +288,12 @@ export default function AdminLegalizacionMonitorias() {
                   <th scope="col">Nº identidad</th>
                   <th scope="col">Nombre</th>
                   <th scope="col">Apellido</th>
-                  <th scope="col">Programa</th>
                   <th scope="col">Código MTM</th>
                   <th scope="col">Nombre MTM</th>
                   <th scope="col">Periodo</th>
                   <th scope="col">Coordinador</th>
                   <th scope="col">Estado MTM</th>
+                  <th scope="col">Programas</th>
                   <th scope="col">Acciones</th>
                 </tr>
               </thead>
@@ -302,12 +303,14 @@ export default function AdminLegalizacionMonitorias() {
                     <td>{row.numeroIdentidad ?? '—'}</td>
                     <td>{row.nombre ?? '—'}</td>
                     <td>{row.apellido ?? '—'}</td>
-                    <td>{row.programa ?? '—'}</td>
                     <td>{row.codigoMTM ?? '—'}</td>
                     <td>{row.nombreMTM ?? '—'}</td>
                     <td>{row.periodo ?? '—'}</td>
                     <td>{row.coordinador ?? '—'}</td>
                     <td>{ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '—'}</td>
+                    <td>
+                      <LegalizacionProgramasBadge row={row} variant="admin" />
+                    </td>
                     <td>
                       <button
                         type="button"

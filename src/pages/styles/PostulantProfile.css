@@ -410,7 +410,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: #cbd5e1;
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -429,7 +429,7 @@
 }
 
 input:checked + .slider {
-  background-color: #10b981;
+  background-color: #64748b;
 }
 
 input:checked + .slider:before {

@@ -1947,6 +1947,95 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
   background: #a01930;
 }
 
+/* Tarjeta de datos dentro del modal detalle (perfil postulante, ofertas afines, mis aplicaciones) */
+.ofertas-afines-detalle-modal__data-card {
+  position: relative;
+  margin-bottom: 1.25rem;
+  padding: 1.25rem 1.35rem 1.35rem;
+  background: #fff;
+  border: 1px solid #e8ecf1;
+  border-radius: 14px;
+  box-shadow:
+    0 4px 16px rgba(15, 23, 42, 0.06),
+    0 1px 3px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.ofertas-afines-detalle-modal__data-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #c41e3a 0%, #e11d48 55%, #f43f5e 100%);
+  border-radius: 14px 14px 0 0;
+}
+
+.ofertas-afines-detalle-modal__data-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.ofertas-afines-detalle-modal__data-card-kicker {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #c41e3a;
+  line-height: 1.2;
+}
+
+.ofertas-afines-detalle-modal__data-card-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.28;
+}
+
+.ofertas-afines-detalle-modal__data-card .ofertas-afines-detalle-modal__grid {
+  margin-bottom: 0;
+}
+
+.ofertas-afines-detalle-modal__long-block {
+  margin-bottom: 1rem;
+}
+
+.ofertas-afines-detalle-modal__long-block .ofertas-afines-detalle-modal__label {
+  margin-bottom: 0.5rem;
+}
+
+.ofertas-afines-detalle-modal__long-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #c41e3a 0%, #b01e35 100%);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(196, 30, 58, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.ofertas-afines-detalle-modal__long-btn:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.35);
+  transform: translateY(-1px);
+}
+
+.ofertas-afines-detalle-modal__long-btn:active {
+  transform: translateY(0);
+}
+
 /* Modal "Aplicar con hoja de vida" — Ofertas afines */
 .ofertas-afines-aplicar-modal {
   max-width: 440px;

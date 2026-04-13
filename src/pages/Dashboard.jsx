@@ -80,6 +80,8 @@ import ForcePasswordChangeModal from '../components/auth/ForcePasswordChangeModa
 import headerLogoImg from '../assets/images/login/header.png';
 import userAvatarImg from '../assets/images/login/user.png';
 import './Dashboard.css';
+/* Tras todas las vistas del dashboard: paleta neutra unificada para switches */
+import '../platform-switches.css';
 
 /** Oculta visualmente menú Sucursales, badge Sede y vistas de sedes; la lógica y datos se mantienen. */
 const HIDE_SUCURSALES_UI = true;

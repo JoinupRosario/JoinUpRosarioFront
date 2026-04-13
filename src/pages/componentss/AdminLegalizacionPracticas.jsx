@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import LegalizacionProgramasBadge from '../../components/legalizacion/LegalizacionProgramasBadge';
 import './AdminLegalizacionMonitorias.css';
 
 const ESTADO_LABEL = {
@@ -169,12 +170,12 @@ export default function AdminLegalizacionPracticas() {
                 <th>Nº identidad</th>
                 <th>Nombre</th>
                 <th>Apellido</th>
-                <th>Programa</th>
                 <th>Cargo práctica</th>
                 <th>Periodo</th>
                 <th>Empresa</th>
                 <th>Autogest.</th>
                 <th>Estado</th>
+                <th>Programas</th>
                 <th>Acción</th>
               </tr>
             </thead>
@@ -184,12 +185,14 @@ export default function AdminLegalizacionPracticas() {
                   <td>{row.numeroIdentidad ?? '—'}</td>
                   <td>{row.nombre ?? '—'}</td>
                   <td>{row.apellido ?? '—'}</td>
-                  <td>{row.programa ?? '—'}</td>
                   <td>{row.nombreCargo ?? '—'}</td>
                   <td>{row.periodo ?? '—'}</td>
                   <td>{row.empresa ?? '—'}</td>
                   <td>{row.practicaAutogestionada ? 'Sí' : 'No'}</td>
                   <td>{labelEstadoLegalizacion(row.estadoLegalizacion) || '—'}</td>
+                  <td>
+                    <LegalizacionProgramasBadge row={row} variant="admin" />
+                  </td>
                   <td>
                     <button type="button" className="admlegmtm__btn admlegmtm__btn--row" onClick={() => verRevision(row)}>
                       Revisar

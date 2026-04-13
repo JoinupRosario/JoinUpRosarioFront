@@ -4,6 +4,7 @@ import { FiDownload } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import LegalizacionProgramasBadge from '../../components/legalizacion/LegalizacionProgramasBadge';
 import '../styles/Oportunidades.css';
 
 function badgeClassPorCodigoLegalizacion(codigo) {
@@ -167,13 +168,13 @@ export default function LegalizacionesMonitorias() {
                 <th>Nº identidad</th>
                 <th>Nombre</th>
                 <th>Apellido</th>
-                <th>Programa</th>
                 <th>Código monitoría</th>
                 <th>Nombre monitoría</th>
                 <th>Periodo</th>
                 <th>Coordinador</th>
                 <th>Estado legalización</th>
                 <th>Finalizado por monitor</th>
+                <th>Programas</th>
                 <th className="legaliz-mtm-th-acciones">Acciones</th>
               </tr>
             </thead>
@@ -183,7 +184,6 @@ export default function LegalizacionesMonitorias() {
                   <td className="legaliz-mtm-mono">{row.numeroIdentidad ?? '—'}</td>
                   <td>{row.nombre ?? '—'}</td>
                   <td>{row.apellido ?? '—'}</td>
-                  <td>{row.programa ?? '—'}</td>
                   <td className="legaliz-mtm-mono legaliz-mtm-codigo">{row.codigoMonitoria ?? '—'}</td>
                   <td className="legaliz-mtm-nombre-cargo">{row.nombreMonitoria ?? '—'}</td>
                   <td>{row.periodo ?? '—'}</td>
@@ -197,6 +197,9 @@ export default function LegalizacionesMonitorias() {
                     </span>
                   </td>
                   <td>{row.finalizadoPorMonitor ?? '—'}</td>
+                  <td>
+                    <LegalizacionProgramasBadge row={row} variant="student" />
+                  </td>
                   <td>
                     <div className="legaliz-mtm-actions">
                       <select

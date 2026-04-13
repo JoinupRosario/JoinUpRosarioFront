@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   FiSearch,
@@ -8,13 +9,14 @@ import {
   FiAlertCircle,
   FiX,
   FiUploadCloud,
-  FiChevronDown,
   FiCheckCircle,
   FiInfo,
   FiUsers,
   FiLoader,
   FiUserPlus,
   FiBook,
+  FiMoreVertical,
+  FiUser,
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
@@ -94,6 +96,9 @@ const Student = ({ onVolver }) => {
   const [loadingHistorial, setLoadingHistorial] = useState(false);
   const [historialFiltroDoc, setHistorialFiltroDoc] = useState('');
   const [historialFilterInput, setHistorialFilterInput] = useState('');
+  /** Menú Opciones (portal fijo): { studentId, top, left, width } */
+  const [opcionesMenu, setOpcionesMenu] = useState(null);
+  const opcionesPortalRef = useRef(null);
 
   // Helpers de alertas — deben ir ANTES de cualquier callback que los use
   const showFuncionalidadEnDesarrollo = useCallback((fn) =>
@@ -118,6 +123,42 @@ const Student = ({ onVolver }) => {
     },
     [showError]
   );
+
+  const toggleOpcionesMenu = useCallback((e, s) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const r = btn.getBoundingClientRect();
+    const width = 268;
+    const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+    const top = r.bottom + 6;
+    setOpcionesMenu((prev) =>
+      prev?.studentId === s._id ? null : { studentId: s._id, top, left, width }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!opcionesMenu) return;
+    const onDocClick = (ev) => {
+      if (opcionesPortalRef.current?.contains(ev.target)) return;
+      if (ev.target.closest?.('button.student-opciones-trigger')) return;
+      setOpcionesMenu(null);
+    };
+    const onScrollOrResize = () => setOpcionesMenu(null);
+    document.addEventListener('click', onDocClick);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      document.removeEventListener('click', onDocClick);
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [opcionesMenu]);
+
+  useEffect(() => {
+    if (opcionesMenu && !students.some((x) => x._id === opcionesMenu.studentId)) {
+      setOpcionesMenu(null);
+    }
+  }, [students, opcionesMenu]);
 
   // Cargar estudiantes habilitados desde BD (paginado y filtrado por estado/búsqueda)
   const loadStudents = useCallback(async (pageNum = 1, estadoFilter = '', search = '') => {
@@ -1177,15 +1218,13 @@ const Student = ({ onVolver }) => {
                 <th>PERÍODO AUTORIZADO</th>
                 <th>TIPO DE PRÁCTICA</th>
                 <th>CUMPLE CONDICIONES</th>
-                <th>ESTADO FINAL</th>
                 <th>ACTUALIZACIÓN</th>
-                <th>PERFIL</th>
+                <th>OPCIONES</th>
               </tr>
             </thead>
             <tbody>
               {students.map((s) => {
                 const estadoClass = (s.estadoCurricular || '').toLowerCase().replace('_', '-');
-                const perfilId = s.perfilPostulanteId || s.postulant?._id;
                 return (
                   <tr key={s._id}>
                     <td>{s.identificacion || '-'}</td>
@@ -1204,41 +1243,19 @@ const Student = ({ onVolver }) => {
                         {(s.estadoCurricular || '-').replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="student-td-estado-final">
-                      <div className="student-estado-final-wrap">
-                        {s.estadoFinal === 'EXCLUIDO' ? (
-                          <span className="status-badge status-badge--excluido">Excluido</span>
-                        ) : (
-                          <select
-                            className="student-select-estado-final"
-                            aria-label={`Estado final ${s.identificacion}`}
-                            value={s.estadoFinal || 'EN_REVISION'}
-                            disabled={savingEstadoFinalId === s._id}
-                            onChange={(e) => handleEstadoFinalChange(s._id, e.target.value)}
-                          >
-                            <option value="EN_REVISION">En revisión</option>
-                            <option value="AUTORIZADO">Autorizado</option>
-                            <option value="NO_AUTORIZADO">No autorizado</option>
-                          </select>
-                        )}
-                        {savingEstadoFinalId === s._id && (
-                          <FiLoader className="student-select-estado-final-spinner" aria-hidden />
-                        )}
-                      </div>
-                    </td>
                     <td>{formatDate(s.updatedAt)}</td>
-                    <td>
-                      {perfilId ? (
-                        <button
-                          type="button"
-                          className="student-link-perfil"
-                          onClick={() => navigate(`/dashboard/postulantes/${perfilId}`, { state: { from: '/dashboard/estudiantes' } })}
-                        >
-                          Ver perfil
-                        </button>
-                      ) : (
-                        <span className="student-no-perfil" title="Aún no tiene ficha de postulante en el sistema">—</span>
-                      )}
+                    <td className="student-td-opciones" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="student-opciones-trigger"
+                        onClick={(e) => toggleOpcionesMenu(e, s)}
+                        aria-expanded={opcionesMenu?.studentId === s._id}
+                        aria-haspopup="dialog"
+                        aria-label={`Opciones, estudiante ${s.identificacion || s.correo || s._id}`}
+                      >
+                        <FiMoreVertical className="student-opciones-trigger__icon" aria-hidden />
+                        <span>Opciones</span>
+                      </button>
                     </td>
                   </tr>
                 );
@@ -1279,6 +1296,74 @@ const Student = ({ onVolver }) => {
           </div>
         )}
       </div>
+
+      {opcionesMenu &&
+        createPortal(
+          (() => {
+            const s = students.find((x) => x._id === opcionesMenu.studentId);
+            if (!s) return null;
+            const perfilId = s.perfilPostulanteId || s.postulant?._id;
+            return (
+              <div
+                ref={opcionesPortalRef}
+                className="student-opciones-portal"
+                style={{
+                  position: 'fixed',
+                  top: opcionesMenu.top,
+                  left: opcionesMenu.left,
+                  width: opcionesMenu.width,
+                  zIndex: 10050,
+                }}
+                role="dialog"
+                aria-label="Opciones del estudiante"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="student-opciones-portal__section">
+                  <div className="student-opciones-portal__label">Estado final</div>
+                  {s.estadoFinal === 'EXCLUIDO' ? (
+                    <span className="status-badge status-badge--excluido">Excluido</span>
+                  ) : (
+                    <div className="student-opciones-portal__select-row">
+                      <select
+                        className="student-select-estado-final student-select-estado-final--portal"
+                        aria-label={`Estado final ${s.identificacion}`}
+                        value={s.estadoFinal || 'EN_REVISION'}
+                        disabled={savingEstadoFinalId === s._id}
+                        onChange={(e) => handleEstadoFinalChange(s._id, e.target.value)}
+                      >
+                        <option value="EN_REVISION">En revisión</option>
+                        <option value="AUTORIZADO">Autorizado</option>
+                        <option value="NO_AUTORIZADO">No autorizado</option>
+                      </select>
+                      {savingEstadoFinalId === s._id && (
+                        <FiLoader className="student-select-estado-final-spinner" aria-hidden />
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="student-opciones-portal__section student-opciones-portal__section--actions">
+                  <button
+                    type="button"
+                    className="student-opciones-portal__btn-perfil"
+                    disabled={!perfilId}
+                    onClick={() => {
+                      if (!perfilId) return;
+                      navigate(`/dashboard/postulantes/${perfilId}`, { state: { from: '/dashboard/estudiantes' } });
+                      setOpcionesMenu(null);
+                    }}
+                  >
+                    <FiUser aria-hidden />
+                    Ver perfil
+                  </button>
+                  {!perfilId && (
+                    <p className="student-opciones-portal__sin-perfil">Aún no tiene ficha de postulante en el sistema.</p>
+                  )}
+                </div>
+              </div>
+            );
+          })(),
+          document.body
+        )}
     </div>
   );
 };

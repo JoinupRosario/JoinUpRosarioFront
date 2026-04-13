@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiPlus, FiRefreshCw, FiFilter, FiBookOpen, FiDollarSign, FiFileText, FiUsers, FiCalendar, FiMapPin, FiClock, FiBook, FiX, FiEdit, FiXCircle, FiCopy, FiList, FiArrowUp, FiArrowDown, FiAlertCircle } from 'react-icons/fi';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import { useAuth } from '../../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import api from '../../services/api';
+import Select from 'react-select';
 import '../styles/Oportunidades.css';
 
 /** Estados solo de práctica (flujo revisión): MTM no aplica — no consultar monitorías. */
@@ -47,6 +49,7 @@ function createEmptyOportunidadesFilters() {
 }
 
 export default function Oportunidades({ onVolver }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [companySearchResults, setCompanySearchResults] = useState([]);
@@ -274,6 +277,38 @@ export default function Oportunidades({ onVolver }) {
       !formData.salarioEmocional.includes(opcion.value)
     );
   }, [filteredSalarioEmocional, formData.salarioEmocional]);
+
+  const countrySelectOptionsCrear = useMemo(
+    () => countries.map((c) => ({ value: c._id, label: c.name })),
+    [countries]
+  );
+  const countrySelectValueCrear = useMemo(
+    () => countrySelectOptionsCrear.find((o) => o.value === formData.pais) || null,
+    [countrySelectOptionsCrear, formData.pais]
+  );
+  const citySelectOptionsCrear = useMemo(
+    () => cities.map((c) => ({ value: c._id, label: c.name })),
+    [cities]
+  );
+  const citySelectValueCrear = useMemo(
+    () => citySelectOptionsCrear.find((o) => o.value === formData.ciudad) || null,
+    [citySelectOptionsCrear, formData.ciudad]
+  );
+  const oportunidadLocationSelectStyles = useMemo(
+    () => ({
+      control: (base, state) => ({
+        ...base,
+        minHeight: 42,
+        borderRadius: 6,
+        borderColor: state.isFocused ? '#c41e3a' : '#d1d5db',
+        boxShadow: state.isFocused ? '0 0 0 3px rgba(196, 30, 58, 0.1)' : 'none',
+        '&:hover': { borderColor: state.isFocused ? '#c41e3a' : '#d1d5db' },
+      }),
+      menu: (base) => ({ ...base, zIndex: 50 }),
+      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    }),
+    []
+  );
 
   // Verificar si el usuario es administrativo
   // Todos los usuarios con modulo 'administrativo' deben seleccionar empresa
@@ -2671,43 +2706,71 @@ export default function Oportunidades({ onVolver }) {
                   />
                 </div>
 
-                {/* País / Ciudad */}
+                {/* País y ciudad (select con buscador) */}
                 <div className="form-field-group form-field-half-width">
-                  <label className="form-label-with-icon">
-                    <FiMapPin className="label-icon" />
-                    País / Ciudad
-                  </label>
                   <div className="country-city-group">
-                    <select
-                      name="pais"
-                      value={formData.pais}
-                      onChange={(e) => {
-                        const { name, value } = e.target;
-                        setFormData(prev => ({ ...prev, [name]: value, ciudad: '' }));
-                      }}
-                      className="form-select"
-                    >
-                      <option value="">Seleccionar</option>
-                      {countries.map(country => (
-                        <option key={country._id} value={country._id}>
-                          {country.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      name="ciudad"
-                      value={formData.ciudad}
-                      onChange={handleFormChange}
-                      className="form-select"
-                      disabled={!formData.pais}
-                    >
-                      <option value="">Seleccionar</option>
-                      {cities.map(city => (
-                        <option key={city._id} value={city._id}>
-                          {city.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="form-field-group">
+                      <label className="form-label-with-icon" htmlFor="crear-oportunidad-pais">
+                        <FiMapPin className="label-icon" />
+                        País
+                      </label>
+                      <Select
+                        inputId="crear-oportunidad-pais"
+                        classNamePrefix="oportunidades-loc-pais"
+                        placeholder="Buscar o seleccionar país"
+                        isClearable
+                        options={countrySelectOptionsCrear}
+                        value={countrySelectValueCrear}
+                        onChange={(opt) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            pais: opt?.value || '',
+                            ciudad: '',
+                          }))
+                        }
+                        noOptionsMessage={({ inputValue }) =>
+                          inputValue ? 'Sin coincidencias' : 'Sin países disponibles'
+                        }
+                        styles={oportunidadLocationSelectStyles}
+                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                        menuPosition="fixed"
+                      />
+                    </div>
+                    <div className="form-field-group">
+                      <label className="form-label-with-icon" htmlFor="crear-oportunidad-ciudad">
+                        <FiMapPin className="label-icon" />
+                        Ciudad
+                      </label>
+                      <Select
+                        inputId="crear-oportunidad-ciudad"
+                        classNamePrefix="oportunidades-loc-ciudad"
+                        placeholder={
+                          formData.pais
+                            ? 'Buscar o seleccionar ciudad'
+                            : 'Primero seleccione un país'
+                        }
+                        isClearable
+                        isDisabled={!formData.pais}
+                        options={citySelectOptionsCrear}
+                        value={citySelectValueCrear}
+                        onChange={(opt) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            ciudad: opt?.value || '',
+                          }))
+                        }
+                        noOptionsMessage={({ inputValue }) =>
+                          !formData.pais
+                            ? 'Seleccione un país primero'
+                            : inputValue
+                              ? 'Sin coincidencias'
+                              : 'Sin ciudades para este país'
+                        }
+                        styles={oportunidadLocationSelectStyles}
+                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                        menuPosition="fixed"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -7077,11 +7140,22 @@ export default function Oportunidades({ onVolver }) {
     );
   }
 
+  const volverDesdeListado = () => {
+    if (typeof onVolver === 'function') {
+      onVolver();
+      return;
+    }
+    navigate('/dashboard');
+  };
+
   return (
     <div className="oportunidades-content">
       <div className="oportunidades-header list-header">
         <div className="list-header-content">
-          <h3 className="section-header-title">LISTADO DE OPORTUNIDADES</h3>
+          <button type="button" className="btn-volver" onClick={volverDesdeListado}>
+            <FiArrowLeft className="btn-icon" />
+            Volver
+          </button>
           <div className="configuracion-actions list-actions">
             <button className="btn-refresh" onClick={loadOportunidades} title="Refrescar">
               <FiRefreshCw className="btn-icon" />

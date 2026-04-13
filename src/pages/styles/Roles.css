@@ -763,7 +763,7 @@
 }
 
 .toggle-switch--table.toggle-switch--on {
-  background: linear-gradient(135deg, #c41e3a 0%, #a01730 100%);
+  background: #64748b;
 }
 
 .toggle-switch--table .toggle-thumb {

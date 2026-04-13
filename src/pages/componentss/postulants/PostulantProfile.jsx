@@ -24,13 +24,15 @@ import {
   FiEye,
   FiUser,
   FiGrid,
-  FiSearch
+  FiSearch,
+  FiChevronRight
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import api from '../../../services/api';
 import LocationSelectCascade from '../../../components/common/LocationSelectCascade';
 import ProgramAllSelect from '../../../components/common/ProgramAllSelect';
 import DetalleOportunidadModal from '../DetalleOportunidadModal';
+import LongTextSubModal from '../../../components/common/LongTextSubModal';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import '../../styles/PostulantProfile.css';
 import '../../styles/Oportunidades.css';
@@ -264,6 +266,8 @@ const PostulantProfile = ({ onVolver }) => {
   const [historialLoadingPractica, setHistorialLoadingPractica] = useState(false);
   const [historialDetalleMtm, setHistorialDetalleMtm] = useState(null);
   const [historialLoadingMtm, setHistorialLoadingMtm] = useState(false);
+  /** Submodal texto largo (funciones / requisitos) en detalle MTM del historial. */
+  const [historialMtmLongText, setHistorialMtmLongText] = useState(null);
   /** Campos editables del perfil (postulant_profile): switches y habilidades técnicas. */
   const [profileEditFields, setProfileEditFields] = useState({
     conditionDiscapacity: false,
@@ -401,6 +405,7 @@ const PostulantProfile = ({ onVolver }) => {
     setHistorialError('');
     setHistorialDetallePractica(null);
     setHistorialDetalleMtm(null);
+    setHistorialMtmLongText(null);
   }, []);
 
   const openAdminHistorial = useCallback(async () => {
@@ -447,6 +452,10 @@ const PostulantProfile = ({ onVolver }) => {
         .finally(() => setHistorialLoadingPractica(false));
     }
   }, []);
+
+  useEffect(() => {
+    setHistorialMtmLongText(null);
+  }, [historialDetalleMtm]);
 
   const textoEstadoConfirmacionAdmin = (row) => {
     if (row.estado === 'aceptado_estudiante') return 'Aceptado';
@@ -4900,80 +4909,116 @@ const PostulantProfile = ({ onVolver }) => {
       />
 
       {historialDetalleMtm != null && (
-        <div className="modal-overlay" onClick={() => !historialLoadingMtm && setHistorialDetalleMtm(null)}>
-          <div className="modal-content ofertas-afines-detalle-modal" onClick={(e) => e.stopPropagation()}>
-            {historialLoadingMtm ? (
-              <div className="loading-container">
-                <div className="loading-spinner" />
-                <p>Cargando...</p>
-              </div>
-            ) : (
-              <>
-                <div className="ofertas-afines-detalle-modal__header">
-                  <h3 className="ofertas-afines-detalle-modal__title">
-                    <HiOutlineAcademicCap style={{ marginRight: 8, verticalAlign: 'middle' }} />
-                    {historialDetalleMtm.nombreCargo}
-                  </h3>
-                  <button type="button" onClick={() => setHistorialDetalleMtm(null)} className="ofertas-afines-detalle-modal__close" aria-label="Cerrar">
-                    <FiX size={22} />
-                  </button>
+        <>
+          <div className="modal-overlay" onClick={() => !historialLoadingMtm && setHistorialDetalleMtm(null)}>
+            <div className="modal-content ofertas-afines-detalle-modal" onClick={(e) => e.stopPropagation()}>
+              {historialLoadingMtm ? (
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Cargando...</p>
                 </div>
-                <div className="ofertas-afines-detalle-modal__body">
-                  <dl className="ofertas-afines-detalle-modal__grid">
-                    <dt>Dedicación</dt>
-                    <dd>{historialDetalleMtm.dedicacionHoras?.value ?? '—'}</dd>
-                    <dt>Valor por hora</dt>
-                    <dd>{historialDetalleMtm.valorPorHora?.value ?? '—'}</dd>
-                    <dt>Tipo vinculación</dt>
-                    <dd>{historialDetalleMtm.tipoVinculacion?.value ?? '—'}</dd>
-                    <dt>Periodo</dt>
-                    <dd>{historialDetalleMtm.periodo?.codigo ?? '—'}</dd>
-                    <dt>Categoría</dt>
-                    <dd>{historialDetalleMtm.categoria?.value ?? '—'}</dd>
-                    <dt>Vacantes</dt>
-                    <dd>{historialDetalleMtm.vacantes ?? '—'}</dd>
-                    <dt>Vencimiento</dt>
-                    <dd>{fmtDateHistorialMtm(historialDetalleMtm.fechaVencimiento)}</dd>
-                    <dt>Asignaturas</dt>
-                    <dd>
-                      {historialDetalleMtm.asignaturas?.length > 0
-                        ? historialDetalleMtm.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ')
-                        : '—'}
-                    </dd>
-                    <dt>Promedio mínimo</dt>
-                    <dd>{historialDetalleMtm.promedioMinimo ?? '—'}</dd>
-                    <dt>Profesor / responsable</dt>
-                    <dd>{historialDetalleMtm.nombreProfesor ?? '—'}</dd>
-                    <dt>Unidad académica</dt>
-                    <dd>{historialDetalleMtm.unidadAcademica ?? '—'}</dd>
-                    <dt>Horario</dt>
-                    <dd>{historialDetalleMtm.horario ?? '—'}</dd>
-                    <dt>Grupo</dt>
-                    <dd>{historialDetalleMtm.grupo ?? '—'}</dd>
-                    <dt>Programas</dt>
-                    <dd>
-                      {historialDetalleMtm.programas?.length > 0
-                        ? historialDetalleMtm.programas.map((p) => p.name || p.code).filter(Boolean).join(', ')
-                        : '—'}
-                    </dd>
-                  </dl>
-                  {historialDetalleMtm.funciones && (
-                    <section className="ofertas-afines-detalle-modal__block">
-                      <h4 className="ofertas-afines-detalle-modal__label">Funciones</h4>
-                      <p className="ofertas-afines-detalle-modal__text">{historialDetalleMtm.funciones}</p>
+              ) : (
+                <>
+                  <div className="ofertas-afines-detalle-modal__header">
+                    <h3 className="ofertas-afines-detalle-modal__title">
+                      <HiOutlineAcademicCap style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                      {historialDetalleMtm.nombreCargo}
+                    </h3>
+                    <button type="button" onClick={() => setHistorialDetalleMtm(null)} className="ofertas-afines-detalle-modal__close" aria-label="Cerrar">
+                      <FiX size={22} />
+                    </button>
+                  </div>
+                  <div className="ofertas-afines-detalle-modal__body">
+                    <section className="ofertas-afines-detalle-modal__data-card" aria-label="Datos de la oportunidad">
+                      <div className="ofertas-afines-detalle-modal__data-card-head">
+                        <span className="ofertas-afines-detalle-modal__data-card-kicker">Monitoría / Tutoría / Mentoría</span>
+                        <span className="ofertas-afines-detalle-modal__data-card-title">Datos de la oportunidad</span>
+                      </div>
+                      <dl className="ofertas-afines-detalle-modal__grid">
+                        <dt>Dedicación</dt>
+                        <dd>{historialDetalleMtm.dedicacionHoras?.value ?? '—'}</dd>
+                        <dt>Valor por hora</dt>
+                        <dd>{historialDetalleMtm.valorPorHora?.value ?? '—'}</dd>
+                        <dt>Tipo vinculación</dt>
+                        <dd>{historialDetalleMtm.tipoVinculacion?.value ?? '—'}</dd>
+                        <dt>Periodo</dt>
+                        <dd>{historialDetalleMtm.periodo?.codigo ?? '—'}</dd>
+                        <dt>Categoría</dt>
+                        <dd>{historialDetalleMtm.categoria?.value ?? '—'}</dd>
+                        <dt>Vacantes</dt>
+                        <dd>{historialDetalleMtm.vacantes ?? '—'}</dd>
+                        <dt>Vencimiento</dt>
+                        <dd>{fmtDateHistorialMtm(historialDetalleMtm.fechaVencimiento)}</dd>
+                        <dt>Asignaturas</dt>
+                        <dd>
+                          {historialDetalleMtm.asignaturas?.length > 0
+                            ? historialDetalleMtm.asignaturas.map((a) => a.nombreAsignatura || a.codAsignatura).filter(Boolean).join(', ')
+                            : '—'}
+                        </dd>
+                        <dt>Promedio mínimo</dt>
+                        <dd>{historialDetalleMtm.promedioMinimo ?? '—'}</dd>
+                        <dt>Profesor / responsable</dt>
+                        <dd>{historialDetalleMtm.nombreProfesor ?? '—'}</dd>
+                        <dt>Unidad académica</dt>
+                        <dd>{historialDetalleMtm.unidadAcademica ?? '—'}</dd>
+                        <dt>Horario</dt>
+                        <dd>{historialDetalleMtm.horario ?? '—'}</dd>
+                        <dt>Grupo</dt>
+                        <dd>{historialDetalleMtm.grupo ?? '—'}</dd>
+                        <dt>Programas</dt>
+                        <dd>
+                          {historialDetalleMtm.programas?.length > 0
+                            ? historialDetalleMtm.programas.map((p) => p.name || p.code).filter(Boolean).join(', ')
+                            : '—'}
+                        </dd>
+                      </dl>
                     </section>
-                  )}
-                  {historialDetalleMtm.requisitos && (
-                    <section className="ofertas-afines-detalle-modal__block">
-                      <h4 className="ofertas-afines-detalle-modal__label">Requisitos</h4>
-                      <p className="ofertas-afines-detalle-modal__text">{historialDetalleMtm.requisitos}</p>
-                    </section>
-                  )}
-                </div>
-              </>
-            )}
+                    {historialDetalleMtm.funciones && (
+                      <section className="ofertas-afines-detalle-modal__data-card" aria-label="Funciones">
+                        <div className="ofertas-afines-detalle-modal__data-card-head">
+                          <span className="ofertas-afines-detalle-modal__data-card-kicker">Detalle</span>
+                          <span className="ofertas-afines-detalle-modal__data-card-title">Funciones</span>
+                        </div>
+                        <div className="ofertas-afines-detalle-modal__long-block">
+                          <button
+                            type="button"
+                            className="ofertas-afines-detalle-modal__long-btn"
+                            onClick={() => setHistorialMtmLongText({ title: 'Funciones', text: historialDetalleMtm.funciones })}
+                          >
+                            Ver funciones <FiChevronRight size={16} aria-hidden />
+                          </button>
+                        </div>
+                      </section>
+                    )}
+                    {historialDetalleMtm.requisitos && (
+                      <section className="ofertas-afines-detalle-modal__data-card" aria-label="Requisitos">
+                        <div className="ofertas-afines-detalle-modal__data-card-head">
+                          <span className="ofertas-afines-detalle-modal__data-card-kicker">Detalle</span>
+                          <span className="ofertas-afines-detalle-modal__data-card-title">Requisitos</span>
+                        </div>
+                        <div className="ofertas-afines-detalle-modal__long-block">
+                          <button
+                            type="button"
+                            className="ofertas-afines-detalle-modal__long-btn"
+                            onClick={() => setHistorialMtmLongText({ title: 'Requisitos', text: historialDetalleMtm.requisitos })}
+                          >
+                            Ver requisitos <FiChevronRight size={16} aria-hidden />
+                          </button>
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+          <LongTextSubModal
+            open={historialMtmLongText != null}
+            title={historialMtmLongText?.title}
+            text={historialMtmLongText?.text}
+            onClose={() => setHistorialMtmLongText(null)}
+          />
+        </>
       )}
     </div>
   );

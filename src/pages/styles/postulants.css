@@ -444,11 +444,11 @@
 }
 
 .slider:hover {
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
 }
 
-input:checked+.slider:hover {
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+input:checked + .slider:hover {
+  box-shadow: 0 1px 5px rgba(51, 65, 85, 0.35);
 }
 
 .status-text {
@@ -456,7 +456,7 @@ input:checked+.slider:hover {
   font-weight: 600;
   text-transform: uppercase;
   min-width: 40px;
-  text-align: center;
+  text-align: left;
 }
 
 .profile-count-badge {
@@ -472,11 +472,13 @@ input:checked+.slider:hover {
 }
 
 .status-text.active {
-  color: #10b981;
+  color: #334155;
+  font-weight: 700;
 }
 
 .status-text.inactive {
-  color: #ef4444;
+  color: #94a3b8;
+  font-weight: 600;
 }
 
 /* Acciones (Opciones / Ver cursos) */
@@ -656,7 +658,7 @@ input:checked+.slider:hover {
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .switch {
@@ -679,7 +681,7 @@ input:checked+.slider:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: #cbd5e1;
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -697,11 +699,11 @@ input:checked+.slider:hover {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-input:checked+.slider {
-  background-color: #10b981;
+input:checked + .slider {
+  background-color: #64748b;
 }
 
-input:checked+.slider:before {
+input:checked + .slider:before {
   transform: translateX(22px);
 }
 
