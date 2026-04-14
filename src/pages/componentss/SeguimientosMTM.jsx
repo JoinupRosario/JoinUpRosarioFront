@@ -61,7 +61,10 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
   const [form, setForm] = useState(defaultForm());
   const [uploadingDocId, setUploadingDocId] = useState(null);
   const [accionSeguimientoId, setAccionSeguimientoId] = useState(null); // aprobar/rechazar loading
-  const [todosSeguimientosResueltos, setTodosSeguimientosResueltos] = useState(false); // HU009: para finalizar MTM
+  const [todosSeguimientosResueltos, setTodosSeguimientosResueltos] = useState(false);
+  const [tieneAlgunAprobado, setTieneAlgunAprobado] = useState(false);
+  const [legalizacionEstado, setLegalizacionEstado] = useState(null);
+  const [solicitandoFinalizacion, setSolicitandoFinalizacion] = useState(false);
   const [seleccionadosMasivo, setSeleccionadosMasivo] = useState(new Set()); // IDs para aprobación/rechazo masivo
   const [accionMasivaLoading, setAccionMasivaLoading] = useState(false);
   const [actividadesPlan, setActividadesPlan] = useState([]); // Actividades del plan de trabajo para el select
@@ -75,6 +78,8 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
         setList(r.data?.data ?? []);
         setTotalHorasAprobadas(r.data?.totalHorasAprobadas ?? 0);
         setTodosSeguimientosResueltos(!!r.data?.todosSeguimientosResueltos);
+        setTieneAlgunAprobado(!!r.data?.tieneAlgunAprobado);
+        setLegalizacionEstado(r.data?.legalizacionEstado ?? null);
         setActividadesPlan(r.data?.actividadesPlan ?? []);
       })
       .catch((e) => setError(e.response?.data?.message || 'Error al cargar seguimientos'))
@@ -309,6 +314,8 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
         setList(r.data?.data ?? []);
         setTotalHorasAprobadas(r.data?.totalHorasAprobadas ?? 0);
         setTodosSeguimientosResueltos(!!r.data?.todosSeguimientosResueltos);
+        setTieneAlgunAprobado(!!r.data?.tieneAlgunAprobado);
+        setLegalizacionEstado(r.data?.legalizacionEstado ?? null);
         setSeleccionadosMasivo(new Set());
         Swal.fire({ icon: 'success', title: r.data?.message || 'Aprobados', confirmButtonColor: '#c41e3a' });
       })
@@ -339,6 +346,8 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
           setList(r.data?.data ?? []);
           setTotalHorasAprobadas(r.data?.totalHorasAprobadas ?? 0);
           setTodosSeguimientosResueltos(!!r.data?.todosSeguimientosResueltos);
+          setTieneAlgunAprobado(!!r.data?.tieneAlgunAprobado);
+          setLegalizacionEstado(r.data?.legalizacionEstado ?? null);
           setSeleccionadosMasivo(new Set());
           Swal.fire({ icon: 'success', title: r.data?.message || 'Rechazados', confirmButtonColor: '#c41e3a' });
         })
@@ -385,15 +394,77 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
           <p style={{ fontSize: '0.95rem', color: '#374151', margin: 0 }}>
             Total horas aprobadas (reporte reconocimiento DAF): <strong>{totalHorasAprobadas}</strong>
           </p>
-          {todosSeguimientosResueltos && (
+          {legalizacionEstado === 'finalizada' && (
+            <p style={{ fontSize: '0.875rem', color: '#166534', fontWeight: 600, marginTop: 8, marginBottom: 0, padding: '6px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+              ✅ MTM finalizada — vista de solo lectura. No se pueden realizar cambios sobre los seguimientos.
+            </p>
+          )}
+          {legalizacionEstado !== 'finalizada' && todosSeguimientosResueltos && (
             <p style={{ fontSize: '0.9rem', color: '#059669', marginTop: 6, marginBottom: 0 }}>
-              Todas las actividades están aprobadas o rechazadas. La MTM puede finalizarse según corresponda.
+              Todas las actividades están resueltas.
+              {legalizacionEstado === 'solicitada_finalizacion' && ' El estudiante ya solicitó la finalización — puedes confirmarla desde la pestaña de datos de la legalización.'}
             </p>
           )}
         </div>
       )}
 
-      {!isAdmin && (
+      {/* HU011: Botón solicitar finalización (solo estudiante) */}
+      {!isAdmin && tieneAlgunAprobado && legalizacionEstado === 'aprobada' && (
+        <div className="segmtm-finalizar-banner">
+          <div className="segmtm-finalizar-banner__text">
+            <strong>¿Tu monitoría está lista para finalizar?</strong>
+            <span>Tienes seguimientos aprobados. Puedes solicitar el cierre de tu MTM al coordinador.</span>
+          </div>
+          <button
+            type="button"
+            className="btn-guardar segmtm-finalizar-banner__btn"
+            disabled={solicitandoFinalizacion}
+            onClick={async () => {
+              const confirm = await Swal.fire({
+                icon: 'question',
+                title: '¿Solicitar finalización?',
+                html: 'Se notificará al coordinador para que confirme el cierre de tu monitoría.<br/><br/>Esta acción <strong>no se puede deshacer</strong>.',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, solicitar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#c41e3a',
+              });
+              if (!confirm.isConfirmed) return;
+              setSolicitandoFinalizacion(true);
+              try {
+                await api.post(`/oportunidades-mtm/legalizaciones/${postulacionId}/solicitar-finalizacion`);
+                setLegalizacionEstado('solicitada_finalizacion');
+                Swal.fire({
+                  icon: 'success',
+                  title: '¡Solicitud enviada!',
+                  text: 'El coordinador recibirá la notificación para confirmar el cierre de tu monitoría.',
+                  confirmButtonColor: '#c41e3a',
+                });
+              } catch (e) {
+                Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo enviar la solicitud.', confirmButtonColor: '#c41e3a' });
+              } finally {
+                setSolicitandoFinalizacion(false);
+              }
+            }}
+          >
+            {solicitandoFinalizacion ? 'Enviando...' : 'Solicitar finalización de MTM'}
+          </button>
+        </div>
+      )}
+
+      {!isAdmin && legalizacionEstado === 'solicitada_finalizacion' && (
+        <div className="segmtm-finalizar-banner segmtm-finalizar-banner--pendiente">
+          <span>⏳ <strong>Solicitud de finalización enviada.</strong> El coordinador está pendiente de confirmar el cierre de tu monitoría.</span>
+        </div>
+      )}
+
+      {!isAdmin && legalizacionEstado === 'finalizada' && (
+        <div className="segmtm-finalizar-banner segmtm-finalizar-banner--ok">
+          <span>✅ <strong>Monitoría finalizada.</strong> El coordinador confirmó el cierre de tu MTM.</span>
+        </div>
+      )}
+
+      {!isAdmin && legalizacionEstado !== 'finalizada' && (
       <form onSubmit={handleSubmit} className="seguimientos-mtm-form segmtm-est__form">
         <h4>{editingId ? 'Editar seguimiento' : 'Nuevo seguimiento'}</h4>
         <div className="segmtm-est__form-grid">
@@ -506,7 +577,7 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
       <section className={compact ? 'segmtm-est__registros segmtm-est__registros--embedded' : 'segmtm-est__registros'}>
         <div className="segmtm-est__registros-header">
           <h3 className="legalizacion-mtm__section-title">Registros</h3>
-          {isAdmin && pendientesIds.length > 0 && (
+          {isAdmin && pendientesIds.length > 0 && legalizacionEstado !== 'finalizada' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
                 <input
@@ -548,7 +619,7 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
                 >
                   <div className="segmtm-est__card-head">
                     <div className="segmtm-est__card-head-main">
-                      {isAdmin && seg.estado === 'pendiente_revision' && (
+                      {isAdmin && seg.estado === 'pendiente_revision' && legalizacionEstado !== 'finalizada' && (
                         <label className="segmtm-est__card-check">
                           <input
                             type="checkbox"
@@ -567,13 +638,13 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
                         </span>
                       </div>
                     </div>
-                    {canEdit && !isAdmin && (
+                    {canEdit && !isAdmin && legalizacionEstado !== 'finalizada' && (
                       <div className="segmtm-est__card-actions">
                         <button type="button" className="btn-secondary segmtm-est__btn-xs" onClick={() => handleEdit(seg)}>Editar</button>
                         <button type="button" className="btn-secondary segmtm-est__btn-xs segmtm-est__btn-danger" onClick={() => handleDelete(seg)}>Eliminar</button>
                       </div>
                     )}
-                    {isAdmin && seg.estado === 'pendiente_revision' && (
+                    {isAdmin && seg.estado === 'pendiente_revision' && legalizacionEstado !== 'finalizada' && (
                       <div className="segmtm-est__card-actions">
                         <button type="button" className="btn-guardar segmtm-est__btn-xs" disabled={accionSeguimientoId === seg._id} onClick={() => handleAprobar(seg)}>
                           {accionSeguimientoId === seg._id ? '...' : 'Aprobar'}

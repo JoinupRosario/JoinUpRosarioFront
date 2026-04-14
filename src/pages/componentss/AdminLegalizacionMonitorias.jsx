@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiDownload } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
@@ -12,6 +12,7 @@ const ESTADO_LABEL = {
   creada: 'Creada',
   en_revision: 'En revisión',
   aprobada: 'Legalizada',
+  solicitada_finalizacion: 'Solicitud finalización',
   finalizada: 'Finalizada',
   rechazada: 'Anulada',
   en_ajuste: 'En ajuste',
@@ -49,48 +50,63 @@ function buildListParams({ filtroEstado, filtroPeriodo, filtroPrograma, busqueda
 
 export default function AdminLegalizacionMonitorias() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Estado sincronizado con URL para que persista al volver desde el detalle
+  const filtroEstado   = searchParams.get('estado') ?? '';
+  const filtroPeriodo  = searchParams.get('periodo') ?? '';
+  const filtroPrograma = searchParams.get('programa') ?? '';
+  const busqueda       = searchParams.get('q') ?? '';
+  const page           = Number(searchParams.get('page') ?? '1');
+  const limit          = Number(searchParams.get('limit') ?? '20');
+
+  const [busquedaInput, setBusquedaInput] = useState(busqueda);
+
+  const setFiltroEstado   = (v) => setSearchParams((p) => { const n = new URLSearchParams(p); v ? n.set('estado', v)   : n.delete('estado');   n.set('page','1'); return n; }, { replace: true });
+  const setFiltroPeriodo  = (v) => setSearchParams((p) => { const n = new URLSearchParams(p); v ? n.set('periodo', v)  : n.delete('periodo');  n.set('page','1'); return n; }, { replace: true });
+  const setFiltroPrograma = (v) => setSearchParams((p) => { const n = new URLSearchParams(p); v ? n.set('programa', v) : n.delete('programa'); n.set('page','1'); return n; }, { replace: true });
+  const setBusqueda       = (v) => setSearchParams((p) => { const n = new URLSearchParams(p); v ? n.set('q', v)        : n.delete('q');        n.set('page','1'); return n; }, { replace: true });
+  const setPage           = (fn) => setSearchParams((p) => { const n = new URLSearchParams(p); const next = typeof fn === 'function' ? fn(Number(p.get('page') ?? '1')) : fn; n.set('page', String(next)); return n; }, { replace: true });
+  const setLimit          = (v)  => setSearchParams((p) => { const n = new URLSearchParams(p); n.set('limit', String(v)); n.set('page','1'); return n; }, { replace: true });
+
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [seleccionados, setSeleccionados] = useState(new Set());
+  const [aprobandoMasivo, setAprobandoMasivo] = useState(false);
+  const [finalizandoMasivo, setFinalizandoMasivo] = useState(false);
   const [metaEstados, setMetaEstados] = useState([]);
   const [metaPeriodos, setMetaPeriodos] = useState([]);
   const [metaProgramas, setMetaProgramas] = useState([]);
-  const [filtroEstado, setFiltroEstado] = useState('');
-  const [filtroPeriodo, setFiltroPeriodo] = useState('');
-  const [busquedaInput, setBusquedaInput] = useState('');
-  const [busqueda, setBusqueda] = useState('');
-  const [filtroPrograma, setFiltroPrograma] = useState('');
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
-  const prevBusquedaRef = useRef(busqueda);
-
-  useEffect(() => {
+  const [metaError, setMetaError] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const cargarMeta = useCallback(() => {
+    setMetaLoading(true);
+    setMetaError(false);
     api
       .get('/oportunidades-mtm/legalizaciones-admin/meta/filtros')
       .then((r) => {
         setMetaEstados(Array.isArray(r.data?.estados) ? r.data.estados : []);
         setMetaPeriodos(Array.isArray(r.data?.periodos) ? r.data.periodos : []);
         setMetaProgramas(Array.isArray(r.data?.programas) ? r.data.programas : []);
+        setMetaError(false);
       })
       .catch(() => {
-        setMetaEstados([]);
-        setMetaPeriodos([]);
-        setMetaProgramas([]);
-      });
+        setMetaError(true);
+      })
+      .finally(() => setMetaLoading(false));
   }, []);
 
-  useEffect(() => {
-    const t = setTimeout(() => setBusqueda(busquedaInput.trim()), 400);
-    return () => clearTimeout(t);
-  }, [busquedaInput]);
+  useEffect(() => { cargarMeta(); }, [cargarMeta]);
 
+  // Debounce de búsqueda — actualiza el param `q` en la URL con retraso
   useEffect(() => {
-    if (prevBusquedaRef.current !== busqueda) {
-      prevBusquedaRef.current = busqueda;
-      setPage(1);
-    }
-  }, [busqueda]);
+    const trimmed = busquedaInput.trim();
+    const t = setTimeout(() => setBusqueda(trimmed), 400);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busquedaInput]);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -118,6 +134,7 @@ export default function AdminLegalizacionMonitorias() {
   }, [filtroEstado, filtroPeriodo, filtroPrograma, busqueda, page, limit]);
 
   useEffect(() => {
+    setSeleccionados(new Set());
     fetchList();
   }, [fetchList]);
 
@@ -132,15 +149,11 @@ export default function AdminLegalizacionMonitorias() {
   };
 
   const limpiarFiltros = () => {
-    setFiltroEstado('');
-    setFiltroPeriodo('');
     setBusquedaInput('');
-    setBusqueda('');
-    setFiltroPrograma('');
-    setPage(1);
+    setSearchParams(new URLSearchParams(), { replace: true });
   };
 
-  const hayFiltrosActivos = filtroEstado || filtroPeriodo || busquedaInput || filtroPrograma;
+  const hayFiltrosActivos = filtroEstado || filtroPeriodo || busqueda || filtroPrograma;
 
   const exportarExcel = () => {
     const params = buildListParams({
@@ -180,6 +193,79 @@ export default function AdminLegalizacionMonitorias() {
       .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo exportar.', confirmButtonColor: '#c41e3a' }));
   };
 
+  // IDs seleccionables por estado
+  const idsEnRevision      = data.filter((r) => r.estadoMTM === 'en_revision').map((r) => String(r.postulacionId ?? r._id));
+  const idsEnFinalizacion  = data.filter((r) => r.estadoMTM === 'solicitada_finalizacion').map((r) => String(r.postulacionId ?? r._id));
+  const idsSeleccionables  = [...idsEnRevision, ...idsEnFinalizacion];
+  const todasSeleccionadas = idsSeleccionables.length > 0 && idsSeleccionables.every((id) => seleccionados.has(id));
+
+  // Subset de seleccionados por tipo (para los botones)
+  const selRevision     = Array.from(seleccionados).filter((id) => idsEnRevision.includes(id));
+  const selFinalizacion = Array.from(seleccionados).filter((id) => idsEnFinalizacion.includes(id));
+
+  const ocupado = aprobandoMasivo || finalizandoMasivo;
+
+  const toggleSeleccion = (id) => setSeleccionados((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const toggleTodas = () => {
+    if (todasSeleccionadas) setSeleccionados(new Set());
+    else setSeleccionados(new Set(idsSeleccionables));
+  };
+
+  const aprobarMasivo = async () => {
+    if (selRevision.length === 0) return;
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: 'Aprobar legalización de monitorías',
+      html: `¿Está seguro de aprobar las <strong>${selRevision.length}</strong> monitoría(s) seleccionada(s)?<br/><br/>Con esta acción también quedarán aprobados los documentos pendientes de aprobación si los hay.`,
+      showCancelButton: true,
+      confirmButtonText: 'Aceptar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#c41e3a',
+    });
+    if (!confirm.isConfirmed) return;
+    setAprobandoMasivo(true);
+    try {
+      const { data: res } = await api.post('/oportunidades-mtm/legalizaciones-admin/aprobar-masivo', { postulacionIds: selRevision });
+      Swal.fire({ icon: 'success', title: '¡Listo!', text: res.message, confirmButtonColor: '#c41e3a', timer: 3500, timerProgressBar: true });
+      setSeleccionados(new Set());
+      fetchList();
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo completar la aprobación masiva.', confirmButtonColor: '#c41e3a' });
+    } finally {
+      setAprobandoMasivo(false);
+    }
+  };
+
+  const finalizarMasivo = async () => {
+    if (selFinalizacion.length === 0) return;
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: 'Aprobar finalización de monitorías',
+      html: `¿Está seguro de confirmar la finalización de las <strong>${selFinalizacion.length}</strong> monitoría(s) seleccionada(s)?`,
+      showCancelButton: true,
+      confirmButtonText: 'Aceptar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#c41e3a',
+    });
+    if (!confirm.isConfirmed) return;
+    setFinalizandoMasivo(true);
+    try {
+      const { data: res } = await api.post('/oportunidades-mtm/legalizaciones-admin/finalizar-masivo', { postulacionIds: selFinalizacion });
+      Swal.fire({ icon: 'success', title: '¡Listo!', text: res.message, confirmButtonColor: '#c41e3a', timer: 3500, timerProgressBar: true });
+      setSeleccionados(new Set());
+      fetchList();
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo completar la finalización masiva.', confirmButtonColor: '#c41e3a' });
+    } finally {
+      setFinalizandoMasivo(false);
+    }
+  };
+
   const inicio = total === 0 ? 0 : (page - 1) * limit + 1;
   const fin = Math.min(page * limit, total);
 
@@ -200,19 +286,27 @@ export default function AdminLegalizacionMonitorias() {
       </header>
 
       <section className="admlegmtm__filters" aria-label="Filtros del listado">
-        <div className="admlegmtm__filters-title">Filtros</div>
+        <div className="admlegmtm__filters-title">
+          Filtros
+          {metaError && (
+            <span className="admlegmtm__meta-error">
+              {' '}— No se pudieron cargar las opciones.{' '}
+              <button type="button" className="admlegmtm__btn-retry" onClick={cargarMeta}>
+                Reintentar
+              </button>
+            </span>
+          )}
+        </div>
         <div className="admlegmtm__filters-grid">
           <label className="admlegmtm__field">
             <span className="admlegmtm__label">Estado legalización</span>
             <select
               value={filtroEstado}
-              onChange={(e) => {
-                setFiltroEstado(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => setFiltroEstado(e.target.value)}
               className="admlegmtm__control"
+              disabled={metaLoading}
             >
-              <option value="">Todos los estados</option>
+              <option value="">{metaLoading ? 'Cargando…' : 'Todos los estados'}</option>
               {metaEstados.map((codigo) => (
                 <option key={String(codigo)} value={String(codigo)}>
                   {labelEstadoLegalizacionBdFiltro(codigo)}
@@ -224,13 +318,11 @@ export default function AdminLegalizacionMonitorias() {
             <span className="admlegmtm__label">Periodo</span>
             <select
               value={filtroPeriodo}
-              onChange={(e) => {
-                setFiltroPeriodo(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => setFiltroPeriodo(e.target.value)}
               className="admlegmtm__control"
+              disabled={metaLoading}
             >
-              <option value="">Todos los periodos</option>
+              <option value="">{metaLoading ? 'Cargando…' : 'Todos los periodos'}</option>
               {metaPeriodos.map((p) => (
                 <option key={String(p)} value={String(p)}>{p}</option>
               ))}
@@ -240,13 +332,11 @@ export default function AdminLegalizacionMonitorias() {
             <span className="admlegmtm__label">Programa</span>
             <select
               value={filtroPrograma}
-              onChange={(e) => {
-                setFiltroPrograma(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => setFiltroPrograma(e.target.value)}
               className="admlegmtm__control admlegmtm__control--programa"
+              disabled={metaLoading}
             >
-              <option value="">Todos los programas</option>
+              <option value="">{metaLoading ? 'Cargando…' : 'Todos los programas'}</option>
               {metaProgramas.map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
@@ -281,10 +371,63 @@ export default function AdminLegalizacionMonitorias() {
         </div>
       ) : (
         <div className="admlegmtm__list">
+          {/* Barra de acciones masivas */}
+          {seleccionados.size > 0 && (
+            <div className="admlegmtm__masivo-bar">
+              <span className="admlegmtm__masivo-count">
+                {seleccionados.size} monitoría(s) seleccionada(s)
+                {selRevision.length > 0 && selFinalizacion.length > 0
+                  ? ` (${selRevision.length} en revisión · ${selFinalizacion.length} en solicitud finalización)`
+                  : selRevision.length > 0
+                    ? ` — en revisión`
+                    : ` — en solicitud de finalización`}
+              </span>
+              {selRevision.length > 0 && (
+                <button
+                  type="button"
+                  className="admlegmtm__btn admlegmtm__btn--aprobar-masivo"
+                  onClick={aprobarMasivo}
+                  disabled={ocupado}
+                >
+                  {aprobandoMasivo ? 'Aprobando...' : `✓ Aprobar legalización (${selRevision.length})`}
+                </button>
+              )}
+              {selFinalizacion.length > 0 && (
+                <button
+                  type="button"
+                  className="admlegmtm__btn admlegmtm__btn--finalizar-masivo"
+                  onClick={finalizarMasivo}
+                  disabled={ocupado}
+                >
+                  {finalizandoMasivo ? 'Finalizando...' : `✓ Aprobar finalización (${selFinalizacion.length})`}
+                </button>
+              )}
+              <button
+                type="button"
+                className="admlegmtm__btn admlegmtm__btn--ghost"
+                onClick={() => setSeleccionados(new Set())}
+                disabled={ocupado}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+
           <div className="admlegmtm__tableScroll">
             <table className="admlegmtm__table">
               <thead>
                 <tr>
+                  <th scope="col" className="admlegmtm__th-check">
+                    {idsSeleccionables.length > 0 && (
+                      <input
+                        type="checkbox"
+                        checked={todasSeleccionadas}
+                        onChange={toggleTodas}
+                        title="Seleccionar todas las que están en revisión o en solicitud de finalización"
+                        className="admlegmtm__checkbox"
+                      />
+                    )}
+                  </th>
                   <th scope="col">Nº identidad</th>
                   <th scope="col">Nombre</th>
                   <th scope="col">Apellido</th>
@@ -298,31 +441,46 @@ export default function AdminLegalizacionMonitorias() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((row) => (
-                  <tr key={String(row._id || row.postulacionId)}>
-                    <td>{row.numeroIdentidad ?? '—'}</td>
-                    <td>{row.nombre ?? '—'}</td>
-                    <td>{row.apellido ?? '—'}</td>
-                    <td>{row.codigoMTM ?? '—'}</td>
-                    <td>{row.nombreMTM ?? '—'}</td>
-                    <td>{row.periodo ?? '—'}</td>
-                    <td>{row.coordinador ?? '—'}</td>
-                    <td>{ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '—'}</td>
-                    <td>
-                      <LegalizacionProgramasBadge row={row} variant="admin" />
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="admlegmtm__btn admlegmtm__btn--row"
-                        onClick={() => verRevision(row)}
-                        title="Revisar datos y documentos"
-                      >
-                        Revisar legalización
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {data.map((row) => {
+                  const rowId = String(row.postulacionId ?? row._id);
+                  const esSeleccionable = row.estadoMTM === 'en_revision' || row.estadoMTM === 'solicitada_finalizacion';
+                  const seleccionado = seleccionados.has(rowId);
+                  return (
+                    <tr key={rowId} className={seleccionado ? 'admlegmtm__tr--selected' : ''}>
+                      <td className="admlegmtm__td-check">
+                        {esSeleccionable && (
+                          <input
+                            type="checkbox"
+                            checked={seleccionado}
+                            onChange={() => toggleSeleccion(rowId)}
+                            className="admlegmtm__checkbox"
+                          />
+                        )}
+                      </td>
+                      <td>{row.numeroIdentidad ?? '—'}</td>
+                      <td>{row.nombre ?? '—'}</td>
+                      <td>{row.apellido ?? '—'}</td>
+                      <td>{row.codigoMTM ?? '—'}</td>
+                      <td>{row.nombreMTM ?? '—'}</td>
+                      <td>{row.periodo ?? '—'}</td>
+                      <td>{row.coordinador ?? '—'}</td>
+                      <td>{ESTADO_LABEL[row.estadoMTM] ?? row.estadoMTM ?? '—'}</td>
+                      <td>
+                        <LegalizacionProgramasBadge row={row} variant="admin" />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="admlegmtm__btn admlegmtm__btn--row"
+                          onClick={() => verRevision(row)}
+                          title="Revisar datos y documentos"
+                        >
+                          Revisar legalización
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

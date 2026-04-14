@@ -895,6 +895,25 @@
   border-color: #cbd5e1;
 }
 
+/* Estado: solicitud de finalización pendiente */
+.admrevmtm .legalizacion-mtm__estado.legalizacion-mtm__estado--warning {
+  color: #92400e;
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fcd34d;
+  font-weight: 600;
+}
+
+/* Botón confirmar finalización */
+.admrevmtm .legalizacion-mtm__topbar-actions .btn-guardar.admrevmtm__btn-finalizar {
+  background: #059669;
+  border-color: #059669;
+}
+
+.admrevmtm .legalizacion-mtm__topbar-actions .btn-guardar.admrevmtm__btn-finalizar:hover:not(:disabled) {
+  background: #047857;
+  border-color: #047857;
+}
+
 /* Acuerdo de vinculación (práctica): mismo bloque .legalizacion-mtm__section + fondo distinto */
 .admrevmtm .legalizacion-mtm__section.admrevmtm__acuerdo-panel {
   background: linear-gradient(165deg, #f8fafc 0%, #fff 48%);

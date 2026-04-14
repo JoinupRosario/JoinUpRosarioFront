@@ -149,6 +149,112 @@
   color: #8b1538;
 }
 
+.admlegmtm__btn--aprobar-masivo {
+  background: #c41e3a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admlegmtm__btn--aprobar-masivo:hover:not(:disabled) {
+  background: #8b1538;
+}
+
+.admlegmtm__btn--aprobar-masivo:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admlegmtm__btn--finalizar-masivo {
+  background: #1d6fa4;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admlegmtm__btn--finalizar-masivo:hover:not(:disabled) {
+  background: #155a82;
+}
+
+.admlegmtm__btn--finalizar-masivo:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Barra de acciones masivas */
+.admlegmtm__masivo-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff8e1;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.admlegmtm__masivo-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+  flex: 1 1 auto;
+}
+
+/* Checkboxes en tabla */
+.admlegmtm__th-check,
+.admlegmtm__td-check {
+  width: 36px;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.admlegmtm__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #c41e3a;
+}
+
+/* Fila seleccionada */
+.admlegmtm__tr--selected {
+  background: #fff1f2;
+}
+
+.admlegmtm__tr--selected:hover {
+  background: #ffe4e6;
+}
+
+/* Meta error / retry */
+.admlegmtm__meta-error {
+  font-size: 12px;
+  font-weight: 400;
+  color: #b45309;
+}
+
+.admlegmtm__btn-retry {
+  background: none;
+  border: none;
+  color: #c41e3a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.admlegmtm__btn-retry:hover { color: #8b1538; }
+
 /* —— Filtros —— */
 .admlegmtm__filters {
   background: #f8fafc;

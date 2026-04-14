@@ -259,6 +259,25 @@
   vertical-align: middle;
 }
 
+.student-td-estado-final {
+  white-space: nowrap;
+  vertical-align: middle;
+  min-width: 140px;
+}
+
+.student-td-perfil {
+  white-space: nowrap;
+  vertical-align: middle;
+  text-align: center;
+}
+
+/* Botón "Ver perfil" en la tabla (inline, más compacto) */
+.student-td-perfil .student-opciones-portal__btn-perfil {
+  width: auto;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
 .student-opciones-trigger {
   display: inline-flex;
   align-items: center;

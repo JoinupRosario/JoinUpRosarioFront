@@ -1889,6 +1889,11 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
   color: #c41e3a;
 }
 
+.legalizacion-mtm__estado--warning {
+  color: #92400e;
+  font-weight: 600;
+}
+
 .ofertas-afines-detalle-modal__text {
   margin: 0;
   font-size: 14px;
@@ -3438,6 +3443,64 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
   color: #374151;
 }
 
+/* Botones de acción sobre documentos (preview / eliminar) */
+.opp-doc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background 0.2s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.opp-doc-btn--preview {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.opp-doc-btn--preview:hover {
+  background: #bae6fd;
+  transform: translateY(-1px);
+}
+
+.opp-doc-btn--delete {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.opp-doc-btn--delete:hover {
+  background: #fecaca;
+  transform: translateY(-1px);
+}
+
+/* Botón "Agregar documento" en edición (label que actúa como botón) */
+.opp-doc-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: #c41e3a;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.opp-doc-add-btn:hover {
+  background: #a01a2f;
+}
+
+.opp-doc-add-btn input[type="file"] {
+  display: none;
+}
+
 /* Estilos para autocomplete */
 .autocomplete-wrapper {
   position: relative;
@@ -4838,6 +4901,46 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
 .detalle-postulante-campo ul {
   margin: 6px 0 0 0;
   padding-left: 20px;
+}
+
+/* Documentos de soporte en detalle de postulación MTM */
+.detalle-postulante-campo--docs-soporte {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.detalle-docs-soporte__list {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 8px 0 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detalle-docs-soporte__item {
+  margin: 0;
+}
+
+.detalle-docs-soporte__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #c41e3a;
+  text-decoration: none;
+  padding: 5px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fff1f2;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.detalle-docs-soporte__link:hover {
+  background: #fee2e2;
+  border-color: #c41e3a;
+  text-decoration: none;
 }
 
 .detalle-postulante-competencias {

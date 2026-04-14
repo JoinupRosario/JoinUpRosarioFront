@@ -43,6 +43,10 @@ export default function OfertasMonitoria() {
   const [showConfirmacionAplicar, setShowConfirmacionAplicar] = useState(false);
   const [errorAplicar, setErrorAplicar] = useState('');
   const applyingToIdRef = useRef(null);
+  // Documentos de soporte del perfil del estudiante
+  const [docsSoporte, setDocsSoporte] = useState([]);
+  const [loadingDocsSoporte, setLoadingDocsSoporte] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState(new Set());
 
   const loadOfertas = async (page = 1) => {
     try {
@@ -86,8 +90,11 @@ export default function OfertasMonitoria() {
     setErrorAplicar('');
     setShowModalAplicar(true);
     setSelectedVersionId('');
+    setSelectedDocIds(new Set());
     setProfiles([]);
+    setDocsSoporte([]);
     setLoadingProfiles(true);
+    setLoadingDocsSoporte(true);
     try {
       const { data: me } = await api.get('/postulants/me');
       const id = me?._id || me?.id;
@@ -95,23 +102,34 @@ export default function OfertasMonitoria() {
         setProfiles([]);
         return;
       }
-      const { data: profilesRes } = await api.get(`/postulants/${id}/profiles`);
-      const versions = (profilesRes?.profiles || []).filter((p) => p.hasCv === true);
-      const baseProfiles = (profilesRes?.baseProfiles || []).filter((b) => b.hasCv === true);
-      const list = versions.length > 0
-        ? versions
-        : baseProfiles.map((b) => ({
-            _id: b._id,
-            profileId: b._id,
-            profileName: (b.studentCode || b.profileName || 'Perfil').toString().trim() || 'Perfil',
-            type: 'base',
-          }));
-      setProfiles(list);
+      const [profilesRes, supportsRes] = await Promise.allSettled([
+        api.get(`/postulants/${id}/profiles`),
+        api.get('/oportunidades-mtm/mis-documentos-soporte'),
+      ]);
+      if (profilesRes.status === 'fulfilled') {
+        const versions = (profilesRes.value.data?.profiles || []).filter((p) => p.hasCv === true);
+        const baseProfiles = (profilesRes.value.data?.baseProfiles || []).filter((b) => b.hasCv === true);
+        const list = versions.length > 0
+          ? versions
+          : baseProfiles.map((b) => ({
+              _id: b._id,
+              profileId: b._id,
+              profileName: (b.studentCode || b.profileName || 'Perfil').toString().trim() || 'Perfil',
+              type: 'base',
+            }));
+        setProfiles(list);
+      } else {
+        setProfiles([]);
+      }
+      if (supportsRes.status === 'fulfilled') {
+        setDocsSoporte(supportsRes.value.data?.documentos ?? []);
+      }
     } catch (e) {
       console.error('Error cargando perfiles', e);
       setProfiles([]);
     } finally {
       setLoadingProfiles(false);
+      setLoadingDocsSoporte(false);
     }
   };
 
@@ -128,6 +146,7 @@ export default function OfertasMonitoria() {
       await api.post(`/oportunidades-mtm/${id}/aplicar`, {
         postulantProfileId: profileIdToSend,
         profileVersionId: selected?.type !== 'base' && selected?._id ? selected._id : undefined,
+        documentosSoporteIds: selectedDocIds.size > 0 ? Array.from(selectedDocIds) : undefined,
       });
       setShowModalAplicar(false);
       setShowConfirmacionAplicar(true);
@@ -138,6 +157,15 @@ export default function OfertasMonitoria() {
       setSubmittingAplicar(false);
       applyingToIdRef.current = null;
     }
+  };
+
+  const toggleDocSoporte = (docId) => {
+    setSelectedDocIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(docId)) next.delete(docId);
+      else next.add(docId);
+      return next;
+    });
   };
 
   const cerrarConfirmacionAplicar = () => {
@@ -360,6 +388,37 @@ export default function OfertasMonitoria() {
                       );
                     })}
                   </ul>
+
+                  {/* Sección documentos de soporte */}
+                  <div className="ofmon-docs-soporte">
+                    <p className="ofmon-docs-soporte__title">Documentos de soporte <span className="ofmon-docs-soporte__optional">(opcional)</span></p>
+                    {loadingDocsSoporte ? (
+                      <p className="ofmon-docs-soporte__loading">Cargando documentos...</p>
+                    ) : docsSoporte.length === 0 ? (
+                      <p className="ofmon-docs-soporte__empty">No tienes documentos de soporte cargados en tu perfil. Puedes agregarlos desde <strong>Mi perfil → Otros documentos de soporte</strong>.</p>
+                    ) : (
+                      <ul className="ofmon-docs-soporte__list">
+                        {docsSoporte.map((doc) => {
+                          const docId = String(doc._id ?? '');
+                          const checked = selectedDocIds.has(docId);
+                          return (
+                            <li key={docId} className="ofmon-docs-soporte__item">
+                              <label className={`ofmon-docs-soporte__label ${checked ? 'ofmon-docs-soporte__label--selected' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleDocSoporte(docId)}
+                                  className="ofmon-docs-soporte__checkbox"
+                                />
+                                <span className="ofmon-docs-soporte__name">{doc.documentLabel || doc.originalName || 'Documento'}</span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
                   {errorAplicar && (
                     <p className="ofertas-afines-aplicar-modal__error" role="alert">{errorAplicar}</p>
                   )}

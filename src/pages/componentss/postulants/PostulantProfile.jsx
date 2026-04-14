@@ -3998,6 +3998,7 @@ const PostulantProfile = ({ onVolver }) => {
                   id="pf-fecha"
                   value={programasFinalizadosFormData.fechaObtencion || ''}
                   onChange={e => setProgramasFinalizadosFormData(prev => ({ ...prev, fechaObtencion: e.target.value }))}
+                  max={new Date().toISOString().slice(0, 10)}
                   className="form-control"
                 />
                 <label htmlFor="pf-fecha">Fecha de obtención de título</label>

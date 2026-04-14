@@ -30,12 +30,13 @@ function normalizarCodigoEstadoLegalizacionMtm(raw) {
   if (s === 'en_revision' || s === 'en revisión' || s.replace(/\s/g, '_') === 'en_revision') return 'en_revision';
   if (s === 'rechazada' || s === 'anulada') return 'rechazada';
   if (s === 'en_ajuste' || s.replace(/\s/g, '_') === 'en_ajuste') return 'en_ajuste';
+  if (s === 'solicitada_finalizacion' || s.replace(/\s/g, '_') === 'solicitada_finalizacion') return 'solicitada_finalizacion';
   return s;
 }
 
 function legalizacionMtmPermitePlanTrabajoAdmin(estadoRaw) {
   const e = normalizarCodigoEstadoLegalizacionMtm(estadoRaw);
-  return e === 'aprobada' || e === 'finalizada';
+  return e === 'aprobada' || e === 'solicitada_finalizacion' || e === 'finalizada';
 }
 
 /**
@@ -67,6 +68,7 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   const [savingDoc, setSavingDoc] = useState(null);
   const [aprobando, setAprobando] = useState(false);
   const [rechazando, setRechazando] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
   const [tabActiva, setTabActiva] = useState('datos');
   const [planTrabajo, setPlanTrabajo] = useState(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
@@ -419,16 +421,39 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
       .finally(() => setRechazandoPlan(false));
   };
 
+  const finalizarMTM = async () => {
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: 'Finalizar monitoría',
+      html: '¿Confirmas el cierre definitivo de esta MTM?<br/><small>El estudiante recibirá notificación de la finalización.</small>',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, finalizar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#c41e3a',
+    });
+    if (!confirm.isConfirmed) return;
+    setFinalizando(true);
+    api.post(`/oportunidades-mtm/legalizaciones-admin/${postulacionId}/finalizar`)
+      .then((r) => {
+        setLegalizacion(r.data?.legalizacion);
+        Swal.fire({ icon: 'success', title: '¡MTM Finalizada!', text: 'La monitoría ha sido cerrada correctamente.', confirmButtonColor: '#c41e3a' });
+      })
+      .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo finalizar.', confirmButtonColor: '#c41e3a' }))
+      .finally(() => setFinalizando(false));
+  };
+
   const estadoLabel = {
     creada: 'Creada',
     borrador: 'Creada',
     en_revision: 'En revisión',
     aprobada: 'Legalizada',
+    solicitada_finalizacion: 'Solicitud de finalización',
     finalizada: 'Finalizada',
     rechazada: 'Anulada',
     en_ajuste: 'En ajuste',
   };
   const enRevision = normalizarCodigoEstadoLegalizacionMtm(legalizacion?.estado) === 'en_revision';
+  const enSolicitadaFinalizacion = normalizarCodigoEstadoLegalizacionMtm(legalizacion?.estado) === 'solicitada_finalizacion';
   const legalizacionAprobada = legalizacionMtmPermitePlanTrabajoAdmin(legalizacion?.estado);
   const planEnRevision = planTrabajo?.estado === 'enviado_revision';
   const docs = legalizacion?.documentos || {};
@@ -490,7 +515,13 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
         </div>
         <div className="legalizacion-mtm__topbar-actions">
           {legalizacion?.estado && (
-            <span className={`legalizacion-mtm__estado legalizacion-mtm__estado--${legalizacionAprobada ? 'ok' : normalizarCodigoEstadoLegalizacionMtm(legalizacion.estado) === 'rechazada' ? 'error' : 'revision'}`}>
+            <span className={`legalizacion-mtm__estado legalizacion-mtm__estado--${
+              legalizacionAprobada || enSolicitadaFinalizacion
+                ? enSolicitadaFinalizacion ? 'warning' : 'ok'
+                : normalizarCodigoEstadoLegalizacionMtm(legalizacion.estado) === 'rechazada'
+                  ? 'error'
+                  : 'revision'
+            }`}>
               Estado: {estadoLabel[normalizarCodigoEstadoLegalizacionMtm(legalizacion.estado)] ?? legalizacion.estado}
             </span>
           )}
@@ -516,6 +547,16 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                 {aprobando ? 'Aprobando...' : 'Aprobar legalización'}
               </button>
             </>
+          )}
+          {enSolicitadaFinalizacion && (
+            <button
+              type="button"
+              className="btn-guardar admrevmtm__btn-finalizar"
+              onClick={finalizarMTM}
+              disabled={finalizando}
+            >
+              {finalizando ? 'Finalizando...' : '✓ Confirmar finalización de MTM'}
+            </button>
           )}
         </div>
       </header>
@@ -768,6 +809,11 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
             {tabActiva === 'plan' && legalizacionAprobada && (
               <section className="legalizacion-mtm__section">
                 <h3 className="legalizacion-mtm__section-title">Plan de trabajo</h3>
+                {normalizarCodigoEstadoLegalizacionMtm(legalizacion?.estado) === 'finalizada' && (
+                  <p style={{ fontSize: '0.875rem', color: '#166534', fontWeight: 600, marginBottom: 14, padding: '6px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                    ✅ MTM finalizada — vista de solo lectura.
+                  </p>
+                )}
                 {loadingPlan ? (
                   <p style={{ color: '#6b7280' }}>Cargando plan...</p>
                 ) : !planTrabajo ? (
@@ -785,7 +831,7 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
                       <button type="button" className="btn-secondary" onClick={() => descargarPDFPlan(planTrabajo)} title="Abre una ventana para imprimir o guardar como PDF">
                         Descargar / Imprimir PDF
                       </button>
-                      {planEnRevision && (
+                      {planEnRevision && normalizarCodigoEstadoLegalizacionMtm(legalizacion?.estado) !== 'finalizada' && (
                         <>
                           <button type="button" className="btn-secondary" onClick={rechazarPlanTrabajo} disabled={rechazandoPlan}>Rechazar plan</button>
                           <button type="button" className="btn-guardar" onClick={aprobarPlanTrabajo} disabled={aprobandoPlan}>{aprobandoPlan ? 'Aprobando...' : 'Aprobar plan'}</button>

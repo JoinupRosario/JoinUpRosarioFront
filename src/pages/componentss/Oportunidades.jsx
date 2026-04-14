@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiPlus, FiRefreshCw, FiFilter, FiBookOpen, FiDollarSign, FiFileText, FiUsers, FiCalendar, FiMapPin, FiClock, FiBook, FiX, FiEdit, FiXCircle, FiCopy, FiList, FiArrowUp, FiArrowDown, FiAlertCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiRefreshCw, FiFilter, FiBookOpen, FiDollarSign, FiFileText, FiUsers, FiCalendar, FiMapPin, FiClock, FiBook, FiX, FiEdit, FiXCircle, FiCopy, FiList, FiArrowUp, FiArrowDown, FiAlertCircle, FiEye, FiTrash2, FiUpload } from 'react-icons/fi';
 import { HiOutlineAcademicCap } from 'react-icons/hi';
 import { useAuth } from '../../contexts/AuthContext';
 import Swal from 'sweetalert2';
@@ -1006,6 +1006,117 @@ export default function Oportunidades({ onVolver }) {
     }
   };
 
+  /** Previsualiza un archivo local (creación) abriendo un blob URL en nueva pestaña. */
+  const handlePreviewLocalFile = (file) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    window.open(url, '_blank');
+  };
+
+  /** Obtiene URL firmada de S3 y abre el documento en nueva pestaña (edición / existentes). */
+  const handlePreviewOpportunityDocument = async (opportunityId, docId) => {
+    try {
+      const { data } = await api.get(`/opportunities/${opportunityId}/documentos/${docId}/preview`);
+      window.open(data.url, '_blank');
+    } catch (error) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.message || 'No se pudo obtener la previsualización del documento',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#c41e3a'
+      });
+    }
+  };
+
+  /** Elimina un documento de una oportunidad (S3 + BD) y actualiza el estado local. */
+  const handleDeleteOpportunityDocument = async (opportunityId, docId) => {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: '¿Eliminar documento?',
+      text: 'Esta acción no se puede deshacer.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#c41e3a',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      await api.delete(`/opportunities/${opportunityId}/documentos/${docId}`);
+      setEditFormData(prev => ({
+        ...prev,
+        documentos: (prev.documentos || []).filter(d => String(d._id) !== String(docId)),
+      }));
+      setOportunidadSeleccionada(prev => ({
+        ...prev,
+        documentos: (prev.documentos || []).filter(d => String(d._id) !== String(docId)),
+      }));
+      await Swal.fire({
+        icon: 'success',
+        title: 'Documento eliminado',
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.message || 'No se pudo eliminar el documento',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#c41e3a'
+      });
+    }
+  };
+
+  /** Sube un nuevo documento a una oportunidad existente (modo edición). */
+  const handleEditAddDocument = async (e, opportunityId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+
+    try {
+      Swal.fire({
+        title: 'Subiendo documento...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const fd = new FormData();
+      fd.append('documento', file);
+      fd.append('nombre', file.name);
+      fd.append('orden', ((editFormData?.documentos || []).length + 1).toString());
+
+      const { data } = await api.post(`/opportunities/${opportunityId}/documentos`, fd);
+
+      setEditFormData(prev => ({
+        ...prev,
+        documentos: [...(prev.documentos || []), data.documento],
+      }));
+      setOportunidadSeleccionada(prev => ({
+        ...prev,
+        documentos: [...(prev.documentos || []), data.documento],
+      }));
+
+      Swal.close();
+      await Swal.fire({
+        icon: 'success',
+        title: 'Documento agregado',
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      Swal.close();
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.message || 'No se pudo subir el documento',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#c41e3a'
+      });
+    }
+  };
+
   const calculateDropdownPosition = () => {
     if (salarioEmocionalInputRef.current) {
       const rect = salarioEmocionalInputRef.current.getBoundingClientRect();
@@ -1976,7 +2087,8 @@ export default function Oportunidades({ onVolver }) {
       formacionAcademica: opp.formacionAcademica || [],
       idiomas: opp.idiomas || [],
       funciones: opp.funciones || '',
-      requisitos: opp.requisitos || ''
+      requisitos: opp.requisitos || '',
+      documentos: Array.isArray(opp.documentos) ? opp.documentos : [],
     };
   };
 
@@ -2930,10 +3042,22 @@ export default function Oportunidades({ onVolver }) {
                       onChange={(e) => handleFileChange(e, 'primer')}
                       className="file-input-hidden"
                     />
-                    <label htmlFor="primerDocumento" className="file-select-button">
-                      <FiFileText className="file-icon" />
-                      Seleccionar archivo
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <label htmlFor="primerDocumento" className="file-select-button">
+                        <FiFileText className="file-icon" />
+                        Seleccionar archivo
+                      </label>
+                      {formData.primerDocumento && (
+                        <>
+                          <button type="button" className="opp-doc-btn opp-doc-btn--preview" title="Previsualizar" onClick={() => handlePreviewLocalFile(formData.primerDocumento)}>
+                            <FiEye />
+                          </button>
+                          <button type="button" className="opp-doc-btn opp-doc-btn--delete" title="Quitar archivo" onClick={() => setFormData(prev => ({ ...prev, primerDocumento: null, primerDocumentoNombre: '' }))}>
+                            <FiTrash2 />
+                          </button>
+                        </>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={formData.primerDocumentoNombre}
@@ -2967,10 +3091,22 @@ export default function Oportunidades({ onVolver }) {
                       onChange={(e) => handleFileChange(e, 'segundo')}
                       className="file-input-hidden"
                     />
-                    <label htmlFor="segundoDocumento" className="file-select-button">
-                      <FiFileText className="file-icon" />
-                      Seleccionar archivo
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <label htmlFor="segundoDocumento" className="file-select-button">
+                        <FiFileText className="file-icon" />
+                        Seleccionar archivo
+                      </label>
+                      {formData.segundoDocumento && (
+                        <>
+                          <button type="button" className="opp-doc-btn opp-doc-btn--preview" title="Previsualizar" onClick={() => handlePreviewLocalFile(formData.segundoDocumento)}>
+                            <FiEye />
+                          </button>
+                          <button type="button" className="opp-doc-btn opp-doc-btn--delete" title="Quitar archivo" onClick={() => setFormData(prev => ({ ...prev, segundoDocumento: null, segundoDocumentoNombre: '' }))}>
+                            <FiTrash2 />
+                          </button>
+                        </>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={formData.segundoDocumentoNombre}
@@ -2992,10 +3128,22 @@ export default function Oportunidades({ onVolver }) {
                       onChange={(e) => handleFileChange(e, 'tercer')}
                       className="file-input-hidden"
                     />
-                    <label htmlFor="tercerDocumento" className="file-select-button">
-                      <FiFileText className="file-icon" />
-                      Seleccionar archivo
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <label htmlFor="tercerDocumento" className="file-select-button">
+                        <FiFileText className="file-icon" />
+                        Seleccionar archivo
+                      </label>
+                      {formData.tercerDocumento && (
+                        <>
+                          <button type="button" className="opp-doc-btn opp-doc-btn--preview" title="Previsualizar" onClick={() => handlePreviewLocalFile(formData.tercerDocumento)}>
+                            <FiEye />
+                          </button>
+                          <button type="button" className="opp-doc-btn opp-doc-btn--delete" title="Quitar archivo" onClick={() => setFormData(prev => ({ ...prev, tercerDocumento: null, tercerDocumentoNombre: '' }))}>
+                            <FiTrash2 />
+                          </button>
+                        </>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={formData.tercerDocumentoNombre}
@@ -4164,6 +4312,65 @@ export default function Oportunidades({ onVolver }) {
                     {editFormData.enlacesFormatoEspecificos.length}/500 caracteres
                   </div>
                 )}
+              </div>
+
+              {/* Documentos de apoyo */}
+              <div className="form-field-group form-field-full-width">
+                <div className="programs-section">
+                  <div className="programs-header">
+                    <span className="programs-title">Documentos de apoyo</span>
+                    <label className="opp-doc-add-btn" title="Agregar documento (máx. 10 MB)">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        className="file-input-hidden"
+                        onChange={(e) => handleEditAddDocument(e, oportunidadSeleccionada._id)}
+                        disabled={(editFormData?.documentos || []).length >= 3}
+                      />
+                      <FiUpload style={{ marginRight: 4 }} />
+                      Agregar documento
+                    </label>
+                  </div>
+                  {(editFormData?.documentos || []).length === 0 ? (
+                    <div className="programs-empty">
+                      <FiX style={{ marginRight: '4px', display: 'inline-block' }} />
+                      No hay documentos adjuntos.
+                    </div>
+                  ) : (
+                    <ul className="programs-list">
+                      {(editFormData?.documentos || []).map((doc) => (
+                        <li key={doc._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between' }}>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.nombre}>
+                            <FiFileText style={{ marginRight: 4, flexShrink: 0 }} />
+                            {doc.nombre}
+                            {doc.requerido && <span style={{ marginLeft: 6, fontSize: 11, color: '#c41e3a', fontWeight: 600 }}>Requerido</span>}
+                          </span>
+                          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              className="opp-doc-btn opp-doc-btn--preview"
+                              title="Previsualizar"
+                              onClick={() => handlePreviewOpportunityDocument(oportunidadSeleccionada._id, doc._id)}
+                            >
+                              <FiEye />
+                            </button>
+                            <button
+                              type="button"
+                              className="opp-doc-btn opp-doc-btn--delete"
+                              title="Eliminar documento"
+                              onClick={() => handleDeleteOpportunityDocument(oportunidadSeleccionada._id, doc._id)}
+                            >
+                              <FiTrash2 />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {(editFormData?.documentos || []).length >= 3 && (
+                    <p style={{ margin: '6px 0 0 0', fontSize: 12, color: '#6b7280' }}>Máximo 3 documentos por oportunidad.</p>
+                  )}
+                </div>
               </div>
 
               {/* Salario Emocional */}
@@ -5435,6 +5642,36 @@ export default function Oportunidades({ onVolver }) {
                                   }
                                 }}>
                                   {hv.name || 'Descargar hoja de vida'}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {/* Documentos de soporte adjuntos a la postulación */}
+                      {Array.isArray(aplicacionDetail.documentosSoporte) && aplicacionDetail.documentosSoporte.length > 0 && (
+                        <div className="detalle-postulante-campo detalle-postulante-campo--docs-soporte">
+                          <strong>Documentos de soporte:</strong>
+                          <ul className="detalle-docs-soporte__list">
+                            {aplicacionDetail.documentosSoporte.map((doc, i) => (
+                              <li key={i} className="detalle-docs-soporte__item">
+                                <a href="#" className="detalle-docs-soporte__link" onClick={async (e) => {
+                                  e.preventDefault();
+                                  if (!doc.postulantDocId || !doc.attachmentId) return;
+                                  try {
+                                    const res = await api.get(`/postulants/${doc.postulantDocId}/attachments/${doc.attachmentId}/download`, { responseType: 'blob' });
+                                    const url = window.URL.createObjectURL(res.data);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = doc.originalName || doc.documentLabel || `documento-soporte-${i + 1}`;
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    Swal.fire({ icon: 'success', title: 'Descarga iniciada', timer: 1800, showConfirmButton: false, customClass: { container: 'swal-over-modal-cierre' } });
+                                  } catch (err) {
+                                    Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo descargar', confirmButtonColor: '#c41e3a', customClass: { container: 'swal-over-modal-cierre' } });
+                                  }
+                                }}>
+                                  📎 {doc.documentLabel || doc.originalName || `Documento ${i + 1}`}
                                 </a>
                               </li>
                             ))}
