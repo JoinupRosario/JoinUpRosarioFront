@@ -1,9 +1,7 @@
-import { useState } from 'react';
-import { 
+import { useMemo, useState } from 'react';
+import {
   FiArrowLeft,
-  FiHome,
   FiActivity,
-  FiClock,
   FiSettings,
   FiTrendingUp,
   FiAward,
@@ -11,234 +9,233 @@ import {
   FiBarChart,
   FiCalendar,
   FiFlag,
-  FiRotateCcw,
   FiShuffle,
   FiGlobe,
-  FiTrendingDown,
   FiFileText,
   FiUsers,
-  FiMail,
   FiRefreshCw,
   FiCheckCircle,
   FiDownload,
-  FiX
+  FiX,
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import ReporteFiltrosModal from './ReporteFiltrosModal';
+import ReporteResultadoModal from './ReporteResultadoModal';
 import '../styles/Reportes.css';
 
-const REPORTE_ESTADISTICO_MONITORIAS = 'Estadístico Monitorías';
-const REPORTE_ESTADISTICO_LEGALIZACION_MTM = 'Estadísticas de legalización MTM';
+/** Claves de acciones con lógica implementada (API + modal + export). */
+const REPORT_ACTION_IDS = {
+  ESTADISTICO_MTM: 'estadistico_mtm',
+};
+
+/**
+ * Reportes cuyos criterios aún no están acordados con negocio: no abren el modal de filtros
+ * (solo alerta «en desarrollo»). Alineado a `reportFilterDefinitions.js`: `fields: []` o
+ * `functionalDefinitionPending` a nivel de informe (p. ej. SNIES, escenarios, evaluaciones MTM).
+ * Al darlos de alta, quitar el id de aquí y completar campos en el back.
+ */
+const REPORTE_IDS_FILTROS_EN_DESARROLLO = new Set([
+  'mon-daf-reconocimiento',
+  'mon-historico',
+  'prac-escenarios-vs-contactos',
+  'prac-snies',
+]);
+
+/** Informes sin parámetros: no abren modal; generan con criterios fijos (back alineado en reportFilterDefinitions). */
+const REPORTE_IDS_SIN_MODAL_FILTROS = new Set(['mon-graduados', 'mon-daf-vinculacion']);
+
+/**
+ * Categorías de la vista; agregar entradas aquí para nuevas pestañas.
+ * Cada categoría referencia la clave en REPORTES_POR_CATEGORIA.
+ */
+const REPORTE_CATEGORIES = [
+  { id: 'practicas', label: 'Prácticas' },
+  { id: 'monitorias', label: 'Monitorías' },
+];
+
+const REPORTES_POR_CATEGORIA = {
+  practicas: [
+    {
+      id: 'prac-detalle-oportunidades',
+      titulo: 'Detalle de oportunidades',
+      descripcion: 'Detalle de oportunidades de práctica y pasantía',
+      icono: FiSettings,
+    },
+    {
+      id: 'prac-entidades-contactos',
+      titulo: 'Entidades-contactos',
+      descripcion: 'Relación de entidades y contactos',
+      icono: FiTrendingUp,
+    },
+    {
+      id: 'prac-estadisticos-general',
+      titulo: 'Estadísticos general-prácticas',
+      descripcion: 'Estadísticos generales de prácticas',
+      icono: FiActivity,
+    },
+    {
+      id: 'prac-legalizacion-reporte-general',
+      titulo: 'Módulo legalización – Reporte general',
+      descripcion: 'Reporte general del módulo de legalización',
+      icono: FiFileText,
+    },
+    {
+      id: 'prac-legalizacion-eval-seguimiento',
+      titulo: 'Módulo legalización – Evaluaciones de seguimiento',
+      descripcion: 'Evaluaciones de seguimiento en legalización',
+      icono: FiCheckCircle,
+    },
+    {
+      id: 'prac-cierre-oportunidades',
+      titulo: 'Cierre de oportunidades',
+      descripcion: 'Cierre de oportunidades',
+      icono: FiCalendar,
+    },
+    {
+      id: 'prac-escenarios-vs-contactos',
+      titulo: 'Relación escenarios de práctica vs contactos',
+      descripcion: 'Escenarios de práctica frente a contactos',
+      icono: FiShuffle,
+    },
+    {
+      id: 'prac-postulantes',
+      titulo: 'Postulantes',
+      descripcion: 'Reporte de postulantes',
+      icono: FiUsers,
+    },
+    {
+      id: 'prac-acuerdos-vinculacion',
+      titulo: 'Acuerdos de vinculación',
+      descripcion: 'Acuerdos de vinculación',
+      icono: FiFileText,
+    },
+    {
+      id: 'prac-snies',
+      titulo: 'Reporte SNIES',
+      descripcion: 'Reporte SNIES',
+      icono: FiGlobe,
+    },
+  ],
+  monitorias: [
+    {
+      id: 'mon-detalle-ofertas',
+      titulo: 'Detalle de ofertas de monitorías',
+      descripcion: 'Detalle de ofertas de monitorías',
+      icono: FiSettings,
+    },
+    {
+      id: 'mon-detallado-legalizaciones',
+      titulo: 'Detallado legalizaciones de monitorías',
+      descripcion: 'Estadísticas de legalización MTM por estado y periodo',
+      icono: FiFlag,
+    },
+    {
+      id: 'mon-seguimiento',
+      titulo: 'Seguimiento monitorías',
+      descripcion: 'Seguimiento de monitorías',
+      icono: FiRefreshCw,
+    },
+    {
+      id: 'mon-aplicaciones-ofertas',
+      titulo: 'Aplicaciones de ofertas de monitorías',
+      descripcion: 'Aplicaciones a ofertas de monitorías',
+      icono: FiAward,
+    },
+    {
+      id: 'mon-evaluaciones',
+      titulo: 'Evaluaciones monitorías',
+      descripcion: 'Evaluaciones de monitorías',
+      icono: FiCheckCircle,
+    },
+    {
+      id: 'mon-historico',
+      titulo: 'Histórico monitorías',
+      descripcion: 'Histórico de monitorías',
+      icono: FiBarChart,
+    },
+    {
+      id: 'mon-estadistico',
+      titulo: 'Estadístico monitorías',
+      descripcion: 'Estadísticas de monitorías',
+      icono: FiActivity,
+      actionId: REPORT_ACTION_IDS.ESTADISTICO_MTM,
+    },
+    {
+      id: 'mon-graduados',
+      titulo: 'Graduados con monitorías, tutorías y mentorías',
+      descripcion: 'Graduados con monitorías, tutorías y mentorías',
+      icono: FiUsers,
+    },
+    {
+      id: 'mon-planes-trabajo',
+      titulo: 'Reporte de planes de trabajo',
+      descripcion: 'Planes de trabajo',
+      icono: FiCheckSquare,
+    },
+    {
+      id: 'mon-asistencia',
+      titulo: 'Reporte de asistencia',
+      descripcion: 'Asistencia',
+      icono: FiCalendar,
+    },
+    {
+      id: 'mon-daf-vinculacion',
+      titulo: 'Informe DAF Vinculación',
+      descripcion: 'Informe DAF Vinculación',
+      icono: FiFileText,
+    },
+    {
+      id: 'mon-daf-reconocimiento',
+      titulo: 'Informe DAF reconocimiento',
+      descripcion: 'Informe DAF reconocimiento',
+      icono: FiAward,
+    },
+  ],
+};
 
 export default function Reportes({ onVolver }) {
   const { hasPermission } = useAuth();
   const canVerReportes = hasPermission('AMRE') || hasPermission('GPAG');
   const [modalMTM, setModalMTM] = useState({ open: false, data: null, loading: false });
-  const [modalLegalizacion, setModalLegalizacion] = useState({ open: false, data: null, loading: false });
-  const reportes = [
-    // Fila 1
-    { 
-      nombre: 'Detallado Ofertas SPE', 
-      icono: FiHome,
-      descripcion: 'Reporte detallado de ofertas SPE'
-    },
-    { 
-      nombre: 'Estadístico SPE', 
-      icono: FiActivity,
-      descripcion: 'Estadísticas de SPE'
-    },
-    { 
-      nombre: 'Seguimiento de Ofertas', 
-      icono: FiClock,
-      descripcion: 'Seguimiento de ofertas'
-    },
-    { 
-      nombre: 'Detalle de Ofertas', 
-      icono: FiSettings,
-      descripcion: 'Detalle de ofertas'
-    },
-    { 
-      nombre: 'Ofertas por Entidad', 
-      icono: FiTrendingUp,
-      descripcion: 'Ofertas agrupadas por entidad'
-    },
-    { 
-      nombre: 'Oferta por Programa', 
-      icono: FiAward,
-      descripcion: 'Ofertas por programa académico'
-    },
-    
-    // Fila 2
-    { 
-      nombre: 'Oferta por Estado', 
-      icono: FiCheckSquare,
-      descripcion: 'Ofertas por estado'
-    },
-    { 
-      nombre: 'Comportamiento Salarial', 
-      icono: FiBarChart,
-      descripcion: 'Análisis de comportamiento salarial'
-    },
-    { 
-      nombre: 'Cierre Oportunidades', 
-      icono: FiCalendar,
-      descripcion: 'Cierre de oportunidades'
-    },
-    { 
-      nombre: 'Detallado Legalizaciones', 
-      icono: FiFlag,
-      descripcion: 'Detalle de legalizaciones'
-    },
-    { 
-      nombre: 'Seguimiento Prácticas', 
-      icono: FiRotateCcw,
-      descripcion: 'Seguimiento de prácticas'
-    },
-    { 
-      nombre: 'Histórico Estados Ofertas', 
-      icono: FiShuffle,
-      descripcion: 'Histórico de estados de ofertas'
-    },
-    
-    // Fila 3
-    { 
-      nombre: 'Revisión Oportunidades', 
-      icono: FiShuffle,
-      descripcion: 'Revisión de oportunidades'
-    },
-    { 
-      nombre: 'Entidades/Contactos', 
-      icono: FiTrendingUp,
-      descripcion: 'Reporte de entidades y contactos'
-    },
-    { 
-      nombre: 'Oportunidades vencidas', 
-      icono: FiTrendingDown,
-      descripcion: 'Oportunidades vencidas'
-    },
-    { 
-      nombre: 'Aplicaciones de Prácticas', 
-      icono: FiAward,
-      descripcion: 'Aplicaciones de prácticas'
-    },
-    { 
-      nombre: 'Postulantes', 
-      icono: FiUsers,
-      descripcion: 'Reporte de postulantes'
-    },
-    { 
-      nombre: 'Postulantes SPE', 
-      icono: FiUsers,
-      descripcion: 'Postulantes SPE'
-    },
-    
-    // Fila 4
-    { 
-      nombre: 'Postulantes Exp. Laboral', 
-      icono: FiUsers,
-      descripcion: 'Postulantes con experiencia laboral'
-    },
-    { 
-      nombre: 'Ofertas Transnacionales', 
-      icono: FiGlobe,
-      descripcion: 'Ofertas transnacionales'
-    },
-    { 
-      nombre: 'Acuerdos de Vinculación', 
-      icono: FiFileText,
-      descripcion: 'Acuerdos de vinculación'
-    },
-    { 
-      nombre: 'SNIES', 
-      icono: FiGlobe,
-      descripcion: 'Reporte SNIES'
-    },
-    { 
-      nombre: 'Reporte Monitores - Prácticas', 
-      icono: FiFileText,
-      descripcion: 'Reporte de monitores para prácticas'
-    },
-    { 
-      nombre: 'Certificaciones Práctica', 
-      icono: FiAward,
-      descripcion: 'Certificaciones de práctica'
-    },
-    
-    // Fila 5
-    { 
-      nombre: 'Evaluaciones Práctica', 
-      icono: FiCheckCircle,
-      descripcion: 'Evaluaciones de práctica'
-    },
-    { 
-      nombre: 'Histórico Prácticas', 
-      icono: FiBarChart,
-      descripcion: 'Histórico de prácticas'
-    },
-    { 
-      nombre: 'Estadístico General - Prácticas', 
-      icono: FiActivity,
-      descripcion: 'Estadísticas generales de prácticas'
-    },
-    { 
-      nombre: 'Notificaciones', 
-      icono: FiMail,
-      descripcion: 'Reporte de notificaciones'
-    },
-    { 
-      nombre: 'Detalle de Ofertas de Monitorías', 
-      icono: FiSettings,
-      descripcion: 'Detalle de ofertas de monitorías'
-    },
-    { 
-      nombre: 'Detallado Legalizaciones de Monitorías', 
-      icono: FiFlag,
-      descripcion: 'Detalle de legalizaciones de monitorías'
-    },
-    
-    // Fila 6
-    { 
-      nombre: 'Seguimiento Monitorías', 
-      icono: FiRefreshCw,
-      descripcion: 'Seguimiento de monitorías'
-    },
-    { 
-      nombre: 'Aplicaciones de Of. Monitorías', 
-      icono: FiAward,
-      descripcion: 'Aplicaciones de ofertas de monitorías'
-    },
-    { 
-      nombre: 'Evaluaciones Monitorías', 
-      icono: FiCheckCircle,
-      descripcion: 'Evaluaciones de monitorías'
-    },
-    { 
-      nombre: 'Histórico Monitorías', 
-      icono: FiBarChart,
-      descripcion: 'Histórico de monitorías'
-    },
-    { 
-      nombre: 'Estadístico Monitorías', 
-      icono: FiActivity,
-      descripcion: 'Estadísticas de monitorías'
-    },
-    { 
-      nombre: 'Graduados con monitorias, tutorias y mentorias', 
-      icono: FiActivity,
-      descripcion: 'Graduados con monitorías, tutorías y mentorías'
-    },
-    {
-      nombre: REPORTE_ESTADISTICO_LEGALIZACION_MTM,
-      icono: FiFileText,
-      descripcion: 'Estadísticas de legalización MTM por estado y periodo'
-    }
-  ];
+  const [modalParametros, setModalParametros] = useState({ open: false, reporte: null });
+  const DEFAULT_REPORT_PAGE_SIZE = 25;
 
-  const handleReporteClick = async (reporte) => {
+  const [resultadoReporte, setResultadoReporte] = useState({
+    open: false,
+    loading: false,
+    error: null,
+    payload: null,
+    titulo: '',
+    reporteOrigen: null,
+    filtersSnapshot: {},
+    page: 1,
+    pageSize: DEFAULT_REPORT_PAGE_SIZE,
+  });
+  const [categoriaActiva, setCategoriaActiva] = useState('practicas');
+
+  const listaReportes = useMemo(
+    () => REPORTES_POR_CATEGORIA[categoriaActiva] ?? [],
+    [categoriaActiva]
+  );
+
+  const abrirModalParametros = (reporte) => {
     if (!canVerReportes) return;
-    if (reporte.nombre === REPORTE_ESTADISTICO_MONITORIAS) {
+    setModalParametros({ open: true, reporte });
+  };
+
+  const cerrarModalParametros = () => {
+    setModalParametros({ open: false, reporte: null });
+  };
+
+  /**
+   * Tras confirmar filtros en el modal.
+   * `filterValues` queda listo para la fase de generación (query/export); las rutas con lógica ya implementada siguen igual.
+   */
+  const ejecutarFlujoReporte = async (reporte, _filterValues = {}) => {
+    if (reporte.actionId === REPORT_ACTION_IDS.ESTADISTICO_MTM) {
       setModalMTM({ open: true, data: null, loading: true });
       try {
         const { data } = await api.get('/oportunidades-mtm/reportes/estadisticas');
@@ -249,19 +246,122 @@ export default function Reportes({ onVolver }) {
       }
       return;
     }
-    if (reporte.nombre === REPORTE_ESTADISTICO_LEGALIZACION_MTM) {
-      setModalLegalizacion({ open: true, data: null, loading: true });
-      try {
-        const { data } = await api.get('/oportunidades-mtm/legalizaciones-admin/estadisticas');
-        setModalLegalizacion({ open: true, data: data, loading: false });
-      } catch (err) {
-        setModalLegalizacion({ open: false, data: null, loading: false });
-        Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || 'No se pudo cargar.', confirmButtonColor: '#c41e3a' });
-      }
+    const filters = _filterValues && typeof _filterValues === 'object' && !Array.isArray(_filterValues) ? _filterValues : {};
+    const ps = resultadoReporte.pageSize || DEFAULT_REPORT_PAGE_SIZE;
+    setResultadoReporte({
+      open: true,
+      loading: true,
+      error: null,
+      payload: null,
+      titulo: reporte.titulo || '',
+      reporteOrigen: reporte,
+      filtersSnapshot: filters,
+      page: 1,
+      pageSize: ps,
+    });
+    try {
+      const { data } = await api.post(
+        `/reporting-filters/reports/${encodeURIComponent(reporte.id)}/generate`,
+        { filters, page: 1, pageSize: ps }
+      );
+      setResultadoReporte((prev) => ({
+        ...prev,
+        loading: false,
+        payload: data,
+        page: data?.pagination?.page ?? 1,
+        pageSize: data?.pagination?.pageSize ?? ps,
+      }));
+    } catch (err) {
+      const d = err.response?.data;
+      const msg =
+        (typeof d === 'string' ? d : d?.message || d?.pendingReason) ||
+        err.message ||
+        'No se pudo generar el reporte.';
+      setResultadoReporte((prev) => ({ ...prev, loading: false, error: String(msg) }));
+    }
+  };
+
+  const cargarPaginaReporte = async (page, nextPageSize) => {
+    const id = resultadoReporte.reporteOrigen?.id;
+    if (!id) return;
+    const snap = resultadoReporte.filtersSnapshot ?? {};
+    const ps = nextPageSize ?? resultadoReporte.pageSize ?? DEFAULT_REPORT_PAGE_SIZE;
+    setResultadoReporte((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const { data } = await api.post(`/reporting-filters/reports/${encodeURIComponent(id)}/generate`, {
+        filters: snap,
+        page,
+        pageSize: ps,
+      });
+      setResultadoReporte((prev) => ({
+        ...prev,
+        loading: false,
+        payload: data,
+        page: data?.pagination?.page ?? page,
+        pageSize: data?.pagination?.pageSize ?? ps,
+      }));
+    } catch (err) {
+      const d = err.response?.data;
+      const msg =
+        (typeof d === 'string' ? d : d?.message || d?.pendingReason) || err.message || 'No se pudo cargar la página.';
+      setResultadoReporte((prev) => ({ ...prev, loading: false, error: String(msg) }));
+    }
+  };
+
+  const exportarReporteExcelCompleto = async () => {
+    const id = resultadoReporte.reporteOrigen?.id;
+    if (!id) throw new Error('Sin reporte');
+    const snap = resultadoReporte.filtersSnapshot ?? {};
+    const { data } = await api.post(`/reporting-filters/reports/${encodeURIComponent(id)}/generate`, {
+      filters: snap,
+      exportAll: true,
+    });
+    return data;
+  };
+
+  const cerrarResultadoReporte = () => {
+    setResultadoReporte({
+      open: false,
+      loading: false,
+      error: null,
+      payload: null,
+      titulo: '',
+      reporteOrigen: null,
+      filtersSnapshot: {},
+      page: 1,
+      pageSize: DEFAULT_REPORT_PAGE_SIZE,
+    });
+  };
+
+  const volverDesdeResultadoAFiltros = () => {
+    const origin = resultadoReporte.reporteOrigen;
+    cerrarResultadoReporte();
+    if (origin && !REPORTE_IDS_SIN_MODAL_FILTROS.has(origin.id)) {
+      abrirModalParametros(origin);
+    }
+  };
+
+  const handleFiltrosModalSubmit = (reporte, filterValues) => {
+    cerrarModalParametros();
+    void ejecutarFlujoReporte(reporte, filterValues);
+  };
+
+  const handleReporteClick = (reporte) => {
+    if (!canVerReportes) return;
+    if (REPORTE_IDS_FILTROS_EN_DESARROLLO.has(reporte.id)) {
+      void Swal.fire({
+        icon: 'info',
+        title: reporte.titulo,
+        text: 'Este reporte está en desarrollo: los filtros y la generación estarán disponibles próximamente.',
+        confirmButtonColor: '#c41e3a',
+      });
       return;
     }
-    console.log('Generando reporte:', reporte.nombre);
-    Swal.fire({ icon: 'info', title: reporte.nombre, text: 'Este reporte estará disponible próximamente.', confirmButtonColor: '#c41e3a' });
+    if (REPORTE_IDS_SIN_MODAL_FILTROS.has(reporte.id)) {
+      void ejecutarFlujoReporte(reporte, {});
+      return;
+    }
+    abrirModalParametros(reporte);
   };
 
   const exportarEstadisticasMTMExcel = () => {
@@ -293,33 +393,6 @@ export default function Reportes({ onVolver }) {
     Swal.fire({ icon: 'success', title: 'Exportado', text: 'Archivo Excel generado.', confirmButtonColor: '#c41e3a', timer: 2000, timerProgressBar: true });
   };
 
-  const exportarEstadisticasLegalizacionExcel = () => {
-    const d = modalLegalizacion.data;
-    if (!d) return;
-    const wb = XLSX.utils.book_new();
-    const resumenRows = [
-      ['Estadísticas de legalización MTM', ''],
-      ['Generado', d.generadoAt ? new Date(d.generadoAt).toLocaleString('es-CO') : ''],
-      [''],
-      ['Total legalizaciones', d.total ?? 0],
-      ['Creada', d.creada ?? d.borrador ?? 0],
-      ['En revisión', d.en_revision ?? 0],
-      ['Aprobada', d.aprobada ?? 0],
-      ['Rechazada', d.rechazada ?? 0],
-      ['En ajuste', d.en_ajuste ?? 0],
-    ];
-    const ws1 = XLSX.utils.aoa_to_sheet(resumenRows);
-    XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
-    if (d.porPeriodo && d.porPeriodo.length > 0) {
-      const headers = ['Periodo', 'Total', 'Creada', 'En revisión', 'Aprobada', 'Rechazada', 'En ajuste'];
-      const rows = d.porPeriodo.map((p) => [p.periodo, p.total, p.creada ?? p.borrador ?? 0, p.en_revision, p.aprobada, p.rechazada, p.en_ajuste]);
-      const ws2 = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      XLSX.utils.book_append_sheet(wb, ws2, 'Por periodo');
-    }
-    XLSX.writeFile(wb, `estadisticas_legalizacion_mtm_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    Swal.fire({ icon: 'success', title: 'Exportado', text: 'Archivo Excel generado.', confirmButtonColor: '#c41e3a', timer: 2000, timerProgressBar: true });
-  };
-
   if (!canVerReportes) {
     return (
       <div className="reportes-content">
@@ -347,27 +420,89 @@ export default function Reportes({ onVolver }) {
           </div>
         </div>
 
-        <div className="reportes-grid">
-          {reportes.map((reporte, index) => {
+        <div className="reportes-tabs-bar" role="tablist" aria-label="Categorías de reportes">
+          {REPORTE_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              role="tab"
+              aria-selected={categoriaActiva === cat.id}
+              className={`reportes-tab-btn${categoriaActiva === cat.id ? ' active' : ''}`}
+              onClick={() => setCategoriaActiva(cat.id)}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="reportes-grid" role="tabpanel">
+          {listaReportes.map((reporte, index) => {
             const IconComponent = reporte.icono;
+            const sinFiltros = REPORTE_IDS_FILTROS_EN_DESARROLLO.has(reporte.id);
             return (
-              <div 
-                key={index} 
-                className={`reporte-item reporte-item--tone-${index % 6}`}
+              <div
+                key={reporte.id}
+                className={`reporte-item reporte-item--tone-${index % 6}${sinFiltros ? ' reporte-item--sin-filtros' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={
+                  sinFiltros
+                    ? `${reporte.titulo}. En desarrollo; al activar se muestra un aviso.`
+                    : `${reporte.titulo}. ${reporte.descripcion}`
+                }
                 onClick={() => handleReporteClick(reporte)}
-                title={reporte.descripcion}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleReporteClick(reporte);
+                  }
+                }}
+                title={
+                  sinFiltros
+                    ? 'Pulse para ver un aviso: reporte en desarrollo, sin modal de filtros aún.'
+                    : reporte.descripcion
+                }
               >
+                {sinFiltros && (
+                  <span className="reporte-item-badge" aria-hidden="true">
+                    En desarrollo
+                  </span>
+                )}
                 <div className="reporte-icon">
                   <IconComponent />
                 </div>
-                <div className="reporte-text">
-                  {reporte.nombre}
-                </div>
+                <div className="reporte-text">{reporte.titulo}</div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {modalParametros.open && modalParametros.reporte && (
+        <ReporteFiltrosModal
+          open={modalParametros.open}
+          reporte={modalParametros.reporte}
+          onClose={cerrarModalParametros}
+          onSubmit={handleFiltrosModalSubmit}
+        />
+      )}
+
+      <ReporteResultadoModal
+        open={resultadoReporte.open}
+        onClose={cerrarResultadoReporte}
+        loading={resultadoReporte.loading}
+        error={resultadoReporte.error}
+        payload={resultadoReporte.payload}
+        fallbackTitle={resultadoReporte.titulo}
+        onExportExcel={exportarReporteExcelCompleto}
+        onPageChange={(page) => void cargarPaginaReporte(page)}
+        onPageSizeChange={(nextPs) => void cargarPaginaReporte(1, nextPs)}
+        onVolverFiltros={
+          resultadoReporte.reporteOrigen && !REPORTE_IDS_SIN_MODAL_FILTROS.has(resultadoReporte.reporteOrigen.id)
+            ? volverDesdeResultadoAFiltros
+            : undefined
+        }
+      />
 
       {/* Modal Estadístico Monitorías */}
       {modalMTM.open && (
@@ -433,73 +568,6 @@ export default function Reportes({ onVolver }) {
         </div>
       )}
 
-      {/* Modal Estadísticas de legalización MTM */}
-      {modalLegalizacion.open && (
-        <div className="reportes-modal-overlay" onClick={() => !modalLegalizacion.loading && setModalLegalizacion({ open: false, data: null, loading: false })}>
-          <div className="reportes-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="reportes-modal-header">
-              <h3>Estadísticas de legalización MTM</h3>
-              <button type="button" className="reportes-modal-close" onClick={() => setModalLegalizacion({ open: false, data: null, loading: false })} aria-label="Cerrar"><FiX size={22} /></button>
-            </div>
-            <div className="reportes-modal-body">
-              {modalLegalizacion.loading ? (
-                <div className="reportes-modal-loading"><div className="loading-spinner" /> Cargando...</div>
-              ) : modalLegalizacion.data ? (
-                <>
-                  <div className="reportes-mtm-resumen">
-                    <h4>Resumen por estado</h4>
-                    <div className="reportes-mtm-cards">
-                      <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.total ?? 0}</span><span className="reportes-mtm-card-label">Total</span></div>
-                      <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.creada ?? modalLegalizacion.data.borrador ?? 0}</span><span className="reportes-mtm-card-label">Creada</span></div>
-                      <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.en_revision ?? 0}</span><span className="reportes-mtm-card-label">En revisión</span></div>
-                      <div className="reportes-mtm-card highlight"><span className="reportes-mtm-card-value">{modalLegalizacion.data.aprobada ?? 0}</span><span className="reportes-mtm-card-label">Aprobada</span></div>
-                      <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.rechazada ?? 0}</span><span className="reportes-mtm-card-label">Rechazada</span></div>
-                      <div className="reportes-mtm-card"><span className="reportes-mtm-card-value">{modalLegalizacion.data.en_ajuste ?? 0}</span><span className="reportes-mtm-card-label">En ajuste</span></div>
-                    </div>
-                  </div>
-                  {modalLegalizacion.data.porPeriodo?.length > 0 && (
-                    <div className="reportes-mtm-tabla-wrap">
-                      <h4>Por periodo académico</h4>
-                      <table className="reportes-mtm-tabla">
-                        <thead>
-                          <tr>
-                            <th>Periodo</th>
-                            <th>Total</th>
-                            <th>Creada</th>
-                            <th>En revisión</th>
-                            <th>Aprobada</th>
-                            <th>Rechazada</th>
-                            <th>En ajuste</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {modalLegalizacion.data.porPeriodo.map((p, i) => (
-                            <tr key={i}>
-                              <td>{p.periodo}</td>
-                              <td>{p.total}</td>
-                              <td>{p.creada ?? p.borrador ?? 0}</td>
-                              <td>{p.en_revision}</td>
-                              <td>{p.aprobada}</td>
-                              <td>{p.rechazada}</td>
-                              <td>{p.en_ajuste}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  <div className="reportes-modal-footer">
-                    <button type="button" className="btn-guardar" onClick={exportarEstadisticasLegalizacionExcel}><FiDownload className="btn-icon" /> Exportar a Excel</button>
-                    <button type="button" className="btn-volver" onClick={() => setModalLegalizacion({ open: false, data: null, loading: false })}>Cerrar</button>
-                  </div>
-                </>
-              ) : (
-                <p className="reportes-modal-empty">No hay datos para mostrar.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
