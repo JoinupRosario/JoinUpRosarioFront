@@ -74,6 +74,8 @@ import PlanPractica from './componentss/PlanPractica';
 import SeguimientosPractica from './componentss/SeguimientosPractica';
 import SupervisionPractica from './componentss/SupervisionPractica';
 import SeguimientosMTM from './componentss/SeguimientosMTM';
+import SurveysMTM from './componentss/evaluacionMTM/SurveysMTM';
+import EvaluacionesMTM from './componentss/evaluacionMTM/EvaluacionesMTM';
 import api from '../services/api';
 import ForcePasswordChangeModal from '../components/auth/ForcePasswordChangeModal';
 // Importar imágenes
@@ -109,6 +111,15 @@ export default function Dashboard() {
     }).catch(() => setSedeUsuario([]));
   }, [user]);
 
+  // Guard: este dashboard NO es para usuarios módulo 'entidades' (tienen su propio portal en /entidad).
+  useEffect(() => {
+    if (!user) return;
+    const mod = user?.modulo != null ? String(user.modulo).trim().toLowerCase() : '';
+    if (mod === 'entidades') {
+      navigate('/entidad', { replace: true });
+    }
+  }, [user, navigate]);
+
   // Usuario con módulo estudiante o módulo vacío (migrados mal): solo directorio activo y vista estudiante
   const moduloRaw = user?.modulo != null ? String(user.modulo).trim().toLowerCase() : '';
   const isEstudiante = moduloRaw === 'estudiante' || moduloRaw === '';
@@ -135,6 +146,11 @@ export default function Dashboard() {
   const hasAMPR = hasPermission('AMPR'); // Estudiantes habilitados / Legalizaciones prácticas
   const hasCLPA = hasPermission('CLPA') || hasPermission('VTLP'); // Legalizaciones de prácticas
   const hasAMMO = hasPermission('AMMO') || hasPermission('LLMO'); // Legalizaciones de monitorías
+  // Evaluación MTM (HU011)
+  const hasAESM = hasPermission('AESM'); // Acceso al módulo de evaluación MTM
+  const hasPESM = hasPermission('PESM'); // Procesar evaluaciones MTM
+  const hasCESM = hasPermission('CESM'); // Configurar surveys/plantillas
+  const hasEvaluacionesMTMAccess = hasAESM || hasPESM || hasAMMO;
   // Permisos por gráfica/estadística del Dashboard (cada una visible solo con su permiso)
   const hasDASH_EST = hasPermission('DASH_EST');   // Total Estudiantes
   const hasDASH_PRA = hasPermission('DASH_PRA');   // Prácticas Activas
@@ -199,6 +215,8 @@ export default function Dashboard() {
     '/dashboard/reglas-negocio': 'reglas-negocio',
     '/dashboard/plantillas-notificacion-monitoria': 'plantillas-monitoria',
     '/dashboard/plantillas-notificacion-practicas': 'plantillas-practicas',
+    '/dashboard/surveys-mtm': 'surveys-mtm',
+    '/dashboard/evaluaciones-mtm': 'evaluaciones-mtm',
   };
 
   // Mapeo de vistas a rutas
@@ -233,6 +251,8 @@ export default function Dashboard() {
     'reglas-negocio': '/dashboard/reglas-negocio',
     'plantillas-monitoria': '/dashboard/plantillas-notificacion-monitoria',
     'plantillas-practicas': '/dashboard/plantillas-notificacion-practicas',
+    'surveys-mtm': '/dashboard/surveys-mtm',
+    'evaluaciones-mtm': '/dashboard/evaluaciones-mtm',
   };
 
   // Obtener vista actual basada en la URL
@@ -339,7 +359,7 @@ export default function Dashboard() {
   }, [isEstudiante, vistaActual, navigate, hasCLPA, isLeader]);
 
   // Sin permiso al módulo: redirigir si entró por URL
-  const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'documentos-legalizacion-practica', 'documentos-legalizacion-monitoria', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones'];
+  const configViews = ['configuracion', 'periodos', 'programas-facultades', 'program-detail', 'faculty-detail', 'asignaturas', 'condiciones-curriculares', 'configuracion-documentos', 'documentos-legalizacion-practica', 'documentos-legalizacion-monitoria', 'reglas-negocio', 'plantillas-monitoria', 'plantillas-practicas', 'ubicaciones', 'surveys-mtm'];
   const configViewPermisos = {
     'programas-facultades': ['CFPP'], 'program-detail': ['CFPP'], 'faculty-detail': ['CFPP'],
     'periodos': ['AMGP', 'EPMO', 'GPPR', 'GPMO'],
@@ -351,7 +371,8 @@ export default function Dashboard() {
     'reglas-negocio': ['CFOP', 'CFOA'],
     'plantillas-monitoria': ['CFNM'],
     'plantillas-practicas': ['CFNP'],
-    'ubicaciones': ['AMLS', 'GPAR']
+    'ubicaciones': ['AMLS', 'GPAR'],
+    'surveys-mtm': ['CESM', 'AMMO']
   };
   useEffect(() => {
     // CFAPER aplica a staff; el estudiante siempre puede su configuración personal sin depender de permisos de rol admin.
@@ -369,7 +390,8 @@ export default function Dashboard() {
       'oportunidades': !hasAMOP,
       'estudiantes': !hasAMPR,
       'legalizaciones': !hasCLPA,
-      'monitorias': !hasAMMO
+      'monitorias': !hasAMMO,
+      'evaluaciones-mtm': !hasEvaluacionesMTMAccess
     };
     if (sinPermiso[vistaActual]) {
       navigate('/dashboard', { replace: true });
@@ -386,7 +408,7 @@ export default function Dashboard() {
     } else if (configViews.includes(vistaActual) && vistaActual !== 'configuracion' && !hasAMCO) {
       navigate('/dashboard', { replace: true });
     }
-  }, [isEstudiante, hasCFAPER, hasRolesAccess, hasAMUS, hasAMRE, hasAMSU, hasAMCO, hasAAME, hasAMOP, hasAMPR, hasCLPA, hasAMMO, vistaActual, navigate, hasPermission]);
+  }, [isEstudiante, hasCFAPER, hasRolesAccess, hasAMUS, hasAMRE, hasAMSU, hasAMCO, hasAAME, hasAMOP, hasAMPR, hasCLPA, hasAMMO, hasEvaluacionesMTMAccess, vistaActual, navigate, hasPermission]);
 
   // Vistas solo administrativas: si un estudiante entra por URL, volver al inicio (evita pantalla vacía o logs ajenos).
   useEffect(() => {
@@ -523,6 +545,7 @@ export default function Dashboard() {
     { text: 'Estudiantes Habilitados para Prácticas', Icon: HiOutlinePencilAlt, vista: 'estudiantes' },
     { text: 'Legalizaciones de Prácticas', Icon: HiOutlineAcademicCap, vista: 'legalizaciones' },
     { text: 'Legalizaciones de Monitorías', Icon: HiOutlineDocumentText, vista: 'monitorias' },
+    { text: 'Evaluaciones MTM', Icon: HiOutlineChartBar, vista: 'evaluaciones-mtm' },
     { text: 'Roles', Icon: HiOutlineKey, vista: 'roles' },
     { text: 'Sucursales', Icon: HiOutlineBriefcase, vista: 'sucursales' },
     { text: 'Reportes', Icon: HiOutlineChartBar, vista: 'reportes' },
@@ -556,6 +579,7 @@ export default function Dashboard() {
         // Módulo estudiante: siempre ver legalizaciones (no filtrar por permisos de admin)
         if (item.vista === 'legalizaciones') return isEstudiante || hasCLPA || isLeader;
         if (item.vista === 'monitorias') return isEstudiante || hasAMMO;
+        if (item.vista === 'evaluaciones-mtm') return hasEvaluacionesMTMAccess;
         return true;
       });
 
@@ -644,6 +668,8 @@ export default function Dashboard() {
             'ubicaciones':              'Ubicaciones',
             'plantillas-monitoria':     'Plantillas de notificaciones de monitorías',
             'plantillas-practicas':     'Plantillas de notificaciones de Prácticas',
+            'surveys-mtm':              'Plantillas de evaluación MTM',
+            'evaluaciones-mtm':         'Evaluaciones MTM',
           }[vistaActual] && (
             <h1 className="header-page-title">
               {{
@@ -684,6 +710,8 @@ export default function Dashboard() {
                 'ubicaciones':              'Ubicaciones',
                 'plantillas-monitoria':     'Plantillas de notificaciones de monitorías',
                 'plantillas-practicas':     'Plantillas de notificaciones de Prácticas',
+                'surveys-mtm':              'Plantillas de evaluación MTM',
+                'evaluaciones-mtm':         'Evaluaciones MTM',
               }[vistaActual]}
             </h1>
           )}
@@ -1068,6 +1096,12 @@ export default function Dashboard() {
         )}
         {vistaActual === 'plantillas-practicas' && (
           <NotificacionPracticas onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'surveys-mtm' && (
+          <SurveysMTM onVolver={() => navigate('/dashboard/configuracion')} />
+        )}
+        {vistaActual === 'evaluaciones-mtm' && (
+          <EvaluacionesMTM onVolver={() => navigate('/dashboard')} />
         )}
 
       {/* ELIMINA O COMENTA ESTA SECCIÓN */}

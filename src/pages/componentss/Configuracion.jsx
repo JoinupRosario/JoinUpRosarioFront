@@ -55,6 +55,9 @@ export default function Configuracion({ onVolver }) {
     if (opcion.text === 'Plantillas de notificaciones de Prácticas') {
       navigate('/dashboard/plantillas-notificacion-practicas');
     }
+    if (opcion.text === 'Plantillas de evaluación MTM') {
+      navigate('/dashboard/surveys-mtm');
+    }
   };
   const opcionesConfiguracion = [
     { text: 'Facultades y Programas', icon: FiFileText, descripcion: 'Gestionar facultades y programas académicos', permiso: 'CFPP' },
@@ -73,10 +76,11 @@ export default function Configuracion({ onVolver }) {
     { text: 'Gestión de Parámetros', icon: FiMapPin, descripcion: 'Gestionar tipos de documento, niveles de estudio, dedicación, ARLs y otros parámetros del sistema', permiso: 'GPAR' },
     { text: 'Configurar reglas de negocio', icon: FiSettings, descripcion: 'Vencimientos, MTM, apoyo económico, programa/tipo de práctica (URJOBS) y otras reglas', permiso: 'CFOP' },
     { text: 'Configuración Asignaturas', icon: FiBook, descripcion: 'Cargar y gestionar asignaturas ofertadas desde el servidor SFTP (ASIGNATURAS_OFERTADAS_UXXI)', permiso: 'CFASIG' },
-    { text: 'Parametrización de documentos', icon: FiFileText, descripcion: 'Configurar formatos y tipos de documentos (hoja de vida y otros que se requieran)', permiso: 'CFDL' }
+    { text: 'Parametrización de documentos', icon: FiFileText, descripcion: 'Configurar formatos y tipos de documentos (hoja de vida y otros que se requieran)', permiso: 'CFDL' },
+    { text: 'Plantillas de evaluación MTM', icon: FiFileText, descripcion: 'Diseñar formularios para autoevaluación del monitor, evaluación de estudiantes y evaluación del profesor (HU011)', permiso: 'CESM' }
   ];
 
-  const opcionesClickables = ['Gestión de Parámetros', 'Configurar reglas de negocio', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Documentos para legalizar práctica académica', 'Documentos para legalizar monitorías', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas'];
+  const opcionesClickables = ['Gestión de Parámetros', 'Configurar reglas de negocio', 'Facultades y Programas', 'Gestión de periodos para prácticas', 'Gestión de periodos para monitorías', 'Configuración Asignaturas', 'Condiciones Curriculares para Práctica', 'Parametrización de documentos', 'Documentos para legalizar práctica académica', 'Documentos para legalizar monitorías', 'Plantillas de notificaciones de monitorías', 'Plantillas de notificaciones de Prácticas', 'Plantillas de evaluación MTM'];
 
   if (!canAMCO) {
     return (

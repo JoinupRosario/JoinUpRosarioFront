@@ -413,7 +413,12 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
         <div className="segmtm-finalizar-banner">
           <div className="segmtm-finalizar-banner__text">
             <strong>¿Tu monitoría está lista para finalizar?</strong>
-            <span>Tienes seguimientos aprobados. Puedes solicitar el cierre de tu MTM al coordinador.</span>
+            <span>
+              Tienes seguimientos aprobados. Al solicitar el cierre, el sistema enviará por correo
+              <strong> tu autoevaluación</strong>, la <strong>evaluación al profesor responsable</strong> y la
+              <strong> evaluación a los estudiantes asistentes</strong>. <strong>Tu autoevaluación es obligatoria</strong>
+              para que el coordinador pueda finalizar tu MTM.
+            </span>
           </div>
           <button
             type="button"
@@ -423,9 +428,17 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
               const confirm = await Swal.fire({
                 icon: 'question',
                 title: '¿Solicitar finalización?',
-                html: 'Se notificará al coordinador para que confirme el cierre de tu monitoría.<br/><br/>Esta acción <strong>no se puede deshacer</strong>.',
+                html:
+                  'Al confirmar, el sistema enviará automáticamente <strong>tres correos</strong> con el link de evaluación:' +
+                  '<ul style="text-align:left;margin:0.5rem 0 0.75rem 1.25rem;padding:0;">' +
+                  '  <li><strong>Tu autoevaluación</strong> (al correo institucional del monitor).</li>' +
+                  '  <li>La <strong>evaluación al profesor responsable</strong>.</li>' +
+                  '  <li>La <strong>evaluación a los estudiantes asistentes</strong> registrados.</li>' +
+                  '</ul>' +
+                  '<p style="margin:0.75rem 0 0;"><strong>Importante:</strong> el coordinador <u>solo podrá finalizar tu MTM cuando hayas completado tu autoevaluación</u>. Revisa también tu correo no deseado/spam.</p>' +
+                  '<p style="margin:0.75rem 0 0;color:#b91c1c;">Esta acción <strong>no se puede deshacer</strong>.</p>',
                 showCancelButton: true,
-                confirmButtonText: 'Sí, solicitar',
+                confirmButtonText: 'Sí, solicitar y enviar correos',
                 cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#c41e3a',
               });
@@ -437,7 +450,14 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
                 Swal.fire({
                   icon: 'success',
                   title: '¡Solicitud enviada!',
-                  text: 'El coordinador recibirá la notificación para confirmar el cierre de tu monitoría.',
+                  html:
+                    'En los próximos minutos llegarán las invitaciones de evaluación a:' +
+                    '<ul style="text-align:left;margin:0.5rem 0 0.75rem 1.25rem;padding:0;">' +
+                    '  <li><strong>Tu correo institucional</strong> con el link de tu autoevaluación.</li>' +
+                    '  <li>El <strong>profesor responsable</strong>.</li>' +
+                    '  <li>Los <strong>estudiantes asistentes</strong> registrados.</li>' +
+                    '</ul>' +
+                    '<p style="margin:0.75rem 0 0;"><strong>Recuerda:</strong> debes completar <u>tu autoevaluación</u> para que el coordinador pueda finalizar la MTM. Revisa tu bandeja de entrada y la carpeta de spam.</p>',
                   confirmButtonColor: '#c41e3a',
                 });
               } catch (e) {
@@ -454,7 +474,14 @@ export default function SeguimientosMTM({ onVolver, compact = false, isAdmin = f
 
       {!isAdmin && legalizacionEstado === 'solicitada_finalizacion' && (
         <div className="segmtm-finalizar-banner segmtm-finalizar-banner--pendiente">
-          <span>⏳ <strong>Solicitud de finalización enviada.</strong> El coordinador está pendiente de confirmar el cierre de tu monitoría.</span>
+          <span>
+            ⏳ <strong>Solicitud de finalización enviada.</strong> Se enviaron a tu correo
+            (y a profesor/estudiantes asistentes) los links para responder la evaluación.
+            <br />
+            <strong>Tu autoevaluación es obligatoria</strong>: hasta que la completes, el coordinador
+            no podrá confirmar el cierre de tu MTM. Si no ves el correo, revisa la carpeta de
+            <em> spam/no deseado</em>.
+          </span>
         </div>
       )}
 

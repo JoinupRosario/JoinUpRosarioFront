@@ -1,0 +1,476 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Estilos específicos del portal de Entidad.
+   El layout, header, sidebar y footer reutilizan Dashboard.css; aquí solo
+   agregamos las piezas de contenido (page-header, cards, grids, tablas).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.dent-page {
+  padding: 8px 4px 24px;
+}
+
+.dent-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 4px 4px 18px;
+}
+
+.dent-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.dent-page-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.dent-page-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  max-width: 760px;
+}
+
+.dent-hint {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin: 0 4px 16px;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.dent-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px 22px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  margin: 0 4px 16px;
+}
+
+.dent-card-title {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.dent-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.dent-field-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.dent-field-value {
+  font-size: 0.93rem;
+  color: #111827;
+  word-break: break-word;
+}
+
+/* ── Filtros + tabla ───────────────────────────────────────────────────────── */
+.dent-filters {
+  display: flex;
+  gap: 10px;
+  margin: 0 4px 12px;
+  flex-wrap: wrap;
+}
+
+.dent-input,
+.dent-select {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  background: #fff;
+  min-width: 200px;
+}
+
+.dent-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  margin: 0 4px;
+}
+
+.dent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.dent-table th,
+.dent-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: middle;
+}
+
+.dent-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+
+.dent-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dent-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.92rem;
+}
+
+/* ── Botones ──────────────────────────────────────────────────────────────── */
+.dent-btn {
+  background: #c41e3a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: filter 0.15s ease;
+}
+
+.dent-btn:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.dent-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Mini-card de la entidad en el sidebar ────────────────────────────────── */
+.dent-sidebar-company {
+  margin: 18px 16px 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dent-sidebar-company strong {
+  color: #fff;
+  display: block;
+  font-size: 0.88rem;
+  margin-bottom: 4px;
+}
+
+/* ── Variantes de hint y alertas ──────────────────────────────────────────── */
+.dent-hint-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+
+.dent-alert {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  margin: 0 4px 14px;
+}
+
+.dent-alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+/* ── Botones secundarios ──────────────────────────────────────────────────── */
+.dent-btn-secondary {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.dent-btn-secondary:hover:not(:disabled) {
+  background: #f9fafb;
+  filter: none;
+}
+
+/* ── Search input dentro de filtros ───────────────────────────────────────── */
+.dent-search {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  align-items: center;
+}
+
+.dent-search .dent-input {
+  padding-left: 34px;
+  width: 100%;
+  min-width: 0;
+}
+
+.dent-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* ── Tabla: ajustes finos ─────────────────────────────────────────────────── */
+.dent-cell-sub {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.dent-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+  color: #6b7280;
+  font-size: 0.82rem;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────────── */
+.dent-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dent-badge-default { background: #f3f4f6; color: #374151; }
+.dent-badge-success { background: #dcfce7; color: #166534; }
+.dent-badge-warning { background: #fef3c7; color: #92400e; }
+.dent-badge-danger  { background: #fee2e2; color: #991b1b; }
+.dent-badge-neutral { background: #e5e7eb; color: #4b5563; }
+
+/* ── Paginación ───────────────────────────────────────────────────────────── */
+.dent-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 16px 4px 4px;
+  flex-wrap: wrap;
+}
+
+.dent-pag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  color: #374151;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.dent-pag-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.dent-pag-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dent-pag-info {
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+/* ── Cabecera entidad (logo + nombre + status) ────────────────────────────── */
+.dent-entity-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dent-entity-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 4px;
+}
+
+.dent-entity-status {
+  margin-top: 6px;
+}
+
+/* ── Tabs internas (Mi entidad) ───────────────────────────────────────────── */
+.dent-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 4px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.dent-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.dent-tab:hover {
+  color: #1f2937;
+}
+
+.dent-tab.active {
+  color: #c41e3a;
+  border-bottom-color: #c41e3a;
+  font-weight: 600;
+}
+
+/* ── Subbloques (chips, párrafos) dentro de cards ─────────────────────────── */
+.dent-subblock {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.dent-subblock-title {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.dent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dent-chip {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+}
+
+.dent-paragraph {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #1f2937;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* ── Documentos: grid de cards ────────────────────────────────────────────── */
+.dent-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.dent-doc-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dent-doc-card.is-empty {
+  opacity: 0.7;
+  background: #fff;
+  border-style: dashed;
+}
+
+.dent-doc-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dent-doc-icon {
+  font-size: 1.5rem;
+  color: #c41e3a;
+}
+
+.dent-doc-label {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.92rem;
+}
+
+.dent-doc-status {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.dent-doc-btn {
+  align-self: flex-start;
+}

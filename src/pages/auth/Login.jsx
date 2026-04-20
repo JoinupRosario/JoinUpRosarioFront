@@ -23,7 +23,7 @@ export default function Login() {
   const [language, setLanguage] = useState('es');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
 
-  const { login, logout } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -117,10 +117,12 @@ export default function Login() {
       const mod = result.modulo != null ? String(result.modulo).trim().toLowerCase() : '';
       const esAdmin = mod === 'administrativo';
       const esEstudiante = mod === 'estudiante' || mod === '';
+      const esEntidad = mod === 'entidades';
       if (esAdmin || esEstudiante) {
         navigate('/dashboard');
+      } else if (esEntidad) {
+        navigate('/entidad');
       } else {
-        // entidades y cualquier otro módulo: plataforma en construcción
         await Swal.fire({
           icon: 'info',
           title: 'Módulo en construcción',
@@ -128,7 +130,6 @@ export default function Login() {
           confirmButtonColor: '#c41e3a',
           confirmButtonText: 'Entendido',
         });
-        logout();
       }
     } else {
       if (result.code === 'USE_SAML') {

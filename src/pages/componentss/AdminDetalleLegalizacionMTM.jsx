@@ -77,6 +77,14 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   const [planPreview, setPlanPreview] = useState({ open: false, url: null, title: '' });
   const [definicionesDocumentos, setDefinicionesDocumentos] = useState([]);
   const [exportandoReporteAsistencia, setExportandoReporteAsistencia] = useState(false);
+  // Evaluación MTM (RQ04_HU011): estado y respuestas vinculadas a esta legalización
+  const [evaluacion, setEvaluacion] = useState(null);
+  const [tokensEval, setTokensEval] = useState([]);
+  const [respuestasEval, setRespuestasEval] = useState([]);
+  const [loadingEval, setLoadingEval] = useState(false);
+  const [mostrandoEval, setMostrandoEval] = useState(false);
+  const [respuestaSel, setRespuestaSel] = useState(null);
+  const [reenviandoTokenId, setReenviandoTokenId] = useState(null);
 
   useEffect(() => {
     if (!postulacionId) {
@@ -118,6 +126,39 @@ export default function AdminDetalleLegalizacionMTM({ onVolver }) {
   useEffect(() => {
     if (tabActiva === 'seguimientos' && !mostrarTabSeguimientosAdmin) setTabActiva('datos');
   }, [tabActiva, mostrarTabSeguimientosAdmin]);
+
+  /**
+   * Carga la EvaluacionMTM asociada a esta legalización (si existe).
+   * Solo tiene sentido cuando ya se solicitó la finalización o ya está finalizada.
+   */
+  const cargarEvaluacion = async (legalizacionId) => {
+    if (!legalizacionId) return;
+    setLoadingEval(true);
+    try {
+      const { data } = await api.get(`/evaluaciones-mtm/evaluaciones/legalizacion/${legalizacionId}`);
+      setEvaluacion(data?.evaluacion || null);
+      setTokensEval(Array.isArray(data?.tokens) ? data.tokens : []);
+      setRespuestasEval(Array.isArray(data?.respuestas) ? data.respuestas : []);
+    } catch (err) {
+      console.warn('[AdminLegMTM] cargarEvaluacion:', err?.response?.data?.message || err.message);
+      setEvaluacion(null);
+      setTokensEval([]);
+      setRespuestasEval([]);
+    } finally {
+      setLoadingEval(false);
+    }
+  };
+
+  useEffect(() => {
+    const estado = normalizarCodigoEstadoLegalizacionMtm(legalizacion?.estado);
+    if (legalizacion?._id && (estado === 'solicitada_finalizacion' || estado === 'finalizada')) {
+      cargarEvaluacion(legalizacion._id);
+    } else {
+      setEvaluacion(null);
+      setTokensEval([]);
+      setRespuestasEval([]);
+    }
+  }, [legalizacion?._id, legalizacion?.estado]);
 
   const exportarReporteAsistenciaEstaMonitoria = () => {
     if (!postulacionId) return;
@@ -422,6 +463,18 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
   };
 
   const finalizarMTM = async () => {
+    if (!evaluacion?.monitorRespondidoAt) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Autoevaluación pendiente',
+        html:
+          'Aún no es posible finalizar esta MTM.<br/><br/>' +
+          '<strong>El monitor debe completar primero su autoevaluación</strong> ' +
+          '(RQ04_HU011: la autoevaluación es requisito para el cierre).',
+        confirmButtonColor: '#c41e3a',
+      });
+      return;
+    }
     const confirm = await Swal.fire({
       icon: 'question',
       title: 'Finalizar monitoría',
@@ -440,6 +493,49 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
       })
       .catch((e) => Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo finalizar.', confirmButtonColor: '#c41e3a' }))
       .finally(() => setFinalizando(false));
+  };
+
+  /** Carga el detalle completo (con respuestas) para una respuesta específica. */
+  const handleVerRespuesta = async (respuestaId) => {
+    try {
+      const { data } = await api.get(`/evaluaciones-mtm/evaluaciones/respuestas/${respuestaId}`);
+      setRespuestaSel(data?.respuesta || null);
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err.response?.data?.message || 'No se pudo cargar la respuesta.',
+        confirmButtonColor: '#c41e3a',
+      });
+    }
+  };
+
+  /** Reenvía el correo a un actor pendiente. */
+  const handleReenviarToken = async (tokenId, label) => {
+    const r = await Swal.fire({
+      icon: 'question',
+      title: '¿Reenviar correo?',
+      text: `Se enviará nuevamente el enlace a ${label || 'el destinatario'}.`,
+      showCancelButton: true,
+      confirmButtonText: 'Reenviar',
+      confirmButtonColor: '#c41e3a',
+    });
+    if (!r.isConfirmed) return;
+    setReenviandoTokenId(tokenId);
+    try {
+      await api.post(`/evaluaciones-mtm/evaluaciones/tokens/${tokenId}/reenviar`);
+      Swal.fire({ icon: 'success', title: 'Reenviado', timer: 1400, showConfirmButton: false });
+      if (legalizacion?._id) cargarEvaluacion(legalizacion._id);
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'No se pudo reenviar',
+        text: err.response?.data?.message || 'Intenta nuevamente.',
+        confirmButtonColor: '#c41e3a',
+      });
+    } finally {
+      setReenviandoTokenId(null);
+    }
   };
 
   const estadoLabel = {
@@ -548,14 +644,39 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
               </button>
             </>
           )}
+          {(enSolicitadaFinalizacion || normalizarCodigoEstadoLegalizacionMtm(legalizacion?.estado) === 'finalizada') && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setMostrandoEval(true)}
+              disabled={loadingEval}
+              title="Ver el estado y respuestas de la evaluación MTM"
+            >
+              {loadingEval ? 'Cargando evaluación...' : 'Ver respuestas evaluación'}
+            </button>
+          )}
           {enSolicitadaFinalizacion && (
             <button
               type="button"
               className="btn-guardar admrevmtm__btn-finalizar"
               onClick={finalizarMTM}
-              disabled={finalizando}
+              disabled={finalizando || loadingEval || !evaluacion?.monitorRespondidoAt}
+              aria-disabled={finalizando || loadingEval || !evaluacion?.monitorRespondidoAt}
+              title={
+                loadingEval
+                  ? 'Verificando autoevaluación...'
+                  : !evaluacion
+                    ? 'No se ha disparado la evaluación todavía'
+                    : !evaluacion.monitorRespondidoAt
+                      ? 'El monitor debe completar primero su autoevaluación (RQ04_HU011)'
+                      : 'Confirmar el cierre definitivo de la MTM'
+              }
             >
-              {finalizando ? 'Finalizando...' : '✓ Confirmar finalización de MTM'}
+              {finalizando
+                ? 'Finalizando...'
+                : evaluacion?.monitorRespondidoAt
+                  ? '✓ Confirmar finalización de MTM'
+                  : '⏳ Esperando autoevaluación del monitor'}
             </button>
           )}
         </div>
@@ -888,6 +1009,196 @@ ${act.length ? act.map((a) => `<tr><td>${a.fecha}</td><td>${a.tema}</td><td>${a.
 
       <PdfPreviewModal open={previewPdf.open} onClose={() => setPreviewPdf({ open: false, url: null, title: '' })} title={previewPdf.title} url={previewPdf.url} />
       <PdfPreviewModal open={planPreview.open} onClose={closePlanPreview} title={planPreview.title} url={planPreview.url} showPrintButton />
+
+      {mostrandoEval && (
+        <EvaluacionMTMModal
+          loading={loadingEval}
+          evaluacion={evaluacion}
+          tokens={tokensEval}
+          respuestas={respuestasEval}
+          respuestaSel={respuestaSel}
+          reenviandoTokenId={reenviandoTokenId}
+          onCerrar={() => { setMostrandoEval(false); setRespuestaSel(null); }}
+          onVerRespuesta={handleVerRespuesta}
+          onCerrarRespuesta={() => setRespuestaSel(null)}
+          onReenviar={handleReenviarToken}
+        />
+      )}
     </div>
   );
+}
+
+// ────────────── Modal: detalle de evaluación MTM ───────────────────────────
+// Reutiliza el mismo "look & feel" del módulo de Evaluaciones (RQ04_HU011)
+// pero embebido en la pantalla de revisión de legalización para que el
+// coordinador no tenga que cambiar de módulo.
+function EvaluacionMTMModal({
+  loading,
+  evaluacion,
+  tokens = [],
+  respuestas = [],
+  respuestaSel,
+  reenviandoTokenId,
+  onCerrar,
+  onVerRespuesta,
+  onCerrarRespuesta,
+  onReenviar,
+}) {
+  const respuestasByToken = new Map(
+    (respuestas || []).map((r) => [String(r.identificadorActor) + '|' + r.actor, r])
+  );
+  return (
+    <div className="admrevmtm-eval-modal" role="dialog" aria-modal="true" onClick={onCerrar}>
+      <div className="admrevmtm-eval-modal__panel" onClick={(e) => e.stopPropagation()}>
+        <header className="admrevmtm-eval-modal__header">
+          <div>
+            <h3 style={{ margin: 0 }}>Evaluación MTM</h3>
+            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+              Estado y respuestas vinculadas a esta legalización (RQ04_HU011).
+            </p>
+          </div>
+          <button type="button" className="btn-secondary" onClick={onCerrar}>Cerrar</button>
+        </header>
+
+        {loading ? (
+          <div style={{ padding: 24, color: '#64748b' }}>Cargando evaluación...</div>
+        ) : !evaluacion ? (
+          <div style={{ padding: 24, color: '#64748b' }}>
+            La evaluación aún no se ha generado para esta legalización.
+          </div>
+        ) : (
+          <>
+            <div className="admrevmtm-eval-modal__grid">
+              <div className="admrevmtm-eval-modal__cell">
+                <div className="admrevmtm-eval-modal__label">Estado</div>
+                <div className="admrevmtm-eval-modal__value" style={{ textTransform: 'capitalize' }}>{evaluacion.estado}</div>
+              </div>
+              <div className="admrevmtm-eval-modal__cell">
+                <div className="admrevmtm-eval-modal__label">Autoevaluación monitor</div>
+                <div className="admrevmtm-eval-modal__value">
+                  {evaluacion.monitorRespondidoAt
+                    ? <span style={{ color: '#15803d', fontWeight: 600 }}>Respondida</span>
+                    : <span style={{ color: '#b91c1c', fontWeight: 600 }}>Pendiente</span>}
+                </div>
+              </div>
+              <div className="admrevmtm-eval-modal__cell">
+                <div className="admrevmtm-eval-modal__label">Profesor</div>
+                <div className="admrevmtm-eval-modal__value">
+                  {evaluacion.profesorRespondidoAt
+                    ? <span style={{ color: '#15803d', fontWeight: 600 }}>Respondida</span>
+                    : <span style={{ color: '#b91c1c', fontWeight: 600 }}>Pendiente</span>}
+                </div>
+              </div>
+              <div className="admrevmtm-eval-modal__cell">
+                <div className="admrevmtm-eval-modal__label">Estudiantes</div>
+                <div className="admrevmtm-eval-modal__value">
+                  {evaluacion.totalEstudiantesRespondidos || 0} / {evaluacion.totalEstudiantesEsperados || 0}
+                </div>
+              </div>
+              <div className="admrevmtm-eval-modal__cell">
+                <div className="admrevmtm-eval-modal__label">Enviada</div>
+                <div className="admrevmtm-eval-modal__value">
+                  {evaluacion.enviadaAt ? new Date(evaluacion.enviadaAt).toLocaleString() : '—'}
+                </div>
+              </div>
+            </div>
+
+            <div className="admrevmtm-eval-modal__section">
+              <h4 style={{ margin: '0 0 8px' }}>Enlaces emitidos</h4>
+              <div className="admrevmtm-eval-modal__table-wrap">
+                <table className="admrevmtm-eval-modal__table">
+                  <thead>
+                    <tr>
+                      <th>Actor</th>
+                      <th>Destinatario</th>
+                      <th>Email</th>
+                      <th>Estado</th>
+                      <th>Reenvíos</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tokens.length === 0 && (
+                      <tr><td colSpan="6" style={{ color: '#64748b' }}>No hay tokens generados.</td></tr>
+                    )}
+                    {tokens.map((t) => {
+                      const respuesta = respuestasByToken.get(String(t.identificadorActor) + '|' + t.actor);
+                      return (
+                        <tr key={t._id}>
+                          <td style={{ textTransform: 'capitalize' }}>{t.actor}</td>
+                          <td>{t.nombreActor || '—'}</td>
+                          <td>{t.email || <em style={{ color: '#b91c1c' }}>sin correo</em>}</td>
+                          <td>
+                            {t.usado
+                              ? <span style={{ color: '#15803d', fontWeight: 600 }}>Respondido</span>
+                              : <span style={{ color: '#b91c1c', fontWeight: 600 }}>Pendiente</span>}
+                          </td>
+                          <td>{t.reenvios || 0}</td>
+                          <td className="admrevmtm-eval-modal__tools">
+                            {respuesta && (
+                              <button
+                                type="button"
+                                className="admrevmtm-eval-modal__link"
+                                onClick={() => onVerRespuesta(respuesta._id)}
+                              >
+                                Ver respuesta
+                              </button>
+                            )}
+                            {!t.usado && t.email && (
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                disabled={reenviandoTokenId === t._id}
+                                onClick={() => onReenviar(t._id, t.nombreActor || t.email)}
+                              >
+                                {reenviandoTokenId === t._id ? 'Reenviando...' : 'Reenviar'}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {respuestaSel && (
+              <div className="admrevmtm-eval-modal__section">
+                <div className="admrevmtm-eval-modal__resp-header">
+                  <div>
+                    <h4 style={{ margin: 0 }}>
+                      Respuesta de {respuestaSel.nombreActor || respuestaSel.email}
+                    </h4>
+                    <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+                      Actor: <strong style={{ textTransform: 'capitalize' }}>{respuestaSel.actor}</strong>
+                      {respuestaSel.puntajePonderado != null && (
+                        <> · Promedio ponderado: <strong>{respuestaSel.puntajePonderado}</strong></>
+                      )}
+                    </p>
+                  </div>
+                  <button type="button" className="btn-secondary" onClick={onCerrarRespuesta}>Cerrar respuesta</button>
+                </div>
+                {(respuestaSel.respuestas || []).map((r, i) => (
+                  <div key={i} className="admrevmtm-eval-modal__resp">
+                    <div className="admrevmtm-eval-modal__resp-pregunta">{r.preguntaTexto}</div>
+                    <div className="admrevmtm-eval-modal__resp-valor">
+                      <strong>Respuesta:</strong> {formatearValorEval(r.valor)}
+                      {' '}<span style={{ color: '#64748b', fontSize: '0.8rem' }}>(peso {r.peso ?? 1})</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatearValorEval(valor) {
+  if (valor == null || valor === '') return <em style={{ color: '#94a3b8' }}>sin respuesta</em>;
+  if (Array.isArray(valor)) return valor.join(', ');
+  return String(valor);
 }

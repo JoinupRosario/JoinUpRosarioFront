@@ -1185,3 +1185,137 @@
 .admrevmtm-plan-table .admrevmtm-plan-cell--estrategias {
   max-width: min(42rem, 100%);
 }
+
+/* ───── Modal "Ver respuestas evaluación" (RQ04_HU011) ───── */
+.admrevmtm-eval-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1500;
+  padding: 32px 16px;
+  overflow-y: auto;
+}
+
+.admrevmtm-eval-modal__panel {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: min(1080px, 100%);
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  padding: 22px 24px;
+}
+
+.admrevmtm-eval-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.admrevmtm-eval-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admrevmtm-eval-modal__cell {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.admrevmtm-eval-modal__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.admrevmtm-eval-modal__value {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.admrevmtm-eval-modal__section {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.admrevmtm-eval-modal__table-wrap {
+  overflow-x: auto;
+}
+
+.admrevmtm-eval-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.admrevmtm-eval-modal__table th,
+.admrevmtm-eval-modal__table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.admrevmtm-eval-modal__table th {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #334155;
+}
+
+.admrevmtm-eval-modal__tools {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admrevmtm-eval-modal__link {
+  background: none;
+  border: none;
+  color: #c41e3a;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.admrevmtm-eval-modal__resp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admrevmtm-eval-modal__resp {
+  border-top: 1px solid #e2e8f0;
+  padding: 10px 0;
+}
+
+.admrevmtm-eval-modal__resp-pregunta {
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.admrevmtm-eval-modal__resp-valor {
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+ 
+ 

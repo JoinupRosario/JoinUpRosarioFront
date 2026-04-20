@@ -1,0 +1,312 @@
+/**
+ * Estilos del módulo administrativo de Evaluación MTM (RQ04_HU011).
+ * Prefijo evmtm-adm__
+ */
+
+.evmtm-adm {
+  padding: 1.25rem 1.5rem 2rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.evmtm-adm__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+.evmtm-adm__title {
+  font-size: 1.35rem;
+  margin: 0;
+  color: #111827;
+  font-weight: 700;
+}
+.evmtm-adm__subtitle {
+  color: #475569;
+  margin: 0.25rem 0 0 0;
+  font-size: 0.92rem;
+}
+
+.evmtm-adm__actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.evmtm-adm__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #1f2937;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.evmtm-adm__btn:hover {
+  background: #f8fafc;
+}
+.evmtm-adm__btn--primary {
+  background: #c41e3a;
+  color: #ffffff;
+  border-color: #c41e3a;
+}
+.evmtm-adm__btn--primary:hover {
+  background: #a4172f;
+}
+.evmtm-adm__btn--secondary {
+  background: #1f2937;
+  color: #fff;
+  border-color: #1f2937;
+}
+.evmtm-adm__btn--secondary:hover { background: #111827; }
+.evmtm-adm__btn--danger {
+  background: #fff;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.evmtm-adm__btn--danger:hover {
+  background: #fef2f2;
+}
+.evmtm-adm__btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: #475569;
+}
+.evmtm-adm__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.evmtm-adm__card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.evmtm-adm__table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.evmtm-adm__table th,
+.evmtm-adm__table td {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  font-size: 0.88rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+.evmtm-adm__table th {
+  background: #f8fafc;
+  color: #111827;
+  font-weight: 600;
+  font-size: 0.83rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.evmtm-adm__table tr:last-child td { border-bottom: none; }
+
+.evmtm-adm__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f1f5f9;
+  color: #334155;
+}
+.evmtm-adm__badge--activa { background: #dcfce7; color: #166534; }
+.evmtm-adm__badge--borrador { background: #fef3c7; color: #92400e; }
+.evmtm-adm__badge--archivada { background: #e2e8f0; color: #475569; }
+.evmtm-adm__badge--creada { background: #ede9fe; color: #5b21b6; }
+.evmtm-adm__badge--enviada { background: #dbeafe; color: #1e3a8a; }
+.evmtm-adm__badge--parcial { background: #fef3c7; color: #92400e; }
+.evmtm-adm__badge--completa { background: #dcfce7; color: #166534; }
+.evmtm-adm__badge--ok { background: #dcfce7; color: #166534; }
+.evmtm-adm__badge--pendiente { background: #fee2e2; color: #991b1b; }
+
+/* ── Editor de surveys ── */
+.evmtm-adm__tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.evmtm-adm__tab {
+  border: none;
+  background: transparent;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  font-size: 0.92rem;
+}
+.evmtm-adm__tab--active {
+  color: #c41e3a;
+  border-bottom-color: #c41e3a;
+}
+
+.evmtm-adm__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+.evmtm-adm__label {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #374151;
+}
+.evmtm-adm__input,
+.evmtm-adm__textarea,
+.evmtm-adm__select {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: #fff;
+  width: 100%;
+  box-sizing: border-box;
+}
+.evmtm-adm__textarea { min-height: 70px; resize: vertical; }
+.evmtm-adm__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+
+.evmtm-adm__pregunta {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.7rem;
+}
+.evmtm-adm__pregunta-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+.evmtm-adm__pregunta-titulo {
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  font-size: 0.95rem;
+}
+.evmtm-adm__pregunta-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+.evmtm-adm__opcion-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+.evmtm-adm__opcion-row .evmtm-adm__input { flex: 1 1 auto; }
+.evmtm-adm__opcion-row .evmtm-adm__opcion-valor { max-width: 110px; }
+
+.evmtm-adm__empty {
+  padding: 1.4rem;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+}
+
+.evmtm-adm__tools {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.evmtm-adm__detalle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem 1rem;
+  margin-bottom: 1rem;
+}
+.evmtm-adm__detalle-item {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #e2e8f0;
+}
+.evmtm-adm__detalle-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.15rem;
+}
+.evmtm-adm__detalle-valor {
+  font-size: 0.95rem;
+  color: #111827;
+  font-weight: 600;
+}
+
+.evmtm-adm__token-link {
+  color: #c41e3a;
+  text-decoration: underline;
+  font-size: 0.82rem;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.evmtm-adm__respuesta {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.5rem;
+}
+.evmtm-adm__respuesta-pregunta {
+  font-weight: 600;
+  color: #111827;
+  font-size: 0.88rem;
+}
+.evmtm-adm__respuesta-valor {
+  color: #1f2937;
+  font-size: 0.9rem;
+  margin-top: 0.2rem;
+}
+
+.evmtm-adm__loading {
+  padding: 2rem;
+  text-align: center;
+  color: #475569;
+}
+
+.evmtm-adm__filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}

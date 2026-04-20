@@ -1,0 +1,220 @@
+/**
+ * Página pública de respuesta a la evaluación MTM (RQ04_HU011).
+ * Prefijo evmtm-public__
+ */
+
+body.evmtm-public-body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  min-height: 100%;
+}
+body.evmtm-public-body #root {
+  min-height: auto;
+  display: block;
+}
+
+.evmtm-public {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.5rem 1.15rem calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  background: linear-gradient(165deg, #fdf8f9 0%, #f1f5f9 38%, #e8ecf1 100%);
+}
+
+.evmtm-public__inner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 1rem;
+}
+
+.evmtm-public__logo-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #c41e3a;
+  border-radius: 14px;
+  padding: 1.1rem 1rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 6px 16px -8px rgba(196, 30, 58, 0.55);
+}
+.evmtm-public__logo {
+  height: 64px;
+  max-width: 100%;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.evmtm-public__brand {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c41e3a;
+  margin-bottom: 0.35rem;
+}
+
+.evmtm-public__title {
+  margin: 0 0 0.5rem 0 !important;
+  font-size: 1.6rem !important;
+  line-height: 1.25 !important;
+  font-weight: 700 !important;
+  color: #111827 !important;
+}
+
+.evmtm-public__subtitle {
+  color: #475569;
+  margin: 0 0 1.4rem 0;
+  font-size: 0.95rem;
+}
+
+.evmtm-public__card {
+  background: #ffffff;
+  border: 1px solid #e8e4e6;
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.evmtm-public__info {
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+.evmtm-public__info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.evmtm-public__info-label {
+  font-weight: 600;
+  color: #111827;
+  min-width: 130px;
+}
+
+.evmtm-public__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.evmtm-public__pregunta {
+  background: #ffffff;
+  border: 1px solid #e8e4e6;
+  border-radius: 12px;
+  padding: 1rem 1.15rem;
+}
+.evmtm-public__pregunta-titulo {
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.45rem 0;
+  font-size: 0.98rem;
+}
+.evmtm-public__req {
+  color: #c41e3a;
+  margin-left: 0.25rem;
+  font-weight: 700;
+}
+.evmtm-public__pregunta-desc {
+  color: #475569;
+  margin: 0 0 0.7rem 0;
+  font-size: 0.85rem;
+}
+.evmtm-public__input,
+.evmtm-public__textarea,
+.evmtm-public__select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: #fff;
+  box-sizing: border-box;
+}
+.evmtm-public__textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+.evmtm-public__opciones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.evmtm-public__opcion {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+  color: #1f2937;
+  cursor: pointer;
+}
+.evmtm-public__escala {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.evmtm-public__escala-btn {
+  min-width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #1f2937;
+  font-weight: 600;
+  cursor: pointer;
+}
+.evmtm-public__escala-btn--active {
+  background: #c41e3a;
+  color: #fff;
+  border-color: #c41e3a;
+}
+.evmtm-public__escala-label {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0 0.4rem;
+}
+
+.evmtm-public__submit {
+  background: #c41e3a;
+  color: #fff;
+  border: none;
+  padding: 0.85rem 1.2rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.evmtm-public__submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.evmtm-public__loading,
+.evmtm-public__error-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+.evmtm-public__error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+.evmtm-public__success {
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  color: #065f46;
+  padding: 1.2rem;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 600;
+}

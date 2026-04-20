@@ -48,7 +48,7 @@ function createEmptyOportunidadesFilters() {
   };
 }
 
-export default function Oportunidades({ onVolver }) {
+export default function Oportunidades({ onVolver, entityPortalMode = false }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -587,8 +587,56 @@ export default function Oportunidades({ onVolver }) {
   }, [editFormData?.tipoVinculacion, linkageTypes]);
 
   useEffect(() => {
+    if (entityPortalMode) return;
     loadOportunidades();
-  }, [pagePracticas, pageMtm, pageSize, sortField, sortDirection]);
+  }, [pagePracticas, pageMtm, pageSize, sortField, sortDirection, entityPortalMode]);
+
+  // Portal entidad: mismo formulario de práctica administrativo, empresa fija desde /companies/me.
+  useEffect(() => {
+    if (!entityPortalMode) return undefined;
+    setVista('crear');
+    setTipoOportunidad('practica');
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const { data } = await api.get('/companies/me');
+        if (cancelled) return;
+        if (!data?._id) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'No disponible',
+            text: 'No se encontró la información de tu entidad.',
+            confirmButtonColor: '#c41e3a',
+          });
+          navigate('/entidad/oportunidades', { replace: true });
+          return;
+        }
+        setSelectedCompany({
+          _id: data._id,
+          name: data.name || data.legalName || data.commercialName || '',
+          commercialName: data.commercialName || data.name || data.legalName || '',
+          legalName: data.legalName,
+        });
+      } catch (e) {
+        console.error('[Oportunidades] entityPortalMode init', e);
+        if (!cancelled) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: e?.response?.data?.message || 'No se pudo cargar tu entidad.',
+            confirmButtonColor: '#c41e3a',
+          });
+          navigate('/entidad/oportunidades', { replace: true });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [entityPortalMode, navigate]);
 
   // Función para limpiar filtros (solo la pestaña activa)
   const handleClearFilters = () => {
@@ -713,7 +761,10 @@ export default function Oportunidades({ onVolver }) {
     }
     api.get('/condiciones-curriculares/programas-habilitados', { params: { periodo } })
       .then(res => setProgramIdsHabilitadosPeriodo((res.data?.programIds || []).map(id => String(id))))
-      .catch(() => setProgramIdsHabilitadosPeriodo([]));
+      .catch((err) => {
+        console.warn('[Oportunidades] programas-habilitados:', err?.response?.status, err?.response?.data?.message || err.message);
+        setProgramIdsHabilitadosPeriodo([]);
+      });
   }, [showProgramsModal, editShowProgramsModal, formData?.periodo, editFormData?.periodo]);
 
   // Limpiar selección al cambiar nivel (práctica)
@@ -1685,7 +1736,9 @@ export default function Oportunidades({ onVolver }) {
       await Swal.fire({
         icon: 'success',
         title: '¡Éxito!',
-        text: 'La oportunidad se ha creado correctamente',
+        text: entityPortalMode
+          ? 'La oportunidad de práctica fue enviada y queda en estado «En revisión» hasta validación por la coordinación.'
+          : 'La oportunidad se ha creado correctamente',
         confirmButtonText: 'Aceptar',
         confirmButtonColor: '#c41e3a'
       });
@@ -1731,6 +1784,11 @@ export default function Oportunidades({ onVolver }) {
       setShowSalarioEmocionalDropdown(false);
       setTipoOportunidad(null);
       setSelectedLinkageDescription('');
+
+      if (entityPortalMode) {
+        navigate('/entidad/oportunidades', { replace: true });
+        return;
+      }
 
       // Recargar lista y volver a la vista de lista
       await loadOportunidades();
@@ -1794,6 +1852,11 @@ export default function Oportunidades({ onVolver }) {
       if (!result.isConfirmed) {
         return; // No hacer nada si cancela
       }
+    }
+
+    if (entityPortalMode) {
+      navigate('/entidad/oportunidades');
+      return;
     }
 
     setVista('lista');

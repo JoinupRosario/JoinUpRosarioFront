@@ -3,9 +3,11 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/auth/Login';
 import SamlSuccess from './pages/auth/SamlSuccess';
 import Dashboard from './pages/Dashboard';
+import DashboardEntidad from './pages/entidad/DashboardEntidad';
 import AsistenciaMTMPublic from './pages/AsistenciaMTMPublic';
 import FirmaAcuerdoPracticaPublic from './pages/FirmaAcuerdoPracticaPublic';
 import CertificacionPracticaPublic from './pages/CertificacionPracticaPublic';
+import EvaluacionMTMPublic from './pages/EvaluacionMTMPublic';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import './App.css';
 
@@ -30,6 +32,22 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
+/**
+ * Redirección "raíz" de la app: dependiendo del módulo del usuario autenticado
+ * lo manda al dashboard que le corresponde.
+ *  - entidades  → /entidad
+ *  - resto      → /dashboard
+ *  - sin sesión → /login
+ */
+const RootRedirect = () => {
+  const { isAuthenticated, user, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const mod = user?.modulo != null ? String(user.modulo).trim().toLowerCase() : '';
+  if (mod === 'entidades') return <Navigate to="/entidad" replace />;
+  return <Navigate to="/dashboard" replace />;
+};
+
 // Componente principal de la aplicación
 function AppContent() {
   return (
@@ -40,6 +58,7 @@ function AppContent() {
         <Route path="/asistencia-mtm/:token" element={<AsistenciaMTMPublic />} />
         <Route path="/firma-acuerdo-practica/:token" element={<FirmaAcuerdoPracticaPublic />} />
         <Route path="/certificacion-practica/:token" element={<CertificacionPracticaPublic />} />
+        <Route path="/evaluacion-mtm/responder/:token" element={<EvaluacionMTMPublic />} />
         <Route
           path="/dashboard/*"
           element={
@@ -48,7 +67,15 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/entidad/*"
+          element={
+            <ProtectedRoute>
+              <DashboardEntidad />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/" element={<RootRedirect />} />
       </Routes>
     </Router>
   );
