@@ -49,24 +49,33 @@
   margin: 0 4px 16px;
 }
 
-/* ── Cards ─────────────────────────────────────────────────────────────────── */
+/* ── Cards (Mi entidad) ──────────────────────────────────────────────────── */
 .dent-card {
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e8e0e1;
+  border-top: 2px solid #dea9b0;
   border-radius: 12px;
-  padding: 18px 22px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  padding: 20px 22px 22px;
+  box-shadow: 0 2px 14px rgba(80, 20, 30, 0.05);
   margin: 0 4px 16px;
 }
 
 .dent-card-title {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0e6e7;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #1f2937;
+  color: #3f0f16;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.dent-card-title svg {
+  color: #c41e3a;
+  flex-shrink: 0;
+  opacity: 0.95;
 }
 
 .dent-grid {
@@ -78,18 +87,24 @@
 .dent-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  gap: 5px;
+  padding: 11px 12px 11px 14px;
+  border: 1px solid #efe4e5;
   border-radius: 10px;
-  background: #f9fafb;
+  background: linear-gradient(180deg, #fff 0%, #fffbfc 100%);
+  box-shadow: inset 3px 0 0 #ddb0b6;
+  transition: border-color 0.15s ease;
+}
+
+.dent-field:hover {
+  border-color: #e2cfd2;
 }
 
 .dent-field-label {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #6b7280;
+  color: #8a3040;
   font-weight: 600;
 }
 
@@ -119,10 +134,12 @@
 
 .dent-table-wrap {
   overflow-x: auto;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e8b4bc;
+  border-top: 3px solid #c41e3a;
   border-radius: 12px;
   background: #fff;
   margin: 0 4px;
+  box-shadow: 0 2px 14px rgba(196, 30, 58, 0.07);
 }
 
 .dent-table {
@@ -135,21 +152,120 @@
 .dent-table td {
   padding: 12px 14px;
   text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #f1e5e7;
   vertical-align: middle;
 }
 
-.dent-table th {
-  background: #f3f4f6;
-  font-weight: 600;
-  color: #374151;
+.dent-table.dent-table-opp thead th {
+  background: linear-gradient(180deg, #fff5f6 0%, #faf5f6 55%, #f4f4f5 100%);
+  font-weight: 700;
+  color: #7f1d1d;
   text-transform: uppercase;
-  font-size: 0.72rem;
-  letter-spacing: 0.05em;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  border-bottom: 2px solid #e8b4bc;
+  white-space: nowrap;
+}
+
+.dent-table.dent-table-opp .dent-th-id {
+  width: 5.5rem;
+  min-width: 5.5rem;
+}
+
+.dent-table.dent-table-opp .dent-th-numeric {
+  text-align: center;
 }
 
 .dent-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.dent-table tbody tr.dent-table-row-clickable {
+  cursor: pointer;
+}
+
+.dent-table.dent-table-opp tbody tr.dent-table-row-clickable td {
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dent-table.dent-table-opp tbody tr.dent-table-row-clickable:hover td {
+  background: linear-gradient(90deg, #fff5f6 0%, #fff 20%);
+  box-shadow: none;
+}
+
+.dent-table.dent-table-opp tbody tr.dent-table-row-clickable:hover td:first-child {
+  box-shadow: inset 3px 0 0 #c41e3a;
+}
+
+/* Tablas dentro de cards (Programas, Sedes, Contactos) — cabecera suave */
+.dent-card .dent-table-wrap .dent-table:not(.dent-table-opp) thead th {
+  background: linear-gradient(180deg, #fff9f9 0%, #f9f6f6 100%);
+  color: #5c1f28;
+  font-weight: 700;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e5c9cd;
+  white-space: nowrap;
+}
+
+.dent-card .dent-table-wrap .dent-table:not(.dent-table-opp) tbody tr:hover {
+  background: #fff9f9;
+}
+
+.dent-td-id {
+  vertical-align: middle;
+}
+
+.dent-id-pill {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #9b1530;
+  background: linear-gradient(180deg, #fff 0%, #fef2f2 100%);
+  border: 1px solid #f5ccd2;
+  padding: 4px 8px;
+  border-radius: 8px;
+  letter-spacing: 0.04em;
+}
+
+.dent-td-cargo .dent-cargo-title {
+  color: #111827;
+  font-weight: 700;
+}
+
+.dent-table.dent-table-opp .dent-td-cargo {
+  min-width: 12rem;
+}
+
+.dent-td-numeric {
+  text-align: center;
+  width: 7.5rem;
+}
+
+.dent-post-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #7f1d1d;
+  background: #fef2f2;
+  border: 1px solid #f5d0d5;
+}
+
+.dent-td-fecha {
+  color: #374151;
+  font-size: 0.86rem;
+}
+
+.dent-td-fecha-vence {
+  font-weight: 500;
+  color: #4b5563;
 }
 
 .dent-empty {
@@ -208,9 +324,11 @@
 
 /* ── Variantes de hint y alertas ──────────────────────────────────────────── */
 .dent-hint-info {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1e3a8a;
+  background: linear-gradient(90deg, #fff5f5 0%, #fff 38%);
+  border: 1px solid #e8c2c6;
+  border-left: 3px solid #c41e3a;
+  color: #5c1a22;
+  line-height: 1.5;
 }
 
 .dent-alert {
@@ -260,6 +378,11 @@
   transform: translateY(-50%);
   color: #9ca3af;
   pointer-events: none;
+  transition: color 0.15s ease;
+}
+
+.dent-search:focus-within .dent-search-icon {
+  color: #c41e3a;
 }
 
 /* ── Tabla: ajustes finos ─────────────────────────────────────────────────── */
@@ -275,22 +398,43 @@
   font-size: 0.82rem;
 }
 
-/* ── Badges ───────────────────────────────────────────────────────────────── */
+/* ── Badges (oportunidades: acentos UR / burdeos) ─────────────────────────── */
 .dent-badge {
   display: inline-block;
-  padding: 3px 10px;
+  padding: 4px 11px;
   border-radius: 9999px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+  border: 1px solid transparent;
 }
-.dent-badge-default { background: #f3f4f6; color: #374151; }
-.dent-badge-success { background: #dcfce7; color: #166534; }
-.dent-badge-warning { background: #fef3c7; color: #92400e; }
-.dent-badge-danger  { background: #fee2e2; color: #991b1b; }
-.dent-badge-neutral { background: #e5e7eb; color: #4b5563; }
+.dent-badge-default { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
+.dent-badge-success { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.dent-badge-warning { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.dent-badge-danger  { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.dent-badge-neutral { background: #e5e7eb; color: #4b5563; border-color: #d1d5db; }
+.dent-badge-activa {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+.dent-badge-aprobada {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+.dent-badge-cerrada {
+  background: linear-gradient(180deg, #fdf2f2 0%, #fce8ea 100%);
+  color: #7f1d1d;
+  border-color: #e4a8b0;
+}
+.dent-badge-vencida {
+  background: #f9fafb;
+  color: #6b2c2c;
+  border-color: #d4d4d8;
+}
 
 /* ── Paginación ───────────────────────────────────────────────────────────── */
 .dent-pagination {
@@ -343,7 +487,8 @@
   object-fit: contain;
   border-radius: 12px;
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e8b4bc;
+  box-shadow: 0 1px 3px rgba(80, 20, 30, 0.06);
   padding: 4px;
 }
 
@@ -388,42 +533,61 @@
 
 /* ── Subbloques (chips, párrafos) dentro de cards ─────────────────────────── */
 .dent-subblock {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px dashed #e5e7eb;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #edd6d8;
+  background: linear-gradient(180deg, rgba(255, 250, 250, 0.65) 0%, transparent 48px);
+  border-radius: 0 0 2px 2px;
 }
 
 .dent-subblock-title {
-  display: block;
-  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #6b7280;
-  font-weight: 600;
-  margin-bottom: 8px;
+  letter-spacing: 0.06em;
+  color: #7f1d1d;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.dent-subblock-title::before {
+  content: '';
+  width: 3px;
+  height: 0.9rem;
+  background: #c41e3a;
+  border-radius: 2px;
+  flex-shrink: 0;
+  opacity: 0.85;
 }
 
 .dent-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .dent-chip {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #e5e7eb;
+  background: #fff8f8;
+  color: #4a1620;
+  border: 1px solid #e5b8be;
   border-radius: 9999px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: 0.78rem;
+  font-weight: 500;
 }
 
 .dent-paragraph {
   margin: 0;
   font-size: 0.92rem;
-  color: #1f2937;
-  line-height: 1.5;
+  color: #292524;
+  line-height: 1.6;
   white-space: pre-wrap;
+  border-left: 3px solid #e4a6ae;
+  padding: 12px 14px 12px 16px;
+  background: #fffafb;
+  border-radius: 0 8px 8px 0;
 }
 
 /* ── Documentos: grid de cards ────────────────────────────────────────────── */
@@ -434,13 +598,15 @@
 }
 
 .dent-doc-card {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e8e0e1;
+  border-top: 2px solid #d4a3aa;
   border-radius: 10px;
-  background: #f9fafb;
+  background: linear-gradient(180deg, #fff 0%, #fffcfc 100%);
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  box-shadow: 0 1px 4px rgba(60, 20, 25, 0.04);
 }
 
 .dent-doc-card.is-empty {

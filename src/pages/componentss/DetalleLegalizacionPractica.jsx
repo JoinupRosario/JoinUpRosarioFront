@@ -666,8 +666,17 @@ export default function DetalleLegalizacionPractica({ onVolver }) {
                 <dt>Cargo / nombre práctica</dt><dd>{oportunidadResumen?.nombreCargo ?? '—'}</dd>
                 <dt>Periodo académico</dt><dd>{oportunidadResumen?.periodo ?? '—'}</dd>
                 <dt>Tipo de vinculación</dt><dd>{oportunidadResumen?.tipoVinculacion?.value ?? oportunidadResumen?.tipoVinculacion?.description ?? '—'}</dd>
-                <dt>Docente / Monitor</dt><dd>{practica?.docenteMonitor ?? '—'}</dd>
-                <dt>Correo docente/monitor</dt><dd>{practica?.correoDocenteMonitor ?? '—'}</dd>
+                <dt>Coordinador de prácticas (UR)</dt>
+                <dd>
+                  {practica?.coordinadorPracticas
+                    ? [practica.coordinadorPracticas.nombre, practica.coordinadorPracticas.email].filter((x) => x && String(x).trim()).join(' · ') || '—'
+                    : '—'}
+                </dd>
+                <dt>Evaluación parcial (fecha)</dt>
+                <dd>{practica?.primeraEvaluacion ?? '—'}</dd>
+                <dt>Evaluación final (fecha)</dt>
+                <dd>{practica?.segundaEvaluacion ?? '—'}</dd>
+                <dt>Tipo de práctica (asignado)</dt><dd>{practica?.tipoPracticaNacionalInternacional ?? '—'}</dd>
                 <dt>Programa por el que legaliza</dt><dd>{practica?.programaLegaliza ?? '—'}</dd>
                 <dt>Fecha inicio</dt><dd>{fmtDate(practica?.fechaInicio)}</dd>
                 <dt>Fecha fin</dt><dd>{fmtDate(practica?.fechaFin)}</dd>

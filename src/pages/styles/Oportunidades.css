@@ -3755,6 +3755,62 @@ button.legalizacion-mtm__doc-ok.legalizacion-mtm__doc-preview-btn:hover {
   background: #d1d5db;
 }
 
+/*
+ * Modales de ficha (editar / detalle oportunidad): clases con scope.
+ * postulants.css (y otros) reutilizan .modal-overlay y .modales genéricas y, en
+ * @media, fuerzan height en .modal; eso desplaza y estira el cuadro. No tocar
+ * los nombres genéricos aquí: usar .opo-ficha-modal-*.
+ */
+.opo-ficha-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.opo-ficha-modal {
+  width: 520px;
+  max-width: calc(100vw - 40px);
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  align-self: center;
+  margin: auto;
+}
+
+.opo-ficha-modal .opo-ficha-modal__body {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  overflow-y: auto;
+  /* Importante: no flex: 1, para no dejar caja vacía entre body y footer */
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.opo-ficha-modal .modal-field select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #fff;
+  color: #1f2937;
+  text-transform: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .btn-guardar {
   background: #c41e3a;
   color: #fff;

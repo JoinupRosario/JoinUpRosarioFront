@@ -85,7 +85,7 @@ function EstadoConfirmacion({ row, submittingResponder, onResponder }) {
   return null;
 }
 
-function AplicacionCard({ row, submittingResponder, onResponder, onVerOferta }) {
+function AplicacionTableRow({ row, submittingResponder, onResponder, onVerOferta }) {
   const badgeClass = BADGE_CLASS[row.estado] || 'mis-apps__badge--default';
   const estadoLabel = ESTADO_LABELS[row.estado] || row.estado || '—';
   const empresa = row.empresa ?? (row.tipoOportunidad === 'Monitoría / Tutoría / Mentoría' ? 'Universidad del Rosario' : '—');
@@ -94,67 +94,56 @@ function AplicacionCard({ row, submittingResponder, onResponder, onVerOferta }) 
   const hasConfirmacion = row.estado === 'aceptado_estudiante'
     || (row.estado === 'rechazado' && (row.seleccionadoPorEmpresa || row.seleccionado))
     || row.estado === 'seleccionado_empresa';
+  const canVer = !!(row.opportunityId || row.oportunidadId);
 
   return (
-    <article className="mis-apps__card">
-      <div className="mis-apps__card-header">
-        <div>
-          <p className="mis-apps__card-title">{row.cargo || '—'}</p>
-          <p className="mis-apps__card-empresa">{empresa}</p>
-        </div>
+    <tr>
+      <td className="mis-apps__td-cargo-wrap">
+        <div className="mis-apps__td-cargo">{row.cargo || '—'}</div>
+      </td>
+      <td className="mis-apps__td-empresa">{empresa}</td>
+      <td>{fmtDate(row.fechaAplicacion)}</td>
+      <td>{estadoOp}</td>
+      <td>
         <span className={`mis-apps__badge ${badgeClass}`}>{estadoLabel}</span>
-      </div>
-
-      <div className="mis-apps__card-meta">
-        <div className="mis-apps__meta-item">
-          <span>Fecha aplicación</span>
-          {fmtDate(row.fechaAplicacion)}
-        </div>
-        <div className="mis-apps__meta-item">
-          <span>Estado oferta</span>
-          {estadoOp}
-        </div>
-        {row.nombreCoordinador && (
-          <div className="mis-apps__meta-item">
-            <span>Coordinador</span>
-            {row.nombreCoordinador}
-          </div>
+      </td>
+      <td className="mis-apps__td-coord">{row.nombreCoordinador || '—'}</td>
+      <td>
+        <span className={row.empresaConsultoPerfil ? 'mis-apps__ico--yes' : 'mis-apps__ico--no'}>
+          {row.empresaConsultoPerfil ? 'Sí' : 'No'}
+        </span>
+      </td>
+      <td>
+        <span className={row.empresaDescargoHv ? 'mis-apps__ico--yes' : 'mis-apps__ico--no'}>
+          {row.empresaDescargoHv ? 'Sí' : 'No'}
+        </span>
+      </td>
+      <td>
+        <span className={(row.seleccionadoPorEmpresa ?? row.seleccionado) ? 'mis-apps__ico--yes' : 'mis-apps__ico--no'}>
+          {(row.seleccionadoPorEmpresa ?? row.seleccionado) ? 'Sí' : 'No'}
+        </span>
+      </td>
+      <td className="mis-apps__td-respuesta">
+        {hasConfirmacion ? (
+          <div className="mis-apps__respuesta-wrap">{confirmacion}</div>
+        ) : (
+          '—'
         )}
-        <div className="mis-apps__meta-item">
-          <span>Perfil consultado</span>
-          <span className={row.empresaConsultoPerfil ? 'mis-apps__ico--yes' : 'mis-apps__ico--no'}>
-            {row.empresaConsultoPerfil ? '✓ Sí' : '— No'}
-          </span>
-        </div>
-        <div className="mis-apps__meta-item">
-          <span>HV descargada</span>
-          <span className={row.empresaDescargoHv ? 'mis-apps__ico--yes' : 'mis-apps__ico--no'}>
-            {row.empresaDescargoHv ? '✓ Sí' : '— No'}
-          </span>
-        </div>
-        <div className="mis-apps__meta-item">
-          <span>Seleccionado</span>
-          <span className={(row.seleccionadoPorEmpresa ?? row.seleccionado) ? 'mis-apps__ico--yes' : 'mis-apps__ico--no'}>
-            {(row.seleccionadoPorEmpresa ?? row.seleccionado) ? '✓ Sí' : '— No'}
-          </span>
-        </div>
-      </div>
-
-      {(hasConfirmacion || (row.opportunityId || row.oportunidadId)) && (
-        <div className="mis-apps__card-footer">
-          <div>{hasConfirmacion ? confirmacion : <span />}</div>
-          {(row.opportunityId || row.oportunidadId) && (
-            <button
-              type="button"
-              className="mis-apps__detail-btn"
-              onClick={() => onVerOferta(row.opportunityId || row.oportunidadId, row.tipoOportunidad)}
-            >
-              Ver oferta
-            </button>
-          )}
-        </div>
-      )}
-    </article>
+      </td>
+      <td className="mis-apps__td-acciones">
+        {canVer ? (
+          <button
+            type="button"
+            className="mis-apps__detail-btn"
+            onClick={() => onVerOferta(row.opportunityId || row.oportunidadId, row.tipoOportunidad)}
+          >
+            Ver oferta
+          </button>
+        ) : (
+          '—'
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -312,16 +301,35 @@ export default function MisAplicaciones() {
               <p style={{ fontSize: '.88rem' }}>Explora las oportunidades disponibles desde el menú lateral.</p>
             </div>
           ) : (
-            <div className="mis-apps__grid">
-              {tabData.map((row) => (
-                <AplicacionCard
-                  key={`${row.tipoOportunidad}-${row._id}`}
-                  row={row}
-                  submittingResponder={submittingResponder}
-                  onResponder={estudianteResponder}
-                  onVerOferta={verOferta}
-                />
-              ))}
+            <div className="mis-apps__table-wrap">
+              <table className="mis-apps__table">
+                <thead>
+                  <tr>
+                    <th scope="col">Cargo / oportunidad</th>
+                    <th scope="col">Empresa / institución</th>
+                    <th scope="col">Fecha aplicación</th>
+                    <th scope="col">Estado oferta</th>
+                    <th scope="col">Estado postulación</th>
+                    <th scope="col">Coordinador</th>
+                    <th scope="col">Perfil consultado</th>
+                    <th scope="col">HV descargada</th>
+                    <th scope="col">Seleccionado</th>
+                    <th scope="col" className="mis-apps__th-respuesta">Tu respuesta</th>
+                    <th scope="col" className="mis-apps__th-acciones">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tabData.map((row) => (
+                    <AplicacionTableRow
+                      key={`${row.tipoOportunidad}-${row._id}`}
+                      row={row}
+                      submittingResponder={submittingResponder}
+                      onResponder={estudianteResponder}
+                      onVerOferta={verOferta}
+                    />
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </>

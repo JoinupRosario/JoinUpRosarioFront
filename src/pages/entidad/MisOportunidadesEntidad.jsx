@@ -149,15 +149,15 @@ export default function MisOportunidadesEntidad() {
       {error && <div className="dent-alert dent-alert-error">{error}</div>}
 
       <div className="dent-table-wrap">
-        <table className="dent-table">
+        <table className="dent-table dent-table-opp">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Cargo</th>
-              <th>Postulaciones</th>
-              <th>Estado</th>
-              <th>Publicada</th>
-              <th>Vencimiento</th>
+              <th scope="col" className="dent-th-id">#</th>
+              <th scope="col">Cargo</th>
+              <th scope="col" className="dent-th-numeric">Postulaciones</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Publicada</th>
+              <th scope="col">Vencimiento</th>
             </tr>
           </thead>
           <tbody>
@@ -176,7 +176,7 @@ export default function MisOportunidadesEntidad() {
                         fontSize: '2rem',
                         display: 'block',
                         margin: '0 auto 8px',
-                        color: '#94a3b8',
+                        color: 'rgba(196, 30, 58, 0.35)',
                       }}
                     />
                     {search || estado
@@ -187,22 +187,39 @@ export default function MisOportunidadesEntidad() {
               </tr>
             ) : (
               items.map((opp) => (
-                <tr key={opp._id}>
-                  <td className="dent-mono">
-                    {String(opp._id).slice(-6).toUpperCase()}
+                <tr
+                  key={opp._id}
+                  className="dent-table-row-clickable"
+                  role="button"
+                  tabIndex={0}
+                  title="Ver oportunidad y postulaciones"
+                  onClick={() => navigate(`/entidad/oportunidades/ver/${opp._id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/entidad/oportunidades/ver/${opp._id}`);
+                    }
+                  }}
+                >
+                  <td className="dent-td-id">
+                    <span className="dent-id-pill" title={opp._id}>
+                      {String(opp._id).slice(-6).toUpperCase()}
+                    </span>
                   </td>
-                  <td>
-                    <strong>{opp.nombreCargo || 'Sin nombre'}</strong>
+                  <td className="dent-td-cargo">
+                    <strong className="dent-cargo-title">{opp.nombreCargo || 'Sin nombre'}</strong>
                     {opp.tipoVinculacion?.value && (
                       <div className="dent-cell-sub">{opp.tipoVinculacion.value}</div>
                     )}
                   </td>
-                  <td>{opp.aplicacionesCount ?? 0}</td>
-                  <td>
+                  <td className="dent-td-numeric">
+                    <span className="dent-post-count">{opp.aplicacionesCount ?? 0}</span>
+                  </td>
+                  <td className="dent-td-estado">
                     <EstadoBadge value={opp.estado} />
                   </td>
-                  <td>{formatFecha(opp.createdAt || opp.fechaCreacion)}</td>
-                  <td>{formatFecha(opp.fechaVencimiento)}</td>
+                  <td className="dent-td-fecha">{formatFecha(opp.createdAt || opp.fechaCreacion)}</td>
+                  <td className="dent-td-fecha dent-td-fecha-vence">{formatFecha(opp.fechaVencimiento)}</td>
                 </tr>
               ))
             )}
@@ -241,12 +258,12 @@ export default function MisOportunidadesEntidad() {
 function EstadoBadge({ value }) {
   const v = String(value || '').toLowerCase();
   let cls = 'dent-badge dent-badge-default';
-  if (/activ/.test(v)) cls = 'dent-badge dent-badge-success';
-  else if (/cerrad/.test(v)) cls = 'dent-badge dent-badge-neutral';
+  if (/activ/.test(v)) cls = 'dent-badge dent-badge-activa';
+  else if (/cerrad/.test(v)) cls = 'dent-badge dent-badge-cerrada';
   else if (/rechaz/.test(v)) cls = 'dent-badge dent-badge-danger';
   else if (/revis/.test(v)) cls = 'dent-badge dent-badge-warning';
-  else if (/venci/.test(v)) cls = 'dent-badge dent-badge-neutral';
-  else if (/aprob/.test(v)) cls = 'dent-badge dent-badge-success';
+  else if (/venci/.test(v)) cls = 'dent-badge dent-badge-vencida';
+  else if (/aprob/.test(v)) cls = 'dent-badge dent-badge-aprobada';
   return <span className={cls}>{value || '—'}</span>;
 }
 

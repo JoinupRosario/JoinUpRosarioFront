@@ -6,6 +6,7 @@ import api from '../../services/api';
 import DetalleOportunidadModal from './DetalleOportunidadModal';
 import '../styles/Oportunidades.css';
 import './OfertasAfines.css';
+import './OfertasMonitoria.css';
 
 function getStatusLabel(estado) {
   const map = { Activa: 'Activa', Creada: 'Creada', 'En Revisión': 'En Revisión', Revisada: 'Revisada', Cerrada: 'Cerrada', Rechazada: 'Rechazada', Vencida: 'Vencida' };
@@ -46,6 +47,9 @@ export default function OfertasAfines() {
   const [yaConfirmadoPractica, setYaConfirmadoPractica] = useState(false);
   const [loadingEstadoPostulante, setLoadingEstadoPostulante] = useState(true);
   const applyingToIdRef = useRef(null);
+  const [docsSoporte, setDocsSoporte] = useState([]);
+  const [loadingDocsSoporte, setLoadingDocsSoporte] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState(() => new Set());
 
   const loadOfertas = async (page = 1) => {
     try {
@@ -106,9 +110,12 @@ export default function OfertasAfines() {
     setErrorAplicar('');
     setShowModalAplicar(true);
     setSelectedVersionId('');
+    setSelectedDocIds(new Set());
     setProfiles([]);
+    setDocsSoporte([]);
     setPostulantId(null);
     setLoadingProfiles(true);
+    setLoadingDocsSoporte(true);
     try {
       const { data: me } = await api.get('/postulants/me');
       const id = me?._id || me?.id;
@@ -117,24 +124,45 @@ export default function OfertasAfines() {
         return;
       }
       setPostulantId(id);
-      const { data: profilesRes } = await api.get(`/postulants/${id}/profiles`);
-      const versions = (profilesRes?.profiles || []).filter((p) => p.hasCv === true);
-      const baseProfiles = (profilesRes?.baseProfiles || []).filter((b) => b.hasCv === true);
-      const list = versions.length > 0
-        ? versions
-        : baseProfiles.map((b) => ({
-            _id: b._id,
-            profileId: b._id,
-            profileName: (b.studentCode || b.profileName || 'Perfil').toString().trim() || 'Perfil',
-            type: 'base',
-          }));
-      setProfiles(list);
+      const [profilesRes, supportsRes] = await Promise.allSettled([
+        api.get(`/postulants/${id}/profiles`),
+        api.get('/oportunidades-mtm/mis-documentos-soporte'),
+      ]);
+      if (profilesRes.status === 'fulfilled') {
+        const pr = profilesRes.value.data;
+        const versions = (pr?.profiles || []).filter((p) => p.hasCv === true);
+        const baseProfiles = (pr?.baseProfiles || []).filter((b) => b.hasCv === true);
+        const list = versions.length > 0
+          ? versions
+          : baseProfiles.map((b) => ({
+              _id: b._id,
+              profileId: b._id,
+              profileName: (b.studentCode || b.profileName || 'Perfil').toString().trim() || 'Perfil',
+              type: 'base',
+            }));
+        setProfiles(list);
+      } else {
+        setProfiles([]);
+      }
+      if (supportsRes.status === 'fulfilled') {
+        setDocsSoporte(supportsRes.value.data?.documentos ?? []);
+      }
     } catch (e) {
       console.error('Error cargando perfiles', e);
       setProfiles([]);
     } finally {
       setLoadingProfiles(false);
+      setLoadingDocsSoporte(false);
     }
+  };
+
+  const toggleDocSoporte = (docId) => {
+    setSelectedDocIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(docId)) next.delete(docId);
+      else next.add(docId);
+      return next;
+    });
   };
 
   const submitAplicar = async () => {
@@ -150,6 +178,7 @@ export default function OfertasAfines() {
     try {
       const body = { profileId: profileIdToSend };
       if (selected?.type !== 'base' && selected?._id) body.profileVersionId = selected._id;
+      if (selectedDocIds.size > 0) body.documentosSoporteIds = Array.from(selectedDocIds);
       await api.post(`/opportunities/${opportunityId}/aplicar`, body);
       setShowModalAplicar(false);
       setShowConfirmacionAplicar(true);
@@ -383,6 +412,40 @@ export default function OfertasAfines() {
                       );
                     })}
                   </ul>
+
+                  <div className="ofmon-docs-soporte">
+                    <p className="ofmon-docs-soporte__title">
+                      Documentos de soporte <span className="ofmon-docs-soporte__optional">(opcional)</span>
+                    </p>
+                    {loadingDocsSoporte ? (
+                      <p className="ofmon-docs-soporte__loading">Cargando documentos...</p>
+                    ) : docsSoporte.length === 0 ? (
+                      <p className="ofmon-docs-soporte__empty">
+                        No tienes documentos de soporte cargados en tu perfil. Puedes agregarlos desde <strong>Mi perfil → Otros documentos de soporte</strong>.
+                      </p>
+                    ) : (
+                      <ul className="ofmon-docs-soporte__list">
+                        {docsSoporte.map((doc) => {
+                          const docId = String(doc._id ?? '');
+                          const checked = selectedDocIds.has(docId);
+                          return (
+                            <li key={docId} className="ofmon-docs-soporte__item">
+                              <label className={`ofmon-docs-soporte__label ${checked ? 'ofmon-docs-soporte__label--selected' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleDocSoporte(docId)}
+                                  className="ofmon-docs-soporte__checkbox"
+                                />
+                                <span className="ofmon-docs-soporte__name">{doc.documentLabel || doc.originalName || 'Documento'}</span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
                   {errorAplicar && (
                     <p className="ofertas-afines-aplicar-modal__error" role="alert">{errorAplicar}</p>
                   )}

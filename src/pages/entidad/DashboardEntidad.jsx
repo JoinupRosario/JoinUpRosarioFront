@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { FiLogOut, FiMenu, FiX } from 'react-icons/fi';
 import { HiOutlineBriefcase, HiOutlineOfficeBuilding } from 'react-icons/hi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,6 +10,12 @@ import headerLogoImg from '../../assets/images/login/header.png';
 import userAvatarImg from '../../assets/images/login/user.png';
 import '../Dashboard.css';
 import './DashboardEntidad.css';
+
+/** Ruta `/entidad/oportunidades/ver/:id` — detalle en solo lectura + gestión de postulantes. */
+function EntidadVerOportunidadRoute() {
+  const { id } = useParams();
+  return <Oportunidades entityPortalMode entityViewOpportunityId={id || null} />;
+}
 
 /**
  * Layout para usuarios con `modulo === 'entidades'`.
@@ -68,6 +74,8 @@ export default function DashboardEntidad() {
 
   const headerTitle = location.pathname.includes('/entidad/oportunidades/crear')
     ? 'Crear oportunidad'
+    : location.pathname.includes('/entidad/oportunidades/ver/')
+      ? 'Ver oportunidad'
     : location.pathname.startsWith('/entidad/mi-entidad')
       ? 'Mi entidad'
       : 'Mis oportunidades';
@@ -145,6 +153,7 @@ export default function DashboardEntidad() {
       <main className="dashboard-main">
         <Routes>
           <Route path="oportunidades/crear" element={<Oportunidades entityPortalMode />} />
+          <Route path="oportunidades/ver/:id" element={<EntidadVerOportunidadRoute />} />
           <Route path="oportunidades" element={<MisOportunidadesEntidad />} />
           <Route path="mi-entidad" element={<MiEntidad />} />
           <Route path="*" element={<Navigate to="oportunidades" replace />} />

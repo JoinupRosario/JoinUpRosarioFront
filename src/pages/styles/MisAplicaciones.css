@@ -105,11 +105,89 @@
 }
 .mis-apps__empty p { margin: 4px 0; }
 
-/* Grid de tarjetas */
-.mis-apps__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 18px;
+/* Tabla de aplicaciones */
+.mis-apps__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.mis-apps__table {
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: collapse;
+  font-size: .88rem;
+  color: #374151;
+}
+.mis-apps__table thead {
+  background: linear-gradient(180deg, #fef2f2 0%, #f9fafb 100%);
+  border-bottom: 2px solid #e5e7eb;
+}
+.mis-apps__table th {
+  text-align: left;
+  padding: 12px 14px;
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.mis-apps__th-respuesta { min-width: 10rem; }
+.mis-apps__th-acciones { text-align: right; }
+.mis-apps__table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+.mis-apps__table tbody tr:hover {
+  background: #fffafb;
+}
+.mis-apps__table tbody tr:last-child td {
+  border-bottom: none;
+}
+.mis-apps__td-cargo {
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.35;
+  max-width: 260px;
+}
+.mis-apps__td-empresa,
+.mis-apps__td-coord {
+  max-width: 200px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.mis-apps__td-respuesta {
+  min-width: 10.5rem;
+  max-width: 14rem;
+  vertical-align: middle;
+  line-height: 1.35;
+}
+.mis-apps__respuesta-wrap {
+  display: block;
+}
+.mis-apps__respuesta-wrap select {
+  display: block;
+  width: 100%;
+  max-width: 13rem;
+  box-sizing: border-box;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: .8rem;
+  color: #374151;
+  background: #fff;
+  cursor: pointer;
+}
+.mis-apps__td-acciones {
+  text-align: right;
+  white-space: nowrap;
+  min-width: 6.5rem;
+  vertical-align: middle;
 }
 
 /* Tarjeta */
@@ -251,7 +329,8 @@
 
 @media (max-width: 600px) {
   .mis-apps__hero { padding: 20px 18px; }
-  .mis-apps__grid { grid-template-columns: 1fr; }
-  .mis-apps__card-meta { grid-template-columns: 1fr; }
+  .mis-apps__table th,
+  .mis-apps__table td { padding: 10px 10px; font-size: .82rem; }
+  .mis-apps__table { min-width: 1000px; }
   .mis-apps__tab { padding: 9px 14px; font-size: .84rem; }
 }

@@ -89,6 +89,11 @@
   overflow: hidden;
 }
 
+/* Búsqueda de coordinador: dropdown posición absolute; el overflow hidden de la tarjeta lo recortaba */
+.admrevmtm .admrevmtm-panel-card.legalizacion-mtm__section:has(.admrevmtm-practica-asigna) {
+  overflow: visible;
+}
+
 .admrevmtm .admrevmtm-panel-card.legalizacion-mtm__section::before {
   content: '';
   position: absolute;
@@ -1317,5 +1322,219 @@
   font-size: 0.9rem;
   line-height: 1.45;
 }
- 
+
+/* Legalización práctica — bloque coordinador + tipo + fechas (grid con áreas: 4 hijos en 3 columnas rompía el auto-placement) */
+.admrevmtm-practica-asigna {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(min-content, auto);
+  grid-template-areas:
+    'coord tipo btn'
+    'fechas fechas fechas';
+  gap: 1rem 1.25rem;
+  align-items: start;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Campos de fecha: segunda fila completa; reparten espacio sin invadir columnas de arriba */
+.admrevmtm-practica-asigna__fechas {
+  grid-area: fechas;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.25rem;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admrevmtm-practica-asigna__fecha-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 160px;
+  max-width: 100%;
+}
+
+.admrevmtm-practica-asigna__fecha-field .admrevmtm-practica-asigna__label {
+  margin-bottom: 0;
+}
+
+.admrevmtm-practica-asigna__fecha-field .admrevmtm-practica-asigna__input[type='date'] {
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .admrevmtm-practica-asigna {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'coord'
+      'tipo'
+      'fechas'
+      'btn';
+  }
+
+  .admrevmtm-practica-asigna__btn {
+    justify-self: stretch;
+  }
+
+  .admrevmtm-practica-asigna__btn .btn-guardar {
+    width: 100%;
+  }
+}
+
+/* Pantallas estrechas: una fecha por fila */
+@media (max-width: 480px) {
+  .admrevmtm-practica-asigna__fechas {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admrevmtm-practica-asigna__fecha-field {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+}
+
+.admrevmtm-practica-asigna__label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.admrevmtm-practica-asigna__coord {
+  grid-area: coord;
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.admrevmtm-practica-asigna__tipo {
+  grid-area: tipo;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.admrevmtm-practica-asigna__btn {
+  grid-area: btn;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  justify-self: end;
+  align-self: end;
+  min-width: 0;
+  padding-bottom: 1px;
+}
+
+.admrevmtm-practica-asigna__input,
+.admrevmtm-practica-asigna__select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.admrevmtm-practica-asigna__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+  max-width: 100%;
+  margin-bottom: 0.35rem;
+}
+
+.admrevmtm-practica-asigna__clear {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+}
+
+.admrevmtm-practica-asigna__clear:hover {
+  color: #c41e3a;
+}
+
+.admrevmtm-practica-asigna__dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  z-index: 25;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.admrevmtm-practica-asigna__dd-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  font: inherit;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admrevmtm-practica-asigna__dd-item:hover {
+  background: #f8fafc;
+}
+
+.admrevmtm-practica-asigna__dd-name {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.admrevmtm-practica-asigna__dd-email {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.admrevmtm-practica-asigna__dd-msg {
+  padding: 0.6rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.admrevmtm-practica-asigna__dd-msg--err {
+  color: #b91c1c;
+}
+
+.admrevmtm-practica-asigna__dl {
+  margin-top: 0;
+}
+
+ 
  

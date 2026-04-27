@@ -53,7 +53,7 @@ export default function LegalizacionesPracticas() {
     }
     const headers = [
       'Nº identidad', 'Nombre', 'Apellido', 'Programa', 'Cargo / práctica', 'Periodo', 'Empresa',
-      'Docente-Monitor', 'Inicio', 'Fin', 'Autogestionada', 'Estado legalización',
+      'Coordinador', 'Inicio', 'Fin', 'Autogestionada', 'Estado legalización',
     ];
     const rows = data.map((row) => [
       row.numeroIdentidad ?? '',
@@ -63,7 +63,7 @@ export default function LegalizacionesPracticas() {
       row.nombrePractica ?? '',
       row.periodo ?? '',
       row.empresa ?? '',
-      row.docenteMonitor ?? '',
+      row.coordinador ?? '',
       fmtDate(row.fechaInicio),
       fmtDate(row.fechaFin),
       row.practicaAutogestionada ? 'Sí' : 'No',
@@ -136,7 +136,7 @@ export default function LegalizacionesPracticas() {
                 <th>Periodo</th>
                 <th>Empresa</th>
                 <th>Autogest.</th>
-                <th>Docente-Monitor</th>
+                <th>Coordinador</th>
                 <th>Inicio</th>
                 <th>Fin</th>
                 <th>Estado legalización</th>
@@ -154,7 +154,7 @@ export default function LegalizacionesPracticas() {
                   <td>{row.periodo ?? '—'}</td>
                   <td className="legaliz-mtm-nombre-cargo">{row.empresa ?? '—'}</td>
                   <td>{row.practicaAutogestionada ? 'Sí' : 'No'}</td>
-                  <td>{row.docenteMonitor ?? '—'}</td>
+                  <td>{row.coordinador ?? '—'}</td>
                   <td>{fmtDate(row.fechaInicio)}</td>
                   <td>{fmtDate(row.fechaFin)}</td>
                   <td>

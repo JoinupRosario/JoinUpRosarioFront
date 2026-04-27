@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import Swal from 'sweetalert2';
@@ -30,6 +30,23 @@ const FIRMA_PARTE_LABELS = {
 };
 
 const ORDEN_ENLACES_ACUERDO = ['practicante', 'escenario', 'universidad'];
+
+function isoDateInput(v) {
+  if (v == null || v === '') return '';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+/** Mismo criterio que el backend `fmtFechaEvalPractica` para el resumen bajo el formulario. */
+function fmtFechaEvalDisplay(d) {
+  if (d == null || d === '') return '—';
+  try {
+    return new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return '—';
+  }
+}
 
 const estadoLabel = {
   borrador: 'Borrador',
@@ -160,12 +177,22 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
   const [generandoAcuerdo, setGenerandoAcuerdo] = useState(false);
   const [acuerdo, setAcuerdo] = useState(null);
   const [cargandoAcuerdo, setCargandoAcuerdo] = useState(false);
-  const [certificacion, setCertificacion] = useState(null);
-  const [linkCertificacionEntidad, setLinkCertificacionEntidad] = useState('');
-  const [cargandoCert, setCargandoCert] = useState(false);
-  const [inicializandoCert, setInicializandoCert] = useState(false);
-  const certFileRef = useRef(null);
   const [textDetailModal, setTextDetailModal] = useState({ open: false, title: '', text: '' });
+  const LIST_ID_TIPO_PRACTICA = 'L_PRACTICE_TYPE';
+  const [practiceTypeItems, setPracticeTypeItems] = useState([]);
+  const [coordinadorUserId, setCoordinadorUserId] = useState('');
+  const [coordinadorDisplayName, setCoordinadorDisplayName] = useState('');
+  const [coordinadorSearch, setCoordinadorSearch] = useState('');
+  const [coordinadorResults, setCoordinadorResults] = useState([]);
+  const [coordinadorLoading, setCoordinadorLoading] = useState(false);
+  const [showCoordinadorDrop, setShowCoordinadorDrop] = useState(false);
+  const [coordinadorSearchError, setCoordinadorSearchError] = useState(false);
+  const [tipoPracticaLegalizacionId, setTipoPracticaLegalizacionId] = useState('');
+  const [savingAsignacion, setSavingAsignacion] = useState(false);
+  const [fechaEvaluacionParcial, setFechaEvaluacionParcial] = useState('');
+  const [fechaEvaluacionFinal, setFechaEvaluacionFinal] = useState('');
+  const coordinadorTimer = useRef(null);
+  const coordinadorWrapRef = useRef(null);
 
   const openTextDetail = (title, text) => setTextDetailModal({ open: true, title, text: String(text ?? '') });
   const closeTextDetail = () => setTextDetailModal({ open: false, title: '', text: '' });
@@ -177,13 +204,25 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
     api
       .get(`/legalizaciones-practica/admin/${postulacionId}`)
       .then((r) => {
-        setLegalizacion(r.data?.legalizacion);
+        const leg = r.data?.legalizacion;
+        setLegalizacion(leg);
         setEstudiante(r.data?.estudiante);
         setEntidad(r.data?.entidad);
         setPractica(r.data?.practica);
         setOportunidadResumen(r.data?.oportunidadResumen);
         setDefinicionesDocumentos(Array.isArray(r.data?.definicionesDocumentos) ? r.data.definicionesDocumentos : []);
         setHistorial(Array.isArray(r.data?.historial) ? r.data.historial : []);
+        if (leg?.coordinadorUser) {
+          setCoordinadorUserId(String(leg.coordinadorUser._id));
+          setCoordinadorDisplayName(leg.coordinadorUser.name || '');
+        } else {
+          setCoordinadorUserId('');
+          setCoordinadorDisplayName('');
+        }
+        setCoordinadorSearch('');
+        setTipoPracticaLegalizacionId(leg?.tipoPracticaLegalizacion?._id ? String(leg.tipoPracticaLegalizacion._id) : '');
+        setFechaEvaluacionParcial(isoDateInput(leg?.fechaEvaluacionParcial));
+        setFechaEvaluacionFinal(isoDateInput(leg?.fechaEvaluacionFinal));
       })
       .catch((err) => setError(err.response?.data?.message || 'Error al cargar'))
       .finally(() => setLoading(false));
@@ -194,24 +233,105 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
   }, [postulacionId]);
 
   useEffect(() => {
-    if (!postulacionId || legalizacion?.estado !== 'aprobada') {
-      setCertificacion(null);
-      setLinkCertificacionEntidad('');
-      return;
-    }
-    setCargandoCert(true);
     api
-      .get(`/certificaciones-practica/postulacion/${postulacionId}`)
-      .then((r) => {
-        setCertificacion(r.data?.certificacion ?? null);
-        setLinkCertificacionEntidad(r.data?.linkCargaEntidad || '');
-      })
-      .catch(() => {
-        setCertificacion(null);
-        setLinkCertificacionEntidad('');
-      })
-      .finally(() => setCargandoCert(false));
-  }, [postulacionId, legalizacion?.estado]);
+      .get(`/locations/items/${LIST_ID_TIPO_PRACTICA}`, { params: { limit: 2000 } })
+      .then((res) => setPracticeTypeItems(res.data?.data || []))
+      .catch(() => setPracticeTypeItems([]));
+  }, []);
+
+  useEffect(() => {
+    if (coordinadorSearch.trim().length < 2) {
+      setCoordinadorResults([]);
+      setShowCoordinadorDrop(false);
+      setCoordinadorSearchError(false);
+      return undefined;
+    }
+    clearTimeout(coordinadorTimer.current);
+    coordinadorTimer.current = setTimeout(async () => {
+      setCoordinadorLoading(true);
+      setCoordinadorSearchError(false);
+      try {
+        const res = await api.get('/users-administrativos', {
+          params: { search: coordinadorSearch.trim(), limit: 20, estado: true },
+        });
+        setCoordinadorResults(res.data?.data || []);
+        setShowCoordinadorDrop(true);
+      } catch {
+        setCoordinadorResults([]);
+        setShowCoordinadorDrop(true);
+        setCoordinadorSearchError(true);
+      } finally {
+        setCoordinadorLoading(false);
+      }
+    }, 350);
+    return () => clearTimeout(coordinadorTimer.current);
+  }, [coordinadorSearch]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (coordinadorWrapRef.current && !coordinadorWrapRef.current.contains(e.target)) setShowCoordinadorDrop(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectCoordinadorAdmin = (u) => {
+    const uid = u.user?._id || u.user;
+    if (!uid) return;
+    setCoordinadorUserId(String(uid));
+    setCoordinadorDisplayName([u.nombres, u.apellidos].filter(Boolean).join(' ') || u.user?.name || '');
+    setCoordinadorSearch('');
+    setShowCoordinadorDrop(false);
+  };
+
+  const clearCoordinador = () => {
+    setCoordinadorUserId('');
+    setCoordinadorDisplayName('');
+    setCoordinadorSearch('');
+  };
+
+  const guardarAsignacion = useCallback(async () => {
+    if (!postulacionId) return;
+    setSavingAsignacion(true);
+    try {
+      const { data } = await api.patch(`/legalizaciones-practica/admin/${postulacionId}/asignacion`, {
+        coordinadorUserId: coordinadorUserId || null,
+        tipoPracticaLegalizacionId: tipoPracticaLegalizacionId || null,
+        fechaEvaluacionParcial: fechaEvaluacionParcial || null,
+        fechaEvaluacionFinal: fechaEvaluacionFinal || null,
+      });
+      if (data?.legalizacion) {
+        setLegalizacion(data.legalizacion);
+        const leg = data.legalizacion;
+        if (leg.coordinadorUser) {
+          setCoordinadorUserId(String(leg.coordinadorUser._id));
+          setCoordinadorDisplayName(leg.coordinadorUser.name || '');
+        } else {
+          setCoordinadorUserId('');
+          setCoordinadorDisplayName('');
+        }
+        setTipoPracticaLegalizacionId(leg.tipoPracticaLegalizacion?._id ? String(leg.tipoPracticaLegalizacion._id) : '');
+        setFechaEvaluacionParcial(isoDateInput(leg.fechaEvaluacionParcial));
+        setFechaEvaluacionFinal(isoDateInput(leg.fechaEvaluacionFinal));
+        setPractica((prev) => ({
+          ...prev,
+          tipoPracticaNacionalInternacional: leg.tipoPracticaLegalizacion
+            ? leg.tipoPracticaLegalizacion.value || leg.tipoPracticaLegalizacion.description || '—'
+            : '—',
+          coordinadorPracticas: leg.coordinadorUser
+            ? { nombre: leg.coordinadorUser.name ?? '—', email: leg.coordinadorUser.email ?? '—' }
+            : null,
+          primeraEvaluacion: fmtFechaEvalDisplay(leg.fechaEvaluacionParcial),
+          segundaEvaluacion: fmtFechaEvalDisplay(leg.fechaEvaluacionFinal),
+        }));
+      }
+      Swal.fire({ icon: 'success', title: 'Asignación guardada', confirmButtonColor: '#c41e3a', timer: 1600, showConfirmButton: false });
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Error', text: e.response?.data?.message || 'No se pudo guardar', confirmButtonColor: '#c41e3a' });
+    } finally {
+      setSavingAsignacion(false);
+    }
+  }, [postulacionId, coordinadorUserId, tipoPracticaLegalizacionId, fechaEvaluacionParcial, fechaEvaluacionFinal]);
 
   useEffect(() => {
     if (!postulacionId || !esTipoAcuerdoVinculacion(oportunidadResumen?.tipoVinculacion)) {
@@ -245,12 +365,18 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
   );
 
   const puedeAprobarLegalizacionUi = useMemo(() => {
-    if (!enRevision || !definicionesConArchivo.length) return false;
-    return definicionesConArchivo.every((d) => {
-      const st = docs[defIdStr(d)]?.estadoDocumento;
-      return st === 'aprobado' || st === 'rechazado';
-    }) && !definicionesConArchivo.some((d) => docs[defIdStr(d)]?.estadoDocumento === 'rechazado');
-  }, [enRevision, definicionesConArchivo, docs]);
+    if (!enRevision) return false;
+    const hayObligatorios = definicionesDocumentos.some((d) => d.documentMandatory);
+    if (!definicionesConArchivo.length) {
+      return !hayObligatorios;
+    }
+    return (
+      definicionesConArchivo.every((d) => {
+        const st = docs[defIdStr(d)]?.estadoDocumento;
+        return st === 'aprobado' || st === 'rechazado';
+      }) && !definicionesConArchivo.some((d) => docs[defIdStr(d)]?.estadoDocumento === 'rechazado')
+    );
+  }, [enRevision, definicionesDocumentos, definicionesConArchivo, docs]);
 
   const cerrarPreviewPdf = () => {
     setPreviewPdf((prev) => {
@@ -444,59 +570,6 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
       .finally(() => setRechazando(false));
   };
 
-  const inicializarCertificacionHu010 = () => {
-    setInicializandoCert(true);
-    api
-      .post(`/certificaciones-practica/postulacion/${postulacionId}/inicializar`, {})
-      .then(() => api.get(`/certificaciones-practica/postulacion/${postulacionId}`))
-      .then((r) => {
-        setCertificacion(r.data?.certificacion ?? null);
-        setLinkCertificacionEntidad(r.data?.linkCargaEntidad || '');
-        Swal.fire({
-          icon: 'success',
-          title: 'Solicitud registrada',
-          text: 'Use el enlace para la entidad o cargue el documento desde coordinación.',
-          confirmButtonColor: '#c41e3a',
-        });
-      })
-      .catch((e) => Swal.fire({ icon: 'error', text: e.response?.data?.message || 'No se pudo inicializar' }))
-      .finally(() => setInicializandoCert(false));
-  };
-
-  const subirCertificacionCoord = () => {
-    const f = certFileRef.current?.files?.[0];
-    if (!f) {
-      Swal.fire({ icon: 'warning', title: 'Seleccione un archivo', confirmButtonColor: '#c41e3a' });
-      return;
-    }
-    const fd = new FormData();
-    fd.append('file', f);
-    api
-      .post(`/certificaciones-practica/postulacion/${postulacionId}/documento`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      .then(() => api.get(`/certificaciones-practica/postulacion/${postulacionId}`))
-      .then((r) => {
-        setCertificacion(r.data?.certificacion ?? null);
-        setLinkCertificacionEntidad(r.data?.linkCargaEntidad || '');
-        if (certFileRef.current) certFileRef.current.value = '';
-        Swal.fire({ icon: 'success', title: 'Certificación cargada', confirmButtonColor: '#c41e3a' });
-      })
-      .catch((e) => Swal.fire({ icon: 'error', text: e.response?.data?.message }));
-  };
-
-  const verCertificacionDoc = () => {
-    api.get(`/certificaciones-practica/postulacion/${postulacionId}/documento/url`).then((r) => {
-      const u = r.data?.url;
-      if (u) window.open(u, '_blank', 'noopener,noreferrer');
-    });
-  };
-
-  const toggleVinculacionLaboral = (v) => {
-    api
-      .patch(`/certificaciones-practica/postulacion/${postulacionId}/vinculacion-laboral`, { vinculacionLaboral: v })
-      .then((r) => setCertificacion(r.data?.certificacion ?? null))
-      .catch((e) => Swal.fire({ icon: 'error', text: e.response?.data?.message }));
-  };
-
   const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('es-CO') : '—');
 
   if (loading) {
@@ -678,83 +751,6 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
         </section>
       )}
 
-      {legalizacion?.estado === 'aprobada' && (
-        <section
-          className="legalizacion-mtm__section"
-          style={{
-            marginBottom: 16,
-            background: '#f8fafc',
-            borderRadius: 8,
-            padding: '14px 16px',
-            border: '1px solid #e2e8f0',
-          }}
-        >
-          <h3 className="legalizacion-mtm__section-title" style={{ marginTop: 0 }}>
-            Certificación de práctica / pasantía (HU010)
-          </h3>
-          <p style={{ fontSize: 14, color: '#475569', marginBottom: 12 }}>
-            Tras finalizar la práctica, solicite el cargue a la entidad (enlace público) o cargue el documento desde coordinación. El archivo queda asociado a esta postulación y al perfil del estudiante.
-          </p>
-          {cargandoCert && <p style={{ color: '#64748b' }}>Cargando estado de certificación…</p>}
-          {!cargandoCert && (
-            <>
-              <p>
-                <strong>Estado:</strong>{' '}
-                {certificacion?.estado === 'cargada'
-                  ? 'Cargada'
-                  : certificacion?.estado === 'pendiente_carga'
-                    ? 'Pendiente de cargue'
-                    : certificacion?.estado === 'vencida_sin_carga'
-                      ? 'Vencida sin cargue (alerta)'
-                      : certificacion
-                        ? certificacion.estado
-                        : 'Sin iniciar'}
-              </p>
-              {certificacion?.fechaLimiteCarga && (
-                <p style={{ fontSize: 13 }}>
-                  Fecha límite cargue: {new Date(certificacion.fechaLimiteCarga).toLocaleString('es-CO')}
-                </p>
-              )}
-              {linkCertificacionEntidad && (
-                <p style={{ wordBreak: 'break-all', fontSize: 13 }}>
-                  <strong>Enlace entidad:</strong>{' '}
-                  <a href={linkCertificacionEntidad} target="_blank" rel="noopener noreferrer">
-                    {linkCertificacionEntidad}
-                  </a>
-                </p>
-              )}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, alignItems: 'center' }}>
-                <button
-                  type="button"
-                  className="legalizacion-mtm__btn legalizacion-mtm__btn--secondary"
-                  onClick={inicializarCertificacionHu010}
-                  disabled={inicializandoCert || (certificacion?.documento?.key && certificacion?.estado === 'cargada')}
-                >
-                  {inicializandoCert ? 'Procesando…' : certificacion ? 'Renovar solicitud / enlace' : 'Solicitar cargue (entidad)'}
-                </button>
-                <input ref={certFileRef} type="file" accept=".pdf,application/pdf" style={{ maxWidth: 220 }} />
-                <button type="button" className="btn-guardar" onClick={subirCertificacionCoord}>
-                  Cargar certificación (coordinación)
-                </button>
-                {certificacion?.documento?.key && (
-                  <button type="button" className="btn-secondary" onClick={verCertificacionDoc}>
-                    Ver documento
-                  </button>
-                )}
-              </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 14 }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(certificacion?.vinculacionLaboral)}
-                  onChange={(e) => toggleVinculacionLaboral(e.target.checked)}
-                />
-                Estudiante vinculado laboralmente a la entidad
-              </label>
-            </>
-          )}
-        </section>
-      )}
-
       <div className="legalizacion-mtm__tabs">
         <button type="button" className={`legalizacion-mtm__tab ${tabActiva === 'datos' ? 'legalizacion-mtm__tab--active' : ''}`} onClick={() => setTabActiva('datos')}>Datos generales</button>
         <button type="button" className={`legalizacion-mtm__tab ${tabActiva === 'documentos' ? 'legalizacion-mtm__tab--active' : ''}`} onClick={() => setTabActiva('documentos')}>Documentos</button>
@@ -763,7 +759,7 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
 
       <div className="legalizacion-mtm__body">
         {tabActiva === 'datos' && (
-          <div className="legalizacion-mtm__panels">
+        <div className="legalizacion-mtm__panels">
             <section className="legalizacion-mtm__section admrevmtm-panel-card" lang="es">
               <h3 className="legalizacion-mtm__section-title admrevmtm-panel-card__title">
                 <span className="admrevmtm-panel-card__kicker">Estudiante</span>
@@ -813,7 +809,98 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
                 <span className="admrevmtm-panel-card__kicker">Práctica</span>
                 <span className="admrevmtm-panel-card__title-main">Datos de la práctica</span>
               </h3>
-              <dl className="legalizacion-mtm__grid legalizacion-mtm__grid--admrev">
+              <div className="admrevmtm-practica-asigna">
+                <div className="admrevmtm-practica-asigna__coord" ref={coordinadorWrapRef}>
+                  <label className="admrevmtm-practica-asigna__label" htmlFor="adm-coord-search">Coordinador</label>
+                  {coordinadorUserId && (
+                    <div className="admrevmtm-practica-asigna__pill">
+                      <span>{coordinadorDisplayName || '—'}</span>
+                      <button type="button" className="admrevmtm-practica-asigna__clear" onClick={clearCoordinador} aria-label="Quitar">
+                        ×
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    id="adm-coord-search"
+                    type="search"
+                    className="admrevmtm-practica-asigna__input"
+                    autoComplete="off"
+                    placeholder="Buscar nombre, correo o documento…"
+                    value={coordinadorSearch}
+                    onChange={(e) => setCoordinadorSearch(e.target.value)}
+                    onFocus={() => {
+                      if (coordinadorSearch.trim().length >= 2) setShowCoordinadorDrop(true);
+                    }}
+                  />
+                  {(showCoordinadorDrop || coordinadorLoading) && (
+                    <div className="admrevmtm-practica-asigna__dropdown" role="listbox">
+                      {coordinadorLoading ? (
+                        <div className="admrevmtm-practica-asigna__dd-msg">Buscando…</div>
+                      ) : coordinadorSearchError ? (
+                        <div className="admrevmtm-practica-asigna__dd-msg admrevmtm-practica-asigna__dd-msg--err">No se pudo cargar.</div>
+                      ) : coordinadorResults.length === 0 ? (
+                        <div className="admrevmtm-practica-asigna__dd-msg">Sin resultados.</div>
+                      ) : (
+                        coordinadorResults.map((u) => (
+                          <button
+                            key={u._id}
+                            type="button"
+                            className="admrevmtm-practica-asigna__dd-item"
+                            onClick={() => selectCoordinadorAdmin(u)}
+                          >
+                            <span className="admrevmtm-practica-asigna__dd-name">{[u.nombres, u.apellidos].filter(Boolean).join(' ')}</span>
+                            {u.user?.email && <span className="admrevmtm-practica-asigna__dd-email">{u.user.email}</span>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="admrevmtm-practica-asigna__tipo">
+                  <label className="admrevmtm-practica-asigna__label" htmlFor="adm-tipo-practica">Tipo de práctica</label>
+                  <select
+                    id="adm-tipo-practica"
+                    className="admrevmtm-practica-asigna__select"
+                    value={tipoPracticaLegalizacionId}
+                    onChange={(e) => setTipoPracticaLegalizacionId(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {practiceTypeItems.map((it) => (
+                      <option key={it._id} value={it._id}>
+                        {it.value || it.description || it._id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admrevmtm-practica-asigna__fechas">
+                  <label className="admrevmtm-practica-asigna__fecha-field" htmlFor="adm-fecha-eval-parcial">
+                    <span className="admrevmtm-practica-asigna__label">Fecha eval. parcial</span>
+                    <input
+                      id="adm-fecha-eval-parcial"
+                      className="admrevmtm-practica-asigna__input"
+                      type="date"
+                      value={fechaEvaluacionParcial}
+                      onChange={(e) => setFechaEvaluacionParcial(e.target.value)}
+                    />
+                  </label>
+                  <label className="admrevmtm-practica-asigna__fecha-field" htmlFor="adm-fecha-eval-final">
+                    <span className="admrevmtm-practica-asigna__label">Fecha eval. final</span>
+                    <input
+                      id="adm-fecha-eval-final"
+                      className="admrevmtm-practica-asigna__input"
+                      type="date"
+                      value={fechaEvaluacionFinal}
+                      onChange={(e) => setFechaEvaluacionFinal(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="admrevmtm-practica-asigna__btn">
+                  <button type="button" className="btn-guardar" disabled={savingAsignacion} onClick={guardarAsignacion}>
+                    {savingAsignacion ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+              <dl className="legalizacion-mtm__grid legalizacion-mtm__grid--admrev admrevmtm-practica-asigna__dl">
                 <dt title="Cargo / nombre de la práctica">Cargo / nombre</dt>
                 <DefinitionDd
                   label="Cargo / nombre práctica"
@@ -826,8 +913,18 @@ export default function AdminDetalleLegalizacionPractica({ onVolver }) {
                 <dd className="admrevmtm-dd-value">
                   {oportunidadResumen?.tipoVinculacion?.value ?? oportunidadResumen?.tipoVinculacion?.description ?? '—'}
                 </dd>
-                <dt>Docente / Monitor</dt><dd className="admrevmtm-dd-value">{practica?.docenteMonitor ?? '—'}</dd>
-                <dt title="Correo del docente o monitor">Correo docente</dt><dd className="admrevmtm-dd-value">{practica?.correoDocenteMonitor ?? '—'}</dd>
+                <dt title="Tutor de la entidad (no es el coordinador UR)">Tutor (entidad)</dt><dd className="admrevmtm-dd-value">{practica?.docenteMonitor ?? '—'}</dd>
+                <dt title="Correo del tutor de la entidad">Correo tutor (entidad)</dt><dd className="admrevmtm-dd-value">{practica?.correoDocenteMonitor ?? '—'}</dd>
+                <dt title="Responsable UR (mismo usuario que coordinador de prácticas)">Coordinador (UR)</dt>
+                <dd className="admrevmtm-dd-value">
+                  {practica?.coordinadorPracticas
+                    ? [practica.coordinadorPracticas.nombre, practica.coordinadorPracticas.email].filter((x) => x && String(x).trim()).join(' · ') || '—'
+                    : '—'}
+                </dd>
+                <dt>Evaluación parcial (fecha)</dt>
+                <dd className="admrevmtm-dd-value">{practica?.primeraEvaluacion ?? '—'}</dd>
+                <dt>Evaluación final (fecha)</dt>
+                <dd className="admrevmtm-dd-value">{practica?.segundaEvaluacion ?? '—'}</dd>
                 <dt title="Programa por el que legaliza">Programa (legalización)</dt><dd className="admrevmtm-dd-value">{practica?.programaLegaliza ?? '—'}</dd>
                 <dt>Fecha inicio</dt><dd className="admrevmtm-dd-value">{fmtDate(practica?.fechaInicio)}</dd>
                 <dt>Fecha fin</dt><dd className="admrevmtm-dd-value">{fmtDate(practica?.fechaFin)}</dd>
